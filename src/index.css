@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@layer base {
+  html[dir="rtl"] {
+    font-family: 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+  }
+
+  body {
+    margin: 0;
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}

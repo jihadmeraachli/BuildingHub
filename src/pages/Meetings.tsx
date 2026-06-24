@@ -1,0 +1,391 @@
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
+import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Meeting, Profile, Building } from '@/types';
+import { Card, CardBody, CardHeader } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+
+type Tab = 'scheduled' | 'past';
+
+export default function Meetings() {
+  const { t } = useTranslation();
+  const { profile } = useAuth();
+  const [tab, setTab] = useState<Tab>('scheduled');
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Meeting | null>(null);
+  const [buildingUsers, setBuildingUsers] = useState<Profile[]>([]);
+  const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [attendeeSearch, setAttendeeSearch] = useState('');
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+
+  const isAdmin = profile?.role === 'building_admin' || profile?.role === 'super_admin';
+  const isSuperAdmin = profile?.role === 'super_admin';
+
+  // For super_admin use the selected building; for others use their own building_id
+  const activeBuildingId = isSuperAdmin ? selectedBuildingId : (profile?.building_id ?? '');
+
+  const scheduleForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
+  const addForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
+
+  // Load buildings list for super_admin selector
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    supabase.from('buildings').select('*').eq('is_active', true).order('name')
+      .then(({ data }) => setBuildings(data ?? []));
+  }, [isSuperAdmin]);
+
+  useEffect(() => { if (activeBuildingId) loadMeetings(); else setMeetings([]); }, [activeBuildingId, tab]);
+
+  useEffect(() => {
+    if (!activeBuildingId) return;
+    supabase.from('profiles').select('*').eq('building_id', activeBuildingId).eq('status', 'active')
+      .order('full_name').then(({ data }) => setBuildingUsers(data ?? []));
+  }, [activeBuildingId]);
+
+  async function loadMeetings() {
+    if (!activeBuildingId) return;
+    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    let q = supabase.from('meetings').select('*').eq('building_id', activeBuildingId);
+    if (tab === 'scheduled') {
+      q = q.eq('meeting_type', 'scheduled').gte('meeting_date', today).order('meeting_date', { ascending: true });
+    } else {
+      q = q.eq('meeting_type', 'past').order('meeting_date', { ascending: false });
+    }
+    const { data } = await q;
+    setMeetings(data ?? []);
+    setLoading(false);
+  }
+
+  async function onSchedule(data: { title: string; meeting_date: string; meeting_time: string; summary: string }) {
+    const { error } = await supabase.from('meetings').insert({
+      building_id: activeBuildingId,
+      title: data.title,
+      meeting_date: data.meeting_date,
+      meeting_time: data.meeting_time || null,
+      summary: data.summary || '',
+      attendees: [],
+      meeting_type: 'scheduled',
+      created_by: profile?.id,
+    });
+    if (!error) { setScheduleOpen(false); scheduleForm.reset(); loadMeetings(); }
+  }
+
+  async function onAddMeeting(data: { title: string; meeting_date: string; meeting_time: string; summary: string }) {
+    const attendeeNames = buildingUsers
+      .filter(u => selectedAttendees.includes(u.id))
+      .map(u => `${u.full_name}${u.apartment_number ? ` (${u.apartment_number})` : ''}`);
+
+    const { error } = await supabase.from('meetings').insert({
+      building_id: activeBuildingId,
+      title: data.title,
+      meeting_date: data.meeting_date,
+      meeting_time: data.meeting_time || null,
+      summary: data.summary,
+      attendees: attendeeNames,
+      meeting_type: 'past',
+      created_by: profile?.id,
+    });
+    if (!error) { setAddOpen(false); addForm.reset(); setSelectedAttendees([]); loadMeetings(); }
+  }
+
+  async function deleteMeeting(id: string) {
+    await supabase.from('meetings').delete().eq('id', id);
+    setDeleteTarget(null);
+    loadMeetings();
+  }
+
+  function toggleAttendee(id: string) {
+    setSelectedAttendees(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  const filteredUsers = buildingUsers.filter(u =>
+    u.full_name.toLowerCase().includes(attendeeSearch.toLowerCase()) ||
+    (u.apartment_number ?? '').toLowerCase().includes(attendeeSearch.toLowerCase())
+  );
+
+  const grouped = meetings.reduce<Record<string, Meeting[]>>((acc, m) => {
+    const year = new Date(m.meeting_date).getFullYear().toString();
+    if (!acc[year]) acc[year] = [];
+    acc[year].push(m);
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-slate-900">{t('meetings.title')}</h1>
+        {isAdmin && activeBuildingId && (
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setAddOpen(true)}>
+              <Plus size={16} /> Add Meeting
+            </Button>
+            <Button onClick={() => setScheduleOpen(true)}>
+              <CalendarPlus size={16} /> Schedule Meeting
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Super admin: building selector */}
+      {isSuperAdmin && (
+        <div className="mb-4">
+          <select
+            value={selectedBuildingId}
+            onChange={e => { setSelectedBuildingId(e.target.value); setTab('scheduled'); setMeetings([]); }}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
+          >
+            <option value="">— Select a building —</option>
+            {buildings.map(b => (
+              <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* No building selected yet (super_admin only) */}
+      {!activeBuildingId ? (
+        <Card><CardBody>
+          <p className="text-sm text-slate-500 text-center py-8">Select a building above to manage its meetings.</p>
+        </CardBody></Card>
+      ) : (<>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-5">
+        {(['scheduled', 'past'] as Tab[]).map(t2 => (
+          <button
+            key={t2}
+            onClick={() => setTab(t2)}
+            className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+          >
+            {t2 === 'scheduled' ? 'Scheduled' : 'Past Meetings'}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-slate-500">{t('common.loading')}</p>
+      ) : meetings.length === 0 ? (
+        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">
+          {tab === 'scheduled' ? 'No upcoming meetings scheduled.' : 'No past meetings recorded.'}
+        </p></CardBody></Card>
+      ) : tab === 'scheduled' ? (
+        // Scheduled meetings: flat list with date/time prominent
+        <div className="space-y-3">
+          {meetings.map(m => (
+            <Card key={m.id}>
+              <CardBody>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-4 items-start">
+                    <div className="flex-shrink-0 text-center bg-blue-50 rounded-xl px-4 py-2 min-w-[64px]">
+                      <p className="text-xs text-blue-500 font-medium uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
+                      <p className="text-2xl font-bold text-blue-700 leading-none">{format(new Date(m.meeting_date), 'd')}</p>
+                      <p className="text-xs text-blue-500">{format(new Date(m.meeting_date), 'yyyy')}</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{m.title}</p>
+                      {m.meeting_time && (
+                        <p className="text-sm text-slate-500 mt-0.5">🕐 {m.meeting_time.slice(0, 5)}</p>
+                      )}
+                      {m.summary && <p className="text-sm text-slate-600 mt-1">{m.summary}</p>}
+                    </div>
+                  </div>
+                  {isSuperAdmin && (
+                    <button onClick={() => setDeleteTarget(m)} className="text-slate-300 hover:text-red-500 transition flex-shrink-0 cursor-pointer">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        // Past meetings: grouped by year, expandable
+        <div className="space-y-6">
+          {Object.entries(grouped).sort(([a], [b]) => Number(b) - Number(a)).map(([year, items]) => (
+            <div key={year}>
+              <h2 className="text-base font-semibold text-slate-700 mb-3">{year}</h2>
+              <div className="space-y-3">
+                {items.map(m => (
+                  <Card key={m.id}>
+                    <button className="w-full text-start" onClick={() => setExpanded(expanded === m.id ? null : m.id)}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-slate-900">{m.title}</p>
+                            <p className="text-sm text-slate-500 mt-0.5">
+                              {format(new Date(m.meeting_date), 'MMMM d, yyyy')}
+                              {m.meeting_time && ` · ${m.meeting_time.slice(0, 5)}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isSuperAdmin && (
+                              <button
+                                onClick={e => { e.stopPropagation(); setDeleteTarget(m); }}
+                                className="text-slate-300 hover:text-red-500 transition cursor-pointer p-1"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                            {expanded === m.id ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </button>
+                    {expanded === m.id && (
+                      <CardBody>
+                        <div className="space-y-3">
+                          {m.summary && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.summary')}</p>
+                              <p className="text-sm text-slate-700 whitespace-pre-line">{m.summary}</p>
+                            </div>
+                          )}
+                          {m.attendees?.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attendees')}</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {m.attendees.map(a => (
+                                  <span key={a} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">{a}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {m.attachment_urls?.length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attachments')}</p>
+                              {m.attachment_urls.map((url, i) => (
+                                <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-blue-700 hover:underline">
+                                  <Paperclip size={13} /> Attachment {i + 1}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </CardBody>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Schedule Meeting modal */}
+      <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title="Schedule Meeting">
+        <form onSubmit={scheduleForm.handleSubmit(onSchedule)} className="space-y-4">
+          <Input label="Meeting Title" {...scheduleForm.register('title', { required: true })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Date" type="date" {...scheduleForm.register('meeting_date', { required: true })} />
+            <Input label="Time" type="time" {...scheduleForm.register('meeting_time')} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-700">Notes (optional)</label>
+            <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...scheduleForm.register('summary')} />
+          </div>
+          <p className="text-xs text-slate-400 bg-blue-50 rounded-lg px-3 py-2">
+            📅 A calendar invite (.ics) will be emailed to all building residents.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setScheduleOpen(false)}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={scheduleForm.formState.isSubmitting}>Schedule & Send Invite</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Past Meeting modal */}
+      <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAttendeeSearch(''); }} title="Add Meeting Record" size="lg">
+        <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
+          <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Date" type="date" {...addForm.register('meeting_date', { required: true })} />
+            <Input label="Time" type="time" {...addForm.register('meeting_time')} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-700">{t('meetings.summary')}</label>
+            <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]" {...addForm.register('summary', { required: true })} />
+          </div>
+
+          {/* Attendees picker */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-slate-700">{t('meetings.attendees')}</label>
+
+            {/* Selected chips */}
+            {selectedAttendees.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                {buildingUsers.filter(u => selectedAttendees.includes(u.id)).map(u => (
+                  <span key={u.id} className="flex items-center gap-1 text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded-full">
+                    {u.full_name}{u.apartment_number ? ` (${u.apartment_number})` : ''}
+                    <button type="button" onClick={() => toggleAttendee(u.id)} className="text-slate-400 hover:text-red-500 cursor-pointer">
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Search */}
+            <div className="relative">
+              <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search residents..."
+                value={attendeeSearch}
+                onChange={e => setAttendeeSearch(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* User list */}
+            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+              {filteredUsers.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-3">No residents found</p>
+              ) : filteredUsers.map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => toggleAttendee(u.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selectedAttendees.includes(u.id) ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                >
+                  <span>{u.full_name}{u.apartment_number ? ` — Apt ${u.apartment_number}` : ''}</span>
+                  {selectedAttendees.includes(u.id) && <span className="text-xs text-blue-500">✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => { setAddOpen(false); setSelectedAttendees([]); setAttendeeSearch(''); }}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={addForm.formState.isSubmitting}>{t('common.save')}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Meeting" size="sm">
+        <p className="text-sm text-slate-600 mb-6">
+          Are you sure you want to delete <strong>{deleteTarget?.title}</strong>? This cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
+          <Button variant="danger" onClick={() => deleteTarget && deleteMeeting(deleteTarget.id)}>Delete</Button>
+        </div>
+      </Modal>
+
+      </>)}
+    </div>
+  );
+}
