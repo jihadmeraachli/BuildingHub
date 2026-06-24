@@ -1,85 +1,298 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ElementType } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { supabase } from '@/lib/supabase';
+import type { Meeting } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
-import { AlertTriangle, CalendarDays, Receipt, Users } from 'lucide-react';
+import { TrendChart } from '@/components/ui/Charts';
+import {
+  AlertTriangle, Home, TrendingUp, AlertCircle, Wallet, Plus, HandCoins, Layers, ArrowRight, CalendarDays,
+} from 'lucide-react';
 
-interface Stats {
-  openIssues: number;
-  pendingApprovals: number;
-  unpaidBills: number;
-  upcomingMeetings: number;
+// signed currency: -$1,234.00  (fixes the "-$-" double-sign bug)
+const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+interface Agg {
+  collected: number; spent: number; billed: number; outstanding: number; ytd: number;
+  units: number; openIssues: number;
 }
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
-  const [stats, setStats] = useState<Stats>({ openIssues: 0, pendingApprovals: 0, unpaidBills: 0, upcomingMeetings: 0 });
+  const { profile, isPlatformAdmin, canAny, myUnitIds } = useAuth();
+  const { buildings } = useManagedBuildings();
+  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
+  const isManager = isPlatformAdmin || canAny('finance.view') || legacyManager;
+
+  const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0 });
+  const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
+  const [resident, setResident] = useState({ charged: 0, paid: 0 });
+  const [upcoming, setUpcoming] = useState<Meeting[]>([]);
+  const [filterBuilding, setFilterBuilding] = useState('');
+  const buildingIds = useMemo(() => buildings.map((b) => b.id), [buildings]);
+  const idsKey = buildingIds.join(',');
 
   useEffect(() => {
-    if (!profile?.building_id && profile?.role !== 'super_admin') return;
+    if (isManager) loadManager();
+    else if (myUnitIds.length) loadResident();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, isManager, filterBuilding]);
 
-    async function loadStats() {
-      const buildingId = profile?.building_id;
-      const today = new Date().toISOString().split('T')[0];
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    supabase.from('meetings').select('*').gte('meeting_date', today)
+      .order('meeting_date', { ascending: true }).limit(5)
+      .then(({ data }) => setUpcoming((data as Meeting[]) ?? []));
+  }, []);
 
-      const [issuesRes, billsRes, meetingsRes] = await Promise.all([
-        supabase.from('issues').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-        supabase.from('billing_entries').select('id', { count: 'exact', head: true }).eq('status', 'unpaid'),
-        supabase.from('meetings').select('id', { count: 'exact', head: true }).gte('meeting_date', today),
-      ]);
+  async function loadManager() {
+    const scope = filterBuilding ? [filterBuilding] : buildingIds;
+    const inIds = scope.length ? scope : ['00000000-0000-0000-0000-000000000000'];
+    const [chargesRes, paymentsRes, expensesRes, unitsRes, issuesRes] = await Promise.all([
+      supabase.from('charges').select('amount_usd, unit_id').in('building_id', inIds),
+      supabase.from('payments').select('amount_usd, unit_id, paid_on').in('building_id', inIds),
+      supabase.from('expenses').select('amount_usd, expense_date').in('building_id', inIds),
+      supabase.from('units').select('id', { count: 'exact', head: true }).in('building_id', inIds),
+      supabase.from('issues').select('id', { count: 'exact', head: true }).eq('status', 'open').in('building_id', inIds),
+    ]);
 
-      const next: Stats = {
-        openIssues: issuesRes.count ?? 0,
-        unpaidBills: billsRes.count ?? 0,
-        upcomingMeetings: meetingsRes.count ?? 0,
-        pendingApprovals: 0,
-      };
+    const charges = (chargesRes.data as { amount_usd: number; unit_id: string }[]) ?? [];
+    const payments = (paymentsRes.data as { amount_usd: number; unit_id: string; paid_on: string }[]) ?? [];
+    const expenses = (expensesRes.data as { amount_usd: number; expense_date: string }[]) ?? [];
 
-      if (buildingId && (profile?.role === 'super_admin' || profile?.role === 'building_admin')) {
-        const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true })
-          .eq('building_id', buildingId).eq('status', 'pending');
-        next.pendingApprovals = count ?? 0;
-      }
+    const billed = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
+    const collected = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
+    const spent = expenses.reduce((s, e) => s + Number(e.amount_usd), 0);
 
-      setStats(next);
-    }
+    const perUnit: Record<string, number> = {};
+    charges.forEach((c) => { perUnit[c.unit_id] = (perUnit[c.unit_id] ?? 0) - Number(c.amount_usd); });
+    payments.forEach((p) => { perUnit[p.unit_id] = (perUnit[p.unit_id] ?? 0) + Number(p.amount_usd); });
+    const outstanding = Object.values(perUnit).reduce((s, b) => s + (b < 0 ? -b : 0), 0);
 
-    loadStats();
-  }, [profile]);
+    const ref = new Date();
+    const ytd = payments.filter((p) => new Date(p.paid_on).getFullYear() === ref.getFullYear())
+      .reduce((s, p) => s + Number(p.amount_usd), 0);
 
-  const cards = [
-    { label: t('dashboard.openIssues'), value: stats.openIssues, icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50' },
-    { label: t('dashboard.unpaidBills'), value: stats.unpaidBills, icon: Receipt, color: 'text-red-500', bg: 'bg-red-50' },
-    { label: t('dashboard.upcomingMeetings'), value: stats.upcomingMeetings, icon: CalendarDays, color: 'text-blue-500', bg: 'bg-blue-50' },
-    ...(profile?.role !== 'resident' ? [{ label: t('dashboard.pendingApprovals'), value: stats.pendingApprovals, icon: Users, color: 'text-yellow-500', bg: 'bg-yellow-50' }] : []),
-  ];
+    const buckets = Array.from({ length: 12 }, (_, k) => {
+      const d = new Date(ref.getFullYear(), ref.getMonth() - 11 + k, 1);
+      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString(undefined, { month: 'short' }), collected: 0, spent: 0 };
+    });
+    const bucketFor = (dt: string) => { const d = new Date(dt); return buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`); };
+    payments.forEach((p) => { const m = bucketFor(p.paid_on); if (m) m.collected += Number(p.amount_usd); });
+    expenses.forEach((e) => { const m = bucketFor(e.expense_date); if (m) m.spent += Number(e.amount_usd); });
+    setMonthly({
+      labels: buckets.map((b) => b.label),
+      collected: buckets.map((b) => Math.round(b.collected * 100) / 100),
+      spent: buckets.map((b) => Math.round(b.spent * 100) / 100),
+    });
 
+    setAgg({
+      collected, spent, billed, outstanding: Math.round(outstanding * 100) / 100, ytd: Math.round(ytd * 100) / 100,
+      units: unitsRes.count ?? 0, openIssues: issuesRes.count ?? 0,
+    });
+  }
+
+  async function loadResident() {
+    const [{ data: c }, { data: p }] = await Promise.all([
+      supabase.from('charges').select('amount_usd').in('unit_id', myUnitIds),
+      supabase.from('payments').select('amount_usd').in('unit_id', myUnitIds),
+    ]);
+    setResident({
+      charged: ((c as { amount_usd: number }[]) ?? []).reduce((s, x) => s + Number(x.amount_usd), 0),
+      paid: ((p as { amount_usd: number }[]) ?? []).reduce((s, x) => s + Number(x.amount_usd), 0),
+    });
+  }
+
+  const firstName = profile?.full_name?.split(' ')[0] ?? '';
+  const fund = Math.round((agg.collected - agg.spent) * 100) / 100;
+  const collectionRate = agg.billed > 0 ? Math.round((agg.collected / agg.billed) * 100) : 0;
+
+  // ---------- RESIDENT ----------
+  if (!isManager) {
+    const balance = Math.round((resident.paid - resident.charged) * 100) / 100;
+    return (
+      <div>
+        <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
+        <HeroCard
+          label={balance < 0 ? t('dashboard.youOwe') : t('dashboard.creditBalance')}
+          amount={money(Math.abs(balance))}
+          stats={[{ label: t('dashboard.totalCharged'), value: money(resident.charged) }, { label: t('dashboard.totalPaid'), value: money(resident.paid) }]}
+        />
+        <div className="mt-5">
+          <Link to="/finance"><QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} /></Link>
+        </div>
+        <MeetingsCard meetings={upcoming} />
+      </div>
+    );
+  }
+
+  // ---------- MANAGER ----------
   return (
     <div>
-      <h1 className="text-xl font-semibold text-slate-900 mb-1">
-        {t('dashboard.welcome')}, {profile?.full_name?.split(' ')[0]}
-      </h1>
-      <p className="text-sm text-slate-500 mb-6">
-        {profile?.apartment_number ? `Apartment ${profile.apartment_number}` : profile?.role?.replace('_', ' ')}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
+        {buildings.length > 1 && (
+          <select
+            value={filterBuilding}
+            onChange={(e) => setFilterBuilding(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-w-[160px]"
+          >
+            <option value="">{t('dashboard.allBuildings')}</option>
+            {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map(({ label, value, icon: Icon, color, bg }) => (
-          <Card key={label}>
-            <CardBody className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
-                <Icon size={22} className={color} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{value}</p>
-                <p className="text-sm text-slate-500">{label}</p>
+      <HeroCard
+        label={t('dashboard.fundBalance')}
+        amount={money(fund)}
+        pill={t('dashboard.percentCollected', { pct: collectionRate })}
+        stats={[
+          { label: t('dashboard.collected'), value: money(agg.collected) },
+          { label: t('dashboard.spent'), value: money(agg.spent) },
+          { label: t('dashboard.yearToDate'), value: money(agg.ytd) },
+        ]}
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+        <Stat label={t('dashboard.outstanding')} value={money(agg.outstanding)} icon={AlertCircle} tone={agg.outstanding > 0 ? 'amber' : 'slate'} />
+        <Stat label={t('dashboard.totalBilled')} value={money(agg.billed)} icon={TrendingUp} tone="emerald" />
+        <Stat label={t('dashboard.units')} value={String(agg.units)} icon={Home} tone="indigo" />
+        <Stat label={t('dashboard.openIssues')} value={String(agg.openIssues)} icon={AlertTriangle} tone={agg.openIssues > 0 ? 'rose' : 'slate'} />
+      </div>
+
+      <Card className="mt-5">
+        <CardBody>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-slate-700">{t('dashboard.collectedVsSpent')}</p>
+            <span className="text-xs text-slate-400">{t('dashboard.last12Hover')}</span>
+          </div>
+          <TrendChart labels={monthly.labels} series={[
+            { name: t('dashboard.collected'), color: '#10b981', data: monthly.collected },
+            { name: t('dashboard.spent'), color: '#f43f5e', data: monthly.spent },
+          ]} />
+        </CardBody>
+      </Card>
+
+      <h2 className="text-sm font-semibold text-slate-500 mt-8 mb-3 uppercase tracking-wide">{t('dashboard.quickActions')}</h2>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Link to="/finance"><QuickLink icon={Plus} title={t('dashboard.recordExpense')} desc={t('dashboard.recordExpenseDesc')} /></Link>
+        <Link to="/finance"><QuickLink icon={HandCoins} title={t('dashboard.recordPayment')} desc={t('dashboard.recordPaymentDesc')} /></Link>
+        <Link to="/structure"><QuickLink icon={Layers} title={t('dashboard.manageStructure')} desc={t('dashboard.manageStructureDesc')} /></Link>
+      </div>
+
+      <MeetingsCard meetings={upcoming} />
+    </div>
+  );
+}
+
+function MeetingsCard({ meetings }: { meetings: Meeting[] }) {
+  const { t } = useTranslation();
+  if (meetings.length === 0) return null;
+  return (
+    <>
+      <h2 className="text-sm font-semibold text-slate-500 mt-8 mb-3 uppercase tracking-wide">{t('dashboard.upcomingMeetings')}</h2>
+      <div className="space-y-3">
+        {meetings.map((m) => (
+          <Card key={m.id} className="transition-shadow hover:shadow-md">
+            <CardBody>
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 text-center bg-indigo-50 rounded-xl px-3.5 py-2 min-w-[58px]">
+                  <p className="text-[10px] text-indigo-500 font-semibold uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
+                  <p className="text-xl font-bold text-indigo-700 leading-none">{format(new Date(m.meeting_date), 'd')}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900 truncate">{m.title}</p>
+                  <p className="text-sm text-slate-500">
+                    {format(new Date(m.meeting_date), 'EEEE, MMM d, yyyy')}{m.meeting_time ? ` · ${m.meeting_time.slice(0, 5)}` : ''}
+                  </p>
+                </div>
+                <Link to="/meetings" className="text-slate-300 hover:text-indigo-600 transition"><CalendarDays size={18} /></Link>
               </div>
             </CardBody>
           </Card>
         ))}
       </div>
+    </>
+  );
+}
+
+function Greeting({ name, subtitle }: { name: string; subtitle: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mb-6">
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+        {name ? `${t('dashboard.welcome')}, ${name}` : t('dashboard.welcome')} <span className="inline-block">👋</span>
+      </h1>
+      <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
     </div>
+  );
+}
+
+function HeroCard({ label, amount, stats, pill }: {
+  label: string; amount: string; stats: { label: string; value: string }[]; pill?: string;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 lg:p-7 shadow-xl shadow-indigo-600/20">
+      <div className="absolute -top-16 -end-10 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute -bottom-20 -start-10 w-64 h-64 rounded-full bg-violet-400/20 blur-3xl" />
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-white/70">{label}</p>
+          {pill && <span className="text-xs font-medium bg-white/15 backdrop-blur rounded-full px-2.5 py-1">{pill}</span>}
+        </div>
+        <p className="text-4xl lg:text-5xl font-extrabold tracking-tight mt-2 tnum">{amount}</p>
+        <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">
+          {stats.map((s, i) => (
+            <div key={i} className={i > 0 ? 'border-s border-white/15 ps-8' : ''}>
+              <p className="text-xs text-white/60">{s.label}</p>
+              <p className="text-lg font-semibold tnum">{s.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, icon: Icon, tone }: { label: string; value: string; icon: ElementType; tone: 'indigo' | 'emerald' | 'rose' | 'amber' | 'slate' }) {
+  const tones: Record<string, string> = {
+    indigo: 'bg-indigo-50 text-indigo-600', emerald: 'bg-emerald-50 text-emerald-600',
+    rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', slate: 'bg-slate-100 text-slate-500',
+  };
+  return (
+    <Card className="transition-shadow hover:shadow-md">
+      <CardBody>
+        <div className="flex items-start justify-between">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500 font-medium">{label}</p>
+            <p className="text-2xl font-bold text-slate-900 tnum mt-1 truncate">{value}</p>
+          </div>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tones[tone]}`}><Icon size={18} /></div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function QuickLink({ icon: Icon, title, desc }: { icon: ElementType; title: string; desc: string }) {
+  return (
+    <Card className="group transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
+      <CardBody>
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+            <Icon size={19} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-slate-900 text-sm">{title}</p>
+            <p className="text-xs text-slate-500">{desc}</p>
+          </div>
+          <ArrowRight size={16} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+        </div>
+      </CardBody>
+    </Card>
   );
 }

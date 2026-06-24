@@ -1,7 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
 import { Menu, Bell, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { setLanguage } from '@/i18n';
+import type { Notification } from '@/types';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -9,45 +13,96 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { t, i18n } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, user, isPlatformAdmin } = useAuth();
+  const [notifs, setNotifs] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  function toggleLang() {
-    setLanguage(i18n.language === 'ar' ? 'en' : 'ar');
+  const unread = notifs.filter((n) => !n.is_read).length;
+
+  async function load() {
+    if (!user) return;
+    const { data } = await supabase.from('notifications').select('*')
+      .order('created_at', { ascending: false }).limit(30);
+    setNotifs((data as Notification[]) ?? []);
   }
 
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [user]);
+
+  // close on outside click
+  useEffect(() => {
+    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && unread > 0) {
+      // mark all read
+      setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+    }
+  }
+
+  function toggleLang() { setLanguage(i18n.language === 'ar' ? 'en' : 'ar'); }
+
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6">
-      <button
-        onClick={onMenuClick}
-        className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer"
-        aria-label="Open menu"
-      >
+    <header className="h-16 bg-white/80 backdrop-blur border-b border-slate-200/70 flex items-center justify-between px-4 lg:px-6">
+      <button onClick={onMenuClick} className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer" aria-label="Open menu">
         <Menu size={20} />
       </button>
 
       <div className="flex-1 lg:flex-none" />
 
       <div className="flex items-center gap-2">
-        <button
-          onClick={toggleLang}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-          title={t('common.filter')}
-        >
+        <button onClick={toggleLang} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-slate-600 hover:bg-slate-100 transition cursor-pointer">
           <Globe size={16} />
           {i18n.language === 'ar' ? 'EN' : 'عر'}
         </button>
 
-        <button className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition cursor-pointer" aria-label={t('nav.notifications')}>
-          <Bell size={18} />
-        </button>
+        <div className="relative" ref={ref}>
+          <button onClick={toggle} className="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition cursor-pointer" aria-label={t('nav.notifications')}>
+            <Bell size={18} />
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -end-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </button>
 
-        <div className="flex items-center gap-2 ps-2 border-s border-slate-200">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
+          {open && (
+            <div className="absolute end-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-xl ring-1 ring-slate-900/5 z-50">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-900">{t('nav.notifications')}</span>
+              </div>
+              {notifs.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">{t('common.noNotifications')}</p>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {notifs.map((n) => (
+                    <div key={n.id} className="px-4 py-3 hover:bg-slate-50">
+                      <p className="text-sm font-medium text-slate-900">{n.title}</p>
+                      {n.body && <p className="text-xs text-slate-500 mt-0.5">{n.body}</p>}
+                      <p className="text-[11px] text-slate-400 mt-1">{formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2.5 ps-2.5 ms-1 border-s border-slate-200">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold">
             {profile?.full_name?.charAt(0).toUpperCase() ?? '?'}
           </div>
-          <div className="hidden sm:block text-sm">
-            <p className="font-medium text-slate-900 leading-none">{profile?.full_name}</p>
-            <p className="text-slate-500 text-xs mt-0.5">{profile?.apartment_number ?? profile?.role}</p>
+          <div className="hidden sm:block text-sm leading-tight">
+            <p className="font-medium text-slate-900">{profile?.full_name}</p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              {isPlatformAdmin ? 'Platform Admin' : (profile?.apartment_number ?? profile?.role?.replace('_', ' '))}
+            </p>
           </div>
         </div>
       </div>

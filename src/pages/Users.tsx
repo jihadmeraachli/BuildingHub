@@ -24,6 +24,7 @@ export default function Users() {
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<'all' | 'pending'>('all');
+  const [assigned, setAssigned] = useState<Record<string, string[]>>({});
 
   // Super admin: load all buildings to pick from
   useEffect(() => {
@@ -46,6 +47,19 @@ export default function Users() {
     const { data } = await q;
     setUsers(data ?? []);
     setLoading(false);
+
+    // assigned units (from memberships) for this building
+    const { data: us } = await supabase.from('units').select('id, label').eq('building_id', activeBuildingId);
+    const unitList = (us as { id: string; label: string }[]) ?? [];
+    const unitLabel = Object.fromEntries(unitList.map((u) => [u.id, u.label]));
+    if (unitList.length) {
+      const { data: ms } = await supabase.from('memberships').select('user_id, unit_id').in('unit_id', unitList.map((u) => u.id));
+      const map: Record<string, string[]> = {};
+      (ms as { user_id: string; unit_id: string }[] ?? []).forEach((m) => {
+        (map[m.user_id] ??= []).push(unitLabel[m.unit_id]);
+      });
+      setAssigned(map);
+    } else setAssigned({});
   }
 
   async function updateUser(id: string, patch: Partial<Profile>) {
@@ -127,7 +141,17 @@ export default function Users() {
                           <p className="font-medium text-slate-900">{u.full_name}</p>
                           <p className="text-xs text-slate-400">{u.phone ?? '—'}</p>
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{u.apartment_number ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          {assigned[u.id]?.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {assigned[u.id].map((label) => (
+                                <span key={label} className="text-xs bg-indigo-50 text-indigo-700 rounded-full px-2 py-0.5">{label}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">{u.apartment_number ?? '—'}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {isSuperAdmin ? (
                             <select

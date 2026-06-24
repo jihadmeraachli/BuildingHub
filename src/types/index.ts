@@ -15,6 +15,7 @@ export interface Building {
   contact_email: string | null;
   contact_phone: string | null;
   maps_url: string | null;
+  compound_id: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -30,6 +31,7 @@ export interface Profile {
   notify_email: boolean;
   notify_whatsapp: boolean;
   avatar_url: string | null;
+  is_platform_admin?: boolean;
   created_at: string;
 }
 
@@ -41,6 +43,7 @@ export interface Meeting {
   meeting_time: string | null;
   meeting_type: 'scheduled' | 'past';
   summary: string;
+  meeting_url: string | null;
   attendees: string[];
   attachment_urls: string[];
   created_by: string;
@@ -70,6 +73,7 @@ export interface Issue {
   location: string;
   priority: IssuePriority;
   status: IssueStatus;
+  apartment_number: string | null;
   photo_urls: string[];
   resolution_notes: string | null;
   resolved_at: string | null;
@@ -81,9 +85,163 @@ export interface Notification {
   id: string;
   user_id: string;
   building_id: string;
-  type: 'new_issue' | 'issue_update' | 'new_billing' | 'new_meeting' | 'user_approved';
+  type: 'new_issue' | 'issue_update' | 'new_billing' | 'new_meeting' | 'user_approved' | 'charge_issued' | 'payment_received';
   title: string;
   body: string;
   is_read: boolean;
+  created_at: string;
+}
+
+// ============================================================
+// v3 model (docs/WORKFLOW.md) — orgs, grants, units, finance
+// ============================================================
+
+export type Capability =
+  | 'building.manage' | 'unit.manage' | 'group.manage'
+  | 'resident.approve' | 'resident.manage' | 'grant.manage'
+  | 'issue.view_all' | 'issue.update'
+  | 'expense.manage' | 'charge.manage' | 'payment.record' | 'payment.confirm' | 'finance.view'
+  | 'meeting.manage' | 'org.manage' | 'org.assign_buildings';
+
+export type GrantRole =
+  | 'org_admin' | 'org_finance' | 'building_admin' | 'building_finance' | 'viewer';
+
+export type Occupancy = 'occupied' | 'vacant' | 'abroad';
+export type Tenure = 'owner' | 'tenant';
+export type ExpenseCategory =
+  | 'water' | 'electricity' | 'common_expenses' | 'projects' | 'contracts' | 'fines' | 'other';
+export type AllocationScope = 'compound' | 'block' | 'group' | 'units' | 'unit';
+export type AllocationMethod = 'equal' | 'by_shares' | 'custom' | 'percentage';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'other';
+
+export interface Organization {
+  id: string;
+  name: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Compound {
+  id: string;
+  name: string;
+  city: string | null;
+  country: string;
+  created_at: string;
+}
+
+export interface Grant {
+  id: string;
+  user_id: string;
+  scope_type: 'org' | 'building';
+  org_id: string | null;
+  building_id: string | null;
+  role: GrantRole;
+  created_at: string;
+}
+
+export interface Unit {
+  id: string;
+  building_id: string;
+  label: string;
+  share_weight: number;
+  occupancy: Occupancy;
+  created_at: string;
+}
+
+export interface Membership {
+  id: string;
+  user_id: string;
+  unit_id: string;
+  tenure: Tenure;
+  created_at: string;
+  unit?: Unit;
+}
+
+export interface Group {
+  id: string;
+  building_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  building_id: string;
+  category: ExpenseCategory;
+  description: string;
+  amount_usd: number;
+  expense_date: string;
+  scope_type: AllocationScope;
+  method: AllocationMethod;
+  invoice_url: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Charge {
+  id: string;
+  expense_id: string | null;
+  unit_id: string;
+  building_id: string;
+  category: string;
+  description: string;
+  amount_usd: number;
+  charge_date: string;
+  created_by: string | null;
+  created_at: string;
+  unit?: Unit;
+}
+
+export interface Payment {
+  id: string;
+  unit_id: string;
+  building_id: string;
+  amount_usd: number;
+  method: PaymentMethod;
+  paid_on: string;
+  note: string | null;
+  receipt_url: string | null;
+  recorded_by: string | null;
+  created_at: string;
+  unit?: Unit;
+}
+
+export type InspectionCategory = 'generator' | 'elevator' | 'fire_safety' | 'water_tank' | 'electrical' | 'hvac' | 'other';
+export type InspectionStatus = 'passed' | 'failed' | 'action_required' | 'pending';
+
+export interface Inspection {
+  id: string;
+  building_id: string;
+  category: InspectionCategory;
+  title: string;
+  inspector: string | null;
+  inspection_date: string;
+  status: InspectionStatus;
+  outcome: string | null;
+  next_due_date: string | null;
+  attachment_url: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type ServiceType = 'elevator' | 'generator' | 'landscape' | 'security' | 'cleaning' | 'water' | 'internet' | 'other';
+export type BillingCycle = 'monthly' | 'quarterly' | 'yearly' | 'one_time';
+
+export interface ServiceContract {
+  id: string;
+  building_id: string;
+  service: ServiceType;
+  provider_name: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  amount_usd: number | null;
+  billing_cycle: BillingCycle | null;
+  notes: string | null;
+  attachment_url: string | null;
+  created_by: string | null;
   created_at: string;
 }

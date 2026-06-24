@@ -30,13 +30,15 @@ export default function Issues() {
   const [myOnly, setMyOnly] = useState(false);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+  const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
 
   const isAdmin = profile?.role === 'building_admin' || profile?.role === 'super_admin';
   const isSuperAdmin = profile?.role === 'super_admin';
   const activeBuildingId = isSuperAdmin ? selectedBuildingId : (profile?.building_id ?? '');
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
-    title: string; description: string; location: string; priority: IssuePriority; photos: FileList;
+    title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList;
   }>();
 
   const { register: registerUpdate, handleSubmit: handleUpdate, setValue } = useForm<{
@@ -51,7 +53,13 @@ export default function Issues() {
 
   useEffect(() => {
     if (activeBuildingId) loadIssues(); else setIssues([]);
-  }, [activeBuildingId, myOnly]);
+  }, [activeBuildingId, myOnly, statusFilter]);
+
+  useEffect(() => {
+    if (!activeBuildingId) { setUnits([]); return; }
+    supabase.from('units').select('id, label').eq('building_id', activeBuildingId).order('label')
+      .then(({ data }) => setUnits((data as { id: string; label: string }[]) ?? []));
+  }, [activeBuildingId]);
 
   async function loadIssues() {
     if (!activeBuildingId) return;
@@ -59,25 +67,26 @@ export default function Issues() {
     let q = supabase.from('issues').select('*, reporter:profiles(full_name, apartment_number)')
       .eq('building_id', activeBuildingId);
     if (myOnly || profile?.role === 'resident') q = q.eq('reported_by', profile?.id);
+    if (statusFilter !== 'all') q = q.eq('status', statusFilter);
     q = q.order('created_at', { ascending: false });
     const { data } = await q;
     setIssues((data as Issue[]) ?? []);
     setLoading(false);
   }
 
-  async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; photos: FileList }) {
+  async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList }) {
     const photoUrls: string[] = [];
     if (data.photos?.length) {
       for (const file of Array.from(data.photos)) {
         const path = `${activeBuildingId}/issues/${Date.now()}-${file.name}`;
-        const { error } = await supabase.storage.from('issue-photos').upload(path, file);
+        const { error } = await supabase.storage.from('attachments').upload(path, file);
         if (!error) {
-          const { data: urlData } = supabase.storage.from('issue-photos').getPublicUrl(path);
+          const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path);
           photoUrls.push(urlData.publicUrl);
         }
       }
     }
-    const { error } = await supabase.from('issues').insert({
+    const payload: Record<string, unknown> = {
       building_id: activeBuildingId,
       reported_by: profile?.id,
       title: data.title,
@@ -85,8 +94,11 @@ export default function Issues() {
       location: data.location,
       priority: data.priority,
       photo_urls: photoUrls,
-    });
-    if (!error) { setModalOpen(false); reset(); loadIssues(); }
+    };
+    if (data.apartment_number?.trim()) payload.apartment_number = data.apartment_number.trim();
+    const { error } = await supabase.from('issues').insert(payload);
+    if (error) { alert(`Could not log issue: ${error.message}`); return; }
+    setModalOpen(false); reset(); loadIssues();
   }
 
   async function onUpdateStatus(data: { status: IssueStatus; resolution_notes: string }) {
@@ -112,6 +124,18 @@ export default function Issues() {
             >
               {myOnly ? t('issues.allIssues') : t('issues.myIssues')}
             </button>
+          )}
+          {activeBuildingId && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'open' | 'in_progress' | 'resolved')}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="all">{t('issues.allIssues')}</option>
+              <option value="open">{t('issues.statuses.open')}</option>
+              <option value="in_progress">{t('issues.statuses.in_progress')}</option>
+              <option value="resolved">{t('issues.statuses.resolved')}</option>
+            </select>
           )}
           {activeBuildingId && (
             <Button onClick={() => setModalOpen(true)}>
@@ -160,6 +184,7 @@ export default function Issues() {
                     <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                       <span>{issue.location}</span>
+                      {issue.apartment_number && <><span>•</span><span>Apt {issue.apartment_number}</span></>}
                       <span>•</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
                       <span>•</span>
@@ -191,7 +216,15 @@ export default function Issues() {
             <label className="text-sm font-medium text-slate-700">{t('issues.description')}</label>
             <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...register('description', { required: true })} />
           </div>
-          <Input label={t('issues.location')} {...register('location', { required: true })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('issues.location')} {...register('location', { required: true })} />
+            {units.length > 0 && (
+              <Select label={t('billing.apartment')} {...register('apartment_number')}>
+                <option value="">—</option>
+                {units.map((u) => <option key={u.id} value={u.label}>{u.label}</option>)}
+              </Select>
+            )}
+          </div>
           <Select label={t('issues.priority')} {...register('priority', { required: true })}>
             <option value="low">{t('issues.priorities.low')}</option>
             <option value="medium">{t('issues.priorities.medium')}</option>

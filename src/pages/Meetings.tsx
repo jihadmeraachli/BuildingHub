@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
-import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X } from 'lucide-react';
+import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X, Video, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Meeting, Profile, Building } from '@/types';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
@@ -25,9 +26,13 @@ export default function Meetings() {
   const [deleteTarget, setDeleteTarget] = useState<Meeting | null>(null);
   const [buildingUsers, setBuildingUsers] = useState<Profile[]>([]);
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
-  const [attendeeSearch, setAttendeeSearch] = useState('');
+  const [scheduleOnline, setScheduleOnline] = useState(false);
+  const [scheduleUrl, setScheduleUrl] = useState('');
+  const [detailMeeting, setDetailMeeting] = useState<Meeting | null>(null);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+  const [scheduleFiles, setScheduleFiles] = useState<File[]>([]);
+  const [addFiles, setAddFiles] = useState<File[]>([]);
 
   const isAdmin = profile?.role === 'building_admin' || profile?.role === 'super_admin';
   const isSuperAdmin = profile?.role === 'super_admin';
@@ -69,17 +74,27 @@ export default function Meetings() {
   }
 
   async function onSchedule(data: { title: string; meeting_date: string; meeting_time: string; summary: string }) {
-    const { error } = await supabase.from('meetings').insert({
+    const attachment_urls: string[] = [];
+    for (const f of scheduleFiles) {
+      const url = await uploadFile('attachments', `${activeBuildingId}/meetings`, f);
+      if (url) attachment_urls.push(url);
+    }
+    const payload: Record<string, unknown> = {
       building_id: activeBuildingId,
       title: data.title,
       meeting_date: data.meeting_date,
       meeting_time: data.meeting_time || null,
       summary: data.summary || '',
-      attendees: [],
+      attendees: attendeeNamesFor(selectedAttendees),
+      attachment_urls,
       meeting_type: 'scheduled',
       created_by: profile?.id,
-    });
-    if (!error) { setScheduleOpen(false); scheduleForm.reset(); loadMeetings(); }
+    };
+    // only include meeting_url when set, so scheduling works before migration 0004
+    if (scheduleOnline && scheduleUrl.trim()) payload.meeting_url = scheduleUrl.trim();
+    const { error } = await supabase.from('meetings').insert(payload);
+    if (error) { alert(`Could not schedule meeting: ${error.message}`); return; }
+    setScheduleOpen(false); scheduleForm.reset(); setScheduleFiles([]); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); loadMeetings();
   }
 
   async function onAddMeeting(data: { title: string; meeting_date: string; meeting_time: string; summary: string }) {
@@ -87,6 +102,11 @@ export default function Meetings() {
       .filter(u => selectedAttendees.includes(u.id))
       .map(u => `${u.full_name}${u.apartment_number ? ` (${u.apartment_number})` : ''}`);
 
+    const attachment_urls: string[] = [];
+    for (const f of addFiles) {
+      const url = await uploadFile('attachments', `${activeBuildingId}/meetings`, f);
+      if (url) attachment_urls.push(url);
+    }
     const { error } = await supabase.from('meetings').insert({
       building_id: activeBuildingId,
       title: data.title,
@@ -94,10 +114,11 @@ export default function Meetings() {
       meeting_time: data.meeting_time || null,
       summary: data.summary,
       attendees: attendeeNames,
+      attachment_urls,
       meeting_type: 'past',
       created_by: profile?.id,
     });
-    if (!error) { setAddOpen(false); addForm.reset(); setSelectedAttendees([]); loadMeetings(); }
+    if (!error) { setAddOpen(false); addForm.reset(); setSelectedAttendees([]); setAddFiles([]); loadMeetings(); }
   }
 
   async function deleteMeeting(id: string) {
@@ -106,14 +127,9 @@ export default function Meetings() {
     loadMeetings();
   }
 
-  function toggleAttendee(id: string) {
-    setSelectedAttendees(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
-
-  const filteredUsers = buildingUsers.filter(u =>
-    u.full_name.toLowerCase().includes(attendeeSearch.toLowerCase()) ||
-    (u.apartment_number ?? '').toLowerCase().includes(attendeeSearch.toLowerCase())
-  );
+  const attendeeNamesFor = (ids: string[]) => buildingUsers
+    .filter(u => ids.includes(u.id))
+    .map(u => `${u.full_name}${u.apartment_number ? ` (${u.apartment_number})` : ''}`);
 
   const grouped = meetings.reduce<Record<string, Meeting[]>>((acc, m) => {
     const year = new Date(m.meeting_date).getFullYear().toString();
@@ -128,10 +144,10 @@ export default function Meetings() {
         <h1 className="text-xl font-semibold text-slate-900">{t('meetings.title')}</h1>
         {isAdmin && activeBuildingId && (
           <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setAddOpen(true)}>
+            <Button variant="secondary" onClick={() => { setSelectedAttendees([]); setAddFiles([]); setAddOpen(true); }}>
               <Plus size={16} /> Add Meeting
             </Button>
-            <Button onClick={() => setScheduleOpen(true)}>
+            <Button onClick={() => { setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]); setScheduleOpen(true); }}>
               <CalendarPlus size={16} /> Schedule Meeting
             </Button>
           </div>
@@ -187,11 +203,11 @@ export default function Meetings() {
             <Card key={m.id}>
               <CardBody>
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex gap-4 items-start">
-                    <div className="flex-shrink-0 text-center bg-blue-50 rounded-xl px-4 py-2 min-w-[64px]">
-                      <p className="text-xs text-blue-500 font-medium uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
-                      <p className="text-2xl font-bold text-blue-700 leading-none">{format(new Date(m.meeting_date), 'd')}</p>
-                      <p className="text-xs text-blue-500">{format(new Date(m.meeting_date), 'yyyy')}</p>
+                  <div className="flex gap-4 items-start flex-1 cursor-pointer" onClick={() => setDetailMeeting(m)}>
+                    <div className="flex-shrink-0 text-center bg-indigo-50 rounded-xl px-4 py-2 min-w-[64px]">
+                      <p className="text-xs text-indigo-500 font-medium uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
+                      <p className="text-2xl font-bold text-indigo-700 leading-none">{format(new Date(m.meeting_date), 'd')}</p>
+                      <p className="text-xs text-indigo-500">{format(new Date(m.meeting_date), 'yyyy')}</p>
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900">{m.title}</p>
@@ -199,6 +215,14 @@ export default function Meetings() {
                         <p className="text-sm text-slate-500 mt-0.5">🕐 {m.meeting_time.slice(0, 5)}</p>
                       )}
                       {m.summary && <p className="text-sm text-slate-600 mt-1">{m.summary}</p>}
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        {m.attendees?.length > 0 && <span className="text-xs text-slate-400">{m.attendees.length} attendee{m.attendees.length === 1 ? '' : 's'}</span>}
+                        {m.meeting_url && (
+                          <a href={m.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
+                            <Video size={13} /> Join online <ExternalLink size={11} />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {isSuperAdmin && (
@@ -296,7 +320,34 @@ export default function Meetings() {
             <label className="text-sm font-medium text-slate-700">Notes (optional)</label>
             <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...scheduleForm.register('summary')} />
           </div>
-          <p className="text-xs text-slate-400 bg-blue-50 rounded-lg px-3 py-2">
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-600">Attendees</label>
+            <AttendeePicker users={buildingUsers} selected={selectedAttendees} setSelected={setSelectedAttendees} />
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={scheduleOnline} onChange={(e) => setScheduleOnline(e.target.checked)} className="rounded" />
+              <Video size={15} className="text-indigo-600" /> Online meeting (Zoom / Teams) for those abroad
+            </label>
+            {scheduleOnline && (
+              <input
+                type="url"
+                value={scheduleUrl}
+                onChange={(e) => setScheduleUrl(e.target.value)}
+                placeholder="Paste the Zoom / Teams / Meet link"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              />
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-600">Attachments (agenda, minutes, recording)</label>
+            <input type="file" multiple onChange={(e) => setScheduleFiles(Array.from(e.target.files ?? []))}
+              className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+          </div>
+          <p className="text-xs text-slate-400 bg-indigo-50 rounded-lg px-3 py-2">
             📅 A calendar invite (.ics) will be emailed to all building residents.
           </p>
           <div className="flex justify-end gap-2 pt-2">
@@ -307,7 +358,7 @@ export default function Meetings() {
       </Modal>
 
       {/* Add Past Meeting modal */}
-      <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAttendeeSearch(''); }} title="Add Meeting Record" size="lg">
+      <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title="Add Meeting Record" size="lg">
         <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
@@ -319,56 +370,18 @@ export default function Meetings() {
             <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]" {...addForm.register('summary', { required: true })} />
           </div>
 
-          {/* Attendees picker */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">{t('meetings.attendees')}</label>
-
-            {/* Selected chips */}
-            {selectedAttendees.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                {buildingUsers.filter(u => selectedAttendees.includes(u.id)).map(u => (
-                  <span key={u.id} className="flex items-center gap-1 text-xs bg-white border border-slate-300 text-slate-700 px-2 py-1 rounded-full">
-                    {u.full_name}{u.apartment_number ? ` (${u.apartment_number})` : ''}
-                    <button type="button" onClick={() => toggleAttendee(u.id)} className="text-slate-400 hover:text-red-500 cursor-pointer">
-                      <X size={11} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Search */}
-            <div className="relative">
-              <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search residents..."
-                value={attendeeSearch}
-                onChange={e => setAttendeeSearch(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* User list */}
-            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
-              {filteredUsers.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-3">No residents found</p>
-              ) : filteredUsers.map(u => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => toggleAttendee(u.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selectedAttendees.includes(u.id) ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                >
-                  <span>{u.full_name}{u.apartment_number ? ` — Apt ${u.apartment_number}` : ''}</span>
-                  {selectedAttendees.includes(u.id) && <span className="text-xs text-blue-500">✓</span>}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-600">{t('meetings.attendees')}</label>
+            <AttendeePicker users={buildingUsers} selected={selectedAttendees} setSelected={setSelectedAttendees} />
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-600">Attachments (minutes, recording, PDF)</label>
+            <input type="file" multiple onChange={(e) => setAddFiles(Array.from(e.target.files ?? []))}
+              className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+          </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => { setAddOpen(false); setSelectedAttendees([]); setAttendeeSearch(''); }}>{t('common.cancel')}</Button>
+            <Button type="button" variant="secondary" onClick={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }}>{t('common.cancel')}</Button>
             <Button type="submit" loading={addForm.formState.isSubmitting}>{t('common.save')}</Button>
           </div>
         </form>
@@ -381,11 +394,97 @@ export default function Meetings() {
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
-          <Button variant="danger" onClick={() => deleteTarget && deleteMeeting(deleteTarget.id)}>Delete</Button>
+          <Button variant="danger" onClick={() => deleteTarget && deleteMeeting(deleteTarget.id)}>{t('common.delete')}</Button>
         </div>
       </Modal>
 
+      {/* Meeting detail modal */}
+      <Modal open={!!detailMeeting} onClose={() => setDetailMeeting(null)} title={detailMeeting?.title ?? ''} size="lg">
+        {detailMeeting && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500">
+              {format(new Date(detailMeeting.meeting_date), 'EEEE, MMMM d, yyyy')}{detailMeeting.meeting_time ? ` · ${detailMeeting.meeting_time.slice(0, 5)}` : ''}
+            </p>
+            {detailMeeting.meeting_url && (
+              <a href={detailMeeting.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline">
+                <Video size={15} /> Join online <ExternalLink size={12} />
+              </a>
+            )}
+            {detailMeeting.summary && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.summary')}</p>
+                <p className="text-sm text-slate-700 whitespace-pre-line">{detailMeeting.summary}</p>
+              </div>
+            )}
+            {detailMeeting.attendees?.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attendees')}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {detailMeeting.attendees.map((a) => <span key={a} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">{a}</span>)}
+                </div>
+              </div>
+            )}
+            {detailMeeting.attachment_urls?.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attachments')}</p>
+                {detailMeeting.attachment_urls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
+                    <Paperclip size={13} /> {t('meetings.attachments')} {i + 1}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
       </>)}
+    </div>
+  );
+}
+
+function AttendeePicker({ users, selected, setSelected }: { users: Profile[]; selected: string[]; setSelected: (v: string[]) => void }) {
+  const [search, setSearch] = useState('');
+  const filtered = users.filter(u =>
+    u.full_name.toLowerCase().includes(search.toLowerCase()) ||
+    (u.apartment_number ?? '').toLowerCase().includes(search.toLowerCase())
+  );
+  const toggle = (id: string) => setSelected(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  const allOn = users.length > 0 && selected.length === users.length;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-400">{selected.length} of {users.length} selected</span>
+        <button type="button" onClick={() => setSelected(allOn ? [] : users.map(u => u.id))} className="text-xs font-medium text-indigo-600 hover:underline cursor-pointer">
+          {allOn ? 'Clear all' : 'Select all'}
+        </button>
+      </div>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
+          {users.filter(u => selected.includes(u.id)).map(u => (
+            <span key={u.id} className="flex items-center gap-1 text-xs bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-full">
+              {u.full_name}{u.apartment_number ? ` (${u.apartment_number})` : ''}
+              <button type="button" onClick={() => toggle(u.id)} className="text-slate-400 hover:text-rose-500 cursor-pointer"><X size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input type="text" placeholder="Search residents…" value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full rounded-xl border border-slate-200 ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+      </div>
+      <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+        {filtered.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-3">No residents found</p>
+        ) : filtered.map(u => (
+          <button key={u.id} type="button" onClick={() => toggle(u.id)}
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selected.includes(u.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+            <span>{u.full_name}{u.apartment_number ? ` — Apt ${u.apartment_number}` : ''}</span>
+            {selected.includes(u.id) && <span className="text-xs text-indigo-500">✓</span>}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

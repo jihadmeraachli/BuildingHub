@@ -7,6 +7,10 @@ import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import Meetings from '@/pages/Meetings';
 import Billing from '@/pages/Billing';
+import Finance from '@/pages/Finance';
+import Structure from '@/pages/Structure';
+import Inspections from '@/pages/Inspections';
+import Contracts from '@/pages/Contracts';
 import Issues from '@/pages/Issues';
 import Users from '@/pages/Users';
 import Buildings from '@/pages/Buildings';
@@ -27,6 +31,10 @@ export default function App() {
           >
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/meetings" element={<Meetings />} />
+            <Route path="/finance" element={<Finance />} />
+            <Route path="/structure" element={<Structure />} />
+            <Route path="/inspections" element={<Inspections />} />
+            <Route path="/contracts" element={<Contracts />} />
             <Route path="/billing" element={<Billing />} />
             <Route path="/issues" element={<Issues />} />
             <Route path="/users" element={<Users />} />

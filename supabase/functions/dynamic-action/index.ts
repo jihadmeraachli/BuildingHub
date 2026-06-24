@@ -227,6 +227,27 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
     }
 
+    // 5b. Payment edited (amount changed) → owner(s)
+    if (tbl === 'payments' && type === 'UPDATE' && record.amount_usd !== old_record?.amount_usd) {
+      const b = await getBuilding(record.building_id);
+      await emailToUserIds(await unitOwnerIds(record.unit_id), 'Your payment was updated',
+        emailHtml('Payment updated',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment on your account was updated.</p>
+           ${table(row('New amount', money(record.amount_usd)) + row('Date', record.paid_on))}`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'BuildingHub');
+    }
+
+    // 5c. Payment removed → owner(s)  (DELETE payloads carry old_record)
+    if (tbl === 'payments' && type === 'DELETE' && old_record) {
+      const b = await getBuilding(old_record.building_id);
+      await emailToUserIds(await unitOwnerIds(old_record.unit_id), 'A payment was removed',
+        emailHtml('Payment removed',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment of <strong>${money(old_record.amount_usd)}</strong> was removed from your account.</p>`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'BuildingHub');
+    }
+
     // 6. Scheduled meeting → all building residents (+ .ics)
     if (tbl === 'meetings' && type === 'INSERT' && record.meeting_type === 'scheduled') {
       const b = await getBuilding(record.building_id);

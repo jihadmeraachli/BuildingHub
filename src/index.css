@@ -1,15 +1,24 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bh-bg: #f5f6f8;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
   html[dir="rtl"] {
-    font-family: 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+    font-family: 'Inter', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
   }
 
   body {
     margin: 0;
-    background-color: #f8fafc;
+    background-color: var(--bh-bg);
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   #root {
@@ -17,4 +26,20 @@
     display: flex;
     flex-direction: column;
   }
+
+  /* Refined, subtle scrollbars (Wio-like minimalism) */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+}
+
+@layer utilities {
+  /* Tabular figures for money/numbers */
+  .tnum { font-variant-numeric: tabular-nums; }
 }
