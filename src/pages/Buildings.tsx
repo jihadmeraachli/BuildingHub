@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
-import { Plus, Building2, MapPin, ExternalLink, Boxes } from 'lucide-react';
+import { Plus, Building2, MapPin, ExternalLink, Boxes, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Building, Compound } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -13,7 +13,7 @@ import { Modal } from '@/components/ui/Modal';
 
 type FormData = {
   name: string; address: string; city: string; country: string;
-  contact_email: string; contact_phone: string; maps_url: string;
+  contact_email: string; contact_phone: string; maps_url: string; compound_id: string;
 };
 
 function buildEmbedUrl(b: Building): string {
@@ -30,6 +30,10 @@ export default function Buildings() {
   const [compoundModal, setCompoundModal] = useState(false);
   const [compoundForm, setCompoundForm] = useState({ name: '', city: '' });
   const [mapBuilding, setMapBuilding] = useState<Building | null>(null);
+  const [editB, setEditB] = useState<Building | null>(null);
+  const [ebForm, setEbForm] = useState({ name: '', address: '', city: '', country: '', contact_email: '', contact_phone: '', maps_url: '' });
+  const [editC, setEditC] = useState<Compound | null>(null);
+  const [ecForm, setEcForm] = useState({ name: '', city: '' });
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormData>();
 
@@ -50,7 +54,7 @@ export default function Buildings() {
     const { error } = await supabase.from('buildings').insert({
       name: data.name, address: data.address, city: data.city, country: data.country,
       contact_email: data.contact_email || null, contact_phone: data.contact_phone || null,
-      maps_url: data.maps_url || null, is_active: true,
+      maps_url: data.maps_url || null, compound_id: data.compound_id || null, is_active: true,
     });
     if (!error) { setModalOpen(false); reset(); loadAll(); }
   }
@@ -66,9 +70,48 @@ export default function Buildings() {
     loadAll();
   }
 
+  async function setBuildingMode(id: string, mode: string) {
+    await supabase.from('buildings').update({ billing_mode: mode }).eq('id', id);
+    loadAll();
+  }
+  async function setCompoundMode(id: string, mode: string) {
+    await supabase.from('compounds').update({ billing_mode: mode }).eq('id', id);
+    loadAll();
+  }
+
   async function toggleActive(id: string, current: boolean) {
     await supabase.from('buildings').update({ is_active: !current }).eq('id', id);
     loadAll();
+  }
+
+  function openEditB(b: Building) {
+    setEbForm({ name: b.name, address: b.address, city: b.city, country: b.country, contact_email: b.contact_email ?? '', contact_phone: b.contact_phone ?? '', maps_url: b.maps_url ?? '' });
+    setEditB(b);
+  }
+  async function saveEditB() {
+    if (!editB || !ebForm.name.trim()) return;
+    await supabase.from('buildings').update({
+      name: ebForm.name.trim(), address: ebForm.address, city: ebForm.city, country: ebForm.country,
+      contact_email: ebForm.contact_email || null, contact_phone: ebForm.contact_phone || null, maps_url: ebForm.maps_url || null,
+    }).eq('id', editB.id);
+    setEditB(null); loadAll();
+  }
+  async function deleteB(id: string) {
+    if (!confirm('Delete this building and ALL its units, charges, payments, etc.? This cannot be undone.')) return;
+    await supabase.from('buildings').delete().eq('id', id);
+    setEditB(null); loadAll();
+  }
+
+  function openEditC(c: Compound) { setEcForm({ name: c.name, city: c.city ?? '' }); setEditC(c); }
+  async function saveEditC() {
+    if (!editC || !ecForm.name.trim()) return;
+    await supabase.from('compounds').update({ name: ecForm.name.trim(), city: ecForm.city.trim() || null }).eq('id', editC.id);
+    setEditC(null); loadAll();
+  }
+  async function deleteC(id: string) {
+    if (!confirm('Delete this compound? Its buildings are detached (kept), but compound-level expenses/dues/records are removed.')) return;
+    await supabase.from('compounds').delete().eq('id', id);
+    setEditC(null); loadAll();
   }
 
   const compoundName = (id: string | null) => id ? compounds.find((c) => c.id === id)?.name ?? null : null;
@@ -101,6 +144,11 @@ export default function Buildings() {
                     <Boxes size={14} />
                     <span className="font-medium">{c.name}</span>
                     <span className="text-indigo-400 text-xs">· {t('buildings.blocksCount', { count })}</span>
+                    <select value={c.billing_mode} onChange={(e) => setCompoundMode(c.id, e.target.value)} className="ms-1 bg-white border border-indigo-200 rounded-lg text-xs px-1.5 py-0.5 focus:outline-none cursor-pointer">
+                      <option value="arrears">{t('buildings.modeArrears')}</option>
+                      <option value="dues">{t('buildings.modeDues')}</option>
+                    </select>
+                    <button onClick={() => openEditC(c)} className="text-indigo-400 hover:text-indigo-700 cursor-pointer"><Pencil size={13} /></button>
                   </div>
                 );
               })}
@@ -143,11 +191,20 @@ export default function Buildings() {
                     <option value="">{t('buildings.noCompoundOption')}</option>
                     {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </Select>
+                  {!b.compound_id ? (
+                    <Select value={b.billing_mode} onChange={(e) => setBuildingMode(b.id, e.target.value)} className="text-sm py-2">
+                      <option value="arrears">{t('buildings.modeArrears')}</option>
+                      <option value="dues">{t('buildings.modeDues')}</option>
+                    </Select>
+                  ) : (
+                    <p className="text-xs text-slate-400">{t('buildings.modeViaCompound')}</p>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" variant="secondary" onClick={() => toggleActive(b.id, b.is_active)}>
                       {b.is_active ? t('buildings.inactive') : t('buildings.activate')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setMapBuilding(b)}><MapPin size={14} /> {t('buildings.map')}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => openEditB(b)}><Pencil size={14} /> {t('common.edit')}</Button>
                   </div>
                 </div>
               </CardBody>
@@ -167,6 +224,12 @@ export default function Buildings() {
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
+          {compounds.length > 0 && (
+            <Select label={t('buildings.compound')} {...register('compound_id')}>
+              <option value="">{t('buildings.noCompoundOption')}</option>
+              {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+          )}
           <Input label={t('buildings.mapsLink')} placeholder={t('buildings.mapsPlaceholder')} {...register('maps_url')} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
@@ -184,6 +247,43 @@ export default function Buildings() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setCompoundModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addCompound}>{t('buildings.create')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit building modal */}
+      <Modal open={!!editB} onClose={() => setEditB(null)} title={`${t('common.edit')} — ${editB?.name ?? ''}`} size="lg">
+        <div className="space-y-4">
+          <Input label={t('buildings.name')} value={ebForm.name} onChange={(e) => setEbForm({ ...ebForm, name: e.target.value })} />
+          <Input label={t('buildings.address')} value={ebForm.address} onChange={(e) => setEbForm({ ...ebForm, address: e.target.value })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('buildings.city')} value={ebForm.city} onChange={(e) => setEbForm({ ...ebForm, city: e.target.value })} />
+            <Input label={t('buildings.country')} value={ebForm.country} onChange={(e) => setEbForm({ ...ebForm, country: e.target.value })} />
+          </div>
+          <Input label={t('buildings.contactEmail')} type="email" value={ebForm.contact_email} onChange={(e) => setEbForm({ ...ebForm, contact_email: e.target.value })} />
+          <Input label={t('buildings.contactPhone')} type="tel" value={ebForm.contact_phone} onChange={(e) => setEbForm({ ...ebForm, contact_phone: e.target.value })} />
+          <Input label={t('buildings.mapsLink')} value={ebForm.maps_url} onChange={(e) => setEbForm({ ...ebForm, maps_url: e.target.value })} />
+          <div className="flex justify-between gap-2 pt-2">
+            <Button variant="danger" onClick={() => editB && deleteB(editB.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setEditB(null)}>{t('common.cancel')}</Button>
+              <Button onClick={saveEditB}>{t('common.save')}</Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit compound modal */}
+      <Modal open={!!editC} onClose={() => setEditC(null)} title={`${t('common.edit')} — ${editC?.name ?? ''}`} size="sm">
+        <div className="space-y-4">
+          <Input label={t('buildings.compoundName')} value={ecForm.name} onChange={(e) => setEcForm({ ...ecForm, name: e.target.value })} />
+          <Input label={t('buildings.cityOptional')} value={ecForm.city} onChange={(e) => setEcForm({ ...ecForm, city: e.target.value })} />
+          <div className="flex justify-between gap-2">
+            <Button variant="danger" onClick={() => editC && deleteC(editC.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setEditC(null)}>{t('common.cancel')}</Button>
+              <Button onClick={saveEditC}>{t('common.save')}</Button>
+            </div>
           </div>
         </div>
       </Modal>

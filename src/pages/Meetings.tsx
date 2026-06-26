@@ -6,17 +6,22 @@ import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, 
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Meeting, Profile, Building } from '@/types';
+import { useViewableBuildings } from '@/lib/useViewableBuildings';
+import { useEntities } from '@/lib/entities';
+import type { Meeting, Profile } from '@/types';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 
 type Tab = 'scheduled' | 'past';
 
 export default function Meetings() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, canAny, isPlatformAdmin } = useAuth();
+  const { buildings } = useViewableBuildings();
+  const entities = useEntities(buildings);
   const [tab, setTab] = useState<Tab>('scheduled');
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,40 +34,39 @@ export default function Meetings() {
   const [scheduleOnline, setScheduleOnline] = useState(false);
   const [scheduleUrl, setScheduleUrl] = useState('');
   const [detailMeeting, setDetailMeeting] = useState<Meeting | null>(null);
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
   const [scheduleFiles, setScheduleFiles] = useState<File[]>([]);
   const [addFiles, setAddFiles] = useState<File[]>([]);
+  const [entityKey, setEntityKey] = useState('');
+  const [blockFilter, setBlockFilter] = useState('');
+  const [createBuildingId, setCreateBuildingId] = useState('');
 
-  const isAdmin = profile?.role === 'building_admin' || profile?.role === 'super_admin';
-  const isSuperAdmin = profile?.role === 'super_admin';
-
-  // For super_admin use the selected building; for others use their own building_id
-  const activeBuildingId = isSuperAdmin ? selectedBuildingId : (profile?.building_id ?? '');
+  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
+  useEffect(() => { setBlockFilter(''); }, [entityKey]);
+  const entity = entities.find((e) => e.key === entityKey) ?? null;
+  const multiBlock = (entity?.blocks.length ?? 0) > 1;
+  const effectiveBuildingIds = entity ? (blockFilter ? [blockFilter] : entity.buildingIds) : [];
+  const idsKey = effectiveBuildingIds.join(',');
+  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
+  const isManager = isPlatformAdmin || canAny('meeting.manage') || legacyManager;
 
   const scheduleForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
   const addForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
 
-  // Load buildings list for super_admin selector
-  useEffect(() => {
-    if (!isSuperAdmin) return;
-    supabase.from('buildings').select('*').eq('is_active', true).order('name')
-      .then(({ data }) => setBuildings(data ?? []));
-  }, [isSuperAdmin]);
-
-  useEffect(() => { if (activeBuildingId) loadMeetings(); else setMeetings([]); }, [activeBuildingId, tab]);
+  useEffect(() => { if (effectiveBuildingIds.length) loadMeetings(); else setMeetings([]); }, [idsKey, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!activeBuildingId) return;
-    supabase.from('profiles').select('*').eq('building_id', activeBuildingId).eq('status', 'active')
-      .order('full_name').then(({ data }) => setBuildingUsers(data ?? []));
-  }, [activeBuildingId]);
+    if (!effectiveBuildingIds.length) { setBuildingUsers([]); return; }
+    supabase.from('profiles').select('*').in('building_id', effectiveBuildingIds).eq('status', 'active').order('full_name').then(({ data }) => setBuildingUsers(data ?? []));
+  }, [idsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function openSchedule() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''))); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]); setScheduleOpen(true); }
+  function openAdd() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''))); setSelectedAttendees([]); setAddFiles([]); setAddOpen(true); }
 
   async function loadMeetings() {
-    if (!activeBuildingId) return;
+    if (!effectiveBuildingIds.length) return;
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
-    let q = supabase.from('meetings').select('*').eq('building_id', activeBuildingId);
+    let q = supabase.from('meetings').select('*').in('building_id', effectiveBuildingIds);
     if (tab === 'scheduled') {
       q = q.eq('meeting_type', 'scheduled').gte('meeting_date', today).order('meeting_date', { ascending: true });
     } else {
@@ -76,11 +80,11 @@ export default function Meetings() {
   async function onSchedule(data: { title: string; meeting_date: string; meeting_time: string; summary: string }) {
     const attachment_urls: string[] = [];
     for (const f of scheduleFiles) {
-      const url = await uploadFile('attachments', `${activeBuildingId}/meetings`, f);
+      const url = await uploadFile('attachments', `${createBuildingId}/meetings`, f);
       if (url) attachment_urls.push(url);
     }
     const payload: Record<string, unknown> = {
-      building_id: activeBuildingId,
+      building_id: createBuildingId,
       title: data.title,
       meeting_date: data.meeting_date,
       meeting_time: data.meeting_time || null,
@@ -104,11 +108,11 @@ export default function Meetings() {
 
     const attachment_urls: string[] = [];
     for (const f of addFiles) {
-      const url = await uploadFile('attachments', `${activeBuildingId}/meetings`, f);
+      const url = await uploadFile('attachments', `${createBuildingId}/meetings`, f);
       if (url) attachment_urls.push(url);
     }
     const { error } = await supabase.from('meetings').insert({
-      building_id: activeBuildingId,
+      building_id: createBuildingId,
       title: data.title,
       meeting_date: data.meeting_date,
       meeting_time: data.meeting_time || null,
@@ -140,40 +144,32 @@ export default function Meetings() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-slate-900">{t('meetings.title')}</h1>
-        {isAdmin && activeBuildingId && (
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => { setSelectedAttendees([]); setAddFiles([]); setAddOpen(true); }}>
-              <Plus size={16} /> Add Meeting
-            </Button>
-            <Button onClick={() => { setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]); setScheduleOpen(true); }}>
-              <CalendarPlus size={16} /> Schedule Meeting
-            </Button>
-          </div>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('meetings.title')}</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          {entities.length > 1 && (
+            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[160px]">
+              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
+            </Select>
+          )}
+          {entity?.kind === 'compound' && multiBlock && (
+            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
+              <option value="">{t('finance.allBlocks')}</option>
+              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
+          )}
+          {isManager && entity && (
+            <>
+              <Button variant="secondary" onClick={openAdd}><Plus size={16} /> {t('meetings.addMeeting')}</Button>
+              <Button onClick={openSchedule}><CalendarPlus size={16} /> Schedule</Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Super admin: building selector */}
-      {isSuperAdmin && (
-        <div className="mb-4">
-          <select
-            value={selectedBuildingId}
-            onChange={e => { setSelectedBuildingId(e.target.value); setTab('scheduled'); setMeetings([]); }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
-          >
-            <option value="">— Select a building —</option>
-            {buildings.map(b => (
-              <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* No building selected yet (super_admin only) */}
-      {!activeBuildingId ? (
+      {!entity ? (
         <Card><CardBody>
-          <p className="text-sm text-slate-500 text-center py-8">Select a building above to manage its meetings.</p>
+          <p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p>
         </CardBody></Card>
       ) : (<>
 
@@ -225,7 +221,7 @@ export default function Meetings() {
                       </div>
                     </div>
                   </div>
-                  {isSuperAdmin && (
+                  {isManager && (
                     <button onClick={() => setDeleteTarget(m)} className="text-slate-300 hover:text-red-500 transition flex-shrink-0 cursor-pointer">
                       <Trash2 size={16} />
                     </button>
@@ -255,7 +251,7 @@ export default function Meetings() {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            {isSuperAdmin && (
+                            {isManager && (
                               <button
                                 onClick={e => { e.stopPropagation(); setDeleteTarget(m); }}
                                 className="text-slate-300 hover:text-red-500 transition cursor-pointer p-1"
@@ -311,6 +307,11 @@ export default function Meetings() {
       {/* Schedule Meeting modal */}
       <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title="Schedule Meeting">
         <form onSubmit={scheduleForm.handleSubmit(onSchedule)} className="space-y-4">
+          {(entity?.blocks.length ?? 0) > 1 && (
+            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
+              {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
+          )}
           <Input label="Meeting Title" {...scheduleForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Date" type="date" {...scheduleForm.register('meeting_date', { required: true })} />
@@ -360,6 +361,11 @@ export default function Meetings() {
       {/* Add Past Meeting modal */}
       <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title="Add Meeting Record" size="lg">
         <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
+          {(entity?.blocks.length ?? 0) > 1 && (
+            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
+              {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
+          )}
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Date" type="date" {...addForm.register('meeting_date', { required: true })} />

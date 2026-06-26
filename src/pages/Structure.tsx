@@ -24,6 +24,8 @@ export default function Structure() {
   const { can, isPlatformAdmin, profile } = useAuth();
   const { buildings } = useManagedBuildings();
   const [buildingId, setBuildingId] = useState('');
+  const [compoundList, setCompoundList] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => { supabase.from('compounds').select('id, name').then(({ data }) => setCompoundList((data as { id: string; name: string }[]) ?? [])); }, []);
   const [tab, setTab] = useState<'units' | 'groups'>('units');
 
   const [units, setUnits] = useState<Unit[]>([]);
@@ -158,7 +160,12 @@ export default function Structure() {
         </div>
         {buildings.length > 1 && (
           <Select value={buildingId} onChange={(e) => setBuildingId(e.target.value)} className="min-w-[220px]">
-            {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            {compoundList.filter((c) => buildings.some((b) => b.compound_id === c.id)).map((c) => (
+              <optgroup key={c.id} label={c.name}>
+                {buildings.filter((b) => b.compound_id === c.id).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </optgroup>
+            ))}
+            {buildings.filter((b) => !b.compound_id).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
         )}
       </div>

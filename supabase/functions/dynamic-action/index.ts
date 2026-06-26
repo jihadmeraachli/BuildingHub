@@ -248,6 +248,38 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
     }
 
+    // 5d. Dues issued → owner(s)
+    if (tbl === 'dues' && type === 'INSERT') {
+      const b = await getBuilding(record.building_id);
+      await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues for ${record.period_label}: ${money(record.amount_due)}`,
+        emailHtml('Dues issued',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${record.period_label}</strong> are ready.</p>
+           ${table(row('Amount due', money(record.amount_due)) + (record.due_date ? row('Due date', record.due_date) : ''))}`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'BuildingHub');
+    }
+
+    // 5e. Dues edited (amount changed) → owner(s)
+    if (tbl === 'dues' && type === 'UPDATE' && record.amount_due !== old_record?.amount_due) {
+      const b = await getBuilding(record.building_id);
+      await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues updated — ${record.period_label}`,
+        emailHtml('Dues updated',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${record.period_label}</strong> were updated.</p>
+           ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', record.due_date) : ''))}`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'BuildingHub');
+    }
+
+    // 5f. Dues removed → owner(s)
+    if (tbl === 'dues' && type === 'DELETE' && old_record) {
+      const b = await getBuilding(old_record.building_id);
+      await emailToUserIds(await unitOwnerIds(old_record.unit_id), `Dues removed — ${old_record.period_label}`,
+        emailHtml('Dues removed',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${old_record.period_label}</strong> were removed.</p>`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'BuildingHub');
+    }
+
     // 6. Scheduled meeting → all building residents (+ .ics)
     if (tbl === 'meetings' && type === 'INSERT' && record.meeting_type === 'scheduled') {
       const b = await getBuilding(record.building_id);

@@ -8,6 +8,7 @@ import Dashboard from '@/pages/Dashboard';
 import Meetings from '@/pages/Meetings';
 import Billing from '@/pages/Billing';
 import Finance from '@/pages/Finance';
+import Dues from '@/pages/Dues';
 import Structure from '@/pages/Structure';
 import Inspections from '@/pages/Inspections';
 import Contracts from '@/pages/Contracts';
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/finance" element={<Finance />} />
+            <Route path="/dues" element={<Dues />} />
             <Route path="/structure" element={<Structure />} />
             <Route path="/inspections" element={<Inspections />} />
             <Route path="/contracts" element={<Contracts />} />

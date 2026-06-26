@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Plus, Image } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Issue, IssueStatus, IssuePriority, Building } from '@/types';
+import { useViewableBuildings } from '@/lib/useViewableBuildings';
+import { useEntities } from '@/lib/entities';
+import type { Issue, IssueStatus, IssuePriority } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -13,87 +15,81 @@ import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 
-const priorityColor: Record<IssuePriority, 'slate' | 'yellow' | 'red'> = {
-  low: 'slate', medium: 'yellow', urgent: 'red',
-};
-const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = {
-  open: 'orange', in_progress: 'blue', resolved: 'green',
-};
+const priorityColor: Record<IssuePriority, 'slate' | 'yellow' | 'red'> = { low: 'slate', medium: 'yellow', urgent: 'red' };
+const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = { open: 'orange', in_progress: 'blue', resolved: 'green' };
 
 export default function Issues() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, canAny, isPlatformAdmin } = useAuth();
+  const { buildings } = useViewableBuildings();
+  const entities = useEntities(buildings);
+
+  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
+  const isManager = isPlatformAdmin || canAny('issue.view_all') || legacyManager;
+
+  const [entityKey, setEntityKey] = useState('');
+  const [blockFilter, setBlockFilter] = useState('');
+  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
+  useEffect(() => { setBlockFilter(''); }, [entityKey]);
+  const entity = entities.find((e) => e.key === entityKey) ?? null;
+  const multiBlock = (entity?.blocks.length ?? 0) > 1;
+  const effectiveBuildingIds = useMemo(() => (entity ? (blockFilter ? [blockFilter] : entity.buildingIds) : []), [entity, blockFilter]);
+  const idsKey = effectiveBuildingIds.join(',');
+  const blockName = Object.fromEntries(buildings.map((b) => [b.id, b.name]));
+
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [myOnly, setMyOnly] = useState(false);
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
-  const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
-
-  const isAdmin = profile?.role === 'building_admin' || profile?.role === 'super_admin';
-  const isSuperAdmin = profile?.role === 'super_admin';
-  const activeBuildingId = isSuperAdmin ? selectedBuildingId : (profile?.building_id ?? '');
+  const [createBuildingId, setCreateBuildingId] = useState('');
+  const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
     title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList;
   }>();
+  const { register: registerUpdate, handleSubmit: handleUpdate, setValue } = useForm<{ status: IssueStatus; resolution_notes: string }>();
 
-  const { register: registerUpdate, handleSubmit: handleUpdate, setValue } = useForm<{
-    status: IssueStatus; resolution_notes: string;
-  }>();
+  useEffect(() => { if (effectiveBuildingIds.length) loadIssues(); else setIssues([]); }, [idsKey, myOnly, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // units for the create modal (depends on chosen block)
   useEffect(() => {
-    if (!isSuperAdmin) return;
-    supabase.from('buildings').select('*').eq('is_active', true).order('name')
-      .then(({ data }) => setBuildings(data ?? []));
-  }, [isSuperAdmin]);
-
-  useEffect(() => {
-    if (activeBuildingId) loadIssues(); else setIssues([]);
-  }, [activeBuildingId, myOnly, statusFilter]);
-
-  useEffect(() => {
-    if (!activeBuildingId) { setUnits([]); return; }
-    supabase.from('units').select('id, label').eq('building_id', activeBuildingId).order('label')
-      .then(({ data }) => setUnits((data as { id: string; label: string }[]) ?? []));
-  }, [activeBuildingId]);
+    const bid = createBuildingId || (entity?.kind === 'building' ? entity.id : (blockFilter || ''));
+    if (!bid) { setUnits([]); return; }
+    supabase.from('units').select('id, label').eq('building_id', bid).order('label').then(({ data }) => setUnits((data as { id: string; label: string }[]) ?? []));
+  }, [createBuildingId, entityKey, blockFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadIssues() {
-    if (!activeBuildingId) return;
     setLoading(true);
-    let q = supabase.from('issues').select('*, reporter:profiles(full_name, apartment_number)')
-      .eq('building_id', activeBuildingId);
-    if (myOnly || profile?.role === 'resident') q = q.eq('reported_by', profile?.id);
+    let q = supabase.from('issues').select('*, reporter:profiles(full_name, apartment_number)').in('building_id', effectiveBuildingIds);
+    if (myOnly) q = q.eq('reported_by', profile?.id);
     if (statusFilter !== 'all') q = q.eq('status', statusFilter);
-    q = q.order('created_at', { ascending: false });
-    const { data } = await q;
+    const { data } = await q.order('created_at', { ascending: false });
     setIssues((data as Issue[]) ?? []);
     setLoading(false);
   }
 
+  function openCreate() {
+    const def = blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''));
+    setCreateBuildingId(def);
+    setModalOpen(true);
+  }
+
   async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList }) {
+    const buildingId = createBuildingId;
+    if (!buildingId) { alert('Pick a building/block'); return; }
     const photoUrls: string[] = [];
     if (data.photos?.length) {
       for (const file of Array.from(data.photos)) {
-        const path = `${activeBuildingId}/issues/${Date.now()}-${file.name}`;
+        const path = `${buildingId}/issues/${Date.now()}-${file.name}`;
         const { error } = await supabase.storage.from('attachments').upload(path, file);
-        if (!error) {
-          const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path);
-          photoUrls.push(urlData.publicUrl);
-        }
+        if (!error) photoUrls.push(supabase.storage.from('attachments').getPublicUrl(path).data.publicUrl);
       }
     }
     const payload: Record<string, unknown> = {
-      building_id: activeBuildingId,
-      reported_by: profile?.id,
-      title: data.title,
-      description: data.description,
-      location: data.location,
-      priority: data.priority,
-      photo_urls: photoUrls,
+      building_id: buildingId, reported_by: profile?.id, title: data.title, description: data.description,
+      location: data.location, priority: data.priority, photo_urls: photoUrls,
     };
     if (data.apartment_number?.trim()) payload.apartment_number = data.apartment_number.trim();
     const { error } = await supabase.from('issues').insert(payload);
@@ -104,76 +100,53 @@ export default function Issues() {
   async function onUpdateStatus(data: { status: IssueStatus; resolution_notes: string }) {
     if (!selectedIssue) return;
     await supabase.from('issues').update({
-      status: data.status,
-      resolution_notes: data.resolution_notes,
+      status: data.status, resolution_notes: data.resolution_notes,
       resolved_at: data.status === 'resolved' ? new Date().toISOString() : null,
     }).eq('id', selectedIssue.id);
-    setSelectedIssue(null);
-    loadIssues();
+    setSelectedIssue(null); loadIssues();
   }
+
+  const blockOptions = entity?.blocks ?? [];
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-slate-900">{t('issues.title')}</h1>
-        <div className="flex items-center gap-2">
-          {isAdmin && activeBuildingId && (
-            <button
-              onClick={() => setMyOnly(!myOnly)}
-              className={`text-sm px-3 py-1.5 rounded-lg border transition cursor-pointer ${myOnly ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-            >
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('issues.title')}</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          {entities.length > 1 && (
+            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[160px]">
+              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
+            </Select>
+          )}
+          {entity?.kind === 'compound' && multiBlock && (
+            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
+              <option value="">{t('finance.allBlocks')}</option>
+              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
+          )}
+          {isManager && (
+            <button onClick={() => setMyOnly(!myOnly)} className={`text-sm px-3 py-1.5 rounded-xl border transition cursor-pointer ${myOnly ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
               {myOnly ? t('issues.allIssues') : t('issues.myIssues')}
             </button>
           )}
-          {activeBuildingId && (
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'open' | 'in_progress' | 'resolved')}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            >
-              <option value="all">{t('issues.allIssues')}</option>
-              <option value="open">{t('issues.statuses.open')}</option>
-              <option value="in_progress">{t('issues.statuses.in_progress')}</option>
-              <option value="resolved">{t('issues.statuses.resolved')}</option>
-            </select>
-          )}
-          {activeBuildingId && (
-            <Button onClick={() => setModalOpen(true)}>
-              <Plus size={16} /> {t('issues.logIssue')}
-            </Button>
-          )}
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | 'open' | 'in_progress' | 'resolved')}>
+            <option value="all">{t('issues.allIssues')}</option>
+            <option value="open">{t('issues.statuses.open')}</option>
+            <option value="in_progress">{t('issues.statuses.in_progress')}</option>
+            <option value="resolved">{t('issues.statuses.resolved')}</option>
+          </Select>
+          {entity && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
         </div>
       </div>
 
-      {/* Super admin: building selector */}
-      {isSuperAdmin && (
-        <div className="mb-4">
-          <select
-            value={selectedBuildingId}
-            onChange={e => { setSelectedBuildingId(e.target.value); setMyOnly(false); }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
-          >
-            <option value="">— Select a building —</option>
-            {buildings.map(b => (
-              <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {!activeBuildingId ? (
-        <Card><CardBody>
-          <p className="text-sm text-slate-500 text-center py-8">Select a building above to view its issues.</p>
-        </CardBody></Card>
-      ) : loading ? (
-        <p className="text-sm text-slate-500">{t('common.loading')}</p>
-      ) : issues.length === 0 ? (
-        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
-      ) : (
-        <div className="space-y-3">
-          {issues.map(issue => (
-            <Card key={issue.id}>
-              <CardBody>
+      {!entity ? (
+        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
+      ) : loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
+        : issues.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
+        : (
+          <div className="space-y-3">
+            {issues.map((issue) => (
+              <Card key={issue.id}><CardBody>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -184,37 +157,38 @@ export default function Issues() {
                     <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                       <span>{issue.location}</span>
+                      {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}
                       {issue.apartment_number && <><span>•</span><span>Apt {issue.apartment_number}</span></>}
                       <span>•</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
                       <span>•</span>
                       <span>{format(new Date(issue.created_at), 'MMM d, yyyy')}</span>
-                      {issue.photo_urls?.length > 0 && (
-                        <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>
-                      )}
+                      {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
                     </div>
-                    {issue.resolution_notes && (
-                      <p className="mt-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>
-                    )}
+                    {issue.resolution_notes && <p className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>}
                   </div>
-                  {isAdmin && (
+                  {isManager && (
                     <Button size="sm" variant="secondary" onClick={() => { setSelectedIssue(issue); setValue('status', issue.status); setValue('resolution_notes', issue.resolution_notes ?? ''); }}>
                       {t('issues.updateStatus')}
                     </Button>
                   )}
                 </div>
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      )}
+              </CardBody></Card>
+            ))}
+          </div>
+        )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('issues.logIssue')} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {blockOptions.length > 1 && (
+            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
+              {blockOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
+          )}
           <Input label={t('issues.issueTitle')} {...register('title', { required: true })} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('issues.description')}</label>
-            <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...register('description', { required: true })} />
+            <label className="text-sm font-medium text-slate-600">{t('issues.description')}</label>
+            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" {...register('description', { required: true })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('issues.location')} {...register('location', { required: true })} />
@@ -231,8 +205,8 @@ export default function Issues() {
             <option value="urgent">{t('issues.priorities.urgent')}</option>
           </Select>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('issues.photos')}</label>
-            <input type="file" accept="image/*" multiple className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-300 file:text-sm file:bg-white file:cursor-pointer" {...register('photos')} />
+            <label className="text-sm font-medium text-slate-600">{t('issues.photos')}</label>
+            <input type="file" accept="image/*" multiple className="text-sm text-slate-600 file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" {...register('photos')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
@@ -249,8 +223,8 @@ export default function Issues() {
             <option value="resolved">{t('issues.statuses.resolved')}</option>
           </Select>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('issues.resolutionNotes')}</label>
-            <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...registerUpdate('resolution_notes')} />
+            <label className="text-sm font-medium text-slate-600">{t('issues.resolutionNotes')}</label>
+            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" {...registerUpdate('resolution_notes')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setSelectedIssue(null)}>{t('common.cancel')}</Button>

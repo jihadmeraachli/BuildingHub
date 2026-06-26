@@ -16,9 +16,12 @@ export interface Building {
   contact_phone: string | null;
   maps_url: string | null;
   compound_id: string | null;
+  billing_mode: BillingMode;
   is_active: boolean;
   created_at: string;
 }
+
+export type BillingMode = 'arrears' | 'dues';
 
 export interface Profile {
   id: string;
@@ -85,7 +88,7 @@ export interface Notification {
   id: string;
   user_id: string;
   building_id: string;
-  type: 'new_issue' | 'issue_update' | 'new_billing' | 'new_meeting' | 'user_approved' | 'charge_issued' | 'payment_received';
+  type: 'new_issue' | 'issue_update' | 'new_billing' | 'new_meeting' | 'user_approved' | 'charge_issued' | 'payment_received' | 'dues_issued' | 'dues_updated' | 'dues_removed';
   title: string;
   body: string;
   is_read: boolean;
@@ -128,6 +131,7 @@ export interface Compound {
   name: string;
   city: string | null;
   country: string;
+  billing_mode: BillingMode;
   created_at: string;
 }
 
@@ -168,7 +172,8 @@ export interface Group {
 
 export interface Expense {
   id: string;
-  building_id: string;
+  building_id: string | null;
+  compound_id: string | null;
   category: ExpenseCategory;
   description: string;
   amount_usd: number;
@@ -208,12 +213,41 @@ export interface Payment {
   unit?: Unit;
 }
 
+export type DuesCadence = 'monthly' | 'quarterly' | 'semiannual' | 'annual';
+export type DuesMethod = 'by_shares' | 'equal' | 'custom';
+
+export interface DuesPlan {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  cadence: DuesCadence;
+  method: DuesMethod;
+  pool_amount: number | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Dues {
+  id: string;
+  plan_id: string | null;
+  building_id: string;
+  unit_id: string;
+  period_label: string;
+  due_date: string | null;
+  base_amount: number;
+  carry_in: number;
+  amount_due: number;
+  created_by: string | null;
+  created_at: string;
+}
+
 export type InspectionCategory = 'generator' | 'elevator' | 'fire_safety' | 'water_tank' | 'electrical' | 'hvac' | 'other';
 export type InspectionStatus = 'passed' | 'failed' | 'action_required' | 'pending';
 
 export interface Inspection {
   id: string;
-  building_id: string;
+  building_id: string | null;
+  compound_id: string | null;
   category: InspectionCategory;
   title: string;
   inspector: string | null;
@@ -231,7 +265,8 @@ export type BillingCycle = 'monthly' | 'quarterly' | 'yearly' | 'one_time';
 
 export interface ServiceContract {
   id: string;
-  building_id: string;
+  building_id: string | null;
+  compound_id: string | null;
   service: ServiceType;
   provider_name: string;
   contact_name: string | null;

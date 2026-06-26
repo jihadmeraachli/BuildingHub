@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
+import { useEntities } from '@/lib/entities';
 import { supabase } from '@/lib/supabase';
 import type { Meeting } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -31,7 +32,12 @@ export default function Dashboard() {
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
   const [resident, setResident] = useState({ charged: 0, paid: 0 });
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
-  const [filterBuilding, setFilterBuilding] = useState('');
+  const entities = useEntities(buildings);
+  const [entityKey, setEntityKey] = useState('');
+  const [blockFilter, setBlockFilter] = useState('');
+  useEffect(() => { setBlockFilter(''); }, [entityKey]);
+  const selEntity = entities.find((e) => e.key === entityKey) ?? null;
+  const [coverage, setCoverage] = useState({ runwayMonths: 0, duesIssued: 0, duesPeriod: '' });
   const buildingIds = useMemo(() => buildings.map((b) => b.id), [buildings]);
   const idsKey = buildingIds.join(',');
 
@@ -39,33 +45,37 @@ export default function Dashboard() {
     if (isManager) loadManager();
     else if (myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, isManager, filterBuilding]);
+  }, [idsKey, isManager, entityKey, blockFilter]);
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
-    supabase.from('meetings').select('*').gte('meeting_date', today)
-      .order('meeting_date', { ascending: true }).limit(5)
-      .then(({ data }) => setUpcoming((data as Meeting[]) ?? []));
-  }, []);
+    let q = supabase.from('meetings').select('*').gte('meeting_date', today);
+    if (isManager) {
+      const scope = entityKey ? (blockFilter ? [blockFilter] : (selEntity?.buildingIds ?? buildingIds)) : buildingIds;
+      q = q.in('building_id', scope.length ? scope : ['00000000-0000-0000-0000-000000000000']);
+    }
+    q.order('meeting_date', { ascending: true }).limit(5).then(({ data }) => setUpcoming((data as Meeting[]) ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, entityKey, blockFilter, isManager]);
 
   async function loadManager() {
-    const scope = filterBuilding ? [filterBuilding] : buildingIds;
+    const ent = entities.find((e) => e.key === entityKey);
+    const scope = entityKey ? (blockFilter ? [blockFilter] : (ent?.buildingIds ?? buildingIds)) : buildingIds;
     const inIds = scope.length ? scope : ['00000000-0000-0000-0000-000000000000'];
-    const [chargesRes, paymentsRes, expensesRes, unitsRes, issuesRes] = await Promise.all([
-      supabase.from('charges').select('amount_usd, unit_id').in('building_id', inIds),
+    const [chargesRes, paymentsRes, unitsRes, issuesRes, duesRes] = await Promise.all([
+      supabase.from('charges').select('amount_usd, unit_id, charge_date').in('building_id', inIds),
       supabase.from('payments').select('amount_usd, unit_id, paid_on').in('building_id', inIds),
-      supabase.from('expenses').select('amount_usd, expense_date').in('building_id', inIds),
       supabase.from('units').select('id', { count: 'exact', head: true }).in('building_id', inIds),
       supabase.from('issues').select('id', { count: 'exact', head: true }).eq('status', 'open').in('building_id', inIds),
+      supabase.from('dues').select('amount_due, period_label, created_at').in('building_id', inIds),
     ]);
 
-    const charges = (chargesRes.data as { amount_usd: number; unit_id: string }[]) ?? [];
+    const charges = (chargesRes.data as { amount_usd: number; unit_id: string; charge_date: string }[]) ?? [];
     const payments = (paymentsRes.data as { amount_usd: number; unit_id: string; paid_on: string }[]) ?? [];
-    const expenses = (expensesRes.data as { amount_usd: number; expense_date: string }[]) ?? [];
 
     const billed = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
     const collected = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
-    const spent = expenses.reduce((s, e) => s + Number(e.amount_usd), 0);
+    const spent = billed; // expense-driven: total charges == total expenses (block-tagged)
 
     const perUnit: Record<string, number> = {};
     charges.forEach((c) => { perUnit[c.unit_id] = (perUnit[c.unit_id] ?? 0) - Number(c.amount_usd); });
@@ -82,7 +92,7 @@ export default function Dashboard() {
     });
     const bucketFor = (dt: string) => { const d = new Date(dt); return buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`); };
     payments.forEach((p) => { const m = bucketFor(p.paid_on); if (m) m.collected += Number(p.amount_usd); });
-    expenses.forEach((e) => { const m = bucketFor(e.expense_date); if (m) m.spent += Number(e.amount_usd); });
+    charges.forEach((c) => { const m = bucketFor(c.charge_date); if (m) m.spent += Number(c.amount_usd); });
     setMonthly({
       labels: buckets.map((b) => b.label),
       collected: buckets.map((b) => Math.round(b.collected * 100) / 100),
@@ -93,6 +103,20 @@ export default function Dashboard() {
       collected, spent, billed, outstanding: Math.round(outstanding * 100) / 100, ytd: Math.round(ytd * 100) / 100,
       units: unitsRes.count ?? 0, openIssues: issuesRes.count ?? 0,
     });
+
+    // coverage: reserve runway + latest dues issued
+    const fundLocal = Math.round((collected - spent) * 100) / 100;
+    const monthsWithSpend = buckets.filter((s) => s.spent > 0).length || 1;
+    const avgMonthly = buckets.reduce((s, x) => s + x.spent, 0) / monthsWithSpend;
+    const runwayMonths = avgMonthly > 0 ? Math.round((Math.max(0, fundLocal) / avgMonthly) * 10) / 10 : 0;
+    const duesRows = (duesRes.data as { amount_due: number; period_label: string; created_at: string }[]) ?? [];
+    let duesIssued = 0, duesPeriod = '';
+    if (duesRows.length) {
+      const latest = duesRows.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b));
+      duesPeriod = latest.period_label;
+      duesIssued = Math.round(duesRows.filter((d) => d.period_label === duesPeriod).reduce((s, d) => s + Number(d.amount_due), 0) * 100) / 100;
+    }
+    setCoverage({ runwayMonths, duesIssued, duesPeriod });
   }
 
   async function loadResident() {
@@ -134,16 +158,28 @@ export default function Dashboard() {
     <div>
       <div className="flex items-start justify-between gap-3">
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
-        {buildings.length > 1 && (
-          <select
-            value={filterBuilding}
-            onChange={(e) => setFilterBuilding(e.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-w-[160px]"
-          >
-            <option value="">{t('dashboard.allBuildings')}</option>
-            {buildings.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {entities.length > 0 && (
+            <select
+              value={entityKey}
+              onChange={(e) => setEntityKey(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-w-[160px]"
+            >
+              <option value="">{t('dashboard.allBuildings')}</option>
+              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
+            </select>
+          )}
+          {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
+            <select
+              value={blockFilter}
+              onChange={(e) => setBlockFilter(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            >
+              <option value="">{t('finance.allBlocks')}</option>
+              {selEntity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+        </div>
       </div>
 
       <HeroCard
@@ -174,6 +210,29 @@ export default function Dashboard() {
             { name: t('dashboard.collected'), color: '#10b981', data: monthly.collected },
             { name: t('dashboard.spent'), color: '#f43f5e', data: monthly.spent },
           ]} />
+        </CardBody>
+      </Card>
+
+      <Card className="mt-5">
+        <CardBody>
+          <p className="text-sm font-semibold text-slate-700 mb-3">{t('dashboard.coverage')}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-slate-500">{t('dashboard.reserve')}</p>
+              <p className={`text-xl font-bold tnum mt-0.5 ${fund < 0 ? 'text-rose-600' : 'text-slate-900'}`}>{money(fund)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">{t('dashboard.runway')}</p>
+              <p className="text-xl font-bold tnum mt-0.5 text-slate-900">{coverage.runwayMonths} {t('dashboard.monthsShort')}</p>
+            </div>
+            {coverage.duesPeriod && (
+              <div>
+                <p className="text-xs text-slate-500">{t('dashboard.duesIssued')} · {coverage.duesPeriod}</p>
+                <p className="text-xl font-bold tnum mt-0.5 text-slate-900">{money(coverage.duesIssued)}</p>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">{coverage.runwayMonths >= 1 ? t('dashboard.safeNote', { n: coverage.runwayMonths }) : t('dashboard.tightNote')}</p>
         </CardBody>
       </Card>
 

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
-  Layers, Users, Building2, LogOut, X, ClipboardCheck, FileSignature,
+  Layers, Users, Building2, LogOut, X, ClipboardCheck, FileSignature, CalendarClock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,6 +24,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const links = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, show: true },
     { to: '/finance', label: t('nav.finance'), icon: Wallet, show: true },
+    { to: '/dues', label: t('nav.dues'), icon: CalendarClock, show: canStructure || canAny('finance.view') },
     { to: '/issues', label: t('nav.issues'), icon: AlertTriangle, show: true },
     { to: '/meetings', label: t('nav.meetings'), icon: CalendarDays, show: true },
     { to: '/inspections', label: t('nav.inspections'), icon: ClipboardCheck, show: true },
