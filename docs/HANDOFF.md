@@ -1,7 +1,7 @@
-# BuildingHub — Handoff / Change Log for Jihad
+# BuildingHub — Handoff / Change Log
 
-**From:** Ahmad
-**Scope:** everything built in this iteration (the "v3" rebuild + finance/compound/dues work).
+**Team:** Jihad (Jey) — platform owner & product. Ahmad — lead developer.
+**Scope:** everything built across v1 (Jey) and v3 (Ahmad) iterations.
 **Deep spec:** see [`docs/WORKFLOW.md`](./WORKFLOW.md) for the full domain model and decisions.
 
 ---
@@ -27,7 +27,7 @@ It's all **additive** — existing single buildings keep working (default billin
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind v4, i18n (en/ar). Pages in `src/pages`, shared UI in `src/components/ui`, hooks/helpers in `src/lib`.
 - **Backend:** Supabase (Postgres + Auth + Storage + Edge Functions). All security is **Row-Level Security** routed through one SQL function, `user_can(building, capability)`.
 - **Email:** a Supabase Edge Function named **`dynamic-action`** (`supabase/functions/dynamic-action`) sends email via **Resend**, triggered by **Database Webhooks**.
-- **Repo:** currently on Ahmad's fork `AhmadYamoutTat/BuildingHub` (`master`). Open a PR into the main repo to sync.
+- **Repo:** `jihadmeraachli/BuildingHub` (private), branch `master`. Both Jey and Ahmad push/pull directly — always `git pull origin master` before starting.
 
 ### The permission model (important)
 - **Identity** (one login per person) is separate from **management grants** (`grants` table: a user has a role on a building or an org) and **resident membership** (`memberships`: a user owns a unit).
@@ -91,15 +91,17 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
 ## 6. How to run / onboard a machine
 
 ```bash
-git pull            # from the fork (or main once PR'd)
+git clone https://github.com/jihadmeraachli/BuildingHub.git   # first time only
+git pull origin master   # every session — pull before starting
 npm install
 # create .env.local (NOT in git):
-#   VITE_SUPABASE_URL=...      (shared, same project)
-#   VITE_SUPABASE_ANON_KEY=...
+#   VITE_SUPABASE_URL=https://miyrsnlpftybmudiuhbi.supabase.co
+#   VITE_SUPABASE_ANON_KEY=<shared anon key — ask Jey or Ahmad>
 npm run dev         # http://localhost:5173
 ```
-- **Migrations & webhooks live on the shared Supabase project** — run them **once** (any teammate). Others inherit them automatically.
+- **Migrations & webhooks live on the shared Supabase project** — already applied, you inherit them automatically.
 - Bootstrap a platform admin: `UPDATE profiles SET is_platform_admin = true WHERE id = (SELECT id FROM auth.users WHERE email = '<you>')`.
+- **GitHub Projects board:** `github.com/jihadmeraachli/BuildingHub` → Projects → BuildingHub Roadmap (41 issues, three columns: Todo / In Progress / Done). Move cards as you work.
 
 ---
 
@@ -115,16 +117,35 @@ npm run dev         # http://localhost:5173
 
 ---
 
-## 8. Planned / next steps
+## 8. Full roadmap (tracked in GitHub Projects → BuildingHub Roadmap)
 
-1. **Access/grants UI** — manage org/building admins & accountants without SQL.
-2. **Finish notifications ops** — confirm all webhooks present; consider a **WhatsApp** channel (v2) and **arrears/dues reminders** (needs a scheduled cron).
-3. **Inspection due-date reminders** (scheduled job).
-4. **Retire legacy `profiles.role`** paths across Issues/Meetings/Users; move attendees to memberships.
-5. **Tenant model** (owner + tenant per unit, route charges by category).
-6. **B2 budget dues** option, if a building wants flat-fee-only.
-7. **Compound funds/reserve reporting** polish; export/statements (PDF).
-8. **Code-splitting** for load performance.
+### In Progress
+- **Access/grants UI** — manage org/building admins & accountants without SQL (People → Access screen).
+- **WhatsApp notifications** — dedicated number being sourced; personal number cannot be used.
+
+### Tech / product backlog
+- **WhatsApp reminders** — arrears/dues overdue alerts (needs a scheduled cron job).
+- **Inspection due-date reminders** (scheduled job).
+- **Tenant model** — owner + tenant per unit, route charges by category.
+- **B2 budget dues** — flat-fee, fund-only expenses, explicit period true-up.
+- **PDF export / statements** — compound/building financial reports.
+- **Retire legacy `profiles.role`** fallback paths (Issues/Meetings/Users); move attendees to memberships.
+- **Code-splitting** — bundle currently >500 kB, no lazy loading yet.
+- **PWA** — make the app installable on phones (manifest + service worker).
+- **Polish** — loading skeletons, toast notifications throughout.
+- **Arabic RTL** — finish newer strings in Issues, Meetings, Finance.
+
+### Platform & business
+- **Licensing module** — paid license rules; accounts must be licensed to use the solution.
+- **Payment gateway** — integrate a payment provider (Wish or equivalent).
+- **AI-powered UI** — evaluate Claude integration for a unique, professional UI experience.
+- **Scalability review** — discuss architecture limits and horizontal scaling with Claude.
+- **Security review** — harden beyond RLS: pen-test surface, secrets rotation, rate limiting.
+- **Backups & data residency** — discuss backup strategy, retention, and regional data requirements.
+- **Marketing tools** — social media, SEO, ads strategy.
+- **Marketing website** — public site with app walkthrough to drive subscriptions.
+- **Legal & compliance** — Privacy Policy, Terms of Service, GDPR compliance, contracts.
+- **Mobile app** — publish on Google Play (Android) and App Store (iOS).
 
 ---
 

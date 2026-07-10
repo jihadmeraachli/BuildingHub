@@ -31,9 +31,11 @@ Requires `.env.local` (gitignored): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY
 - **i18n:** user-facing strings go through `t()` with keys in `src/i18n/en.json` + `ar.json`. Arabic falls back to English if a key is missing.
 
 ## Repo / workflow
-- Main repo is `jihadmeraachli/BuildingHub`, branch `master`. **Pull before starting**, push when done.
+- Main repo is `jihadmeraachli/BuildingHub` (private), branch `master`. Both Jey and Ahmad push directly. **Pull before starting**, push when done.
 - **Never commit** `.env.local` or real Supabase keys. The `anon` key is public-safe; the **secret** key must never be committed.
-- Edge function changes require redeploy: `npx supabase functions deploy dynamic-action` (+ the relevant Database Webhook must exist for it to fire).
+- Edge function changes require redeploy via Supabase dashboard editor (Functions → dynamic-action → Deploy). The relevant Database Webhook must exist for it to fire.
+- **GitHub Projects board:** `github.com/jihadmeraachli/BuildingHub` → Projects → BuildingHub Roadmap. 41 issues across Todo / In Progress / Done. Move cards as features are completed.
+- **Two Claude instances** (one per developer) stay in sync via this CLAUDE.md + docs/HANDOFF.md + docs/WORKFLOW.md — all committed to the repo. Update these docs when adding features or making architectural decisions.
 
 ## Directory map
 - `src/pages` — one file per route (Dashboard, Finance, Dues, Structure, Inspections, Contracts, Issues, Meetings, Buildings, Users, Login/Register).
