@@ -216,6 +216,10 @@
     "roles": {
       "super_admin": "Super Admin",
       "building_admin": "Building Admin",
+      "building_finance": "Finance / Accountant",
+      "org_admin": "Org Admin",
+      "org_finance": "Org Finance",
+      "viewer": "Viewer",
       "resident": "Resident"
     },
     "statuses": {
@@ -233,7 +237,13 @@
     "deactivated": "User deactivated.",
     "allUsers": "All Users",
     "reactivate": "Reactivate",
-    "selectBuildingHint": "Select a building above to manage its users."
+    "selectBuildingHint": "Select a building above to manage its users.",
+    "accessTab": "Access",
+    "addAccess": "Grant Access",
+    "noGrants": "No access configured for this building.",
+    "grantAdded": "Access granted.",
+    "grantRemoved": "Access revoked.",
+    "revokeAccess": "Revoke access"
   },
   "buildings": {
     "title": "Buildings",

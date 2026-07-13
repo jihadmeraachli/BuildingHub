@@ -216,6 +216,10 @@
     "roles": {
       "super_admin": "مدير عام",
       "building_admin": "مدير مبنى",
+      "building_finance": "محاسب / مسؤول مالي",
+      "org_admin": "مدير المؤسسة",
+      "org_finance": "مالية المؤسسة",
+      "viewer": "مشاهد",
       "resident": "مقيم"
     },
     "statuses": {
@@ -234,7 +238,12 @@
     "allUsers": "جميع المستخدمين",
     "reactivate": "إعادة تفعيل",
     "selectBuildingHint": "اختر مبنى أعلاه لإدارة مستخدميه.",
-    "notifyWhatsapp": "إشعارات واتساب"
+    "accessTab": "الوصول",
+    "addAccess": "منح الوصول",
+    "noGrants": "لا توجد صلاحيات وصول لهذا المبنى.",
+    "grantAdded": "تم منح الوصول.",
+    "grantRemoved": "تم إلغاء الوصول.",
+    "revokeAccess": "إلغاء الوصول"
   },
   "buildings": {
     "title": "المباني",
