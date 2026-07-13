@@ -23,7 +23,7 @@ const occupancyColor: Record<Occupancy, 'green' | 'slate' | 'blue'> = {
 
 export default function Structure() {
   const { t } = useTranslation();
-  const { can, isPlatformAdmin, profile } = useAuth();
+  const { can, isPlatformAdmin } = useAuth();
   const { buildings } = useManagedBuildings();
   const [buildingId, setBuildingId] = useState('');
   const [compoundList, setCompoundList] = useState<{ id: string; name: string }[]>([]);
@@ -51,8 +51,7 @@ export default function Structure() {
     if (!buildingId && buildings.length) setBuildingId(buildings[0].id);
   }, [buildings, buildingId]);
 
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const canManage = isPlatformAdmin || can('unit.manage', buildingId) || legacyManager;
+  const canManage = isPlatformAdmin || can('unit.manage', buildingId);
 
   useEffect(() => { if (buildingId) loadAll(); }, [buildingId]);
 

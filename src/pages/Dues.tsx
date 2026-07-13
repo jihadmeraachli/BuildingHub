@@ -32,8 +32,7 @@ export default function Dues() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const canManage = isPlatformAdmin || legacyManager || !!entity?.buildingIds.some((id) => can('expense.manage', id));
+  const canManage = isPlatformAdmin || !!entity?.buildingIds.some((id) => can('expense.manage', id));
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const blockName = Object.fromEntries(buildings.map((b) => [b.id, b.name]));
 

@@ -60,8 +60,7 @@ export default function Finance() {
   const { t } = useTranslation();
   const { can, canAny, isPlatformAdmin, profile, myUnitIds } = useAuth();
   const { buildings } = useManagedBuildings();
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const isManager = isPlatformAdmin || canAny('finance.view') || legacyManager;
+  const isManager = isPlatformAdmin || canAny('finance.view');
 
   const [compounds, setCompounds] = useState<Compound[]>([]);
   useEffect(() => { supabase.from('compounds').select('*').then(({ data }) => setCompounds((data as Compound[]) ?? [])); }, []);
@@ -111,7 +110,7 @@ export default function Finance() {
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
 
-  const canManageFinance = isPlatformAdmin || legacyManager || !!entity?.buildingIds.some((id) => can('expense.manage', id));
+  const canManageFinance = isPlatformAdmin || !!entity?.buildingIds.some((id) => can('expense.manage', id));
 
   useEffect(() => {
     if (isManager && entity) loadScope();

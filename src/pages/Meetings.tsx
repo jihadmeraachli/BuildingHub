@@ -48,8 +48,7 @@ export default function Meetings() {
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const effectiveBuildingIds = entity ? (blockFilter ? [blockFilter] : entity.buildingIds) : [];
   const idsKey = effectiveBuildingIds.join(',');
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const isManager = isPlatformAdmin || canAny('meeting.manage') || legacyManager;
+  const isManager = isPlatformAdmin || canAny('meeting.manage');
 
   const scheduleForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
   const addForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();

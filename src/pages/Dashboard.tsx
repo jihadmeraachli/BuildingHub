@@ -25,8 +25,7 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const { profile, isPlatformAdmin, canAny, myUnitIds } = useAuth();
   const { buildings } = useManagedBuildings();
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const isManager = isPlatformAdmin || canAny('finance.view') || legacyManager;
+  const isManager = isPlatformAdmin || canAny('finance.view');
 
   const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });

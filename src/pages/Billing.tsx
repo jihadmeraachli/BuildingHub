@@ -19,7 +19,7 @@ const CATEGORIES: BillingCategory[] = ['water', 'electricity', 'common_expenses'
 
 export default function Billing() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, isPlatformAdmin, canAny } = useAuth();
   const [entries, setEntries] = useState<BillingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -29,9 +29,8 @@ export default function Billing() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
 
-  const isAdmin = profile?.role === 'building_admin' || profile?.role === 'super_admin';
-  const isSuperAdmin = profile?.role === 'super_admin';
-  const activeBuildingId = isSuperAdmin ? selectedBuildingId : (profile?.building_id ?? '');
+  const isAdmin = isPlatformAdmin || canAny('expense.manage');
+  const activeBuildingId = isPlatformAdmin ? selectedBuildingId : (profile?.building_id ?? '');
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
     category: BillingCategory; description: string; amount_usd: number;
@@ -39,10 +38,10 @@ export default function Billing() {
   }>();
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!isPlatformAdmin) return;
     supabase.from('buildings').select('*').eq('is_active', true).order('name')
       .then(({ data }) => setBuildings(data ?? []));
-  }, [isSuperAdmin]);
+  }, [isPlatformAdmin]);
 
   useEffect(() => {
     if (activeBuildingId) loadEntries(); else setEntries([]);
@@ -54,7 +53,7 @@ export default function Billing() {
     let q = supabase.from('billing_entries').select('*').eq('building_id', activeBuildingId);
     if (categoryFilter !== 'all') q = q.eq('category', categoryFilter);
     if (statusFilter !== 'all') q = q.eq('status', statusFilter);
-    if (profile?.role === 'resident') q = q.eq('apartment_number', profile.apartment_number ?? '');
+    if (!isPlatformAdmin && !canAny('finance.view')) q = q.eq('apartment_number', profile?.apartment_number ?? '');
     q = q.order('created_at', { ascending: false });
     const { data } = await q;
     setEntries(data ?? []);
@@ -108,7 +107,7 @@ export default function Billing() {
       </div>
 
       {/* Super admin: building selector */}
-      {isSuperAdmin && (
+      {isPlatformAdmin && (
         <div className="mb-4">
           <select
             value={selectedBuildingId}

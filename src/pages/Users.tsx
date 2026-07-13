@@ -18,8 +18,8 @@ const statusColor: Record<UserStatus, 'green' | 'yellow' | 'red' | 'slate'> = {
 
 export default function Users() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const { profile, isPlatformAdmin } = useAuth();
+  const isSuperAdmin = isPlatformAdmin;
 
   const [users, setUsers] = useState<Profile[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);

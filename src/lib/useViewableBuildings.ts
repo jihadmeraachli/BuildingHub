@@ -9,19 +9,16 @@ import type { Building } from '@/types';
  * and the buildings where the user owns/occupies a unit (memberships).
  */
 export function useViewableBuildings() {
-  const { isPlatformAdmin, manageableBuildingIds, memberships, profile } = useAuth();
+  const { isPlatformAdmin, manageableBuildingIds, memberships } = useAuth();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const legacySuper = profile?.role === 'super_admin';
-  const legacyBuildingId = profile?.role === 'building_admin' ? profile?.building_id ?? null : null;
 
   const memberBuildingIds = useMemo(
     () => memberships.map((m) => m.unit?.building_id).filter((x): x is string => !!x),
     [memberships],
   );
 
-  const idsKey = [...new Set([...manageableBuildingIds, ...memberBuildingIds, legacyBuildingId ?? ''])]
+  const idsKey = [...new Set([...manageableBuildingIds, ...memberBuildingIds])]
     .filter(Boolean).sort().join(',');
 
   useEffect(() => {
@@ -30,8 +27,8 @@ export function useViewableBuildings() {
       setLoading(true);
       let query = supabase.from('buildings').select('*').order('name');
 
-      if (!isPlatformAdmin && !legacySuper) {
-        const ids = [...new Set([...manageableBuildingIds, ...memberBuildingIds, ...(legacyBuildingId ? [legacyBuildingId] : [])])];
+      if (!isPlatformAdmin) {
+        const ids = [...new Set([...manageableBuildingIds, ...memberBuildingIds])];
         if (ids.length === 0) {
           if (!cancelled) { setBuildings([]); setLoading(false); }
           return;
@@ -45,7 +42,7 @@ export function useViewableBuildings() {
     load();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlatformAdmin, legacySuper, legacyBuildingId, idsKey]);
+  }, [isPlatformAdmin, idsKey]);
 
   return { buildings, loading };
 }

@@ -15,11 +15,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { t, i18n } = useTranslation();
   const { profile, signOut, canAny, isPlatformAdmin } = useAuth();
 
-  // Fallback to the legacy role so existing admins keep their nav during migration.
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const canStructure = canAny('unit.manage') || legacyManager;
-  const canPeople = canAny('resident.manage') || canAny('resident.approve') || legacyManager;
-  const canBuildings = isPlatformAdmin || profile?.role === 'super_admin';
+  const canStructure = canAny('unit.manage');
+  const canPeople = canAny('resident.manage') || canAny('resident.approve');
+  const canBuildings = isPlatformAdmin;
 
   const links = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, show: true },

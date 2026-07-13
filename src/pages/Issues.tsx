@@ -26,8 +26,7 @@ export default function Issues() {
   const { buildings } = useViewableBuildings();
   const entities = useEntities(buildings);
 
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const isManager = isPlatformAdmin || canAny('issue.view_all') || legacyManager;
+  const isManager = isPlatformAdmin || canAny('issue.view_all');
 
   const [entityKey, setEntityKey] = useState('');
   const [blockFilter, setBlockFilter] = useState('');

@@ -107,12 +107,9 @@ npm run dev         # http://localhost:5173
 
 ## 7. Known gaps / tech debt
 
-- **Legacy role fallbacks:** Issues/Meetings/Users still honor `profiles.role` alongside grants (kept working during migration). Plan to retire once everyone's on grants.
 - **Grants management UI:** assigning admins/accountants is still done via SQL (`grants` table). Needs a People → Access screen.
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
 - **Owner vs tenant:** owner-only for now (schema left extensible).
-- **Arabic:** main pages translated; a few newer strings (some Issues/Meetings bits) still English.
-- **Bundle size:** >500 kB warning — no code-splitting yet.
 - **Dues model = "B1"** (prepay target; residents see real charges). A stricter **"B2" budget** model (flat fee, fund-only expenses, explicit period true-up) is designed but not built.
 
 ---
@@ -129,11 +126,11 @@ npm run dev         # http://localhost:5173
 - **Tenant model** — owner + tenant per unit, route charges by category.
 - **B2 budget dues** — flat-fee, fund-only expenses, explicit period true-up.
 - **PDF export / statements** — compound/building financial reports.
-- **Retire legacy `profiles.role`** fallback paths (Issues/Meetings/Users); move attendees to memberships.
-- **Code-splitting** — bundle currently >500 kB, no lazy loading yet.
+- **Retire legacy `profiles.role`** fallback paths — ✅ done (all pages now use `isPlatformAdmin` + grants capabilities only).
+- **Code-splitting** — ✅ done (React.lazy + Suspense; main chunk 366 kB, each page loads on demand).
 - **PWA** — make the app installable on phones (manifest + service worker).
-- **Polish** — loading skeletons, toast notifications throughout.
-- **Arabic RTL** — finish newer strings in Issues, Meetings, Finance.
+- **Polish** — ✅ done (loading skeletons + toast notifications across all pages).
+- **Arabic RTL** — ✅ done (all user-facing strings go through t() with en/ar keys).
 
 ### Platform & business
 - **Licensing module** — paid license rules; accounts must be licensed to use the solution.

@@ -49,8 +49,7 @@ export default function Inspections() {
   const [form, setForm] = useState<Form>(newForm());
   const [file, setFile] = useState<File | null>(null);
 
-  const legacyManager = profile?.role === 'super_admin' || profile?.role === 'building_admin';
-  const canManage = isPlatformAdmin || legacyManager || !!entity?.buildingIds.some((id) => can('building.manage', id));
+  const canManage = isPlatformAdmin || !!entity?.buildingIds.some((id) => can('building.manage', id));
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const blockName = Object.fromEntries(buildings.map((b) => [b.id, b.name]));
 

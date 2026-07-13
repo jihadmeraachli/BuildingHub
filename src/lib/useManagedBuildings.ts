@@ -9,12 +9,9 @@ import type { Building } from '@/types';
  * admins keep working during the migration.
  */
 export function useManagedBuildings() {
-  const { isPlatformAdmin, manageableBuildingIds, profile } = useAuth();
+  const { isPlatformAdmin, manageableBuildingIds } = useAuth();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const legacySuper = profile?.role === 'super_admin';
-  const legacyBuildingId = profile?.role === 'building_admin' ? profile?.building_id ?? null : null;
 
   // Stable dependency key so we don't refetch every render.
   const idsKey = [...manageableBuildingIds].sort().join(',');
@@ -25,10 +22,8 @@ export function useManagedBuildings() {
       setLoading(true);
       let query = supabase.from('buildings').select('*').order('name');
 
-      if (!isPlatformAdmin && !legacySuper) {
-        const ids = new Set(manageableBuildingIds);
-        if (legacyBuildingId) ids.add(legacyBuildingId);
-        const list = [...ids];
+      if (!isPlatformAdmin) {
+        const list = [...manageableBuildingIds];
         if (list.length === 0) {
           if (!cancelled) { setBuildings([]); setLoading(false); }
           return;
@@ -45,7 +40,7 @@ export function useManagedBuildings() {
     load();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlatformAdmin, legacySuper, legacyBuildingId, idsKey]);
+  }, [isPlatformAdmin, idsKey]);
 
   return { buildings, loading };
 }
