@@ -117,21 +117,23 @@ npm run dev         # http://localhost:5173
 
 ## 8. Full roadmap (tracked in GitHub Projects → BuildingHub Roadmap)
 
-### In Progress
-- **Access/grants UI** — manage org/building admins & accountants without SQL (People → Access screen).
-- **WhatsApp notifications** — dedicated number being sourced; personal number cannot be used.
+### Phase 2 — ✅ Complete
+- **Access/grants UI** — ✅ done (People → Access tab; assign building_admin / building_finance / viewer without SQL).
+- **PDF export / statements** — ✅ done (`src/lib/pdf.tsx`, lazy-loaded; unit statements + building/compound reports).
+- **Tenant model** — ✅ done (tenure picker in Structure; `billed_to` routing on charges; resident Finance view filters by tenure; migration 0018).
+- **B2 budget dues** — ✅ done (plan_type b1/b2 on dues_plans; B2 always charges full base, no carry-in; migration 0019).
 
-### Tech / product backlog
+### Phase 3 — Todo
+- **WhatsApp notifications** — dedicated number being sourced; bundle with mobile app release.
 - **WhatsApp reminders** — arrears/dues overdue alerts (needs a scheduled cron job).
 - **Inspection due-date reminders** (scheduled job).
-- **Tenant model** — owner + tenant per unit, route charges by category.
-- **B2 budget dues** — flat-fee, fund-only expenses, explicit period true-up.
-- **PDF export / statements** — ✅ done (`src/lib/pdf.tsx`, lazy-loaded via dynamic import in Finance.tsx). Unit Statement (per-unit charges + payments + balance) and Building/Compound Report (KPIs + unit book + expenses). Export buttons on resident "My Account" view, per-row download icon in manager Book tab, and "Export Report" button in manager header.
-- **Retire legacy `profiles.role`** fallback paths — ✅ done (all pages now use `isPlatformAdmin` + grants capabilities only).
-- **Code-splitting** — ✅ done (React.lazy + Suspense; main chunk 366 kB, each page loads on demand).
-- **PWA** — make the app installable on phones (manifest + service worker).
+- **PWA / Mobile app** — installable on phones; publish on Google Play & App Store.
+
+### Done (Phase 1)
+- **Retire legacy `profiles.role`** fallback paths — ✅ done.
+- **Code-splitting** — ✅ done (React.lazy + Suspense; main chunk ~366 kB).
 - **Polish** — ✅ done (loading skeletons + toast notifications across all pages).
-- **Arabic RTL** — ✅ done (all user-facing strings go through t() with en/ar keys).
+- **Arabic RTL** — ✅ done (all user-facing strings through t() with en/ar keys).
 
 ### Platform & business
 - **Licensing module** — paid license rules; accounts must be licensed to use the solution.
