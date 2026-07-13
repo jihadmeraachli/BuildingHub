@@ -88,7 +88,7 @@ export default function Users() {
             onChange={e => { setSelectedBuildingId(e.target.value); setTab('all'); }}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
           >
-            <option value="">— Select a building —</option>
+            <option value="">{t('common.selectBuilding')}</option>
             {buildings.map(b => (
               <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
             ))}
@@ -100,7 +100,7 @@ export default function Users() {
         <Card>
           <CardBody>
             <p className="text-sm text-slate-500 text-center py-8">
-              Select a building above to manage its users.
+              {t('users.selectBuildingHint')}
             </p>
           </CardBody>
         </Card>
@@ -113,7 +113,7 @@ export default function Users() {
                 onClick={() => setTab(t2)}
                 className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
               >
-                {t2 === 'all' ? 'All Users' : t('users.pendingApprovals')}
+                {t2 === 'all' ? t('users.allUsers') : t('users.pendingApprovals')}
                 {t2 === 'pending' && pendingCount > 0 && (
                   <span className="ms-1.5 bg-yellow-400 text-yellow-900 text-xs rounded-full px-1.5">{pendingCount}</span>
                 )}
@@ -178,11 +178,11 @@ export default function Users() {
                           <div className="flex flex-col gap-1">
                             <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                               <input type="checkbox" checked={u.notify_email} onChange={e => updateUser(u.id, { notify_email: e.target.checked })} className="rounded" />
-                              Email
+                              {t('users.notifyEmail')}
                             </label>
                             <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                               <input type="checkbox" checked={u.notify_whatsapp} onChange={e => updateUser(u.id, { notify_whatsapp: e.target.checked })} className="rounded" />
-                              WhatsApp
+                              {t('users.notifyWhatsapp')}
                             </label>
                           </div>
                         </td>
@@ -198,7 +198,7 @@ export default function Users() {
                               <Button size="sm" variant="secondary" onClick={() => updateUser(u.id, { status: 'inactive' })}>{t('users.deactivate')}</Button>
                             )}
                             {u.status === 'inactive' && (
-                              <Button size="sm" onClick={() => updateUser(u.id, { status: 'active' })}>Reactivate</Button>
+                              <Button size="sm" onClick={() => updateUser(u.id, { status: 'active' })}>{t('common.reactivate')}</Button>
                             )}
                           </div>
                         </td>

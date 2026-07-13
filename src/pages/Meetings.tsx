@@ -164,7 +164,7 @@ export default function Meetings() {
           {isManager && entity && (
             <>
               <Button variant="secondary" onClick={openAdd}><Plus size={16} /> {t('meetings.addMeeting')}</Button>
-              <Button onClick={openSchedule}><CalendarPlus size={16} /> Schedule</Button>
+              <Button onClick={openSchedule}><CalendarPlus size={16} /> {t('meetings.scheduleMeeting')}</Button>
             </>
           )}
         </div>
@@ -184,7 +184,7 @@ export default function Meetings() {
             onClick={() => setTab(t2)}
             className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
           >
-            {t2 === 'scheduled' ? 'Scheduled' : 'Past Meetings'}
+            {t2 === 'scheduled' ? t('meetings.scheduled') : t('meetings.pastMeetings')}
           </button>
         ))}
       </div>
@@ -193,7 +193,7 @@ export default function Meetings() {
         <SkeletonCards count={3} />
       ) : meetings.length === 0 ? (
         <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">
-          {tab === 'scheduled' ? 'No upcoming meetings scheduled.' : 'No past meetings recorded.'}
+          {tab === 'scheduled' ? t('meetings.noScheduled') : t('meetings.noPast')}
         </p></CardBody></Card>
       ) : tab === 'scheduled' ? (
         // Scheduled meetings: flat list with date/time prominent
@@ -215,10 +215,10 @@ export default function Meetings() {
                       )}
                       {m.summary && <p className="text-sm text-slate-600 mt-1">{m.summary}</p>}
                       <div className="flex flex-wrap items-center gap-3 mt-2">
-                        {m.attendees?.length > 0 && <span className="text-xs text-slate-400">{m.attendees.length} attendee{m.attendees.length === 1 ? '' : 's'}</span>}
+                        {m.attendees?.length > 0 && <span className="text-xs text-slate-400">{t('meetings.attendeeCount', { count: m.attendees.length })}</span>}
                         {m.meeting_url && (
                           <a href={m.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
-                            <Video size={13} /> Join online <ExternalLink size={11} />
+                            <Video size={13} /> {t('meetings.joinOnline')} <ExternalLink size={11} />
                           </a>
                         )}
                       </div>
@@ -291,7 +291,7 @@ export default function Meetings() {
                               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attachments')}</p>
                               {m.attachment_urls.map((url, i) => (
                                 <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-blue-700 hover:underline">
-                                  <Paperclip size={13} /> Attachment {i + 1}
+                                  <Paperclip size={13} /> {t('meetings.attachment', { n: i + 1 })}
                                 </a>
                               ))}
                             </div>
@@ -308,61 +308,61 @@ export default function Meetings() {
       )}
 
       {/* Schedule Meeting modal */}
-      <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title="Schedule Meeting">
+      <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title={t('meetings.scheduleMeeting')}>
         <form onSubmit={scheduleForm.handleSubmit(onSchedule)} className="space-y-4">
           {(entity?.blocks.length ?? 0) > 1 && (
             <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
               {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </Select>
           )}
-          <Input label="Meeting Title" {...scheduleForm.register('title', { required: true })} />
+          <Input label={t('meetings.meetingTitle')} {...scheduleForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Date" type="date" {...scheduleForm.register('meeting_date', { required: true })} />
-            <Input label="Time" type="time" {...scheduleForm.register('meeting_time')} />
+            <Input label={t('meetings.meetingDate')} type="date" {...scheduleForm.register('meeting_date', { required: true })} />
+            <Input label={t('meetings.meetingTime')} type="time" {...scheduleForm.register('meeting_time')} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">Notes (optional)</label>
+            <label className="text-sm font-medium text-slate-700">{t('meetings.notesOptional')}</label>
             <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...scheduleForm.register('summary')} />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">Attendees</label>
+            <label className="text-sm font-medium text-slate-600">{t('meetings.attendees')}</label>
             <AttendeePicker users={buildingUsers} selected={selectedAttendees} setSelected={setSelectedAttendees} />
           </div>
 
           <div className="rounded-xl border border-slate-200 p-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
               <input type="checkbox" checked={scheduleOnline} onChange={(e) => setScheduleOnline(e.target.checked)} className="rounded" />
-              <Video size={15} className="text-indigo-600" /> Online meeting (Zoom / Teams) for those abroad
+              <Video size={15} className="text-indigo-600" /> {t('meetings.onlineMeeting')}
             </label>
             {scheduleOnline && (
               <input
                 type="url"
                 value={scheduleUrl}
                 onChange={(e) => setScheduleUrl(e.target.value)}
-                placeholder="Paste the Zoom / Teams / Meet link"
+                placeholder={t('meetings.meetingLinkPlaceholder')}
                 className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               />
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">Attachments (agenda, minutes, recording)</label>
+            <label className="text-sm font-medium text-slate-600">{t('meetings.attachments')}</label>
             <input type="file" multiple onChange={(e) => setScheduleFiles(Array.from(e.target.files ?? []))}
               className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
           </div>
           <p className="text-xs text-slate-400 bg-indigo-50 rounded-lg px-3 py-2">
-            📅 A calendar invite (.ics) will be emailed to all building residents.
+            📅 {t('meetings.calendarHint')}
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setScheduleOpen(false)}>{t('common.cancel')}</Button>
-            <Button type="submit" loading={scheduleForm.formState.isSubmitting}>Schedule & Send Invite</Button>
+            <Button type="submit" loading={scheduleForm.formState.isSubmitting}>{t('meetings.scheduleAndSend')}</Button>
           </div>
         </form>
       </Modal>
 
       {/* Add Past Meeting modal */}
-      <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title="Add Meeting Record" size="lg">
+      <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title={t('meetings.addRecord')} size="lg">
         <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
           {(entity?.blocks.length ?? 0) > 1 && (
             <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
@@ -371,8 +371,8 @@ export default function Meetings() {
           )}
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Date" type="date" {...addForm.register('meeting_date', { required: true })} />
-            <Input label="Time" type="time" {...addForm.register('meeting_time')} />
+            <Input label={t('meetings.meetingDate')} type="date" {...addForm.register('meeting_date', { required: true })} />
+            <Input label={t('meetings.meetingTime')} type="time" {...addForm.register('meeting_time')} />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-700">{t('meetings.summary')}</label>
@@ -385,7 +385,7 @@ export default function Meetings() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">Attachments (minutes, recording, PDF)</label>
+            <label className="text-sm font-medium text-slate-600">{t('meetings.attachmentsPast')}</label>
             <input type="file" multiple onChange={(e) => setAddFiles(Array.from(e.target.files ?? []))}
               className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
           </div>
@@ -397,9 +397,9 @@ export default function Meetings() {
       </Modal>
 
       {/* Delete confirmation modal */}
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Meeting" size="sm">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('meetings.deleteMeeting')} size="sm">
         <p className="text-sm text-slate-600 mb-6">
-          Are you sure you want to delete <strong>{deleteTarget?.title}</strong>? This cannot be undone.
+          {t('meetings.confirmDelete')}
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
@@ -416,7 +416,7 @@ export default function Meetings() {
             </p>
             {detailMeeting.meeting_url && (
               <a href={detailMeeting.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline">
-                <Video size={15} /> Join online <ExternalLink size={12} />
+                <Video size={15} /> {t('meetings.joinOnline')} <ExternalLink size={12} />
               </a>
             )}
             {detailMeeting.summary && (
@@ -438,7 +438,7 @@ export default function Meetings() {
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attachments')}</p>
                 {detailMeeting.attachment_urls.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
-                    <Paperclip size={13} /> {t('meetings.attachments')} {i + 1}
+                    <Paperclip size={13} /> {t('meetings.attachment', { n: i + 1 })}
                   </a>
                 ))}
               </div>
@@ -453,6 +453,7 @@ export default function Meetings() {
 }
 
 function AttendeePicker({ users, selected, setSelected }: { users: Profile[]; selected: string[]; setSelected: (v: string[]) => void }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const filtered = users.filter(u =>
     u.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -463,9 +464,9 @@ function AttendeePicker({ users, selected, setSelected }: { users: Profile[]; se
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">{selected.length} of {users.length} selected</span>
+        <span className="text-xs text-slate-400">{t('meetings.attendeePicker', { selected: selected.length, total: users.length })}</span>
         <button type="button" onClick={() => setSelected(allOn ? [] : users.map(u => u.id))} className="text-xs font-medium text-indigo-600 hover:underline cursor-pointer">
-          {allOn ? 'Clear all' : 'Select all'}
+          {allOn ? t('common.clearAll') : t('common.selectAll')}
         </button>
       </div>
       {selected.length > 0 && (
@@ -480,12 +481,12 @@ function AttendeePicker({ users, selected, setSelected }: { users: Profile[]; se
       )}
       <div className="relative">
         <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input type="text" placeholder="Search residents…" value={search} onChange={e => setSearch(e.target.value)}
+        <input type="text" placeholder={t('meetings.searchResidents')} value={search} onChange={e => setSearch(e.target.value)}
           className="w-full rounded-xl border border-slate-200 ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
       </div>
       <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
         {filtered.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-3">No residents found</p>
+          <p className="text-xs text-slate-400 text-center py-3">{t('meetings.noResidents')}</p>
         ) : filtered.map(u => (
           <button key={u.id} type="button" onClick={() => toggle(u.id)}
             className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selected.includes(u.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'}`}>

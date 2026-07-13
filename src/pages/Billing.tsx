@@ -115,7 +115,7 @@ export default function Billing() {
             onChange={e => setSelectedBuildingId(e.target.value)}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
           >
-            <option value="">— Select a building —</option>
+            <option value="">{t('common.selectBuilding')}</option>
             {buildings.map(b => (
               <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
             ))}
@@ -125,7 +125,7 @@ export default function Billing() {
 
       {!activeBuildingId ? (
         <Card><CardBody>
-          <p className="text-sm text-slate-500 text-center py-8">Select a building above to view its billing entries.</p>
+          <p className="text-sm text-slate-500 text-center py-8">{t('billing.selectBuildingHint')}</p>
         </CardBody></Card>
       ) : (<>
         <div className="flex flex-wrap gap-3 mb-4">
@@ -134,7 +134,7 @@ export default function Billing() {
             onChange={e => setCategoryFilter(e.target.value)}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">{t('billing.category')}: All</option>
+            <option value="all">{t('billing.category')}: {t('common.all')}</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{t(`billing.categories.${c}`)}</option>)}
           </select>
           <select
@@ -142,7 +142,7 @@ export default function Billing() {
             onChange={e => setStatusFilter(e.target.value)}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">{t('billing.status')}: All</option>
+            <option value="all">{t('billing.status')}: {t('common.all')}</option>
             <option value="unpaid">{t('billing.unpaid')}</option>
             <option value="paid">{t('billing.paid')}</option>
           </select>

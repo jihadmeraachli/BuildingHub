@@ -1,51 +1,60 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import Dashboard from '@/pages/Dashboard';
-import Meetings from '@/pages/Meetings';
-import Billing from '@/pages/Billing';
-import Finance from '@/pages/Finance';
-import Dues from '@/pages/Dues';
-import Structure from '@/pages/Structure';
-import Inspections from '@/pages/Inspections';
-import Contracts from '@/pages/Contracts';
-import Issues from '@/pages/Issues';
-import Users from '@/pages/Users';
-import Buildings from '@/pages/Buildings';
+import { SkeletonCards } from '@/components/ui/Skeleton';
+
+const Login      = lazy(() => import('@/pages/Login'));
+const Register   = lazy(() => import('@/pages/Register'));
+const Dashboard  = lazy(() => import('@/pages/Dashboard'));
+const Meetings   = lazy(() => import('@/pages/Meetings'));
+const Billing    = lazy(() => import('@/pages/Billing'));
+const Finance    = lazy(() => import('@/pages/Finance'));
+const Dues       = lazy(() => import('@/pages/Dues'));
+const Structure  = lazy(() => import('@/pages/Structure'));
+const Inspections = lazy(() => import('@/pages/Inspections'));
+const Contracts  = lazy(() => import('@/pages/Contracts'));
+const Issues     = lazy(() => import('@/pages/Issues'));
+const Users      = lazy(() => import('@/pages/Users'));
+const Buildings  = lazy(() => import('@/pages/Buildings'));
+
+function PageFallback() {
+  return <div className="p-6"><SkeletonCards count={3} /></div>;
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <Toaster position="top-right" richColors closeButton />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppShell />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/meetings" element={<Meetings />} />
-            <Route path="/finance" element={<Finance />} />
-            <Route path="/dues" element={<Dues />} />
-            <Route path="/structure" element={<Structure />} />
-            <Route path="/inspections" element={<Inspections />} />
-            <Route path="/contracts" element={<Contracts />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/issues" element={<Issues />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/buildings" element={<Buildings />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppShell />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/meetings" element={<Meetings />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/dues" element={<Dues />} />
+              <Route path="/structure" element={<Structure />} />
+              <Route path="/inspections" element={<Inspections />} />
+              <Route path="/contracts" element={<Contracts />} />
+              <Route path="/billing" element={<Billing />} />
+              <Route path="/issues" element={<Issues />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/buildings" element={<Buildings />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );
