@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Trash2, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -316,6 +316,38 @@ export default function Finance() {
     loadScope();
   }
 
+  // ─── PDF export ───────────────────────────────────────────────────────────
+
+  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[]) {
+    const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
+    const el = (
+      <UnitStatementDoc
+        unitLabel={unit.label}
+        buildingName={entity?.name ?? ''}
+        period={periodLabel}
+        generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+        charges={unitCharges}
+        payments={unitPayments}
+      />
+    );
+    await downloadPdf(el, `statement-unit-${unit.label.replace(/\s+/g, '-')}.pdf`);
+  }
+
+  async function exportBuildingReport() {
+    const { BuildingReportDoc, downloadPdf } = await import('@/lib/pdf');
+    const el = (
+      <BuildingReportDoc
+        entityName={entity?.name ?? ''}
+        period={periodLabel}
+        generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+        kpi={{ collected: collectedP, billed: billedP, outstanding }}
+        book={book}
+        expenses={pExpenses}
+      />
+    );
+    await downloadPdf(el, `report-${(entity?.name ?? 'building').replace(/\s+/g, '-')}-${period}.pdf`);
+  }
+
   // ================= RESIDENT VIEW =================
   if (!isManager) {
     if (!myUnitIds.length) return <EmptyState title={t('finance.noStatement')} body={t('finance.noStatementBody')} />;
@@ -326,7 +358,17 @@ export default function Finance() {
     });
     return (
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">{t('finance.myAccount')}</h1>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('finance.myAccount')}</h1>
+          {units.length > 0 && (
+            <Button variant="secondary" size="sm" onClick={() => {
+              const u = units[0];
+              exportUnitStatement(u, charges.filter(c => c.unit_id === u.id), payments.filter(p => p.unit_id === u.id));
+            }}>
+              <Download size={15} /> {t('finance.exportStatement')}
+            </Button>
+          )}
+        </div>
         <p className="text-sm text-slate-500 mb-6">{t('finance.myAccountSub')}</p>
         {rBook.map((r) => (
           <Card key={r.unit.id} className="mb-4"><CardBody>
@@ -412,12 +454,15 @@ export default function Finance() {
                 </button>
               ))}
             </div>
-            {canManageFinance && (
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={openPayment} disabled={units.length === 0}><HandCoins size={16} /> {t('finance.recordPayment')}</Button>
-                <Button onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={exportBuildingReport} disabled={!entity || units.length === 0}><Download size={16} /> {t('finance.exportReport')}</Button>
+              {canManageFinance && (
+                <>
+                  <Button variant="secondary" onClick={openPayment} disabled={units.length === 0}><HandCoins size={16} /> {t('finance.recordPayment')}</Button>
+                  <Button onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
+                </>
+              )}
+            </div>
           </div>
 
           {units.length === 0 ? (
@@ -436,6 +481,7 @@ export default function Finance() {
                     <th className="px-5 py-3 text-end font-medium">{t('finance.billed')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.paid')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.balance')}</th>
+                    <th className="px-3 py-3 w-8" />
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {book.map((r) => {
@@ -447,6 +493,11 @@ export default function Finance() {
                           <td className="px-5 py-3 text-end text-slate-600 tnum">{money(r.charged)}</td>
                           <td className="px-5 py-3 text-end text-slate-600 tnum">{money(r.paid)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-rose-600' : r.balance > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{money(r.balance)}</td>
+                          <td className="px-3 py-3">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-slate-400 hover:text-indigo-600 transition cursor-pointer">
+                              <Download size={14} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}

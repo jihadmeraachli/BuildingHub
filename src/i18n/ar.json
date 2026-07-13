@@ -405,7 +405,9 @@
       "bank_transfer": "تحويل بنكي",
       "cheque": "شيك",
       "other": "أخرى"
-    }
+    },
+    "exportStatement": "تصدير كشف الحساب",
+    "exportReport": "تصدير التقرير"
   },
   "inspections": {
     "title": "الفحوصات",

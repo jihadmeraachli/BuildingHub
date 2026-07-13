@@ -405,7 +405,9 @@
       "bank_transfer": "bank transfer",
       "cheque": "cheque",
       "other": "other"
-    }
+    },
+    "exportStatement": "Export Statement",
+    "exportReport": "Export Report"
   },
   "inspections": {
     "title": "Inspections",

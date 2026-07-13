@@ -125,7 +125,7 @@ npm run dev         # http://localhost:5173
 - **Inspection due-date reminders** (scheduled job).
 - **Tenant model** — owner + tenant per unit, route charges by category.
 - **B2 budget dues** — flat-fee, fund-only expenses, explicit period true-up.
-- **PDF export / statements** — compound/building financial reports.
+- **PDF export / statements** — ✅ done (`src/lib/pdf.tsx`, lazy-loaded via dynamic import in Finance.tsx). Unit Statement (per-unit charges + payments + balance) and Building/Compound Report (KPIs + unit book + expenses). Export buttons on resident "My Account" view, per-row download icon in manager Book tab, and "Export Report" button in manager header.
 - **Retire legacy `profiles.role`** fallback paths — ✅ done (all pages now use `isPlatformAdmin` + grants capabilities only).
 - **Code-splitting** — ✅ done (React.lazy + Suspense; main chunk 366 kB, each page loads on demand).
 - **PWA** — make the app installable on phones (manifest + service worker).
