@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Layers, Home, Users2, Trash2, Pencil, UserPlus, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 interface MiniProfile { id: string; full_name: string; apartment_number: string | null; }
 interface OwnerRow { id: string; user_id: string; unit_id: string; }
@@ -107,6 +109,7 @@ export default function Structure() {
     if (!payload.label) return;
     if (unitModal.edit) await supabase.from('units').update(payload).eq('id', unitModal.edit.id);
     else await supabase.from('units').insert(payload);
+    toast.success(t('common.saved'));
     setUnitModal({ open: false });
     loadAll();
   }
@@ -194,7 +197,7 @@ export default function Structure() {
               <div className="flex justify-end mb-3">
                 <Button onClick={() => openUnit()}><Plus size={16} /> {t('structure.addUnit')}</Button>
               </div>
-              {loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
+              {loading ? <SkeletonTable rows={5} cols={5} />
                 : units.length === 0 ? (
                   <Card><CardBody><div className="text-center py-10">
                     <Layers className="mx-auto text-slate-300 mb-2" size={28} />

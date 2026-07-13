@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Plus, Image } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonCards } from '@/components/ui/Skeleton';
 
 const priorityColor: Record<IssuePriority, 'slate' | 'yellow' | 'red'> = { low: 'slate', medium: 'yellow', urgent: 'red' };
 const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = { open: 'orange', in_progress: 'blue', resolved: 'green' };
@@ -78,7 +80,7 @@ export default function Issues() {
 
   async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList }) {
     const buildingId = createBuildingId;
-    if (!buildingId) { alert('Pick a building/block'); return; }
+    if (!buildingId) { toast.error('Pick a building/block'); return; }
     const photoUrls: string[] = [];
     if (data.photos?.length) {
       for (const file of Array.from(data.photos)) {
@@ -93,7 +95,8 @@ export default function Issues() {
     };
     if (data.apartment_number?.trim()) payload.apartment_number = data.apartment_number.trim();
     const { error } = await supabase.from('issues').insert(payload);
-    if (error) { alert(`Could not log issue: ${error.message}`); return; }
+    if (error) { toast.error(`Could not log issue: ${error.message}`); return; }
+    toast.success(t('issues.issueLogged'));
     setModalOpen(false); reset(); loadIssues();
   }
 
@@ -103,6 +106,7 @@ export default function Issues() {
       status: data.status, resolution_notes: data.resolution_notes,
       resolved_at: data.status === 'resolved' ? new Date().toISOString() : null,
     }).eq('id', selectedIssue.id);
+    toast.success(t('issues.statusUpdated'));
     setSelectedIssue(null); loadIssues();
   }
 
@@ -141,7 +145,7 @@ export default function Issues() {
 
       {!entity ? (
         <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
-      ) : loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
+      ) : loading ? <SkeletonCards count={3} />
         : issues.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
         : (
           <div className="space-y-3">

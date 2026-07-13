@@ -25,7 +25,8 @@
     "noData": "لا توجد سجلات.",
     "required": "هذا الحقل مطلوب.",
     "markAllRead": "تحديد الكل كمقروء",
-    "noNotifications": "لا توجد إشعارات بعد."
+    "noNotifications": "لا توجد إشعارات بعد.",
+    "saved": "تم الحفظ بنجاح."
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -142,6 +143,7 @@
     },
     "noEntries": "لا توجد قيود فواتير.",
     "viewInvoice": "عرض الفاتورة",
+    "markedPaid": "تم تحديد الدفع.",
     "uploadInvoice": "رفع فاتورة"
   },
   "issues": {
@@ -169,7 +171,9 @@
     "noIssues": "لا توجد مشكلات مسجّلة.",
     "updateStatus": "تحديث الحالة",
     "myIssues": "مشكلاتي",
-    "allIssues": "جميع المشكلات"
+    "allIssues": "جميع المشكلات",
+    "issueLogged": "تم تسجيل المشكلة بنجاح.",
+    "statusUpdated": "تم تحديث الحالة."
   },
   "users": {
     "title": "إدارة المستخدمين",
@@ -196,6 +200,9 @@
     "pendingApprovals": "الطلبات المعلّقة",
     "noUsers": "لا يوجد مستخدمون.",
     "notifyEmail": "إشعارات البريد الإلكتروني",
+    "approved": "تم قبول المستخدم.",
+    "rejected": "تم رفض المستخدم.",
+    "deactivated": "تم تعطيل المستخدم.",
     "notifyWhatsapp": "إشعارات واتساب"
   },
   "buildings": {
@@ -228,7 +235,8 @@
     "compoundHint": "بعد إنشائه، عيّن المباني لهذا المجمّع من القائمة المنسدلة في كل بطاقة مبنى.",
     "create": "إنشاء",
     "mapsLink": "رابط خرائط جوجل (اختياري)",
-    "mapsPlaceholder": "ألصق رابط مشاركة خرائط جوجل"
+    "mapsPlaceholder": "ألصق رابط مشاركة خرائط جوجل",
+    "buildingAdded": "تمت إضافة المبنى بنجاح."
   },
   "structure": {
     "title": "الهيكل",
@@ -299,6 +307,8 @@
     "note": "ملاحظة",
     "noteOptional": "ملاحظة (اختياري)",
     "actions": "الإجراءات",
+    "expenseSaved": "تم تسجيل المصروف.",
+    "paymentSaved": "تم تسجيل الدفعة.",
     "noExpenses": "لا مصاريف {{period}}.",
     "noPayments": "لا مدفوعات {{period}}.",
     "noBuildings": "لا توجد مبانٍ متاحة.",
@@ -448,6 +458,8 @@
     "unit": "الوحدة",
     "noDues": "لم تُصدر رسوم بعد.",
     "generatedFor": "الرسوم — {{period}}",
+    "generated": "تم إصدار الرسوم بنجاح.",
+    "planSaved": "تم حفظ خطة الرسوم.",
     "residentTitle": "الرسوم",
     "reconcileNote": "المبلغ المستحق = الأساس − الرصيد الحالي (يُرحّل الفائض/العجز تلقائياً).",
     "cadences": { "monthly": "شهري", "quarterly": "ربع سنوي", "semiannual": "نصف سنوي", "annual": "سنوي" },

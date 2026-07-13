@@ -25,7 +25,8 @@
     "noData": "No records found.",
     "required": "This field is required.",
     "markAllRead": "Mark all read",
-    "noNotifications": "No notifications yet."
+    "noNotifications": "No notifications yet.",
+    "saved": "Saved successfully."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -142,7 +143,8 @@
     },
     "noEntries": "No billing entries found.",
     "viewInvoice": "View Invoice",
-    "uploadInvoice": "Upload Invoice"
+    "uploadInvoice": "Upload Invoice",
+    "markedPaid": "Entry marked as paid."
   },
   "issues": {
     "title": "Issues",
@@ -169,7 +171,9 @@
     "noIssues": "No issues logged.",
     "updateStatus": "Update Status",
     "myIssues": "My Issues",
-    "allIssues": "All Issues"
+    "allIssues": "All Issues",
+    "issueLogged": "Issue logged successfully.",
+    "statusUpdated": "Status updated."
   },
   "users": {
     "title": "User Management",
@@ -196,7 +200,10 @@
     "pendingApprovals": "Pending Approvals",
     "noUsers": "No users found.",
     "notifyEmail": "Email Notifications",
-    "notifyWhatsapp": "WhatsApp Notifications"
+    "notifyWhatsapp": "WhatsApp Notifications",
+    "approved": "User approved.",
+    "rejected": "User rejected.",
+    "deactivated": "User deactivated."
   },
   "buildings": {
     "title": "Buildings",
@@ -228,7 +235,8 @@
     "compoundHint": "After creating it, assign buildings to this compound using the dropdown on each building card.",
     "create": "Create",
     "mapsLink": "Google Maps Link (optional)",
-    "mapsPlaceholder": "Paste the Google Maps share link"
+    "mapsPlaceholder": "Paste the Google Maps share link",
+    "buildingAdded": "Building added successfully."
   },
   "structure": {
     "title": "Structure",
@@ -299,6 +307,8 @@
     "note": "Note",
     "noteOptional": "Note (optional)",
     "actions": "Actions",
+    "expenseSaved": "Expense recorded.",
+    "paymentSaved": "Payment recorded.",
     "noExpenses": "No expenses {{period}}.",
     "noPayments": "No payments {{period}}.",
     "noBuildings": "No buildings available.",
@@ -448,6 +458,8 @@
     "unit": "Unit",
     "noDues": "No dues generated yet.",
     "generatedFor": "Dues — {{period}}",
+    "generated": "Dues generated successfully.",
+    "planSaved": "Dues plan saved.",
     "residentTitle": "Dues",
     "reconcileNote": "Amount due = base − current balance (surplus/deficit carried automatically).",
     "cadences": { "monthly": "Monthly", "quarterly": "Quarterly", "semiannual": "Semi-annual", "annual": "Annual" },

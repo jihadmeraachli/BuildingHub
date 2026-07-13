@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, ClipboardCheck, Pencil, Trash2, FileText } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonCards } from '@/components/ui/Skeleton';
 
 const CATEGORIES: InspectionCategory[] = ['generator', 'elevator', 'fire_safety', 'water_tank', 'electrical', 'hvac', 'other'];
 const STATUSES: InspectionStatus[] = ['passed', 'failed', 'action_required', 'pending'];
@@ -90,7 +92,8 @@ export default function Inspections() {
       ? await supabase.from('inspections').update(base).eq('id', editId)
       : await supabase.from('inspections').insert({ ...base, created_by: profile?.id });
     setSaving(false);
-    if (error) { alert(error.message); return; }
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('common.saved'));
     setOpen(false); load();
   }
 
@@ -125,7 +128,7 @@ export default function Inspections() {
         </div>
       </div>
 
-      {loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
+      {loading ? <SkeletonCards count={3} />
         : vRows.length === 0 ? (
           <Card><CardBody><div className="text-center py-10">
             <ClipboardCheck className="mx-auto text-slate-300 mb-2" size={28} />

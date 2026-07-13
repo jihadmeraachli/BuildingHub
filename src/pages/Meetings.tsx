@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X, Video, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonCards } from '@/components/ui/Skeleton';
 
 type Tab = 'scheduled' | 'past';
 
@@ -97,7 +99,8 @@ export default function Meetings() {
     // only include meeting_url when set, so scheduling works before migration 0004
     if (scheduleOnline && scheduleUrl.trim()) payload.meeting_url = scheduleUrl.trim();
     const { error } = await supabase.from('meetings').insert(payload);
-    if (error) { alert(`Could not schedule meeting: ${error.message}`); return; }
+    if (error) { toast.error(`Could not schedule meeting: ${error.message}`); return; }
+    toast.success('Meeting scheduled — invite sent to residents.');
     setScheduleOpen(false); scheduleForm.reset(); setScheduleFiles([]); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); loadMeetings();
   }
 
@@ -122,7 +125,7 @@ export default function Meetings() {
       meeting_type: 'past',
       created_by: profile?.id,
     });
-    if (!error) { setAddOpen(false); addForm.reset(); setSelectedAttendees([]); setAddFiles([]); loadMeetings(); }
+    if (!error) { toast.success('Meeting record saved.'); setAddOpen(false); addForm.reset(); setSelectedAttendees([]); setAddFiles([]); loadMeetings(); }
   }
 
   async function deleteMeeting(id: string) {
@@ -187,7 +190,7 @@ export default function Meetings() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-500">{t('common.loading')}</p>
+        <SkeletonCards count={3} />
       ) : meetings.length === 0 ? (
         <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">
           {tab === 'scheduled' ? 'No upcoming meetings scheduled.' : 'No past meetings recorded.'}

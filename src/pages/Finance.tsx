@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +16,7 @@ import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 const CATEGORIES: ExpenseCategory[] = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
 const CAT_LABEL: Record<ExpenseCategory, string> = {
@@ -273,7 +275,7 @@ export default function Finance() {
         building_id, compound_id, category: expForm.category, description: desc, amount_usd: amount,
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
       }).select().single();
-      if (error || !exp) { setSaving(false); alert(error?.message ?? 'Could not save expense'); return; }
+      if (error || !exp) { setSaving(false); toast.error(error?.message ?? 'Could not save expense'); return; }
       expenseId = (exp as Expense).id;
     }
 
@@ -283,6 +285,7 @@ export default function Finance() {
       category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date, created_by: profile?.id,
     }));
     if (rows.length) await supabase.from('charges').insert(rows);
+    toast.success(t('finance.expenseSaved'));
     setSaving(false); setExpOpen(false); loadScope();
   }
 
@@ -303,7 +306,8 @@ export default function Finance() {
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
       : await supabase.from('payments').insert({ ...base, building_id: unitById[payForm.unit_id]?.building_id, recorded_by: profile?.id });
     setSaving(false);
-    if (error) { alert(`Could not save payment: ${error.message}`); return; }
+    if (error) { toast.error(`Could not save payment: ${error.message}`); return; }
+    toast.success(t('finance.paymentSaved'));
     setPayOpen(false); loadScope();
   }
 
@@ -423,7 +427,7 @@ export default function Finance() {
               <p className="text-sm text-slate-500 mb-3">{t('finance.addUnitsFirst')}</p>
               <Link to="/structure"><Button variant="secondary" size="sm">{t('finance.goToStructure')}</Button></Link>
             </div></CardBody></Card>
-          ) : loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p> : (
+          ) : loading ? <SkeletonTable rows={6} cols={5} /> : (
             <>
               {tab === 'book' && (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">

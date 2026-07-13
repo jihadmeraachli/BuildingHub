@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
@@ -19,6 +20,7 @@ import Buildings from '@/pages/Buildings';
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors closeButton />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />

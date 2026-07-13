@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { Plus, Building2, MapPin, ExternalLink, Boxes, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import type { Building, Compound } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonCards } from '@/components/ui/Skeleton';
 
 type FormData = {
   name: string; address: string; city: string; country: string;
@@ -56,7 +58,7 @@ export default function Buildings() {
       contact_email: data.contact_email || null, contact_phone: data.contact_phone || null,
       maps_url: data.maps_url || null, compound_id: data.compound_id || null, is_active: true,
     });
-    if (!error) { setModalOpen(false); reset(); loadAll(); }
+    if (!error) { toast.success(t('buildings.buildingAdded')); setModalOpen(false); reset(); loadAll(); }
   }
 
   async function addCompound() {
@@ -158,7 +160,7 @@ export default function Buildings() {
       )}
 
       {loading ? (
-        <p className="text-sm text-slate-500">{t('common.loading')}</p>
+        <SkeletonCards count={3} />
       ) : buildings.length === 0 ? (
         <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('buildings.noBuildings')}</p></CardBody></Card>
       ) : (

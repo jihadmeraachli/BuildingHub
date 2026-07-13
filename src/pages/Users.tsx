@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Profile, UserRole, UserStatus, Building } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 const roleColor: Record<UserRole, 'blue' | 'orange' | 'slate'> = {
   super_admin: 'blue', building_admin: 'orange', resident: 'slate',
@@ -64,6 +66,9 @@ export default function Users() {
 
   async function updateUser(id: string, patch: Partial<Profile>) {
     await supabase.from('profiles').update(patch).eq('id', id);
+    if (patch.status === 'active') toast.success(t('users.approved'));
+    else if (patch.status === 'rejected') toast.success(t('users.rejected'));
+    else if (patch.status === 'inactive') toast.success(t('users.deactivated'));
     loadUsers();
   }
 
@@ -117,7 +122,7 @@ export default function Users() {
           </div>
 
           {loading ? (
-            <p className="text-sm text-slate-500">{t('common.loading')}</p>
+            <SkeletonTable rows={5} cols={6} />
           ) : users.length === 0 ? (
             <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('users.noUsers')}</p></CardBody></Card>
           ) : (

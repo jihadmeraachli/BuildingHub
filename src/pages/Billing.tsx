@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Plus, Download, FileText } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { BillingEntry, BillingCategory, Building } from '@/types';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 const CATEGORIES: BillingCategory[] = ['water', 'electricity', 'common_expenses', 'projects', 'contracts'];
 
@@ -90,6 +92,7 @@ export default function Billing() {
 
   async function markPaid(id: string) {
     await supabase.from('billing_entries').update({ status: 'paid' }).eq('id', id);
+    toast.success(t('billing.markedPaid'));
     loadEntries();
   }
 
@@ -146,7 +149,7 @@ export default function Billing() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-slate-500">{t('common.loading')}</p>
+          <SkeletonTable rows={5} cols={5} />
         ) : entries.length === 0 ? (
           <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('billing.noEntries')}</p></CardBody></Card>
         ) : (

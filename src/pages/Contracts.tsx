@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, FileSignature, Pencil, Trash2, FileText, Phone } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonCards } from '@/components/ui/Skeleton';
 
 const SERVICES: ServiceType[] = ['elevator', 'generator', 'landscape', 'security', 'cleaning', 'water', 'internet', 'other'];
 const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly', 'one_time'];
@@ -96,7 +98,8 @@ export default function Contracts() {
       ? await supabase.from('service_contracts').update(base).eq('id', editId)
       : await supabase.from('service_contracts').insert({ ...base, created_by: profile?.id });
     setSaving(false);
-    if (error) { alert(error.message); return; }
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('common.saved'));
     setOpen(false); load();
   }
 
@@ -138,7 +141,7 @@ export default function Contracts() {
         </div>
       </div>
 
-      {loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
+      {loading ? <SkeletonCards count={3} />
         : vRows.length === 0 ? (
           <Card><CardBody><div className="text-center py-10">
             <FileSignature className="mx-auto text-slate-300 mb-2" size={28} />

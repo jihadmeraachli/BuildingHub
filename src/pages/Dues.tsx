@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Wallet, Settings2, Trash2, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 const CADENCES: DuesCadence[] = ['monthly', 'quarterly', 'semiannual', 'annual'];
 const METHODS: DuesMethod[] = ['by_shares', 'equal', 'custom'];
@@ -127,6 +129,7 @@ export default function Dues() {
       const rows = units.map((u) => ({ plan_id: planId, unit_id: u.id, amount: Number(pCustom[u.id]) || 0 }));
       if (rows.length) await supabase.from('dues_unit_amounts').insert(rows);
     }
+    toast.success(t('dues.planSaved'));
     setSaving(false); setPlanOpen(false); load();
   }
 
@@ -146,7 +149,8 @@ export default function Dues() {
       plan_id: plan.id, building_id: r.unit.building_id, unit_id: r.unit.id, period_label: genPeriod.trim(),
       due_date: genDue || null, base_amount: r.base, carry_in: r.carry, amount_due: r.amount_due, created_by: profile?.id,
     }));
-    if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { alert(error.message); setSaving(false); return; } }
+    if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { toast.error(error.message); setSaving(false); return; } }
+    toast.success(t('dues.generated'));
     setSaving(false); setGenOpen(false); load();
   }
 
@@ -210,7 +214,7 @@ export default function Dues() {
               <p className="text-xs text-slate-400 mt-2">{t('dues.reconcileNote')}</p>
             </CardBody></Card>
 
-            {loading ? <p className="text-sm text-slate-500">{t('common.loading')}</p>
+            {loading ? <SkeletonTable rows={5} cols={6} />
               : vItems.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('dues.noDues')}</p></CardBody></Card>
               : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
