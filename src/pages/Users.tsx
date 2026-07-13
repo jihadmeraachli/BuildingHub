@@ -42,7 +42,7 @@ export default function Users() {
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
-  const [assigned, setAssigned] = useState<Record<string, string[]>>({});
+  const [assigned, setAssigned] = useState<Record<string, { label: string; tenure: string }[]>>({});
 
   // Grants state
   const [grants, setGrants] = useState<GrantRow[]>([]);
@@ -83,10 +83,10 @@ export default function Users() {
     const unitList = (us as { id: string; label: string }[]) ?? [];
     const unitLabel = Object.fromEntries(unitList.map((u) => [u.id, u.label]));
     if (unitList.length) {
-      const { data: ms } = await supabase.from('memberships').select('user_id, unit_id').in('unit_id', unitList.map((u) => u.id));
-      const map: Record<string, string[]> = {};
-      (ms as { user_id: string; unit_id: string }[] ?? []).forEach((m) => {
-        (map[m.user_id] ??= []).push(unitLabel[m.unit_id]);
+      const { data: ms } = await supabase.from('memberships').select('user_id, unit_id, tenure').in('unit_id', unitList.map((u) => u.id));
+      const map: Record<string, { label: string; tenure: string }[]> = {};
+      (ms as { user_id: string; unit_id: string; tenure: string }[] ?? []).forEach((m) => {
+        (map[m.user_id] ??= []).push({ label: unitLabel[m.unit_id], tenure: m.tenure ?? 'owner' });
       });
       setAssigned(map);
     } else setAssigned({});
@@ -283,8 +283,8 @@ export default function Users() {
                           <td className="px-4 py-3">
                             {assigned[u.id]?.length ? (
                               <div className="flex flex-wrap gap-1">
-                                {assigned[u.id].map((label) => (
-                                  <span key={label} className="text-xs bg-indigo-50 text-indigo-700 rounded-full px-2 py-0.5">{label}</span>
+                                {assigned[u.id].map((m) => (
+                                  <span key={m.label} className={`text-xs rounded-full px-2 py-0.5 ${m.tenure === 'tenant' ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'}`}>{m.label}</span>
                                 ))}
                               </div>
                             ) : (

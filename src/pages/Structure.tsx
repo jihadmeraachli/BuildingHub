@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
-import type { Unit, Group, Occupancy } from '@/types';
+import type { Unit, Group, Occupancy, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -15,7 +15,7 @@ import { Modal } from '@/components/ui/Modal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 interface MiniProfile { id: string; full_name: string; apartment_number: string | null; }
-interface OwnerRow { id: string; user_id: string; unit_id: string; }
+interface OwnerRow { id: string; user_id: string; unit_id: string; tenure: Tenure; }
 
 const occupancyColor: Record<Occupancy, 'green' | 'slate' | 'blue'> = {
   occupied: 'green', vacant: 'slate', abroad: 'blue',
@@ -42,6 +42,7 @@ export default function Structure() {
   const [unitForm, setUnitForm] = useState({ label: '', share_weight: '1', occupancy: 'occupied' as Occupancy });
   const [ownerModal, setOwnerModal] = useState<Unit | null>(null);
   const [ownerPick, setOwnerPick] = useState('');
+  const [ownerTenure, setOwnerTenure] = useState<Tenure>('owner');
   const [groupModal, setGroupModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupUnitsModal, setGroupUnitsModal] = useState<Group | null>(null);
@@ -70,7 +71,7 @@ export default function Structure() {
     const unitIds = unitList.map((x) => x.id);
     if (unitIds.length) {
       const [{ data: o }, { data: ug }] = await Promise.all([
-        supabase.from('memberships').select('id, user_id, unit_id').in('unit_id', unitIds),
+        supabase.from('memberships').select('id, user_id, unit_id, tenure').in('unit_id', unitIds),
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', unitIds),
       ]);
       setOwners((o as OwnerRow[]) ?? []);
@@ -121,8 +122,8 @@ export default function Structure() {
   // ---- owners ----
   async function addOwner() {
     if (!ownerModal || !ownerPick) return;
-    await supabase.from('memberships').insert({ user_id: ownerPick, unit_id: ownerModal.id });
-    setOwnerPick('');
+    await supabase.from('memberships').insert({ user_id: ownerPick, unit_id: ownerModal.id, tenure: ownerTenure });
+    setOwnerPick(''); setOwnerTenure('owner');
     loadAll();
   }
   async function removeOwner(membershipId: string) {
@@ -209,7 +210,7 @@ export default function Structure() {
                         <thead>
                           <tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
                             <th className="px-5 py-3 text-start font-medium">{t('structure.unit')}</th>
-                            <th className="px-5 py-3 text-start font-medium">{t('structure.owners')}</th>
+                            <th className="px-5 py-3 text-start font-medium">{t('structure.members')}</th>
                             <th className="px-5 py-3 text-start font-medium">{t('structure.shares')}</th>
                             <th className="px-5 py-3 text-start font-medium">{t('structure.occupancy')}</th>
                             <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>
@@ -226,9 +227,10 @@ export default function Structure() {
                                   {ow.length === 0 ? <span className="text-slate-400">—</span> : (
                                     <div className="flex flex-wrap gap-1">
                                       {ow.map((o) => (
-                                        <span key={o.id} className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 rounded-full ps-2 pe-1 py-0.5">
+                                        <span key={o.id} className={`inline-flex items-center gap-1 text-xs rounded-full ps-2 pe-1 py-0.5 ${o.tenure === 'tenant' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'}`}>
                                           {profileName[o.user_id] ?? 'User'}
-                                          <button onClick={() => removeOwner(o.id)} className="text-slate-400 hover:text-rose-500 cursor-pointer"><X size={11} /></button>
+                                          <span className="opacity-60 text-[10px]">· {t(`structure.tenure.${o.tenure}`)}</span>
+                                          <button onClick={() => removeOwner(o.id)} className="opacity-50 hover:opacity-100 hover:text-rose-500 cursor-pointer"><X size={11} /></button>
                                         </span>
                                       ))}
                                     </div>
@@ -240,7 +242,7 @@ export default function Structure() {
                                 <td className="px-5 py-3"><Badge color={occupancyColor[u.occupancy]}>{t(`structure.${u.occupancy}`)}</Badge></td>
                                 <td className="px-5 py-3">
                                   <div className="flex items-center justify-end gap-1">
-                                    <button onClick={() => { setOwnerModal(u); setOwnerPick(''); }} title="Assign owner" className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"><UserPlus size={15} /></button>
+                                    <button onClick={() => { setOwnerModal(u); setOwnerPick(''); setOwnerTenure('owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"><UserPlus size={15} /></button>
                                     <button onClick={() => openUnit(u)} title="Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={15} /></button>
                                     <button onClick={() => deleteUnit(u.id)} title="Delete" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
                                   </div>
@@ -319,26 +321,32 @@ export default function Structure() {
         </div>
       </Modal>
 
-      {/* Assign owner modal */}
-      <Modal open={!!ownerModal} onClose={() => setOwnerModal(null)} title={t('structure.assignOwner', { label: ownerModal?.label ?? '' })}>
+      {/* Assign member modal */}
+      <Modal open={!!ownerModal} onClose={() => setOwnerModal(null)} title={t('structure.assignMember', { label: ownerModal?.label ?? '' })}>
         <div className="space-y-4">
           {ownerModal && ownersOf(ownerModal.id).length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {ownersOf(ownerModal.id).map((o) => (
-                <span key={o.id} className="inline-flex items-center gap-1 text-xs bg-slate-100 rounded-full ps-2 pe-1 py-1">
-                  {profileName[o.user_id] ?? 'User'}
-                  <button onClick={() => removeOwner(o.id)} className="text-slate-400 hover:text-rose-500 cursor-pointer"><X size={12} /></button>
+                <span key={o.id} className={`inline-flex items-center gap-1 text-xs rounded-full ps-2 pe-1 py-1 ${o.tenure === 'tenant' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                  {profileName[o.user_id] ?? 'User'} <span className="opacity-60">· {t(`structure.tenure.${o.tenure}`)}</span>
+                  <button onClick={() => removeOwner(o.id)} className="opacity-50 hover:opacity-100 hover:text-rose-500 cursor-pointer"><X size={12} /></button>
                 </span>
               ))}
             </div>
           )}
-          <Select label={t('structure.addOwner')} value={ownerPick} onChange={(e) => setOwnerPick(e.target.value)}>
-            <option value="">{t('structure.selectPerson')}</option>
-            {profiles
-              .filter((p) => !ownerModal || !ownersOf(ownerModal.id).some((o) => o.user_id === p.id))
-              .map((p) => <option key={p.id} value={p.id}>{p.full_name}{p.apartment_number ? ` (${p.apartment_number})` : ''}</option>)}
-          </Select>
-          <p className="text-xs text-slate-400">{t('structure.ownerHint')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Select label={t('structure.addMember')} value={ownerPick} onChange={(e) => setOwnerPick(e.target.value)}>
+              <option value="">{t('structure.selectPerson')}</option>
+              {profiles
+                .filter((p) => !ownerModal || !ownersOf(ownerModal.id).some((o) => o.user_id === p.id))
+                .map((p) => <option key={p.id} value={p.id}>{p.full_name}{p.apartment_number ? ` (${p.apartment_number})` : ''}</option>)}
+            </Select>
+            <Select label={t('structure.role')} value={ownerTenure} onChange={(e) => setOwnerTenure(e.target.value as Tenure)}>
+              <option value="owner">{t('structure.tenure.owner')}</option>
+              <option value="tenant">{t('structure.tenure.tenant')}</option>
+            </Select>
+          </div>
+          <p className="text-xs text-slate-400">{t('structure.memberHint')}</p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOwnerModal(null)}>{t('structure.done')}</Button>
             <Button onClick={addOwner} disabled={!ownerPick}>{t('common.add')}</Button>

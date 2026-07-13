@@ -25,6 +25,10 @@ interface AuthContextValue {
   manageableBuildingIds: string[];
   /** unit ids the current user owns/occupies */
   myUnitIds: string[];
+  /** unit ids where the user is specifically the owner */
+  myOwnerUnitIds: string[];
+  /** unit ids where the user is specifically a tenant */
+  myTenantUnitIds: string[];
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -138,13 +142,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const manageableBuildingIds = Object.keys(buildingRoles);
   const myUnitIds = memberships.map((m) => m.unit_id);
+  const myOwnerUnitIds = memberships.filter((m) => m.tenure === 'owner').map((m) => m.unit_id);
+  const myTenantUnitIds = memberships.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id);
 
   return (
     <AuthContext.Provider
       value={{
         user, profile, session, loading, signOut, refreshProfile,
         grants, memberships, isPlatformAdmin, buildingRoles, can, canAny,
-        manageableBuildingIds, myUnitIds,
+        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds,
       }}
     >
       {children}

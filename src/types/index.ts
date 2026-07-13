@@ -114,6 +114,7 @@ export type Tenure = 'owner' | 'tenant';
 export type ExpenseCategory =
   | 'water' | 'electricity' | 'common_expenses' | 'projects' | 'contracts' | 'fines' | 'other';
 export type AllocationScope = 'compound' | 'block' | 'group' | 'units' | 'unit';
+export type BilledTo = 'owner' | 'tenant' | 'both';
 export type AllocationMethod = 'equal' | 'by_shares' | 'custom' | 'percentage';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'other';
 
@@ -194,6 +195,7 @@ export interface Charge {
   description: string;
   amount_usd: number;
   charge_date: string;
+  billed_to: BilledTo;
   created_by: string | null;
   created_at: string;
   unit?: Unit;

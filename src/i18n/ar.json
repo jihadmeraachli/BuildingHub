@@ -299,10 +299,17 @@
     "manageUnits": "إدارة الوحدات",
     "unitLabel": "اسم الوحدة (مثل 4B)",
     "shareWeight": "وزن الحصة (حصص)",
+    "owners": "الملاك",
+    "members": "الأعضاء",
     "assignOwner": "تعيين مالك — وحدة {{label}}",
+    "assignMember": "تعيين عضو — وحدة {{label}}",
     "addOwner": "إضافة مالك",
+    "addMember": "إضافة شخص",
+    "role": "الدور",
+    "tenure": { "owner": "مالك", "tenant": "مستأجر" },
     "selectPerson": "— اختر شخصاً —",
     "ownerHint": "يظهر هنا المسجّلون فقط. وافق على المقيمين في صفحة الأشخاص أولاً.",
+    "memberHint": "يظهر هنا المسجّلون فقط. وافق على المقيمين في صفحة الأشخاص أولاً.",
     "done": "تم",
     "groupName": "اسم المجموعة",
     "groupNamePlaceholder": "مثل الدرج أ",
@@ -407,7 +414,9 @@
       "other": "أخرى"
     },
     "exportStatement": "تصدير كشف الحساب",
-    "exportReport": "تصدير التقرير"
+    "exportReport": "تصدير التقرير",
+    "billedTo": "يُحمَّل على",
+    "billedToOptions": { "both": "جميع الأعضاء", "owner": "المالك فقط", "tenant": "المستأجر فقط" }
   },
   "inspections": {
     "title": "الفحوصات",

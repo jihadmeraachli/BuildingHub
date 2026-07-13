@@ -59,6 +59,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0015 | `0015_dues.sql` | `dues_plans`, `dues_unit_amounts`, `dues` + notify triggers (issue/edit/delete) |
 | 0016 | `0016_billing_mode.sql` | `billing_mode` (`arrears`\|`dues`) on buildings + compounds |
 | 0017 | `0017_dues_webhooks.sql` | *(optional helper)* SQL to create dues email webhooks — we used the Webhooks UI instead |
+| 0018 | `0018_tenant_model.sql` | Activates `memberships.tenure` (NOT NULL, default `'owner'`); adds `charges.billed_to` (`owner`\|`tenant`\|`both`, default `'both'` — keeps existing charges visible to all) |
 
 ### Key idea: charges carry the block
 Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). So the **compound book** and **per-block slice** both fall out automatically, and **a unit's balance is identical** whether viewed at compound or block level.
@@ -109,7 +110,7 @@ npm run dev         # http://localhost:5173
 
 - **Grants management UI:** assigning admins/accountants is still done via SQL (`grants` table). Needs a People → Access screen.
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
-- **Owner vs tenant:** owner-only for now (schema left extensible).
+- **Owner vs tenant:** ✅ done — `tenure` field active on memberships; `billed_to` on charges routes each expense to owner / tenant / both. Structure page has the tenure picker; Finance expense form has the "Charge to" selector; resident Finance view filters charges by their tenure.
 - **Dues model = "B1"** (prepay target; residents see real charges). A stricter **"B2" budget** model (flat fee, fund-only expenses, explicit period true-up) is designed but not built.
 
 ---

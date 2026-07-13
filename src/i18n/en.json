@@ -299,10 +299,17 @@
     "manageUnits": "Manage units",
     "unitLabel": "Unit label (e.g. 4B)",
     "shareWeight": "Share weight (حصص)",
+    "owners": "Owners",
+    "members": "Members",
     "assignOwner": "Assign owner — Unit {{label}}",
+    "assignMember": "Assign member — Unit {{label}}",
     "addOwner": "Add owner",
+    "addMember": "Add person",
+    "role": "Role",
+    "tenure": { "owner": "Owner", "tenant": "Tenant" },
     "selectPerson": "— Select a person —",
     "ownerHint": "Only registered people appear here. Approve residents in the People page first.",
+    "memberHint": "Only registered people appear here. Approve residents in the People page first.",
     "done": "Done",
     "groupName": "Group name",
     "groupNamePlaceholder": "e.g. Stairwell A",
@@ -407,7 +414,9 @@
       "other": "other"
     },
     "exportStatement": "Export Statement",
-    "exportReport": "Export Report"
+    "exportReport": "Export Report",
+    "billedTo": "Charge to",
+    "billedToOptions": { "both": "All members", "owner": "Owner only", "tenant": "Tenant only" }
   },
   "inspections": {
     "title": "Inspections",

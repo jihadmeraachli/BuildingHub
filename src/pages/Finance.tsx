@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
-import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues } from '@/types';
+import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, BilledTo } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -48,17 +48,20 @@ type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
   category: ExpenseCategory; description: string; amount: string; expense_date: string;
   scope: ExpScope; method: AllocationMethod; block_id: string; group_id: string; unit_id: string; selectedUnits: string[];
+  billed_to: BilledTo;
 };
+const defaultBilledTo = (cat: ExpenseCategory): BilledTo =>
+  cat === 'water' || cat === 'electricity' ? 'tenant' : 'both';
 const newExpForm = (): ExpForm => ({
   category: 'common_expenses', description: '', amount: '', expense_date: new Date().toISOString().slice(0, 10),
-  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [],
+  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], billed_to: 'both',
 });
 type PayForm = { unit_id: string; amount: string; method: PaymentMethod; paid_on: string; note: string };
 const newPayForm = (): PayForm => ({ unit_id: '', amount: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '' });
 
 export default function Finance() {
   const { t } = useTranslation();
-  const { can, canAny, isPlatformAdmin, profile, myUnitIds } = useAuth();
+  const { can, canAny, isPlatformAdmin, profile, myUnitIds, myOwnerUnitIds, myTenantUnitIds } = useAuth();
   const { buildings } = useManagedBuildings();
   const isManager = isPlatformAdmin || canAny('finance.view');
 
@@ -241,7 +244,7 @@ export default function Finance() {
   function openExpenseEdit(e: Expense) {
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, description: e.description, amount: String(e.amount_usd), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id) });
+    setExpForm({ category: e.category, description: e.description, amount: String(e.amount_usd), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), billed_to: myCharges[0]?.billed_to ?? 'both' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -281,7 +284,7 @@ export default function Finance() {
     // each charge carries the UNIT's own block_id → compound book slices by block
     const rows = allocate(amount, targetUnits, expForm.method, custom).filter((r) => r.amount !== 0).map((r) => ({
       expense_id: expenseId, unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id,
-      category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date, created_by: profile?.id,
+      category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date, billed_to: expForm.billed_to, created_by: profile?.id,
     }));
     if (rows.length) await supabase.from('charges').insert(rows);
     toast.success(t('finance.expenseSaved'));
@@ -351,19 +354,27 @@ export default function Finance() {
   // ================= RESIDENT VIEW =================
   if (!isManager) {
     if (!myUnitIds.length) return <EmptyState title={t('finance.noStatement')} body={t('finance.noStatementBody')} />;
+    const myChargesForUnit = (unitId: string) => {
+      const isOwner = myOwnerUnitIds.includes(unitId);
+      const isTenant = myTenantUnitIds.includes(unitId);
+      return charges.filter((c) => c.unit_id === unitId && (
+        c.billed_to === 'both' || (isOwner && c.billed_to === 'owner') || (isTenant && c.billed_to === 'tenant')
+      ));
+    };
     const rBook = units.map((u) => {
-      const charged = charges.filter((c) => c.unit_id === u.id).reduce((s, c) => s + Number(c.amount_usd), 0);
+      const unitCharges = myChargesForUnit(u.id);
+      const charged = unitCharges.reduce((s, c) => s + Number(c.amount_usd), 0);
       const paid = payments.filter((p) => p.unit_id === u.id).reduce((s, p) => s + Number(p.amount_usd), 0);
-      return { unit: u, charged, paid, balance: round2(paid - charged) };
+      return { unit: u, charged, paid, balance: round2(paid - charged), unitCharges };
     });
     return (
       <div>
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('finance.myAccount')}</h1>
-          {units.length > 0 && (
+          {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
-              const u = units[0];
-              exportUnitStatement(u, charges.filter(c => c.unit_id === u.id), payments.filter(p => p.unit_id === u.id));
+              const r = rBook[0];
+              exportUnitStatement(r.unit, r.unitCharges, payments.filter(p => p.unit_id === r.unit.id));
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -386,7 +397,7 @@ export default function Finance() {
           </CardBody></Card>
         ))}
         <ResidentDuesCard unitIds={myUnitIds} />
-        <StatementList charges={charges} payments={payments} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
+        <StatementList charges={rBook.flatMap(r => r.unitCharges)} payments={payments} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
       </div>
     );
   }
@@ -566,13 +577,13 @@ export default function Finance() {
       <Modal open={expOpen} onClose={() => setExpOpen(false)} title={editingExpenseId ? t('finance.editExpense') : t('finance.recordExpense')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('finance.category')} value={expForm.category} onChange={(e) => setExpForm({ ...expForm, category: e.target.value as ExpenseCategory })}>
+            <Select label={t('finance.category')} value={expForm.category} onChange={(e) => { const cat = e.target.value as ExpenseCategory; setExpForm({ ...expForm, category: cat, billed_to: defaultBilledTo(cat) }); }}>
               {CATEGORIES.map((c) => <option key={c} value={c}>{t(`finance.cats.${c}`)}</option>)}
             </Select>
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
           </div>
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
             <Select label={t('finance.applyTo')} value={expForm.scope} onChange={(e) => setExpForm({ ...expForm, scope: e.target.value as ExpScope })}>
               <option value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</option>
@@ -580,6 +591,11 @@ export default function Finance() {
               <option value="group">{t('finance.aGroup')}</option>
               <option value="units">{t('finance.selectedUnits')}</option>
               <option value="unit">{t('finance.singleUnit')}</option>
+            </Select>
+            <Select label={t('finance.billedTo')} value={expForm.billed_to} onChange={(e) => setExpForm({ ...expForm, billed_to: e.target.value as BilledTo })}>
+              <option value="both">{t('finance.billedToOptions.both')}</option>
+              <option value="owner">{t('finance.billedToOptions.owner')}</option>
+              <option value="tenant">{t('finance.billedToOptions.tenant')}</option>
             </Select>
           </div>
 
