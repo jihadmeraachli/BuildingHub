@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
-import type { Unit, Charge, Payment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod } from '@/types';
+import type { Unit, Charge, Payment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -50,6 +50,7 @@ export default function Dues() {
   const [pMethod, setPMethod] = useState<DuesMethod>('by_shares');
   const [pPool, setPPool] = useState('');
   const [pCustom, setPCustom] = useState<Record<string, string>>({});
+  const [pPlanType, setPPlanType] = useState<DuesPlanType>('b1');
   const [saving, setSaving] = useState(false);
 
   // generate form
@@ -107,8 +108,8 @@ export default function Dues() {
   }
 
   function openPlan() {
-    if (plan) { setPCadence(plan.cadence); setPMethod(plan.method); setPPool(plan.pool_amount != null ? String(plan.pool_amount) : ''); setPCustom(customAmounts); }
-    else { setPCadence('quarterly'); setPMethod('by_shares'); setPPool(''); setPCustom({}); }
+    if (plan) { setPCadence(plan.cadence); setPMethod(plan.method); setPPool(plan.pool_amount != null ? String(plan.pool_amount) : ''); setPCustom(customAmounts); setPPlanType(plan.plan_type ?? 'b1'); }
+    else { setPCadence('quarterly'); setPMethod('by_shares'); setPPool(''); setPCustom({}); setPPlanType('b1'); }
     setPlanOpen(true);
   }
 
@@ -118,7 +119,7 @@ export default function Dues() {
     const payload = {
       building_id: entity.kind === 'building' ? entity.id : null,
       compound_id: entity.kind === 'compound' ? entity.id : null,
-      cadence: pCadence, method: pMethod, pool_amount: pMethod === 'custom' ? null : (Number(pPool) || 0), active: true,
+      cadence: pCadence, method: pMethod, pool_amount: pMethod === 'custom' ? null : (Number(pPool) || 0), plan_type: pPlanType, active: true,
     };
     let planId = plan?.id;
     if (plan) await supabase.from('dues_plans').update(payload).eq('id', plan.id);
@@ -132,10 +133,12 @@ export default function Dues() {
     setSaving(false); setPlanOpen(false); load();
   }
 
+  const isB2 = plan?.plan_type === 'b2';
   const preview = useMemo(() => {
     if (!plan) return [];
     return units.map((u) => {
       const base = baseFor(u, plan.method, Number(plan.pool_amount) || 0, customAmounts);
+      if (plan.plan_type === 'b2') return { unit: u, base, carry: 0, amount_due: base };
       const bal = balanceOf[u.id] ?? 0;
       return { unit: u, base, carry: round2(-bal), amount_due: Math.max(0, round2(base - bal)) };
     });
@@ -206,11 +209,12 @@ export default function Dues() {
           <>
             <Card className="mb-4"><CardBody>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isB2 ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{t(`dues.planTypes.${plan.plan_type ?? 'b1'}`)}</span>
                 <span className="text-slate-500">{t('dues.cadence')}: <span className="font-medium text-slate-800">{t(`dues.cadences.${plan.cadence}`)}</span></span>
                 <span className="text-slate-500">{t('dues.method')}: <span className="font-medium text-slate-800">{t(`dues.methods.${plan.method}`)}</span></span>
                 {plan.pool_amount != null && <span className="text-slate-500">{t('dues.pool')}: <span className="font-medium text-slate-800 tnum">{money(Number(plan.pool_amount))}</span></span>}
               </div>
-              <p className="text-xs text-slate-400 mt-2">{t('dues.reconcileNote')}</p>
+              <p className="text-xs text-slate-400 mt-2">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
             </CardBody></Card>
 
             {loading ? <SkeletonTable rows={5} cols={6} />
@@ -221,7 +225,7 @@ export default function Dues() {
                     <th className="px-5 py-3 text-start font-medium">{t('dues.period')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('dues.unit')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('dues.base')}</th>
-                    <th className="px-5 py-3 text-end font-medium">{t('dues.carry')}</th>
+                    {!isB2 && <th className="px-5 py-3 text-end font-medium">{t('dues.carry')}</th>}
                     <th className="px-5 py-3 text-end font-medium">{t('dues.amountDue')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('dues.dueDate')}</th>
                     {canManage && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
@@ -232,7 +236,7 @@ export default function Dues() {
                         <td className="px-5 py-3 text-slate-500">{d.period_label}</td>
                         <td className="px-5 py-3 font-semibold text-slate-900">{unitLabel(d.unit_id)}</td>
                         <td className="px-5 py-3 text-end text-slate-600 tnum">{money(Number(d.base_amount))}</td>
-                        <td className={`px-5 py-3 text-end tnum ${Number(d.carry_in) < 0 ? 'text-emerald-600' : Number(d.carry_in) > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{money(Number(d.carry_in))}</td>
+                        {!isB2 && <td className={`px-5 py-3 text-end tnum ${Number(d.carry_in) < 0 ? 'text-emerald-600' : Number(d.carry_in) > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{money(Number(d.carry_in))}</td>}
                         <td className="px-5 py-3 text-end font-semibold text-slate-900 tnum">{money(Number(d.amount_due))}</td>
                         <td className="px-5 py-3 text-slate-500">{d.due_date ? format(new Date(d.due_date), 'MMM d, yyyy') : '—'}</td>
                         {canManage && <td className="px-5 py-3 text-end"><button onClick={() => removeItem(d.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button></td>}
@@ -247,6 +251,11 @@ export default function Dues() {
       {/* Plan modal */}
       <Modal open={planOpen} onClose={() => setPlanOpen(false)} title={plan ? t('dues.editPlan') : t('dues.setupPlan')} size="lg">
         <div className="space-y-4">
+          <Select label={t('dues.planType')} value={pPlanType} onChange={(e) => setPPlanType(e.target.value as DuesPlanType)}>
+            <option value="b1">{t('dues.planTypes.b1')}</option>
+            <option value="b2">{t('dues.planTypes.b2')}</option>
+          </Select>
+          <p className="text-xs text-slate-400 -mt-2">{pPlanType === 'b2' ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
           <div className="grid grid-cols-2 gap-3">
             <Select label={t('dues.cadence')} value={pCadence} onChange={(e) => setPCadence(e.target.value as DuesCadence)}>
               {CADENCES.map((c) => <option key={c} value={c}>{t(`dues.cadences.${c}`)}</option>)}
@@ -284,14 +293,16 @@ export default function Dues() {
             <Input label={t('dues.period')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
           </div>
-          <p className="text-xs text-slate-400">{t('dues.reconcileNote')}</p>
+          <p className="text-xs text-slate-400">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-3 py-2 bg-slate-50 text-xs font-medium text-slate-500">{t('dues.amountDue')} — {preview.length} units</div>
             <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
               {preview.map((r) => (
                 <div key={r.unit.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
                   <span className="text-slate-700">{unitLabel(r.unit.id)}</span>
-                  <span className="text-slate-500 text-xs">{money(r.base)} {r.carry !== 0 && <>{r.carry < 0 ? '−' : '+'} {money(Math.abs(r.carry))}</>} = <span className="font-semibold text-slate-900">{money(r.amount_due)}</span></span>
+                  {isB2
+                    ? <span className="font-semibold text-slate-900 tnum">{money(r.amount_due)}</span>
+                    : <span className="text-slate-500 text-xs">{money(r.base)} {r.carry !== 0 && <>{r.carry < 0 ? '−' : '+'} {money(Math.abs(r.carry))}</>} = <span className="font-semibold text-slate-900">{money(r.amount_due)}</span></span>}
                 </div>
               ))}
             </div>

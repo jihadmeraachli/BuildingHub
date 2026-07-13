@@ -513,6 +513,9 @@
     "planSaved": "Dues plan saved.",
     "residentTitle": "Dues",
     "reconcileNote": "Amount due = base − current balance (surplus/deficit carried automatically).",
+    "flatFeeNote": "Flat fee — the full base amount is charged every period, regardless of current balance.",
+    "planType": "Billing model",
+    "planTypes": { "b1": "Standard (arrears true-up)", "b2": "Budget (flat fee)" },
     "cadences": { "monthly": "Monthly", "quarterly": "Quarterly", "semiannual": "Semi-annual", "annual": "Annual" },
     "methods": { "by_shares": "By shares", "equal": "Equal", "custom": "Manual (per unit)" }
   }

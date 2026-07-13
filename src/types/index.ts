@@ -217,6 +217,7 @@ export interface Payment {
 
 export type DuesCadence = 'monthly' | 'quarterly' | 'semiannual' | 'annual';
 export type DuesMethod = 'by_shares' | 'equal' | 'custom';
+export type DuesPlanType = 'b1' | 'b2';
 
 export interface DuesPlan {
   id: string;
@@ -225,6 +226,7 @@ export interface DuesPlan {
   cadence: DuesCadence;
   method: DuesMethod;
   pool_amount: number | null;
+  plan_type: DuesPlanType;
   active: boolean;
   created_at: string;
 }
