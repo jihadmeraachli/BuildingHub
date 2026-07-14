@@ -257,11 +257,11 @@ export default function Buildings() {
               {organizations.map((o) => {
                 const count = orgBuildings.filter((ob) => ob.org_id === o.id).length;
                 return (
-                  <div key={o.id} className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 rounded-xl px-3 py-1.5 text-sm">
-                    <Network size={14} />
+                  <div key={o.id} className="inline-flex items-center gap-2 bg-white/[0.05] ring-1 ring-white/10 text-slate-100 rounded-xl px-3 py-1.5 text-sm">
+                    <Network size={14} className="text-[#7fe3ec]" />
                     <span className="font-medium">{o.name}</span>
-                    <span className="text-violet-400 text-xs">· {t('buildings.orgCount', { count })}</span>
-                    <button onClick={() => openEditOrg(o)} className="text-violet-400 hover:text-violet-700 cursor-pointer"><Pencil size={13} /></button>
+                    <span className="text-slate-400 text-xs">· {t('buildings.orgCount', { count })}</span>
+                    <button onClick={() => openEditOrg(o)} className="text-slate-500 hover:text-[#57D6E2] cursor-pointer"><Pencil size={13} /></button>
                   </div>
                 );
               })}
@@ -279,15 +279,15 @@ export default function Buildings() {
               {visibleCompounds.map((c) => {
                 const count = buildings.filter((b) => b.compound_id === c.id).length;
                 return (
-                  <div key={c.id} className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-xl px-3 py-1.5 text-sm">
-                    <Boxes size={14} />
+                  <div key={c.id} className="inline-flex items-center gap-2 bg-white/[0.05] ring-1 ring-white/10 text-slate-100 rounded-xl px-3 py-1.5 text-sm">
+                    <Boxes size={14} className="text-[#7fe3ec]" />
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-indigo-400 text-xs">· {t('buildings.blocksCount', { count })}</span>
-                    <select value={c.billing_mode} onChange={(e) => setCompoundMode(c.id, e.target.value)} className="ms-1 bg-white border border-indigo-200 rounded-lg text-xs px-1.5 py-0.5 focus:outline-none cursor-pointer">
+                    <span className="text-slate-400 text-xs">· {t('buildings.blocksCount', { count })}</span>
+                    <select value={c.billing_mode} onChange={(e) => setCompoundMode(c.id, e.target.value)} className="ms-1 bg-white/10 border border-white/15 text-slate-100 rounded-lg text-xs px-1.5 py-0.5 focus:outline-none cursor-pointer">
                       <option value="arrears">{t('buildings.modeArrears')}</option>
                       <option value="dues">{t('buildings.modeDues')}</option>
                     </select>
-                    <button onClick={() => openEditC(c)} className="text-indigo-400 hover:text-indigo-700 cursor-pointer"><Pencil size={13} /></button>
+                    <button onClick={() => openEditC(c)} className="text-slate-500 hover:text-[#57D6E2] cursor-pointer"><Pencil size={13} /></button>
                   </div>
                 );
               })}

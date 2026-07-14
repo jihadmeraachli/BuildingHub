@@ -133,3 +133,28 @@
 /* darker scrollbar on the dark canvas */
 .app-dark ::-webkit-scrollbar-thumb { background: #2a3346; background-clip: content-box; }
 .app-dark ::-webkit-scrollbar-thumb:hover { background: #3a4560; background-clip: content-box; }
+
+/* colored "tint" chips / badges (bg-*-50/100) → translucent so they sit on dark,
+   and their paired dark text (*-600/700/800) → a lighter shade that reads on it */
+.app-dark .bg-indigo-50, .app-dark .bg-indigo-100 { background-color: rgba(99,102,241,0.15) !important; }
+.app-dark .bg-violet-50, .app-dark .bg-violet-100 { background-color: rgba(139,92,246,0.15) !important; }
+.app-dark .bg-sky-50, .app-dark .bg-sky-100,
+.app-dark .bg-cyan-50, .app-dark .bg-cyan-100 { background-color: rgba(87,214,226,0.15) !important; }
+.app-dark .bg-blue-50, .app-dark .bg-blue-100 { background-color: rgba(59,130,246,0.15) !important; }
+.app-dark .bg-emerald-50, .app-dark .bg-emerald-100,
+.app-dark .bg-green-50, .app-dark .bg-green-100 { background-color: rgba(16,185,129,0.15) !important; }
+.app-dark .bg-amber-50, .app-dark .bg-amber-100,
+.app-dark .bg-yellow-50, .app-dark .bg-yellow-100 { background-color: rgba(245,158,11,0.15) !important; }
+.app-dark .bg-rose-50, .app-dark .bg-rose-100,
+.app-dark .bg-red-50, .app-dark .bg-red-100 { background-color: rgba(244,63,94,0.15) !important; }
+
+.app-dark .text-indigo-600, .app-dark .text-indigo-700, .app-dark .text-indigo-800 { color: #a5b4fc; }
+.app-dark .text-violet-600, .app-dark .text-violet-700, .app-dark .text-violet-800 { color: #c4b5fd; }
+.app-dark .text-sky-600, .app-dark .text-sky-700, .app-dark .text-cyan-600, .app-dark .text-cyan-700 { color: #7fe3ec; }
+.app-dark .text-blue-600, .app-dark .text-blue-700, .app-dark .text-blue-800 { color: #93c5fd; }
+.app-dark .text-emerald-600, .app-dark .text-emerald-700, .app-dark .text-emerald-800,
+.app-dark .text-green-600, .app-dark .text-green-700 { color: #6ee7b7; }
+.app-dark .text-amber-600, .app-dark .text-amber-700, .app-dark .text-amber-800,
+.app-dark .text-yellow-600, .app-dark .text-yellow-700 { color: #fcd34d; }
+.app-dark .text-rose-600, .app-dark .text-rose-700, .app-dark .text-rose-800,
+.app-dark .text-red-600, .app-dark .text-red-700 { color: #fda4af; }
