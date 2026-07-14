@@ -6,8 +6,9 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
-const Login      = lazy(() => import('@/pages/Login'));
-const Register   = lazy(() => import('@/pages/Register'));
+const Login       = lazy(() => import('@/pages/Login'));
+const Register    = lazy(() => import('@/pages/Register'));
+const SetPassword = lazy(() => import('@/pages/SetPassword'));
 const Dashboard  = lazy(() => import('@/pages/Dashboard'));
 const Meetings   = lazy(() => import('@/pages/Meetings'));
 const Billing    = lazy(() => import('@/pages/Billing'));
@@ -33,6 +34,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/set-password" element={<SetPassword />} />
             <Route
               element={
                 <ProtectedRoute>
