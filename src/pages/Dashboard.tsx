@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
@@ -282,7 +283,7 @@ function Greeting({ name, subtitle }: { name: string; subtitle: string }) {
   const { t } = useTranslation();
   return (
     <div className="mb-6">
-      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+      <h1 className="font-display text-3xl font-bold text-slate-900 tracking-tight">
         {name ? `${t('dashboard.welcome')}, ${name}` : t('dashboard.welcome')} <span className="inline-block">👋</span>
       </h1>
       <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
@@ -294,25 +295,33 @@ function HeroCard({ label, amount, stats, pill }: {
   label: string; amount: string; stats: { label: string; value: string }[]; pill?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white p-6 lg:p-7 shadow-xl shadow-indigo-600/20">
-      <div className="absolute -top-16 -end-10 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute -bottom-20 -start-10 w-64 h-64 rounded-full bg-violet-400/20 blur-3xl" />
+    <motion.div
+      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}
+      className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-700 to-indigo-900 text-white p-6 lg:p-8 shadow-2xl shadow-indigo-700/30"
+    >
+      {/* animated aurora blobs */}
+      <motion.div className="absolute -top-24 -end-16 w-80 h-80 rounded-full bg-fuchsia-400/25 blur-3xl"
+        animate={{ x: [0, 24, 0], y: [0, 18, 0] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute -bottom-28 -start-16 w-80 h-80 rounded-full bg-cyan-400/20 blur-3xl"
+        animate={{ x: [0, -20, 0], y: [0, -16, 0] }} transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
+      {/* faint grid */}
+      <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
       <div className="relative">
         <div className="flex items-center justify-between">
           <p className="text-sm text-white/70">{label}</p>
-          {pill && <span className="text-xs font-medium bg-white/15 backdrop-blur rounded-full px-2.5 py-1">{pill}</span>}
+          {pill && <span className="text-xs font-medium bg-white/15 backdrop-blur rounded-full px-2.5 py-1 ring-1 ring-white/20">{pill}</span>}
         </div>
-        <p className="text-4xl lg:text-5xl font-extrabold tracking-tight mt-2 tnum">{amount}</p>
-        <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">
+        <p className="font-display text-5xl lg:text-6xl font-bold tracking-tight mt-2 tnum drop-shadow-[0_2px_20px_rgba(255,255,255,0.15)]">{amount}</p>
+        <div className="flex flex-wrap gap-x-8 gap-y-3 mt-7">
           {stats.map((s, i) => (
             <div key={i} className={i > 0 ? 'border-s border-white/15 ps-8' : ''}>
               <p className="text-xs text-white/60">{s.label}</p>
-              <p className="text-lg font-semibold tnum">{s.value}</p>
+              <p className="font-display text-lg font-semibold tnum">{s.value}</p>
             </div>
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -322,17 +331,19 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: string
     rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', slate: 'bg-slate-100 text-slate-500',
   };
   return (
-    <Card className="transition-shadow hover:shadow-md">
-      <CardBody>
-        <div className="flex items-start justify-between">
-          <div className="min-w-0">
-            <p className="text-xs text-slate-500 font-medium">{label}</p>
-            <p className="text-2xl font-bold text-slate-900 tnum mt-1 truncate">{value}</p>
+    <motion.div whileHover={{ y: -3 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
+      <Card className="transition-shadow hover:shadow-lg">
+        <CardBody>
+          <div className="flex items-start justify-between">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 font-medium">{label}</p>
+              <p className="font-display text-2xl font-bold text-slate-900 tnum mt-1 truncate">{value}</p>
+            </div>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tones[tone]}`}><Icon size={18} /></div>
           </div>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tones[tone]}`}><Icon size={18} /></div>
-        </div>
-      </CardBody>
-    </Card>
+        </CardBody>
+      </Card>
+    </motion.div>
   );
 }
 

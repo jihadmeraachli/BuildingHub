@@ -2,44 +2,61 @@
 
 @layer base {
   :root {
-    --bh-bg: #f5f6f8;
+    --bh-bg: #f6f7fb;
+    --bh-ink: #0b1020;
   }
 
   html {
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
-
   html[dir="rtl"] {
     font-family: 'Inter', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
   }
 
   body {
     margin: 0;
-    background-color: var(--bh-bg);
-    color: #0f172a;
+    color: var(--bh-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    background-color: var(--bh-bg);
+    /* subtle aurora — premium depth without going dark */
+    background-image:
+      radial-gradient(60rem 40rem at 12% -10%, rgba(99, 102, 241, 0.14), transparent 60%),
+      radial-gradient(50rem 40rem at 108% 8%, rgba(139, 92, 246, 0.12), transparent 55%),
+      radial-gradient(48rem 40rem at 50% 120%, rgba(16, 185, 129, 0.08), transparent 55%);
+    background-attachment: fixed;
   }
 
-  #root {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+  #root { min-height: 100vh; display: flex; flex-direction: column; }
 
-  /* Refined, subtle scrollbars (Wio-like minimalism) */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 9999px;
-    border: 3px solid transparent;
-    background-clip: content-box;
+    background: #c7cbd9; border-radius: 9999px; border: 3px solid transparent; background-clip: content-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #a3a9bd; background-clip: content-box; }
 }
 
 @layer utilities {
-  /* Tabular figures for money/numbers */
   .tnum { font-variant-numeric: tabular-nums; }
+  /* Space Grotesk for headings + big numbers → sharp / techy */
+  .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; letter-spacing: -0.01em; }
+
+  /* frosted glass surface */
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 1px 2px rgba(11, 16, 32, 0.04), 0 8px 24px -12px rgba(11, 16, 32, 0.18);
+  }
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 1px 2px rgba(11, 16, 32, 0.05), 0 12px 40px -16px rgba(11, 16, 32, 0.25);
+  }
+  /* soft neon ring for focus/accent elements */
+  .glow-indigo { box-shadow: 0 0 0 1px rgba(99,102,241,0.25), 0 10px 30px -12px rgba(99,102,241,0.55); }
 }
