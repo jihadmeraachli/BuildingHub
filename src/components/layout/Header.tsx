@@ -13,7 +13,15 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { t, i18n } = useTranslation();
-  const { profile, user, isPlatformAdmin } = useAuth();
+  const { profile, user, isPlatformAdmin, grants } = useAuth();
+
+  const displayRole = isPlatformAdmin
+    ? 'Platform Admin'
+    : grants.some(g => g.role === 'org_admin') ? 'Org Admin'
+    : grants.some(g => g.role === 'building_admin') ? 'Building Admin'
+    : grants.some(g => g.role === 'org_finance' || g.role === 'building_finance') ? 'Finance'
+    : grants.some(g => g.role === 'viewer') ? 'Viewer'
+    : profile?.role?.replace('_', ' ') ?? 'Member';
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -101,7 +109,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <div className="hidden sm:block text-sm leading-tight">
             <p className="font-medium text-slate-900">{profile?.full_name}</p>
             <p className="text-slate-500 text-xs mt-0.5">
-              {isPlatformAdmin ? 'Platform Admin' : (profile?.apartment_number ?? profile?.role?.replace('_', ' '))}
+              {profile?.apartment_number ?? displayRole}
             </p>
           </div>
         </div>
