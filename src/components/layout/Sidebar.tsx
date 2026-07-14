@@ -19,8 +19,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   // returns false when the org has no buildings yet (nothing to cascade through).
   const isOrgAdmin = grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
 
-  const canStructure = canAny('unit.manage');
-  const canPeople = canAny('resident.manage') || canAny('resident.approve');
+  const canStructure = canAny('unit.manage') || isOrgAdmin;
+  const canPeople = canAny('resident.manage') || canAny('resident.approve') || isOrgAdmin;
   const canBuildings = isPlatformAdmin || isOrgAdmin;
 
   // Derive a meaningful display role from grants (invited users always have

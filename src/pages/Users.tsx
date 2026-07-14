@@ -38,8 +38,11 @@ const grantRoleColor: Record<string, 'blue' | 'orange' | 'slate'> = {
 
 export default function Users() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, can, canAny } = useAuth();
+  const { profile, isPlatformAdmin, can, canAny, grants: authGrants } = useAuth();
   const isSuperAdmin = isPlatformAdmin;
+  const isOrgAdmin = !isPlatformAdmin && authGrants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
+  const myOrgIds = authGrants.filter(g => g.scope_type === 'org' && g.role === 'org_admin').map(g => g.org_id as string).filter(Boolean);
+  const showBuildingSelector = isSuperAdmin || isOrgAdmin;
 
   const [users, setUsers] = useState<Profile[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -80,17 +83,25 @@ export default function Users() {
   const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
-    if (!isSuperAdmin) return;
-    Promise.all([
-      supabase.from('buildings').select('*').eq('is_active', true).order('name'),
-      supabase.from('organizations').select('*').eq('is_active', true).order('name'),
-    ]).then(([{ data: b }, { data: o }]) => {
-      setBuildings(b ?? []);
-      setOrganizations(o ?? []);
-    });
-  }, [isSuperAdmin]);
+    if (!showBuildingSelector) return;
+    if (isSuperAdmin) {
+      Promise.all([
+        supabase.from('buildings').select('*').eq('is_active', true).order('name'),
+        supabase.from('organizations').select('*').eq('is_active', true).order('name'),
+      ]).then(([{ data: b }, { data: o }]) => {
+        setBuildings(b ?? []);
+        setOrganizations(o ?? []);
+      });
+    } else if (isOrgAdmin && myOrgIds.length) {
+      supabase.from('org_buildings').select('buildings(*)').in('org_id', myOrgIds)
+        .then(({ data }) => {
+          const b = ((data ?? []) as unknown as { buildings: Building }[]).map(r => r.buildings).filter(Boolean);
+          setBuildings(b);
+        });
+    }
+  }, [isSuperAdmin, isOrgAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeBuildingId = isSuperAdmin ? selectedBuildingId : profile?.building_id ?? '';
+  const activeBuildingId = showBuildingSelector ? selectedBuildingId : profile?.building_id ?? '';
   const canManageAccess = isPlatformAdmin || (activeBuildingId ? can('grant.manage', activeBuildingId) : canAny('grant.manage'));
 
   useEffect(() => {
@@ -267,7 +278,7 @@ export default function Users() {
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <h1 className="text-xl font-semibold text-slate-900">{t('users.title')}</h1>
         <div className="flex gap-2">
-          {isSuperAdmin && (
+          {(isSuperAdmin || isOrgAdmin) && (
             <Button variant="secondary" onClick={openInviteModal}>
               <Mail size={16} /> {t('users.inviteUser')}
             </Button>
@@ -284,7 +295,7 @@ export default function Users() {
         </div>
       </div>
 
-      {isSuperAdmin && (
+      {showBuildingSelector && (
         <div className="mb-4">
           <select
             value={selectedBuildingId}
@@ -338,6 +349,7 @@ export default function Users() {
                   </button>
                 </div>
               )}
+              {/* org admins stay on building scope only — no org-level grant management */}
 
               {grantScope === 'org' && isSuperAdmin ? (
                 <>
@@ -580,9 +592,9 @@ export default function Users() {
           <div className="border-t border-slate-100 pt-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('users.inviteRoleSection')}</p>
 
-            {/* Scope type selector */}
+            {/* Scope type selector — org admins can only invite to buildings, not org-level */}
             <div className="flex gap-1 mb-3">
-              {(['none', 'building', 'org'] as InviteScopeType[]).map(s => (
+              {(['none', 'building', ...(isSuperAdmin ? ['org'] : [])] as InviteScopeType[]).map(s => (
                 <button
                   key={s}
                   type="button"

@@ -36,7 +36,38 @@ Deno.serve(async (req) => {
       .select('is_platform_admin')
       .eq('id', caller.id)
       .single();
-    if (!callerProfile?.is_platform_admin) return json({ error: 'Forbidden — platform admin only' }, 403);
+
+    const { data: callerGrants } = await admin
+      .from('grants')
+      .select('scope_type, role, org_id, building_id')
+      .eq('user_id', caller.id);
+
+    const callerOrgIds = (callerGrants ?? [])
+      .filter((g: { scope_type: string; role: string }) => g.scope_type === 'org' && g.role === 'org_admin')
+      .map((g: { org_id: string }) => g.org_id)
+      .filter(Boolean);
+
+    const isCallerOrgAdmin = callerOrgIds.length > 0;
+
+    if (!callerProfile?.is_platform_admin && !isCallerOrgAdmin) {
+      return json({ error: 'Forbidden' }, 403);
+    }
+
+    // Org admins cannot grant org-level access and can only invite to their own buildings
+    if (!callerProfile?.is_platform_admin && isCallerOrgAdmin) {
+      if (grant?.org_id) {
+        return json({ error: 'Forbidden — org admins cannot grant org-level roles' }, 403);
+      }
+      if (grant?.building_id) {
+        const { data: ob } = await admin
+          .from('org_buildings')
+          .select('building_id')
+          .in('org_id', callerOrgIds)
+          .eq('building_id', grant.building_id)
+          .maybeSingle();
+        if (!ob) return json({ error: 'Forbidden — building not in your org' }, 403);
+      }
+    }
 
     const { email, full_name, phone, grant } = await req.json();
     if (!email?.trim() || !full_name?.trim()) {
