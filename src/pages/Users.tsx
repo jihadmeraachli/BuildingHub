@@ -216,7 +216,9 @@ export default function Users() {
   ];
 
   const onOrgScope = tab === 'access' && grantScope === 'org' && isSuperAdmin;
-  const showContent = !!activeBuildingId || onOrgScope;
+  // Platform admins always see the tab bar — the scope toggle lives inside the Access tab
+  // and must be reachable even before a building is selected.
+  const showContent = !!activeBuildingId || isSuperAdmin;
 
   return (
     <div>

@@ -17,7 +17,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
   const canStructure = canAny('unit.manage');
   const canPeople = canAny('resident.manage') || canAny('resident.approve');
-  const canBuildings = isPlatformAdmin;
+  const canBuildings = isPlatformAdmin || canAny('org.assign_buildings');
 
   const links = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, show: true },

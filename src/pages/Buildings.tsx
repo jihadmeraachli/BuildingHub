@@ -28,7 +28,15 @@ function buildEmbedUrl(b: Building): string {
 
 export default function Buildings() {
   const { t } = useTranslation();
-  const { isPlatformAdmin } = useAuth();
+  const { isPlatformAdmin, grants } = useAuth();
+
+  // Derive org_admin context from grants
+  const myOrgIds = grants
+    .filter(g => g.scope_type === 'org' && g.role === 'org_admin')
+    .map(g => g.org_id as string)
+    .filter(Boolean);
+  const isOrgAdmin = !isPlatformAdmin && myOrgIds.length > 0;
+
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [compounds, setCompounds] = useState<Compound[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -67,6 +75,12 @@ export default function Buildings() {
       ]);
       setOrganizations((o as Organization[]) ?? []);
       setOrgBuildings((ob as OrgBuilding[]) ?? []);
+    } else if (myOrgIds.length) {
+      const { data: ob } = await supabase
+        .from('org_buildings')
+        .select('org_id, building_id')
+        .in('org_id', myOrgIds);
+      setOrgBuildings((ob as OrgBuilding[]) ?? []);
     }
 
     setLoading(false);
@@ -74,13 +88,29 @@ export default function Buildings() {
 
   const orgByBuilding = Object.fromEntries(orgBuildings.map((ob) => [ob.building_id, ob.org_id]));
 
+  // org_admins only see buildings in their org(s)
+  const visibleBuildings = isOrgAdmin
+    ? buildings.filter(b => orgBuildings.some(ob => ob.building_id === b.id))
+    : buildings;
+
   async function onSubmit(data: FormData) {
-    const { error } = await supabase.from('buildings').insert({
+    const { data: inserted, error } = await supabase.from('buildings').insert({
       name: data.name, address: data.address, city: data.city, country: data.country,
       contact_email: data.contact_email || null, contact_phone: data.contact_phone || null,
       maps_url: data.maps_url || null, compound_id: data.compound_id || null, is_active: true,
-    });
-    if (!error) { toast.success(t('buildings.buildingAdded')); setModalOpen(false); reset(); loadAll(); }
+    }).select('id').single();
+
+    if (error) { toast.error(error.message); return; }
+
+    // org_admins: auto-link new building to their org
+    if (isOrgAdmin && myOrgIds[0] && inserted) {
+      await supabase.from('org_buildings').insert({ org_id: myOrgIds[0], building_id: (inserted as { id: string }).id });
+    }
+
+    toast.success(t('buildings.buildingAdded'));
+    setModalOpen(false);
+    reset();
+    loadAll();
   }
 
   async function addCompound() {
@@ -200,9 +230,11 @@ export default function Buildings() {
               <Network size={16} /> {t('buildings.addOrganization')}
             </Button>
           )}
-          <Button variant="secondary" onClick={() => { setCompoundForm({ name: '', city: '' }); setCompoundModal(true); }}>
-            <Boxes size={16} /> {t('buildings.addCompound')}
-          </Button>
+          {isPlatformAdmin && (
+            <Button variant="secondary" onClick={() => { setCompoundForm({ name: '', city: '' }); setCompoundModal(true); }}>
+              <Boxes size={16} /> {t('buildings.addCompound')}
+            </Button>
+          )}
           <Button onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
         </div>
       </div>
@@ -229,8 +261,8 @@ export default function Buildings() {
         </Card>
       )}
 
-      {/* Compounds strip */}
-      {compounds.length > 0 && (
+      {/* Compounds strip — platform admin only */}
+      {isPlatformAdmin && compounds.length > 0 && (
         <Card className="mb-5">
           <CardBody>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('buildings.compounds')}</p>
@@ -257,11 +289,11 @@ export default function Buildings() {
 
       {loading ? (
         <SkeletonCards count={3} />
-      ) : buildings.length === 0 ? (
+      ) : visibleBuildings.length === 0 ? (
         <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('buildings.noBuildings')}</p></CardBody></Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {buildings.map((b) => (
+          {visibleBuildings.map((b) => (
             <Card key={b.id} className="transition-shadow hover:shadow-md">
               <CardBody>
                 <div className="flex items-start justify-between gap-3">
@@ -288,16 +320,19 @@ export default function Buildings() {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2.5">
+                  {/* Platform admin: can reassign org and compound */}
                   {isPlatformAdmin && organizations.length > 0 && (
                     <Select value={orgByBuilding[b.id] ?? ''} onChange={(e) => assignOrg(b.id, e.target.value)} className="text-sm py-2">
                       <option value="">{t('buildings.noOrgOption')}</option>
                       {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                     </Select>
                   )}
-                  <Select value={b.compound_id ?? ''} onChange={(e) => assignCompound(b.id, e.target.value)} className="text-sm py-2">
-                    <option value="">{t('buildings.noCompoundOption')}</option>
-                    {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </Select>
+                  {isPlatformAdmin && (
+                    <Select value={b.compound_id ?? ''} onChange={(e) => assignCompound(b.id, e.target.value)} className="text-sm py-2">
+                      <option value="">{t('buildings.noCompoundOption')}</option>
+                      {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </Select>
+                  )}
                   {!b.compound_id ? (
                     <Select value={b.billing_mode} onChange={(e) => setBuildingMode(b.id, e.target.value)} className="text-sm py-2">
                       <option value="arrears">{t('buildings.modeArrears')}</option>
@@ -331,7 +366,7 @@ export default function Buildings() {
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
-          {compounds.length > 0 && (
+          {isPlatformAdmin && compounds.length > 0 && (
             <Select label={t('buildings.compound')} {...register('compound_id')}>
               <option value="">{t('buildings.noCompoundOption')}</option>
               {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -345,7 +380,7 @@ export default function Buildings() {
         </form>
       </Modal>
 
-      {/* Add compound modal */}
+      {/* Add compound modal — platform admin only */}
       <Modal open={compoundModal} onClose={() => setCompoundModal(false)} title={t('buildings.addCompound')} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={compoundForm.name} onChange={(e) => setCompoundForm({ ...compoundForm, name: e.target.value })} placeholder="Marina Gardens" />
@@ -412,7 +447,7 @@ export default function Buildings() {
         )}
       </Modal>
 
-      {/* Add organization modal */}
+      {/* Add organization modal — platform admin only */}
       <Modal open={orgModal} onClose={() => setOrgModal(false)} title={t('buildings.addOrganization')} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.orgName')} value={orgForm.name} onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })} placeholder="Al Futtaim Property Management" />
@@ -426,7 +461,7 @@ export default function Buildings() {
         </div>
       </Modal>
 
-      {/* Edit organization modal */}
+      {/* Edit organization modal — platform admin only */}
       <Modal open={!!editOrg} onClose={() => setEditOrg(null)} title={`${t('common.edit')} — ${editOrg?.name ?? ''}`} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.orgName')} value={eoForm.name} onChange={(e) => setEoForm({ ...eoForm, name: e.target.value })} />
