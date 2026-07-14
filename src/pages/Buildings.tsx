@@ -230,7 +230,7 @@ export default function Buildings() {
               <Network size={16} /> {t('buildings.addOrganization')}
             </Button>
           )}
-          {isPlatformAdmin && (
+          {(isPlatformAdmin || isOrgAdmin) && (
             <Button variant="secondary" onClick={() => { setCompoundForm({ name: '', city: '' }); setCompoundModal(true); }}>
               <Boxes size={16} /> {t('buildings.addCompound')}
             </Button>
@@ -261,8 +261,8 @@ export default function Buildings() {
         </Card>
       )}
 
-      {/* Compounds strip — platform admin only */}
-      {isPlatformAdmin && compounds.length > 0 && (
+      {/* Compounds strip */}
+      {(isPlatformAdmin || isOrgAdmin) && compounds.length > 0 && (
         <Card className="mb-5">
           <CardBody>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('buildings.compounds')}</p>
@@ -327,7 +327,7 @@ export default function Buildings() {
                       {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                     </Select>
                   )}
-                  {isPlatformAdmin && (
+                  {(isPlatformAdmin || isOrgAdmin) && (
                     <Select value={b.compound_id ?? ''} onChange={(e) => assignCompound(b.id, e.target.value)} className="text-sm py-2">
                       <option value="">{t('buildings.noCompoundOption')}</option>
                       {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -366,7 +366,7 @@ export default function Buildings() {
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
-          {isPlatformAdmin && compounds.length > 0 && (
+          {(isPlatformAdmin || isOrgAdmin) && compounds.length > 0 && (
             <Select label={t('buildings.compound')} {...register('compound_id')}>
               <option value="">{t('buildings.noCompoundOption')}</option>
               {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
