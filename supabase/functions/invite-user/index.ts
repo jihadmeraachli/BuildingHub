@@ -53,6 +53,11 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403);
     }
 
+    const { email, full_name, phone, grant } = await req.json();
+    if (!email?.trim() || !full_name?.trim()) {
+      return json({ error: 'email and full_name are required' }, 400);
+    }
+
     // Org admins cannot grant org-level access and can only invite to their own buildings
     if (!callerProfile?.is_platform_admin && isCallerOrgAdmin) {
       if (grant?.org_id) {
@@ -67,11 +72,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (!ob) return json({ error: 'Forbidden — building not in your org' }, 403);
       }
-    }
-
-    const { email, full_name, phone, grant } = await req.json();
-    if (!email?.trim() || !full_name?.trim()) {
-      return json({ error: 'email and full_name are required' }, 400);
     }
 
     // Invite the user — Supabase sends a magic-link email; user clicks it to activate
