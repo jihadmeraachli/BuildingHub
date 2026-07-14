@@ -13,11 +13,25 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { t, i18n } = useTranslation();
-  const { profile, signOut, canAny, isPlatformAdmin } = useAuth();
+  const { profile, signOut, canAny, isPlatformAdmin, grants } = useAuth();
+
+  // Check org grants directly — canAny() cascades through org_buildings, so it
+  // returns false when the org has no buildings yet (nothing to cascade through).
+  const isOrgAdmin = grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
 
   const canStructure = canAny('unit.manage');
   const canPeople = canAny('resident.manage') || canAny('resident.approve');
-  const canBuildings = isPlatformAdmin || canAny('org.assign_buildings');
+  const canBuildings = isPlatformAdmin || isOrgAdmin;
+
+  // Derive a meaningful display role from grants (invited users always have
+  // profiles.role = 'resident' regardless of their actual grant role).
+  const displayRole = isPlatformAdmin
+    ? 'Platform Admin'
+    : grants.some(g => g.role === 'org_admin') ? 'Org Admin'
+    : grants.some(g => g.role === 'building_admin') ? 'Building Admin'
+    : grants.some(g => g.role === 'org_finance' || g.role === 'building_finance') ? 'Finance'
+    : grants.some(g => g.role === 'viewer') ? 'Viewer'
+    : profile?.role?.replace('_', ' ') ?? 'Member';
 
   const links = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, show: true },
@@ -83,9 +97,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{profile?.full_name ?? '—'}</p>
-              <p className="text-xs text-slate-400 truncate">
-                {isPlatformAdmin ? 'Platform Admin' : (profile?.role?.replace('_', ' ') ?? 'Member')}
-              </p>
+              <p className="text-xs text-slate-400 truncate">{displayRole}</p>
             </div>
           </div>
           <button
