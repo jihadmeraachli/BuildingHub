@@ -83,7 +83,10 @@
    Unlayered so it overrides Tailwind utilities. Auth pages (Login/
    Register/SetPassword) sit OUTSIDE .app-dark and stay light.
    ============================================================ */
-.app-dark { color: #e2e8f0; }
+/* color-scheme:dark → browser renders ALL native controls dark: date/time
+   pickers + calendar icon, number spinners, <select> popups, autofill, etc.
+   accent-color → checkboxes / radios / range use the brand blue. */
+.app-dark { color: #e2e8f0; color-scheme: dark; accent-color: #349ECD; }
 
 /* frosted card surface → dark glass (flips every <Card> in the app) */
 .app-dark .glass {
@@ -128,7 +131,6 @@
 /* inputs read light text on dark fields */
 .app-dark input, .app-dark select, .app-dark textarea { color: #f1f5f9; }
 .app-dark input::placeholder, .app-dark textarea::placeholder { color: #64748b; }
-.app-dark select option { color: #0f172a; }
 
 /* darker scrollbar on the dark canvas */
 .app-dark ::-webkit-scrollbar-thumb { background: #2a3346; background-clip: content-box; }
