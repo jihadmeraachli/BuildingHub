@@ -93,6 +93,11 @@ export default function Buildings() {
     ? buildings.filter(b => orgBuildings.some(ob => ob.building_id === b.id))
     : buildings;
 
+  // org_admins only see compounds they created (org_id matches); platform admin sees all
+  const visibleCompounds = isOrgAdmin
+    ? compounds.filter(c => myOrgIds.includes(c.org_id ?? ''))
+    : compounds;
+
   async function onSubmit(data: FormData) {
     const { data: inserted, error } = await supabase.from('buildings').insert({
       name: data.name, address: data.address, city: data.city, country: data.country,
@@ -115,7 +120,11 @@ export default function Buildings() {
 
   async function addCompound() {
     if (!compoundForm.name.trim()) return;
-    const { error } = await supabase.from('compounds').insert({ name: compoundForm.name.trim(), city: compoundForm.city.trim() || null });
+    const { error } = await supabase.from('compounds').insert({
+      name: compoundForm.name.trim(),
+      city: compoundForm.city.trim() || null,
+      org_id: isOrgAdmin ? (myOrgIds[0] ?? null) : null,
+    });
     if (!error) { setCompoundForm({ name: '', city: '' }); setCompoundModal(false); loadAll(); }
   }
 
@@ -262,12 +271,12 @@ export default function Buildings() {
       )}
 
       {/* Compounds strip */}
-      {(isPlatformAdmin || isOrgAdmin) && compounds.length > 0 && (
+      {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
         <Card className="mb-5">
           <CardBody>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('buildings.compounds')}</p>
             <div className="flex flex-wrap gap-2">
-              {compounds.map((c) => {
+              {visibleCompounds.map((c) => {
                 const count = buildings.filter((b) => b.compound_id === c.id).length;
                 return (
                   <div key={c.id} className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-xl px-3 py-1.5 text-sm">
@@ -327,10 +336,10 @@ export default function Buildings() {
                       {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                     </Select>
                   )}
-                  {(isPlatformAdmin || isOrgAdmin) && (
+                  {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
                     <Select value={b.compound_id ?? ''} onChange={(e) => assignCompound(b.id, e.target.value)} className="text-sm py-2">
                       <option value="">{t('buildings.noCompoundOption')}</option>
-                      {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {visibleCompounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </Select>
                   )}
                   {!b.compound_id ? (
@@ -366,10 +375,10 @@ export default function Buildings() {
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
-          {(isPlatformAdmin || isOrgAdmin) && compounds.length > 0 && (
+          {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
             <Select label={t('buildings.compound')} {...register('compound_id')}>
               <option value="">{t('buildings.noCompoundOption')}</option>
-              {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {visibleCompounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           )}
           <Input label={t('buildings.mapsLink')} placeholder={t('buildings.mapsPlaceholder')} {...register('maps_url')} />

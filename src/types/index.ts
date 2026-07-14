@@ -133,6 +133,7 @@ export interface Compound {
   city: string | null;
   country: string;
   billing_mode: BillingMode;
+  org_id: string | null;
   created_at: string;
 }
 
