@@ -57,7 +57,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   function toggleLang() { setLanguage(i18n.language === 'ar' ? 'en' : 'ar'); }
 
   return (
-    <header className="h-16 bg-white/80 backdrop-blur border-b border-slate-200/70 flex items-center justify-between px-4 lg:px-6">
+    <header className="h-16 bg-[#0b0f17]/80 backdrop-blur border-b border-white/10 flex items-center justify-between px-4 lg:px-6">
       <button onClick={onMenuClick} className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 cursor-pointer" aria-label="Open menu">
         <Menu size={20} />
       </button>
