@@ -158,3 +158,20 @@
 .app-dark .text-yellow-600, .app-dark .text-yellow-700 { color: #fcd34d; }
 .app-dark .text-rose-600, .app-dark .text-rose-700, .app-dark .text-rose-800,
 .app-dark .text-red-600, .app-dark .text-red-700 { color: #fda4af; }
+
+/* native file inputs — the browser's default "Choose File" button is light */
+.app-dark input[type="file"] { color: #94a3b8; font-size: 0.875rem; }
+.app-dark input[type="file"]::file-selector-button,
+.app-dark input[type="file"]::-webkit-file-upload-button {
+  background: rgba(255,255,255,0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 0.625rem;
+  padding: 0.45rem 0.8rem;
+  margin-inline-end: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.app-dark input[type="file"]::file-selector-button:hover,
+.app-dark input[type="file"]::-webkit-file-upload-button:hover { background: rgba(255,255,255,0.15); }
