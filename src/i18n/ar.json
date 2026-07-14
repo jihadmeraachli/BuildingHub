@@ -248,7 +248,24 @@
     "scopeOrg": "المؤسسات",
     "noOrgGrants": "لا توجد صلاحيات على مستوى المؤسسة.",
     "addOrgAccess": "منح صلاحية للمؤسسة",
-    "selectOrgHint": "— اختر مؤسسة —"
+    "selectOrgHint": "— اختر مؤسسة —",
+    "inviteUser": "دعوة مستخدم",
+    "inviteTitle": "دعوة مستخدم جديد",
+    "inviteSubtitle": "سيُرسَل للمستخدم بريد إلكتروني برابط تسجيل دخول سحري. ينقر عليه لتفعيل حسابه.",
+    "inviteFullName": "الاسم الكامل",
+    "inviteEmail": "البريد الإلكتروني",
+    "invitePhone": "الهاتف (اختياري)",
+    "inviteRoleSection": "الدور والوصول",
+    "inviteScope": {
+      "none": "بدون دور إداري",
+      "building": "على مستوى المبنى",
+      "org": "على مستوى المؤسسة"
+    },
+    "inviteBuilding": "المبنى",
+    "inviteOrg": "المؤسسة",
+    "sendInvite": "إرسال الدعوة",
+    "inviteSent": "تم إرسال الدعوة إلى {{email}}.",
+    "inviteError": "فشل إرسال الدعوة. يرجى المحاولة مجدداً."
   },
   "buildings": {
     "title": "المباني",

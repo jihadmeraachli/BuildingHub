@@ -248,7 +248,24 @@
     "scopeOrg": "Organizations",
     "noOrgGrants": "No organization-level access configured.",
     "addOrgAccess": "Grant Org Access",
-    "selectOrgHint": "— Select an organization —"
+    "selectOrgHint": "— Select an organization —",
+    "inviteUser": "Invite User",
+    "inviteTitle": "Invite a new user",
+    "inviteSubtitle": "An email with a magic sign-in link will be sent to the new user. They click it to activate their account.",
+    "inviteFullName": "Full name",
+    "inviteEmail": "Email address",
+    "invitePhone": "Phone (optional)",
+    "inviteRoleSection": "Role & access",
+    "inviteScope": {
+      "none": "No admin role",
+      "building": "Building-level",
+      "org": "Organization-level"
+    },
+    "inviteBuilding": "Building",
+    "inviteOrg": "Organization",
+    "sendInvite": "Send invite",
+    "inviteSent": "Invite sent to {{email}}.",
+    "inviteError": "Failed to send invite. Please try again."
   },
   "buildings": {
     "title": "Buildings",

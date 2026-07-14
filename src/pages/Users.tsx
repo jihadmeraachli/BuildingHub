@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Network, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Profile, UserRole, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
@@ -14,6 +15,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 
 type Tab = 'all' | 'pending' | 'access';
 type GrantScope = 'building' | 'org';
+type InviteScopeType = 'none' | 'building' | 'org';
 
 type GrantRow = Grant & {
   profiles: { id: string; full_name: string; apartment_number: string | null } | null;
@@ -66,6 +68,17 @@ export default function Users() {
   const [orgGrantRole, setOrgGrantRole] = useState<GrantRole>('org_admin');
   const [orgGrantSearch, setOrgGrantSearch] = useState('');
 
+  // Invite new user
+  const [inviteModal, setInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteFullName, setInviteFullName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteScopeType, setInviteScopeType] = useState<InviteScopeType>('none');
+  const [inviteGrantRole, setInviteGrantRole] = useState<GrantRole>('building_admin');
+  const [inviteBuildingId, setInviteBuildingId] = useState('');
+  const [inviteOrgId, setInviteOrgId] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+
   useEffect(() => {
     if (!isSuperAdmin) return;
     Promise.all([
@@ -80,17 +93,14 @@ export default function Users() {
   const activeBuildingId = isSuperAdmin ? selectedBuildingId : profile?.building_id ?? '';
   const canManageAccess = isPlatformAdmin || (activeBuildingId ? can('grant.manage', activeBuildingId) : canAny('grant.manage'));
 
-  // Building users load
   useEffect(() => {
     if (activeBuildingId && tab !== 'access') loadUsers();
   }, [activeBuildingId, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Building grants load
   useEffect(() => {
     if (activeBuildingId && tab === 'access' && grantScope === 'building') loadGrants();
   }, [activeBuildingId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Org grants load
   useEffect(() => {
     if (selectedOrgId && tab === 'access' && grantScope === 'org') loadOrgGrants();
   }, [selectedOrgId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -121,11 +131,8 @@ export default function Users() {
     if (!activeBuildingId) return;
     setGrantLoading(true);
     const { data } = await supabase
-      .from('grants')
-      .select('*, profiles(id, full_name, apartment_number)')
-      .eq('building_id', activeBuildingId)
-      .eq('scope_type', 'building')
-      .order('created_at');
+      .from('grants').select('*, profiles(id, full_name, apartment_number)')
+      .eq('building_id', activeBuildingId).eq('scope_type', 'building').order('created_at');
     setGrants((data as GrantRow[]) ?? []);
     setGrantLoading(false);
   }
@@ -134,11 +141,8 @@ export default function Users() {
     if (!selectedOrgId) return;
     setOrgGrantLoading(true);
     const { data } = await supabase
-      .from('grants')
-      .select('*, profiles(id, full_name, apartment_number)')
-      .eq('org_id', selectedOrgId)
-      .eq('scope_type', 'org')
-      .order('created_at');
+      .from('grants').select('*, profiles(id, full_name, apartment_number)')
+      .eq('org_id', selectedOrgId).eq('scope_type', 'org').order('created_at');
     setOrgGrants((data as GrantRow[]) ?? []);
     setOrgGrantLoading(false);
   }
@@ -197,6 +201,44 @@ export default function Users() {
     loadUsers();
   }
 
+  function openInviteModal() {
+    setInviteEmail(''); setInviteFullName(''); setInvitePhone('');
+    setInviteScopeType('none'); setInviteGrantRole('building_admin');
+    setInviteBuildingId(''); setInviteOrgId('');
+    setInviteModal(true);
+  }
+
+  async function sendInvite() {
+    if (!inviteEmail.trim() || !inviteFullName.trim()) return;
+    setInviteLoading(true);
+
+    const grant =
+      inviteScopeType === 'building' && inviteBuildingId
+        ? { role: inviteGrantRole, building_id: inviteBuildingId, org_id: null }
+        : inviteScopeType === 'org' && inviteOrgId
+        ? { role: inviteGrantRole, org_id: inviteOrgId, building_id: null }
+        : null;
+
+    const { error } = await supabase.functions.invoke('invite-user', {
+      body: {
+        email: inviteEmail.trim(),
+        full_name: inviteFullName.trim(),
+        phone: invitePhone.trim() || null,
+        grant,
+      },
+    });
+
+    setInviteLoading(false);
+
+    if (error) {
+      toast.error(error.message ?? t('users.inviteError'));
+      return;
+    }
+
+    toast.success(t('users.inviteSent', { email: inviteEmail.trim() }));
+    setInviteModal(false);
+  }
+
   const pendingCount = users.filter(u => u.status === 'pending').length;
   const grantedUserIds = new Set(grants.map(g => g.user_id));
   const orgGrantedUserIds = new Set(orgGrants.map(g => g.user_id));
@@ -216,23 +258,30 @@ export default function Users() {
   ];
 
   const onOrgScope = tab === 'access' && grantScope === 'org' && isSuperAdmin;
-  // Platform admins always see the tab bar — the scope toggle lives inside the Access tab
-  // and must be reachable even before a building is selected.
   const showContent = !!activeBuildingId || isSuperAdmin;
+
+  const rolesForInviteScope = inviteScopeType === 'org' ? ORG_ROLES : BUILDING_ROLES;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <h1 className="text-xl font-semibold text-slate-900">{t('users.title')}</h1>
-        {tab === 'access' && canManageAccess && (
-          onOrgScope ? (
-            <Button onClick={openOrgGrantModal} disabled={!selectedOrgId}>
-              <UserPlus size={16} /> {t('users.addOrgAccess')}
+        <div className="flex gap-2">
+          {isSuperAdmin && (
+            <Button variant="secondary" onClick={openInviteModal}>
+              <Mail size={16} /> {t('users.inviteUser')}
             </Button>
-          ) : activeBuildingId ? (
-            <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
-          ) : null
-        )}
+          )}
+          {tab === 'access' && canManageAccess && (
+            onOrgScope ? (
+              <Button onClick={openOrgGrantModal} disabled={!selectedOrgId}>
+                <UserPlus size={16} /> {t('users.addOrgAccess')}
+              </Button>
+            ) : activeBuildingId ? (
+              <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
+            ) : null
+          )}
+        </div>
       </div>
 
       {isSuperAdmin && (
@@ -273,7 +322,6 @@ export default function Users() {
 
           {tab === 'access' ? (
             <div className="space-y-4">
-              {/* Scope toggle — platform admin only */}
               {isSuperAdmin && (
                 <div className="flex gap-1">
                   <button
@@ -293,7 +341,6 @@ export default function Users() {
 
               {grantScope === 'org' && isSuperAdmin ? (
                 <>
-                  {/* Org selector */}
                   <select
                     value={selectedOrgId}
                     onChange={e => setSelectedOrgId(e.target.value)}
@@ -357,7 +404,6 @@ export default function Users() {
                   )}
                 </>
               ) : (
-                /* Building grants */
                 !activeBuildingId ? (
                   <Card><CardBody>
                     <p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p>
@@ -411,7 +457,6 @@ export default function Users() {
               )}
             </div>
           ) : (
-            /* All Users / Pending tab */
             !activeBuildingId ? (
               <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
             ) : loading ? (
@@ -506,7 +551,107 @@ export default function Users() {
         </>
       )}
 
-      {/* Grant building access modal */}
+      {/* ── Invite new user modal ─────────────────────────────────────────── */}
+      <Modal open={inviteModal} onClose={() => setInviteModal(false)} title={t('users.inviteTitle')} size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">{t('users.inviteSubtitle')}</p>
+
+          <Input
+            label={t('users.inviteFullName')}
+            value={inviteFullName}
+            onChange={e => setInviteFullName(e.target.value)}
+            placeholder="Ahmad Al-Hassan"
+          />
+          <Input
+            label={t('users.inviteEmail')}
+            type="email"
+            value={inviteEmail}
+            onChange={e => setInviteEmail(e.target.value)}
+            placeholder="ahmad@example.com"
+          />
+          <Input
+            label={t('users.invitePhone')}
+            type="tel"
+            value={invitePhone}
+            onChange={e => setInvitePhone(e.target.value)}
+            placeholder="+961 70 000 000"
+          />
+
+          <div className="border-t border-slate-100 pt-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('users.inviteRoleSection')}</p>
+
+            {/* Scope type selector */}
+            <div className="flex gap-1 mb-3">
+              {(['none', 'building', 'org'] as InviteScopeType[]).map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setInviteScopeType(s);
+                    setInviteGrantRole(s === 'org' ? 'org_admin' : 'building_admin');
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${inviteScopeType === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {t(`users.inviteScope.${s}`)}
+                </button>
+              ))}
+            </div>
+
+            {inviteScopeType === 'building' && (
+              <div className="space-y-3">
+                <Select
+                  label={t('users.inviteBuilding')}
+                  value={inviteBuildingId}
+                  onChange={e => setInviteBuildingId(e.target.value)}
+                >
+                  <option value="">{t('common.selectBuilding')}</option>
+                  {buildings.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city})</option>)}
+                </Select>
+                <Select
+                  label={t('users.role')}
+                  value={inviteGrantRole}
+                  onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
+                >
+                  {BUILDING_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
+                </Select>
+              </div>
+            )}
+
+            {inviteScopeType === 'org' && (
+              <div className="space-y-3">
+                <Select
+                  label={t('users.inviteOrg')}
+                  value={inviteOrgId}
+                  onChange={e => setInviteOrgId(e.target.value)}
+                >
+                  <option value="">{t('users.selectOrgHint')}</option>
+                  {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </Select>
+                <Select
+                  label={t('users.role')}
+                  value={inviteGrantRole}
+                  onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
+                >
+                  {rolesForInviteScope.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setInviteModal(false)}>{t('common.cancel')}</Button>
+            <Button
+              onClick={sendInvite}
+              loading={inviteLoading}
+              disabled={!inviteEmail.trim() || !inviteFullName.trim()}
+            >
+              <Mail size={15} /> {t('users.sendInvite')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Grant building access modal ───────────────────────────────────── */}
       <Modal open={grantModal} onClose={() => setGrantModal(false)} title={t('users.addAccess')} size="sm">
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">
@@ -524,8 +669,7 @@ export default function Users() {
                   <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
                 ) : availableProfiles.slice(0, 20).map(p => (
                   <button
-                    key={p.id}
-                    type="button"
+                    key={p.id} type="button"
                     onClick={() => { setGrantUserId(p.id); setGrantSearch(p.full_name); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${grantUserId === p.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'}`}
                   >
@@ -537,9 +681,7 @@ export default function Users() {
             )}
           </div>
           <Select label={t('users.role')} value={grantRole} onChange={e => setGrantRole(e.target.value as GrantRole)}>
-            {BUILDING_ROLES.map(r => (
-              <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
-            ))}
+            {BUILDING_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>)}
           </Select>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setGrantModal(false)}>{t('common.cancel')}</Button>
@@ -548,7 +690,7 @@ export default function Users() {
         </div>
       </Modal>
 
-      {/* Grant organization access modal */}
+      {/* ── Grant org access modal ────────────────────────────────────────── */}
       <Modal open={orgGrantModal} onClose={() => setOrgGrantModal(false)} title={t('users.addOrgAccess')} size="sm">
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">
@@ -566,22 +708,18 @@ export default function Users() {
                   <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
                 ) : availableProfilesForOrg.slice(0, 20).map(p => (
                   <button
-                    key={p.id}
-                    type="button"
+                    key={p.id} type="button"
                     onClick={() => { setOrgGrantUserId(p.id); setOrgGrantSearch(p.full_name); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${orgGrantUserId === p.id ? 'bg-violet-50 text-violet-700' : 'text-slate-700 hover:bg-slate-50'}`}
                   >
                     <span className="font-medium">{p.full_name}</span>
-                    {p.apartment_number && <span className="text-slate-400 text-xs">· Apt {p.apartment_number}</span>}
                   </button>
                 ))}
               </div>
             )}
           </div>
           <Select label={t('users.role')} value={orgGrantRole} onChange={e => setOrgGrantRole(e.target.value as GrantRole)}>
-            {ORG_ROLES.map(r => (
-              <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
-            ))}
+            {ORG_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>)}
           </Select>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
