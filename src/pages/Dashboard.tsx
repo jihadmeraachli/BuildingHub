@@ -236,13 +236,21 @@ export default function Dashboard() {
 }
 
 // dark full-bleed canvas — cyan/blue aurora + faint grid (Tatawwor brand)
+// NOTE: base bg + glows are painted on the element itself (not a -z-10 child),
+// otherwise they render behind the app's light bg-slate-50 → white-on-white.
 function DashCanvas({ children }: { children: ReactNode }) {
   return (
-    <div className="relative -m-4 lg:-m-6 p-5 lg:p-8 min-h-[calc(100dvh-4rem)] overflow-hidden text-slate-200">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[#080b12]" />
-      <div className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: 'radial-gradient(42rem 30rem at 12% -8%, rgba(87,214,226,0.20), transparent 60%), radial-gradient(40rem 30rem at 106% 0%, rgba(52,158,205,0.18), transparent 55%), radial-gradient(46rem 34rem at 55% 122%, rgba(52,158,205,0.10), transparent 55%)' }} />
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.05]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.7) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.7) 1px, transparent 1px)', backgroundSize: '34px 34px', maskImage: 'radial-gradient(75% 60% at 50% 20%, #000, transparent)', WebkitMaskImage: 'radial-gradient(75% 60% at 50% 20%, #000, transparent)' }} />
-      {children}
+    <div
+      className="relative -m-4 lg:-m-6 p-5 lg:p-8 min-h-[calc(100dvh-4rem)] overflow-hidden text-slate-200"
+      style={{
+        backgroundColor: '#080b12',
+        backgroundImage:
+          'radial-gradient(42rem 30rem at 12% -8%, rgba(87,214,226,0.20), transparent 60%), radial-gradient(40rem 30rem at 106% 0%, rgba(52,158,205,0.18), transparent 55%), radial-gradient(46rem 34rem at 55% 122%, rgba(52,158,205,0.10), transparent 55%)',
+      }}
+    >
+      {/* faint tech grid overlay */}
+      <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.7) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.7) 1px, transparent 1px)', backgroundSize: '34px 34px', opacity: 0.05, maskImage: 'radial-gradient(75% 60% at 50% 20%, #000, transparent)', WebkitMaskImage: 'radial-gradient(75% 60% at 50% 20%, #000, transparent)' }} />
+      <div className="relative">{children}</div>
     </div>
   );
 }
