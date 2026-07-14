@@ -243,7 +243,12 @@
     "noGrants": "No access configured for this building.",
     "grantAdded": "Access granted.",
     "grantRemoved": "Access revoked.",
-    "revokeAccess": "Revoke access"
+    "revokeAccess": "Revoke access",
+    "scopeBuilding": "Buildings",
+    "scopeOrg": "Organizations",
+    "noOrgGrants": "No organization-level access configured.",
+    "addOrgAccess": "Grant Org Access",
+    "selectOrgHint": "— Select an organization —"
   },
   "buildings": {
     "title": "Buildings",
@@ -276,7 +281,16 @@
     "create": "Create",
     "mapsLink": "Google Maps Link (optional)",
     "mapsPlaceholder": "Paste the Google Maps share link",
-    "buildingAdded": "Building added successfully."
+    "buildingAdded": "Building added successfully.",
+    "organizations": "Organizations",
+    "addOrganization": "Add Organization",
+    "orgName": "Organization name",
+    "orgEmail": "Contact email (optional)",
+    "orgPhone": "Contact phone (optional)",
+    "orgHint": "After creating it, assign buildings to this organization using the dropdown on each building card.",
+    "orgCount": "{{count}} buildings",
+    "noOrgOption": "— No organization —",
+    "orgAdded": "Organization created."
   },
   "structure": {
     "title": "Structure",

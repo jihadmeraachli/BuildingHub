@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
-import { Plus, Building2, MapPin, ExternalLink, Boxes, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Building2, MapPin, ExternalLink, Boxes, Pencil, Trash2, Network } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import type { Building, Compound } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Building, Compound, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -18,6 +19,8 @@ type FormData = {
   contact_email: string; contact_phone: string; maps_url: string; compound_id: string;
 };
 
+type OrgBuilding = { org_id: string; building_id: string };
+
 function buildEmbedUrl(b: Building): string {
   const query = encodeURIComponent(`${b.address}, ${b.city}, ${b.country}`);
   return `https://maps.google.com/maps?q=${query}&output=embed`;
@@ -25,8 +28,11 @@ function buildEmbedUrl(b: Building): string {
 
 export default function Buildings() {
   const { t } = useTranslation();
+  const { isPlatformAdmin } = useAuth();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [compounds, setCompounds] = useState<Compound[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [orgBuildings, setOrgBuildings] = useState<OrgBuilding[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [compoundModal, setCompoundModal] = useState(false);
@@ -36,10 +42,14 @@ export default function Buildings() {
   const [ebForm, setEbForm] = useState({ name: '', address: '', city: '', country: '', contact_email: '', contact_phone: '', maps_url: '' });
   const [editC, setEditC] = useState<Compound | null>(null);
   const [ecForm, setEcForm] = useState({ name: '', city: '' });
+  const [orgModal, setOrgModal] = useState(false);
+  const [orgForm, setOrgForm] = useState({ name: '', contact_email: '', contact_phone: '' });
+  const [editOrg, setEditOrg] = useState<Organization | null>(null);
+  const [eoForm, setEoForm] = useState({ name: '', contact_email: '', contact_phone: '' });
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormData>();
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadAll() {
     setLoading(true);
@@ -49,8 +59,20 @@ export default function Buildings() {
     ]);
     setBuildings((b as Building[]) ?? []);
     setCompounds((c as Compound[]) ?? []);
+
+    if (isPlatformAdmin) {
+      const [{ data: o }, { data: ob }] = await Promise.all([
+        supabase.from('organizations').select('*').order('name'),
+        supabase.from('org_buildings').select('org_id, building_id'),
+      ]);
+      setOrganizations((o as Organization[]) ?? []);
+      setOrgBuildings((ob as OrgBuilding[]) ?? []);
+    }
+
     setLoading(false);
   }
+
+  const orgByBuilding = Object.fromEntries(orgBuildings.map((ob) => [ob.building_id, ob.org_id]));
 
   async function onSubmit(data: FormData) {
     const { error } = await supabase.from('buildings').insert({
@@ -116,7 +138,54 @@ export default function Buildings() {
     setEditC(null); loadAll();
   }
 
+  async function addOrg() {
+    if (!orgForm.name.trim()) return;
+    const { error } = await supabase.from('organizations').insert({
+      name: orgForm.name.trim(),
+      contact_email: orgForm.contact_email || null,
+      contact_phone: orgForm.contact_phone || null,
+      is_active: true,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('buildings.orgAdded'));
+    setOrgModal(false);
+    setOrgForm({ name: '', contact_email: '', contact_phone: '' });
+    loadAll();
+  }
+
+  function openEditOrg(o: Organization) {
+    setEoForm({ name: o.name, contact_email: o.contact_email ?? '', contact_phone: o.contact_phone ?? '' });
+    setEditOrg(o);
+  }
+  async function saveEditOrg() {
+    if (!editOrg || !eoForm.name.trim()) return;
+    await supabase.from('organizations').update({
+      name: eoForm.name.trim(),
+      contact_email: eoForm.contact_email || null,
+      contact_phone: eoForm.contact_phone || null,
+    }).eq('id', editOrg.id);
+    setEditOrg(null); loadAll();
+  }
+  async function deleteOrg(id: string) {
+    if (!confirm('Delete this organization? Building assignments are removed but buildings are kept.')) return;
+    await supabase.from('organizations').delete().eq('id', id);
+    setEditOrg(null); loadAll();
+  }
+
+  async function assignOrg(buildingId: string, orgId: string) {
+    await supabase.from('org_buildings').delete().eq('building_id', buildingId);
+    if (orgId) {
+      const { error } = await supabase.from('org_buildings').insert({ org_id: orgId, building_id: buildingId });
+      if (error) { toast.error(error.message); return; }
+    }
+    loadAll();
+  }
+
   const compoundName = (id: string | null) => id ? compounds.find((c) => c.id === id)?.name ?? null : null;
+  const orgName = (buildingId: string) => {
+    const orgId = orgByBuilding[buildingId];
+    return orgId ? organizations.find((o) => o.id === orgId)?.name ?? null : null;
+  };
 
   return (
     <div>
@@ -125,13 +194,40 @@ export default function Buildings() {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('buildings.title')}</h1>
           <p className="text-sm text-slate-500 mt-0.5">{t('buildings.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {isPlatformAdmin && (
+            <Button variant="ghost" onClick={() => { setOrgForm({ name: '', contact_email: '', contact_phone: '' }); setOrgModal(true); }}>
+              <Network size={16} /> {t('buildings.addOrganization')}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => { setCompoundForm({ name: '', city: '' }); setCompoundModal(true); }}>
             <Boxes size={16} /> {t('buildings.addCompound')}
           </Button>
           <Button onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
         </div>
       </div>
+
+      {/* Organizations strip — platform admin only */}
+      {isPlatformAdmin && organizations.length > 0 && (
+        <Card className="mb-5">
+          <CardBody>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('buildings.organizations')}</p>
+            <div className="flex flex-wrap gap-2">
+              {organizations.map((o) => {
+                const count = orgBuildings.filter((ob) => ob.org_id === o.id).length;
+                return (
+                  <div key={o.id} className="inline-flex items-center gap-2 bg-violet-50 text-violet-700 rounded-xl px-3 py-1.5 text-sm">
+                    <Network size={14} />
+                    <span className="font-medium">{o.name}</span>
+                    <span className="text-violet-400 text-xs">· {t('buildings.orgCount', { count })}</span>
+                    <button onClick={() => openEditOrg(o)} className="text-violet-400 hover:text-violet-700 cursor-pointer"><Pencil size={13} /></button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Compounds strip */}
       {compounds.length > 0 && (
@@ -178,18 +274,27 @@ export default function Buildings() {
                 <h3 className="font-semibold text-slate-900 mt-3">{b.name}</h3>
                 <p className="text-sm text-slate-500">{b.address}</p>
                 <p className="text-sm text-slate-500">{b.city}, {b.country}</p>
-                {compoundName(b.compound_id) && (
-                  <div className="inline-flex items-center gap-1 mt-2 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
-                    <Boxes size={11} /> {compoundName(b.compound_id)}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {compoundName(b.compound_id) && (
+                    <div className="inline-flex items-center gap-1 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
+                      <Boxes size={11} /> {compoundName(b.compound_id)}
+                    </div>
+                  )}
+                  {isPlatformAdmin && orgName(b.id) && (
+                    <div className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 rounded-full px-2 py-0.5">
+                      <Network size={11} /> {orgName(b.id)}
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2.5">
-                  <Select
-                    value={b.compound_id ?? ''}
-                    onChange={(e) => assignCompound(b.id, e.target.value)}
-                    className="text-sm py-2"
-                  >
+                  {isPlatformAdmin && organizations.length > 0 && (
+                    <Select value={orgByBuilding[b.id] ?? ''} onChange={(e) => assignOrg(b.id, e.target.value)} className="text-sm py-2">
+                      <option value="">{t('buildings.noOrgOption')}</option>
+                      {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </Select>
+                  )}
+                  <Select value={b.compound_id ?? ''} onChange={(e) => assignCompound(b.id, e.target.value)} className="text-sm py-2">
                     <option value="">{t('buildings.noCompoundOption')}</option>
                     {compounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </Select>
@@ -305,6 +410,36 @@ export default function Buildings() {
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Add organization modal */}
+      <Modal open={orgModal} onClose={() => setOrgModal(false)} title={t('buildings.addOrganization')} size="sm">
+        <div className="space-y-4">
+          <Input label={t('buildings.orgName')} value={orgForm.name} onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })} placeholder="Al Futtaim Property Management" />
+          <Input label={t('buildings.orgEmail')} type="email" value={orgForm.contact_email} onChange={(e) => setOrgForm({ ...orgForm, contact_email: e.target.value })} />
+          <Input label={t('buildings.orgPhone')} type="tel" value={orgForm.contact_phone} onChange={(e) => setOrgForm({ ...orgForm, contact_phone: e.target.value })} />
+          <p className="text-xs text-slate-400">{t('buildings.orgHint')}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setOrgModal(false)}>{t('common.cancel')}</Button>
+            <Button onClick={addOrg} disabled={!orgForm.name.trim()}>{t('buildings.create')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit organization modal */}
+      <Modal open={!!editOrg} onClose={() => setEditOrg(null)} title={`${t('common.edit')} — ${editOrg?.name ?? ''}`} size="sm">
+        <div className="space-y-4">
+          <Input label={t('buildings.orgName')} value={eoForm.name} onChange={(e) => setEoForm({ ...eoForm, name: e.target.value })} />
+          <Input label={t('buildings.orgEmail')} type="email" value={eoForm.contact_email} onChange={(e) => setEoForm({ ...eoForm, contact_email: e.target.value })} />
+          <Input label={t('buildings.orgPhone')} type="tel" value={eoForm.contact_phone} onChange={(e) => setEoForm({ ...eoForm, contact_phone: e.target.value })} />
+          <div className="flex justify-between gap-2">
+            <Button variant="danger" onClick={() => editOrg && deleteOrg(editOrg.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setEditOrg(null)}>{t('common.cancel')}</Button>
+              <Button onClick={saveEditOrg}>{t('common.save')}</Button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -243,7 +243,12 @@
     "noGrants": "لا توجد صلاحيات وصول لهذا المبنى.",
     "grantAdded": "تم منح الوصول.",
     "grantRemoved": "تم إلغاء الوصول.",
-    "revokeAccess": "إلغاء الوصول"
+    "revokeAccess": "إلغاء الوصول",
+    "scopeBuilding": "المباني",
+    "scopeOrg": "المؤسسات",
+    "noOrgGrants": "لا توجد صلاحيات على مستوى المؤسسة.",
+    "addOrgAccess": "منح صلاحية للمؤسسة",
+    "selectOrgHint": "— اختر مؤسسة —"
   },
   "buildings": {
     "title": "المباني",
@@ -276,7 +281,16 @@
     "create": "إنشاء",
     "mapsLink": "رابط خرائط جوجل (اختياري)",
     "mapsPlaceholder": "ألصق رابط مشاركة خرائط جوجل",
-    "buildingAdded": "تمت إضافة المبنى بنجاح."
+    "buildingAdded": "تمت إضافة المبنى بنجاح.",
+    "organizations": "المؤسسات",
+    "addOrganization": "إضافة مؤسسة",
+    "orgName": "اسم المؤسسة",
+    "orgEmail": "بريد التواصل (اختياري)",
+    "orgPhone": "هاتف التواصل (اختياري)",
+    "orgHint": "بعد إنشائها، عيّن المباني لهذه المؤسسة من القائمة المنسدلة في كل بطاقة مبنى.",
+    "orgCount": "{{count}} مبنى",
+    "noOrgOption": "— بدون مؤسسة —",
+    "orgAdded": "تم إنشاء المؤسسة."
   },
   "structure": {
     "title": "الهيكل",

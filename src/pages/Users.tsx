@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Shield, Trash2, UserPlus } from 'lucide-react';
+import { Network, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Profile, UserRole, UserStatus, Building, Grant, GrantRole } from '@/types';
+import type { Profile, UserRole, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -13,12 +13,14 @@ import { Select } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 type Tab = 'all' | 'pending' | 'access';
+type GrantScope = 'building' | 'org';
 
 type GrantRow = Grant & {
   profiles: { id: string; full_name: string; apartment_number: string | null } | null;
 };
 
 const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_finance', 'viewer'];
+const ORG_ROLES: GrantRole[] = ['org_admin', 'org_finance'];
 
 const roleColor: Record<UserRole, 'blue' | 'orange' | 'slate'> = {
   super_admin: 'blue', building_admin: 'orange', resident: 'slate',
@@ -39,12 +41,15 @@ export default function Users() {
 
   const [users, setUsers] = useState<Profile[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
+  const [grantScope, setGrantScope] = useState<GrantScope>('building');
   const [assigned, setAssigned] = useState<Record<string, { label: string; tenure: string }[]>>({});
 
-  // Grants state
+  // Building grants
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [grantLoading, setGrantLoading] = useState(false);
   const [grantModal, setGrantModal] = useState(false);
@@ -53,22 +58,42 @@ export default function Users() {
   const [grantRole, setGrantRole] = useState<GrantRole>('building_finance');
   const [grantSearch, setGrantSearch] = useState('');
 
+  // Org grants
+  const [orgGrants, setOrgGrants] = useState<GrantRow[]>([]);
+  const [orgGrantLoading, setOrgGrantLoading] = useState(false);
+  const [orgGrantModal, setOrgGrantModal] = useState(false);
+  const [orgGrantUserId, setOrgGrantUserId] = useState('');
+  const [orgGrantRole, setOrgGrantRole] = useState<GrantRole>('org_admin');
+  const [orgGrantSearch, setOrgGrantSearch] = useState('');
+
   useEffect(() => {
     if (!isSuperAdmin) return;
-    supabase.from('buildings').select('*').eq('is_active', true).order('name')
-      .then(({ data }) => setBuildings(data ?? []));
+    Promise.all([
+      supabase.from('buildings').select('*').eq('is_active', true).order('name'),
+      supabase.from('organizations').select('*').eq('is_active', true).order('name'),
+    ]).then(([{ data: b }, { data: o }]) => {
+      setBuildings(b ?? []);
+      setOrganizations(o ?? []);
+    });
   }, [isSuperAdmin]);
 
   const activeBuildingId = isSuperAdmin ? selectedBuildingId : profile?.building_id ?? '';
   const canManageAccess = isPlatformAdmin || (activeBuildingId ? can('grant.manage', activeBuildingId) : canAny('grant.manage'));
 
+  // Building users load
   useEffect(() => {
     if (activeBuildingId && tab !== 'access') loadUsers();
   }, [activeBuildingId, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Building grants load
   useEffect(() => {
-    if (activeBuildingId && tab === 'access') loadGrants();
-  }, [activeBuildingId, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeBuildingId && tab === 'access' && grantScope === 'building') loadGrants();
+  }, [activeBuildingId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Org grants load
+  useEffect(() => {
+    if (selectedOrgId && tab === 'access' && grantScope === 'org') loadOrgGrants();
+  }, [selectedOrgId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadUsers() {
     setLoading(true);
@@ -105,35 +130,63 @@ export default function Users() {
     setGrantLoading(false);
   }
 
+  async function loadOrgGrants() {
+    if (!selectedOrgId) return;
+    setOrgGrantLoading(true);
+    const { data } = await supabase
+      .from('grants')
+      .select('*, profiles(id, full_name, apartment_number)')
+      .eq('org_id', selectedOrgId)
+      .eq('scope_type', 'org')
+      .order('created_at');
+    setOrgGrants((data as GrantRow[]) ?? []);
+    setOrgGrantLoading(false);
+  }
+
   async function openGrantModal() {
     const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
     setAllProfiles(data ?? []);
-    setGrantUserId('');
-    setGrantRole('building_finance');
-    setGrantSearch('');
+    setGrantUserId(''); setGrantRole('building_finance'); setGrantSearch('');
     setGrantModal(true);
+  }
+
+  async function openOrgGrantModal() {
+    const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
+    setAllProfiles(data ?? []);
+    setOrgGrantUserId(''); setOrgGrantRole('org_admin'); setOrgGrantSearch('');
+    setOrgGrantModal(true);
   }
 
   async function addGrant() {
     if (!grantUserId || !activeBuildingId) return;
     const { error } = await supabase.from('grants').insert({
-      user_id: grantUserId,
-      scope_type: 'building',
-      building_id: activeBuildingId,
-      org_id: null,
-      role: grantRole,
+      user_id: grantUserId, scope_type: 'building', building_id: activeBuildingId, org_id: null, role: grantRole,
     });
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.grantAdded'));
-    setGrantModal(false);
-    loadGrants();
+    setGrantModal(false); loadGrants();
+  }
+
+  async function addOrgGrant() {
+    if (!orgGrantUserId || !selectedOrgId) return;
+    const { error } = await supabase.from('grants').insert({
+      user_id: orgGrantUserId, scope_type: 'org', org_id: selectedOrgId, building_id: null, role: orgGrantRole,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.grantAdded'));
+    setOrgGrantModal(false); loadOrgGrants();
   }
 
   async function removeGrant(id: string) {
     const { error } = await supabase.from('grants').delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantRemoved'));
-    loadGrants();
+    toast.success(t('users.grantRemoved')); loadGrants();
+  }
+
+  async function removeOrgGrant(id: string) {
+    const { error } = await supabase.from('grants').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.grantRemoved')); loadOrgGrants();
   }
 
   async function updateUser(id: string, patch: Partial<Profile>) {
@@ -146,12 +199,15 @@ export default function Users() {
 
   const pendingCount = users.filter(u => u.status === 'pending').length;
   const grantedUserIds = new Set(grants.map(g => g.user_id));
+  const orgGrantedUserIds = new Set(orgGrants.map(g => g.user_id));
+
   const availableProfiles = allProfiles
     .filter(p => !grantedUserIds.has(p.id))
-    .filter(p =>
-      p.full_name.toLowerCase().includes(grantSearch.toLowerCase()) ||
-      (p.apartment_number ?? '').toLowerCase().includes(grantSearch.toLowerCase())
-    );
+    .filter(p => p.full_name.toLowerCase().includes(grantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(grantSearch.toLowerCase()));
+
+  const availableProfilesForOrg = allProfiles
+    .filter(p => !orgGrantedUserIds.has(p.id))
+    .filter(p => p.full_name.toLowerCase().includes(orgGrantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(orgGrantSearch.toLowerCase()));
 
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'all', label: t('users.allUsers'), show: true },
@@ -159,12 +215,21 @@ export default function Users() {
     { key: 'access', label: t('users.accessTab'), show: canManageAccess },
   ];
 
+  const onOrgScope = tab === 'access' && grantScope === 'org' && isSuperAdmin;
+  const showContent = !!activeBuildingId || onOrgScope;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-slate-900">{t('users.title')}</h1>
-        {tab === 'access' && activeBuildingId && canManageAccess && (
-          <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
+        {tab === 'access' && canManageAccess && (
+          onOrgScope ? (
+            <Button onClick={openOrgGrantModal} disabled={!selectedOrgId}>
+              <UserPlus size={16} /> {t('users.addOrgAccess')}
+            </Button>
+          ) : activeBuildingId ? (
+            <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
+          ) : null
         )}
       </div>
 
@@ -183,7 +248,7 @@ export default function Users() {
         </div>
       )}
 
-      {!activeBuildingId ? (
+      {!showContent ? (
         <Card><CardBody>
           <p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p>
         </CardBody></Card>
@@ -205,57 +270,149 @@ export default function Users() {
           </div>
 
           {tab === 'access' ? (
-            grantLoading ? <SkeletonTable rows={4} cols={3} /> :
-            grants.length === 0 ? (
-              <Card><CardBody>
-                <div className="text-center py-10">
-                  <Shield size={32} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-sm text-slate-500">{t('users.noGrants')}</p>
+            <div className="space-y-4">
+              {/* Scope toggle — platform admin only */}
+              {isSuperAdmin && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setGrantScope('building')}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {t('users.scopeBuilding')}
+                  </button>
+                  <button
+                    onClick={() => setGrantScope('org')}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
+                  </button>
                 </div>
-              </CardBody></Card>
-            ) : (
-              <Card>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
-                        <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
-                        <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
-                        <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {grants.map(g => (
-                        <tr key={g.id} className="hover:bg-slate-50">
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
-                            {g.profiles?.apartment_number && (
-                              <p className="text-xs text-slate-400">Apt {g.profiles.apartment_number}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge color={grantRoleColor[g.role] ?? 'slate'}>
-                              {t(`users.roles.${g.role}`, { defaultValue: g.role })}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => removeGrant(g.id)}
-                              className="text-slate-300 hover:text-red-500 transition cursor-pointer"
-                              title={t('users.revokeAccess')}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            )
+              )}
+
+              {grantScope === 'org' && isSuperAdmin ? (
+                <>
+                  {/* Org selector */}
+                  <select
+                    value={selectedOrgId}
+                    onChange={e => setSelectedOrgId(e.target.value)}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 min-w-[280px]"
+                  >
+                    <option value="">{t('users.selectOrgHint')}</option>
+                    {organizations.map(o => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))}
+                  </select>
+
+                  {!selectedOrgId ? (
+                    <Card><CardBody>
+                      <div className="text-center py-10">
+                        <Network size={32} className="mx-auto text-slate-300 mb-2" />
+                        <p className="text-sm text-slate-500">{t('users.selectOrgHint')}</p>
+                      </div>
+                    </CardBody></Card>
+                  ) : orgGrantLoading ? (
+                    <SkeletonTable rows={3} cols={3} />
+                  ) : orgGrants.length === 0 ? (
+                    <Card><CardBody>
+                      <div className="text-center py-10">
+                        <Shield size={32} className="mx-auto text-slate-300 mb-2" />
+                        <p className="text-sm text-slate-500">{t('users.noOrgGrants')}</p>
+                      </div>
+                    </CardBody></Card>
+                  ) : (
+                    <Card>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                              <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
+                              <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
+                              <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {orgGrants.map(g => (
+                              <tr key={g.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3">
+                                  <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <Badge color={grantRoleColor[g.role] ?? 'slate'}>
+                                    {t(`users.roles.${g.role}`, { defaultValue: g.role })}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button onClick={() => removeOrgGrant(g.id)} className="text-slate-300 hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              ) : (
+                /* Building grants */
+                !activeBuildingId ? (
+                  <Card><CardBody>
+                    <p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p>
+                  </CardBody></Card>
+                ) : grantLoading ? (
+                  <SkeletonTable rows={4} cols={3} />
+                ) : grants.length === 0 ? (
+                  <Card><CardBody>
+                    <div className="text-center py-10">
+                      <Shield size={32} className="mx-auto text-slate-300 mb-2" />
+                      <p className="text-sm text-slate-500">{t('users.noGrants')}</p>
+                    </div>
+                  </CardBody></Card>
+                ) : (
+                  <Card>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                            <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
+                            <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
+                            <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {grants.map(g => (
+                            <tr key={g.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3">
+                                <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
+                                {g.profiles?.apartment_number && (
+                                  <p className="text-xs text-slate-400">Apt {g.profiles.apartment_number}</p>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge color={grantRoleColor[g.role] ?? 'slate'}>
+                                  {t(`users.roles.${g.role}`, { defaultValue: g.role })}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3">
+                                <button onClick={() => removeGrant(g.id)} className="text-slate-300 hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
+                                  <Trash2 size={15} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                )
+              )}
+            </div>
           ) : (
-            loading ? (
+            /* All Users / Pending tab */
+            !activeBuildingId ? (
+              <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
+            ) : loading ? (
               <SkeletonTable rows={5} cols={6} />
             ) : users.length === 0 ? (
               <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('users.noUsers')}</p></CardBody></Card>
@@ -347,7 +504,7 @@ export default function Users() {
         </>
       )}
 
-      {/* Grant Access modal */}
+      {/* Grant building access modal */}
       <Modal open={grantModal} onClose={() => setGrantModal(false)} title={t('users.addAccess')} size="sm">
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">
@@ -377,20 +534,56 @@ export default function Users() {
               </div>
             )}
           </div>
-
-          <Select
-            label={t('users.role')}
-            value={grantRole}
-            onChange={e => setGrantRole(e.target.value as GrantRole)}
-          >
+          <Select label={t('users.role')} value={grantRole} onChange={e => setGrantRole(e.target.value as GrantRole)}>
             {BUILDING_ROLES.map(r => (
               <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
             ))}
           </Select>
-
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addGrant} disabled={!grantUserId}>{t('users.addAccess')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Grant organization access modal */}
+      <Modal open={orgGrantModal} onClose={() => setOrgGrantModal(false)} title={t('users.addOrgAccess')} size="sm">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700">{t('users.name')}</label>
+            <input
+              type="text"
+              placeholder={t('common.search')}
+              value={orgGrantSearch}
+              onChange={e => { setOrgGrantSearch(e.target.value); setOrgGrantUserId(''); }}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            {orgGrantSearch.length > 0 && (
+              <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+                {availableProfilesForOrg.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
+                ) : availableProfilesForOrg.slice(0, 20).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setOrgGrantUserId(p.id); setOrgGrantSearch(p.full_name); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${orgGrantUserId === p.id ? 'bg-violet-50 text-violet-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="font-medium">{p.full_name}</span>
+                    {p.apartment_number && <span className="text-slate-400 text-xs">· Apt {p.apartment_number}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Select label={t('users.role')} value={orgGrantRole} onChange={e => setOrgGrantRole(e.target.value as GrantRole)}>
+            {ORG_ROLES.map(r => (
+              <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
+            ))}
+          </Select>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
+            <Button onClick={addOrgGrant} disabled={!orgGrantUserId}>{t('users.addOrgAccess')}</Button>
           </div>
         </div>
       </Modal>
