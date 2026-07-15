@@ -19,7 +19,18 @@
 --      survives as "deleted user" instead of blocking the delete.
 --
 -- Additive & idempotent. Safe to re-run.
+--
+-- NOTHING here deletes data: no DROP TABLE/COLUMN, no TRUNCATE, no top-level
+-- DELETE/UPDATE of rows. The DROPs are constraint/trigger metadata that are
+-- re-created immediately, and DROP NOT NULL only *relaxes* a rule.
+-- The `DELETE FROM auth.users` further down lives INSIDE the delete_user()
+-- function body — it is a definition, not something this script executes.
+-- (Supabase's SQL editor keyword-scans and will still warn. That's expected.)
+--
+-- Wrapped in a transaction: Postgres DDL is transactional, so if any single
+-- statement fails, the ENTIRE migration rolls back and the DB is untouched.
 -- ============================================================
+BEGIN;
 
 -- ------------------------------------------------------------
 -- 1. Role hierarchy
@@ -74,13 +85,22 @@ ALTER TABLE memberships ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
 
 -- The old UNIQUE(user_id, unit_id) would block re-adding someone to a unit
 -- they previously left. Replace with a partial unique on ACTIVE memberships.
+-- Match the constraint by its exact column set — never drop "whatever unique
+-- constraint happens to be there".
 DO $$
 DECLARE c TEXT;
 BEGIN
   SELECT con.conname INTO c
-  FROM pg_constraint con
-  JOIN pg_class rel ON rel.oid = con.conrelid
-  WHERE rel.relname = 'memberships' AND con.contype = 'u';
+    FROM pg_constraint con
+   WHERE con.conrelid = 'memberships'::regclass
+     AND con.contype = 'u'
+     AND (
+       SELECT array_agg(att.attname::TEXT ORDER BY att.attname)
+         FROM unnest(con.conkey) AS k
+         JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = k
+     ) = ARRAY['unit_id','user_id']
+   LIMIT 1;
+
   IF c IS NOT NULL THEN
     EXECUTE format('ALTER TABLE memberships DROP CONSTRAINT %I', c);
   END IF;
@@ -447,3 +467,19 @@ GRANT EXECUTE ON FUNCTION can_delete_user(UUID)        TO authenticated;
 GRANT EXECUTE ON FUNCTION delete_user(UUID)            TO authenticated;
 GRANT EXECUTE ON FUNCTION unit_balance(UUID)           TO authenticated;
 GRANT EXECUTE ON FUNCTION user_outstanding(UUID)       TO authenticated;
+
+COMMIT;
+
+-- ------------------------------------------------------------
+-- Post-run sanity checks (optional — run separately, read-only):
+--
+--   -- building_admin must NOT have org.manage anymore, org_admin must:
+--   SELECT role_has_cap('building_admin','org.manage') AS should_be_false,
+--          role_has_cap('org_admin','org.manage')      AS should_be_true,
+--          role_has_cap('building_admin','user.deactivate') AS should_be_true;
+--
+--   -- no residency was lost (ended_at is NULL for every existing row):
+--   SELECT count(*) FILTER (WHERE ended_at IS NULL) AS active,
+--          count(*)                                  AS total
+--     FROM memberships;
+-- ------------------------------------------------------------
