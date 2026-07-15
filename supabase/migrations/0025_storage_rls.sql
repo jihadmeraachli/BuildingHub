@@ -22,4 +22,4 @@ CREATE POLICY "attachments_insert" ON storage.objects
 DROP POLICY IF EXISTS "attachments_delete" ON storage.objects;
 CREATE POLICY "attachments_delete" ON storage.objects
   FOR DELETE TO authenticated
-  USING (bucket_id = 'attachments' AND owner = auth.uid()::text);
+  USING (bucket_id = 'attachments' AND owner::uuid = auth.uid());
