@@ -160,11 +160,13 @@ npm run dev         # http://localhost:5173
 - **Licensing module + self-serve onboarding** — DESIGNED, ready to build after shadcn/ui.
   - Pricing: **$5/unit/month**. Buyer is a building, compound, or org — they purchase a pool of N unit licenses.
   - Access: **full access locked** without a license (no read-only tier).
-  - **Self-serve flow:** Marketing site → Register → Onboarding wizard (create building → choose license quantity → pay OR start trial) → Dashboard. No platform admin involvement needed.
-  - **Trial:** 30 days, auto-starts on first building creation (no admin needed). In-app banner shows days remaining + pay button.
-  - **Paid:** Wish Money integration (Lebanon). Monthly recurring. Admin can also manually grant/extend for enterprise/support cases.
+  - **Two paths — both supported:**
+    - **Self-serve:** Marketing site → Register → Onboarding wizard (create building → choose license quantity → pay OR start trial) → Dashboard.
+    - **Admin-managed:** Platform admin can still manually create buildings, activate trials, grant/extend licenses, assign units — full control for enterprise deals, support cases, or onboarding assisted customers.
+  - **Trial:** 30 days. Can be started via self-serve (auto on first building creation) OR manually activated by platform admin.
+  - **Paid:** Wish Money integration (Lebanon). Monthly recurring.
   - DB tables: `licenses` (owner_type/id, quantity, price_per_unit, status: trial|active|expired, trial_ends_at, expires_at, notes) + `unit_licenses` (license_id, unit_id, UNIQUE). SQL function `is_licensed(unit_id)` for enforcement.
-  - Platform admin role = support only (no longer manually provisions accounts).
+  - In-app expiry banner with days remaining + pay button.
 - **Payment gateway** — Wish Money API integration (research API; implement alongside licensing module).
 - **Scalability review** — discuss architecture limits and horizontal scaling.
 - **Security review** — harden beyond RLS: pen-test surface, secrets rotation, rate limiting.
