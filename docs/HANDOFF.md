@@ -68,6 +68,29 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0021 | `0021_org_admin_compounds.sql` | RLS: org admins can create/manage compounds |
 | 0022 | `0022_compound_org_scope.sql` | `compounds.org_id` — scopes compounds to an org; org admins only see their org's compounds |
 | 0023 | `0023_reminder_helpers.sql` | SQL helper functions for send-reminders: `get_overdue_units()`, `get_overdue_dues()`, `get_due_inspections(days)` |
+| 0024 | `0024_index_audit.sql` | Indexes: `org_buildings`, `compounds.org_id`, `inspections.next_due_date`, `dues.due_date`, `notifications`, `memberships` |
+| 0025 | `0025_storage_rls.sql` | Storage RLS; `attachments` bucket goes private (signed URLs) |
+| 0026 | `0026_user_lifecycle.sql` | **Deactivate, don't delete.** `role_rank()` ladder; **building_admin loses `org.manage`/`org.assign_buildings`**; caps `user.deactivate` (admins) / `user.delete` (platform only). `unit_balance()`/`user_outstanding()`. `memberships.ended_at` (soft move-out). Table-level guards: no self-deactivation, none at/above your level, none outside your remit, **no orphaning a building's last admin**. `delete_user()` platform-only + blocked while grants exist or balance ≠ 0. Audit FKs → `ON DELETE SET NULL` so history survives. |
+| 0027 | `0027_compound_scope.sql` | **The compound is the management unit.** `grants.scope_type` gains `'compound'` + `grants.compound_id`. Roles `compound_admin`(70), `compound_finance`(40), `building_super`(50, the ناطور — issues only, **never money**). **`user_can()` now cascades compound → every block** (incl. blocks added later). 0026's guards taught about compound scope. |
+| 0028 | `0028_legacy_role_backfill.sql` | **Backfills `grants` from legacy `profiles.role`.** v3 stopped reading `profiles.role` for permissions but the data was never migrated — People showed "Building Admin" for people with **no grants and therefore no access**, and the anti-orphan guard couldn't see them. Also teaches `building_admin_ids()` (notifications) about compound scope. **Has a PREVIEW query — read it before running.** |
+| 0029 | `0029_profile_self_service.sql` | **Security: closes a privilege-escalation hole.** `profiles_update_own` allowed updating *any* column, and `is_platform_admin` is a column → any resident could self-promote to god-mode. Now guarded by a `BEFORE UPDATE` trigger (own name/phone/photo/prefs only). Also re-points `profiles_update_admin` from legacy `current_user_role()` to `user_can(building,'resident.manage')`. |
+
+### Key idea: the access ladder (0026 + 0027)
+```
+platform_admin 100  the operator (profiles.is_platform_admin) — god-mode
+org_admin       80  management company, across its buildings
+compound_admin  70  the whole compound — ALL blocks, incl. blocks added later
+building_admin  60  one block
+building_super  50  the ناطور — issues/inspections/minutes, NEVER money
+*_finance       40  the book only
+viewer          20  read-only
+```
+**You may only manage grants strictly BELOW your own rank**, and you may only
+deactivate at or below your level, inside your remit. Nobody deletes an account
+except the platform admin, and only once they hold no grants and owe nothing.
+`grants` scope is `org | compound | building` — a compound grant covers every
+block in the compound. **`grants` is the only source of management access;
+`profiles.role` is dead** (0028 backfilled the stragglers).
 
 ### Key idea: charges carry the block
 Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). So the **compound book** and **per-block slice** both fall out automatically, and **a unit's balance is identical** whether viewed at compound or block level.
