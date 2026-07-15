@@ -29,7 +29,7 @@ It's all **additive** — existing single buildings keep working (default billin
 - **Backend:** Supabase (Postgres + Auth + Storage + Edge Functions). All security is **Row-Level Security** routed through one SQL function, `user_can(building, capability)`.
 - **Email:** Supabase Edge Functions send email via **Resend**. `dynamic-action` handles transactional emails (triggered by Database Webhooks). `send-reminders` handles scheduled weekly reminders (triggered by pg_cron).
 - **Repo:** `jihadmeraachli/BuildingHub` (private), branch `master`. Both Jey and Ahmad push/pull directly — always `git pull origin master` before starting.
-- **UI revamp:** Ahmad's dark Tatawwor-brand theme lives on the `ui-revamp` branch — **merge to master before starting shadcn/ui work**.
+- **UI revamp:** ✅ **merged to master** (commit `3676bc1`). Ahmad's dark Tatawwor-brand theme is live for everyone — `ui-revamp` branch is no longer needed. Run `npm install` after pulling (adds **framer-motion**). shadcn/ui work is unblocked.
 
 ### The permission model (important)
 - **Identity** (one login per person) is separate from **management grants** (`grants` table: a user has a role on a building or an org) and **resident membership** (`memberships`: a user owns a unit).
@@ -127,7 +127,7 @@ npm run dev         # http://localhost:5173
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
 - **Compound inspection admins** — `get_due_inspections()` finds org admins via `org_buildings` join; platform-admin-only compounds (no `org_id`) won't have anyone to notify for inspection reminders.
 - **WhatsApp notifications** — dedicated number still being sourced; email is the only active channel for now.
-- **shadcn/ui migration** — Ahmad's dark Tatawwor theme is on `ui-revamp` branch (accepted, not merged). Next UI step: merge `ui-revamp` → master, then migrate components to shadcn/ui for a professional design system.
+- **shadcn/ui migration** — Ahmad's dark Tatawwor theme is ✅ **merged to master**. Next UI step: migrate components to shadcn/ui for a professional design system, keeping the Tatawwor brand tokens (cyan `#57D6E2` → blue `#349ECD`, Poppins display font) and the dark theme. Note: the dark theme is currently a scoped `.app-dark` override layer in `src/index.css` — shadcn uses CSS variables + `dark:` variants, so that layer should be **replaced by** shadcn theme tokens during the migration rather than stacked on top.
 
 ---
 
@@ -135,7 +135,7 @@ npm run dev         # http://localhost:5173
 
 ### Phase 3 — In Progress
 - **Email reminders** — ✅ done (`send-reminders` edge fn + pg_cron; overdue balance + dues + inspection due-date alerts).
-- **UI overhaul** — `ui-revamp` branch ready to merge; shadcn/ui migration next.
+- **UI overhaul** — ✅ dark Tatawwor-brand theme merged to master; shadcn/ui migration next.
 - **WhatsApp notifications** — dedicated number being sourced; bundle with mobile app release.
 - **PWA / Mobile app** — installable on phones; publish on Google Play & App Store.
 
