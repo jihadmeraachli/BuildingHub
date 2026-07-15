@@ -297,7 +297,9 @@
     "selectCompoundHint": "Select a compound…",
     "noCompoundGrants": "No compound-level access granted yet",
     "addCompoundAccess": "Add compound access",
-    "compoundScopeNote": "Compound access covers every block in the compound — including blocks added later."
+    "compoundScopeNote": "Compound access covers every block in the compound — including blocks added later.",
+    "acrossBlocks": "across {{count}} blocks",
+    "block": "Block"
   },
   "buildings": {
     "title": "Buildings",

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Boxes, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Profile, UserRole, UserStatus, Building, Compound, Grant, GrantRole, Organization } from '@/types';
+import { useEntities } from '@/lib/entities';
+import type { Profile, UserRole, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -49,14 +50,15 @@ export default function Users() {
 
   const [users, setUsers] = useState<Profile[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const entities = useEntities(buildings); // compounds (grouping blocks) + standalone buildings
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('');
+  const [entityKey, setEntityKey] = useState<string>('');
+  const [blockFilter, setBlockFilter] = useState<string>('');
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
   const [grantScope, setGrantScope] = useState<GrantScope>('building');
   // compound scope (0027) — one grant covers every block, incl. blocks added later
-  const [compounds, setCompounds] = useState<Compound[]>([]);
   const [selectedCompoundId, setSelectedCompoundId] = useState('');
   const [compoundGrants, setCompoundGrants] = useState<GrantRow[]>([]);
   const [compoundGrantLoading, setCompoundGrantLoading] = useState(false);
@@ -108,11 +110,9 @@ export default function Users() {
       Promise.all([
         supabase.from('buildings').select('*').eq('is_active', true).order('name'),
         supabase.from('organizations').select('*').eq('is_active', true).order('name'),
-        supabase.from('compounds').select('*').order('name'),
-      ]).then(([{ data: b }, { data: o }, { data: c }]) => {
+      ]).then(([{ data: b }, { data: o }]) => {
         setBuildings(b ?? []);
         setOrganizations(o ?? []);
-        setCompounds((c as Compound[]) ?? []);
       });
     } else if (isOrgAdmin && myOrgIds.length) {
       supabase.from('org_buildings').select('buildings(*)').in('org_id', myOrgIds)
@@ -123,12 +123,36 @@ export default function Users() {
     }
   }, [isSuperAdmin, isOrgAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeBuildingId = showBuildingSelector ? selectedBuildingId : profile?.building_id ?? '';
-  const canManageAccess = isPlatformAdmin || (activeBuildingId ? can('grant.manage', activeBuildingId) : canAny('grant.manage'));
+  // ---- compound-first scoping (matches Dashboard/Finance/Dues via useEntities) ----
+  // People used to be pinned to ONE block. An entity is a compound (grouping its
+  // blocks) or a standalone building; the list spans the whole entity unless a
+  // block filter is set.
+  const selEntity = entities.find(e => e.key === entityKey) ?? null;
+  const compoundEntities = entities.filter(e => e.kind === 'compound');
+
+  useEffect(() => { setBlockFilter(''); }, [entityKey]);
+  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
+
+  // Which blocks the people list covers.
+  const listBuildingIds = useMemo<string[]>(() => {
+    if (!showBuildingSelector) return profile?.building_id ? [profile.building_id] : [];
+    if (blockFilter) return [blockFilter];
+    return selEntity?.buildingIds ?? [];
+  }, [showBuildingSelector, profile?.building_id, blockFilter, selEntity]);
+  const listKey = listBuildingIds.join(',');
+
+  // Block-scoped actions (grants on a single block) still need ONE building:
+  // the filtered block, or the entity's only block if it has just one.
+  const activeBuildingId = showBuildingSelector
+    ? (blockFilter || (selEntity?.blocks.length === 1 ? selEntity.blocks[0].id : ''))
+    : profile?.building_id ?? '';
+
+  const canManageAccess = isPlatformAdmin
+    || (listBuildingIds.length ? listBuildingIds.some(id => can('grant.manage', id)) : canAny('grant.manage'));
 
   useEffect(() => {
-    if (activeBuildingId && tab !== 'access') loadUsers();
-  }, [activeBuildingId, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (listBuildingIds.length && tab !== 'access') loadUsers();
+  }, [listKey, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeBuildingId && tab === 'access' && grantScope === 'building') loadGrants();
@@ -143,15 +167,17 @@ export default function Users() {
   }, [selectedCompoundId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadUsers() {
+    if (!listBuildingIds.length) { setUsers([]); return; }
     setLoading(true);
-    let q = supabase.from('profiles').select('*').eq('building_id', activeBuildingId);
+    // spans every block of the selected compound (or just the filtered block)
+    let q = supabase.from('profiles').select('*').in('building_id', listBuildingIds);
     if (tab === 'pending') q = q.eq('status', 'pending');
     q = q.order('created_at', { ascending: false });
     const { data } = await q;
     setUsers(data ?? []);
     setLoading(false);
 
-    const { data: us } = await supabase.from('units').select('id, label').eq('building_id', activeBuildingId);
+    const { data: us } = await supabase.from('units').select('id, label').in('building_id', listBuildingIds);
     const unitList = (us as { id: string; label: string }[]) ?? [];
     const unitLabel = Object.fromEntries(unitList.map((u) => [u.id, u.label]));
     if (unitList.length) {
@@ -370,6 +396,14 @@ export default function Users() {
     .filter(p => !orgGrantedUserIds.has(p.id))
     .filter(p => p.full_name.toLowerCase().includes(orgGrantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(orgGrantSearch.toLowerCase()));
 
+  // When the list spans several blocks, show which block each person belongs to —
+  // otherwise the rows are ambiguous in a compound view.
+  const showBlockColumn = listBuildingIds.length > 1;
+  const blockName = useMemo(
+    () => Object.fromEntries(buildings.map(b => [b.id, b.name])) as Record<string, string>,
+    [buildings],
+  );
+
   const compoundGrantedUserIds = new Set(compoundGrants.map(g => g.user_id));
   const availableProfilesForCompound = allProfiles
     .filter(p => !compoundGrantedUserIds.has(p.id))
@@ -382,7 +416,7 @@ export default function Users() {
   ];
 
   const onOrgScope = tab === 'access' && grantScope === 'org' && isSuperAdmin;
-  const showContent = !!activeBuildingId || isSuperAdmin;
+  const showContent = listBuildingIds.length > 0 || isSuperAdmin;
 
   const rolesForInviteScope = inviteScopeType === 'org' ? ORG_ROLES : BUILDING_ROLES;
 
@@ -408,18 +442,39 @@ export default function Users() {
         </div>
       </div>
 
+      {/* Compound-first: pick the compound (or standalone building), then optionally
+          narrow to one block. Same selector shape as Dashboard/Finance/Dues. */}
       {showBuildingSelector && (
-        <div className="mb-4">
+        <div className="mb-4 flex items-center gap-2 flex-wrap">
           <select
-            value={selectedBuildingId}
-            onChange={e => { setSelectedBuildingId(e.target.value); setTab('all'); }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
+            value={entityKey}
+            onChange={e => setEntityKey(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 min-w-[240px]"
           >
-            <option value="">{t('common.selectBuilding')}</option>
-            {buildings.map(b => (
-              <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
+            {entities.length === 0 && <option value="">{t('common.selectBuilding')}</option>}
+            {entities.map(e => (
+              <option key={e.key} value={e.key}>
+                {e.kind === 'compound' ? `▣ ${e.name}` : e.name}
+              </option>
             ))}
           </select>
+
+          {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
+            <select
+              value={blockFilter}
+              onChange={e => setBlockFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50"
+            >
+              <option value="">{t('finance.allBlocks')}</option>
+              {selEntity.blocks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+
+          {selEntity?.kind === 'compound' && !blockFilter && selEntity.blocks.length > 1 && (
+            <span className="text-xs text-slate-500">
+              {t('users.acrossBlocks', { count: selEntity.blocks.length })}
+            </span>
+          )}
         </div>
       )}
 
@@ -481,9 +536,9 @@ export default function Users() {
                       className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 min-w-[280px]"
                     >
                       <option value="">{t('users.selectCompoundHint')}</option>
-                      {compounds.map(c => (
+                      {compoundEntities.map(c => (
                         <option key={c.id} value={c.id}>
-                          {c.name} ({buildings.filter(b => b.compound_id === c.id).length} {t('buildings.blocks')})
+                          {c.name} ({c.blocks.length} {t('buildings.blocks')})
                         </option>
                       ))}
                     </select>
@@ -678,6 +733,7 @@ export default function Users() {
                     <thead>
                       <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
                         <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
+                        {showBlockColumn && <th className="px-4 py-3 text-start font-medium">{t('users.block')}</th>}
                         <th className="px-4 py-3 text-start font-medium">{t('users.apartment')}</th>
                         <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
                         <th className="px-4 py-3 text-start font-medium">{t('users.status')}</th>
@@ -692,6 +748,11 @@ export default function Users() {
                             <p className="font-medium text-slate-900">{u.full_name}</p>
                             <p className="text-xs text-slate-400">{u.phone ?? '—'}</p>
                           </td>
+                          {showBlockColumn && (
+                            <td className="px-4 py-3">
+                              <span className="text-xs text-slate-400">{blockName[u.building_id ?? ''] ?? '—'}</span>
+                            </td>
+                          )}
                           <td className="px-4 py-3">
                             {assigned[u.id]?.length ? (
                               <div className="flex flex-wrap gap-1">
