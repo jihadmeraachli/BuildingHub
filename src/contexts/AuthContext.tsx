@@ -80,6 +80,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const grant of g) {
       if (grant.scope_type === 'building' && grant.building_id) add(grant.building_id, grant.role);
     }
+    // Cascade COMPOUND grants → every block in that compound, including blocks
+    // added after the grant was made. Mirrors user_can() in SQL (0027).
+    const compoundIds = g.filter((x) => x.scope_type === 'compound' && x.compound_id).map((x) => x.compound_id as string);
+    if (compoundIds.length) {
+      const { data: blocks } = await supabase
+        .from('buildings')
+        .select('id, compound_id')
+        .in('compound_id', compoundIds);
+      for (const row of (blocks as { id: string; compound_id: string }[]) ?? []) {
+        for (const grant of g) {
+          if (grant.scope_type === 'compound' && grant.compound_id === row.compound_id) add(row.id, grant.role);
+        }
+      }
+    }
+
     const orgIds = g.filter((x) => x.scope_type === 'org' && x.org_id).map((x) => x.org_id as string);
     if (orgIds.length) {
       const { data: ob } = await supabase

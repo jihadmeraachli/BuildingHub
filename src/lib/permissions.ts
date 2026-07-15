@@ -28,12 +28,22 @@ const FINANCE_CAPS: Capability[] = [
 
 const VIEWER_CAPS: Capability[] = ['finance.view', 'issue.view_all'];
 
+// The superintendent (ناطور): on the ground for issues, never sees money.
+const BUILDING_SUPER_CAPS: Capability[] = [
+  'issue.view_all', 'issue.update', 'meeting.manage',
+];
+
 // NOTE: 'user.delete' is intentionally absent from every role — it is
 // platform-admin only (is_platform_admin() short-circuits user_can()).
+// A compound_admin has a building_admin's powers over EVERY block in the
+// compound; the difference is scope, not capability (migration 0027).
 const ROLE_CAPS: Record<GrantRole, Capability[]> = {
   org_admin: ORG_ADMIN_CAPS,
+  compound_admin: BUILDING_ADMIN_CAPS,
   building_admin: BUILDING_ADMIN_CAPS,
+  building_super: BUILDING_SUPER_CAPS,
   org_finance: FINANCE_CAPS,
+  compound_finance: FINANCE_CAPS,
   building_finance: FINANCE_CAPS,
   viewer: VIEWER_CAPS,
 };
@@ -41,8 +51,11 @@ const ROLE_CAPS: Record<GrantRole, Capability[]> = {
 /** Role hierarchy — mirrors role_rank() in SQL. Platform admin = 100, resident = 10. */
 export const ROLE_RANK: Record<GrantRole, number> = {
   org_admin: 80,
+  compound_admin: 70,
   building_admin: 60,
+  building_super: 50,
   org_finance: 40,
+  compound_finance: 40,
   building_finance: 40,
   viewer: 20,
 };

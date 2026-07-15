@@ -234,7 +234,10 @@
       "org_admin": "Org Admin",
       "org_finance": "Org Finance",
       "viewer": "Viewer",
-      "resident": "Resident"
+      "resident": "Resident",
+      "compound_admin": "Compound Admin",
+      "compound_finance": "Compound Finance",
+      "building_super": "Superintendent"
     },
     "statuses": {
       "pending": "Pending",
@@ -289,7 +292,12 @@
     "deactivateReasonLabel": "Reason (optional)",
     "deactivateReasonPlaceholder": "e.g. moved out, sold the unit, no longer on the committee…",
     "deleteTitle": "Delete account",
-    "deactivateInstead": "Deactivate them instead — it blocks access without touching any records."
+    "deactivateInstead": "Deactivate them instead — it blocks access without touching any records.",
+    "scopeCompound": "Compound",
+    "selectCompoundHint": "Select a compound…",
+    "noCompoundGrants": "No compound-level access granted yet",
+    "addCompoundAccess": "Add compound access",
+    "compoundScopeNote": "Compound access covers every block in the compound — including blocks added later."
   },
   "buildings": {
     "title": "Buildings",
@@ -331,7 +339,8 @@
     "orgHint": "After creating it, assign buildings to this organization using the dropdown on each building card.",
     "orgCount": "{{count}} buildings",
     "noOrgOption": "— No organization —",
-    "orgAdded": "Organization created."
+    "orgAdded": "Organization created.",
+    "blocks": "blocks"
   },
   "structure": {
     "title": "Structure",

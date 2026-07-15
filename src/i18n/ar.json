@@ -234,7 +234,10 @@
       "org_admin": "مدير المؤسسة",
       "org_finance": "مالية المؤسسة",
       "viewer": "مشاهد",
-      "resident": "مقيم"
+      "resident": "مقيم",
+      "compound_admin": "مدير المجمّع",
+      "compound_finance": "محاسب المجمّع",
+      "building_super": "ناطور"
     },
     "statuses": {
       "pending": "معلّق",
@@ -289,7 +292,12 @@
     "deactivateReasonLabel": "السبب (اختياري)",
     "deactivateReasonPlaceholder": "مثال: انتقل من الوحدة، باع الوحدة، لم يعد ضمن اللجنة…",
     "deleteTitle": "حذف الحساب",
-    "deactivateInstead": "قم بإلغاء تفعيله بدلاً من ذلك — يمنع الوصول دون المساس بأي سجلات."
+    "deactivateInstead": "قم بإلغاء تفعيله بدلاً من ذلك — يمنع الوصول دون المساس بأي سجلات.",
+    "scopeCompound": "المجمّع",
+    "selectCompoundHint": "اختر مجمّعًا…",
+    "noCompoundGrants": "لا توجد صلاحيات على مستوى المجمّع بعد",
+    "addCompoundAccess": "إضافة صلاحية على المجمّع",
+    "compoundScopeNote": "صلاحية المجمّع تشمل كل المباني ضمن المجمّع — بما في ذلك المباني التي تُضاف لاحقًا."
   },
   "buildings": {
     "title": "المباني",
@@ -331,7 +339,8 @@
     "orgHint": "بعد إنشائها، عيّن المباني لهذه المؤسسة من القائمة المنسدلة في كل بطاقة مبنى.",
     "orgCount": "{{count}} مبنى",
     "noOrgOption": "— بدون مؤسسة —",
-    "orgAdded": "تم إنشاء المؤسسة."
+    "orgAdded": "تم إنشاء المؤسسة.",
+    "blocks": "مبانٍ"
   },
   "structure": {
     "title": "الهيكل",

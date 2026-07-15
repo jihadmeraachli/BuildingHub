@@ -112,8 +112,15 @@ export type Capability =
   // platform admin only; it is never granted via role_has_cap().
   | 'user.deactivate' | 'user.delete';
 
+// Ladder (migration 0027): platform(100) > org_admin(80) > compound_admin(70)
+// > building_admin(60) > building_super(50) > *_finance(40) > viewer(20)
 export type GrantRole =
-  | 'org_admin' | 'org_finance' | 'building_admin' | 'building_finance' | 'viewer';
+  | 'org_admin' | 'org_finance'
+  | 'compound_admin' | 'compound_finance'
+  | 'building_admin' | 'building_finance' | 'building_super'
+  | 'viewer';
+
+export type GrantScope = 'org' | 'compound' | 'building';
 
 export type Occupancy = 'occupied' | 'vacant' | 'abroad';
 export type Tenure = 'owner' | 'tenant';
@@ -146,8 +153,10 @@ export interface Compound {
 export interface Grant {
   id: string;
   user_id: string;
-  scope_type: 'org' | 'building';
+  scope_type: GrantScope;
   org_id: string | null;
+  /** Set when scope_type='compound' — covers every block in the compound (0027). */
+  compound_id: string | null;
   building_id: string | null;
   role: GrantRole;
   created_at: string;

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Boxes, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Profile, UserRole, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
+import type { Profile, UserRole, UserStatus, Building, Compound, Grant, GrantRole, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -14,14 +14,17 @@ import { Select } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 type Tab = 'all' | 'pending' | 'access';
-type GrantScope = 'building' | 'org';
+// Hierarchy: org > compound > building (migration 0027).
+type GrantScope = 'building' | 'compound' | 'org';
 type InviteScopeType = 'none' | 'building' | 'org';
 
 type GrantRow = Grant & {
   profiles: { id: string; full_name: string; apartment_number: string | null } | null;
 };
 
-const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_finance', 'viewer'];
+// A compound grant covers every block in the compound, incl. future ones (0027).
+const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_super', 'building_finance', 'viewer'];
+const COMPOUND_ROLES: GrantRole[] = ['compound_admin', 'compound_finance', 'viewer'];
 const ORG_ROLES: GrantRole[] = ['org_admin', 'org_finance'];
 
 const roleColor: Record<UserRole, 'blue' | 'orange' | 'slate'> = {
@@ -31,9 +34,9 @@ const statusColor: Record<UserStatus, 'green' | 'yellow' | 'red' | 'slate'> = {
   active: 'green', pending: 'yellow', rejected: 'red', inactive: 'slate',
 };
 const grantRoleColor: Record<string, 'blue' | 'orange' | 'slate'> = {
-  building_admin: 'blue', org_admin: 'blue',
-  building_finance: 'orange', org_finance: 'orange',
-  viewer: 'slate',
+  building_admin: 'blue', org_admin: 'blue', compound_admin: 'blue',
+  building_finance: 'orange', org_finance: 'orange', compound_finance: 'orange',
+  building_super: 'slate', viewer: 'slate',
 };
 
 export default function Users() {
@@ -52,6 +55,15 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
   const [grantScope, setGrantScope] = useState<GrantScope>('building');
+  // compound scope (0027) — one grant covers every block, incl. blocks added later
+  const [compounds, setCompounds] = useState<Compound[]>([]);
+  const [selectedCompoundId, setSelectedCompoundId] = useState('');
+  const [compoundGrants, setCompoundGrants] = useState<GrantRow[]>([]);
+  const [compoundGrantLoading, setCompoundGrantLoading] = useState(false);
+  const [compoundGrantModal, setCompoundGrantModal] = useState(false);
+  const [compoundGrantUserId, setCompoundGrantUserId] = useState('');
+  const [compoundGrantRole, setCompoundGrantRole] = useState<GrantRole>('compound_admin');
+  const [compoundGrantSearch, setCompoundGrantSearch] = useState('');
   const [assigned, setAssigned] = useState<Record<string, { label: string; tenure: string }[]>>({});
 
   // Building grants
@@ -96,9 +108,11 @@ export default function Users() {
       Promise.all([
         supabase.from('buildings').select('*').eq('is_active', true).order('name'),
         supabase.from('organizations').select('*').eq('is_active', true).order('name'),
-      ]).then(([{ data: b }, { data: o }]) => {
+        supabase.from('compounds').select('*').order('name'),
+      ]).then(([{ data: b }, { data: o }, { data: c }]) => {
         setBuildings(b ?? []);
         setOrganizations(o ?? []);
+        setCompounds((c as Compound[]) ?? []);
       });
     } else if (isOrgAdmin && myOrgIds.length) {
       supabase.from('org_buildings').select('buildings(*)').in('org_id', myOrgIds)
@@ -123,6 +137,10 @@ export default function Users() {
   useEffect(() => {
     if (selectedOrgId && tab === 'access' && grantScope === 'org') loadOrgGrants();
   }, [selectedOrgId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (selectedCompoundId && tab === 'access' && grantScope === 'compound') loadCompoundGrants();
+  }, [selectedCompoundId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadUsers() {
     setLoading(true);
@@ -164,6 +182,40 @@ export default function Users() {
       .eq('org_id', selectedOrgId).eq('scope_type', 'org').order('created_at');
     setOrgGrants((data as GrantRow[]) ?? []);
     setOrgGrantLoading(false);
+  }
+
+  async function loadCompoundGrants() {
+    if (!selectedCompoundId) return;
+    setCompoundGrantLoading(true);
+    const { data } = await supabase
+      .from('grants').select('*, profiles(id, full_name, apartment_number)')
+      .eq('compound_id', selectedCompoundId).eq('scope_type', 'compound').order('created_at');
+    setCompoundGrants((data as GrantRow[]) ?? []);
+    setCompoundGrantLoading(false);
+  }
+
+  async function openCompoundGrantModal() {
+    const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
+    setAllProfiles(data ?? []);
+    setCompoundGrantUserId(''); setCompoundGrantRole('compound_admin'); setCompoundGrantSearch('');
+    setCompoundGrantModal(true);
+  }
+
+  async function addCompoundGrant() {
+    if (!compoundGrantUserId || !selectedCompoundId) return;
+    const { error } = await supabase.from('grants').insert({
+      user_id: compoundGrantUserId, scope_type: 'compound',
+      compound_id: selectedCompoundId, building_id: null, org_id: null, role: compoundGrantRole,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.grantAdded'));
+    setCompoundGrantModal(false); loadCompoundGrants();
+  }
+
+  async function removeCompoundGrant(id: string) {
+    const { error } = await supabase.from('grants').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.grantRemoved')); loadCompoundGrants();
   }
 
   async function openGrantModal() {
@@ -318,6 +370,11 @@ export default function Users() {
     .filter(p => !orgGrantedUserIds.has(p.id))
     .filter(p => p.full_name.toLowerCase().includes(orgGrantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(orgGrantSearch.toLowerCase()));
 
+  const compoundGrantedUserIds = new Set(compoundGrants.map(g => g.user_id));
+  const availableProfilesForCompound = allProfiles
+    .filter(p => !compoundGrantedUserIds.has(p.id))
+    .filter(p => p.full_name.toLowerCase().includes(compoundGrantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(compoundGrantSearch.toLowerCase()));
+
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'all', label: t('users.allUsers'), show: true },
     { key: 'pending', label: t('users.pendingApprovals'), show: true },
@@ -389,25 +446,108 @@ export default function Users() {
 
           {tab === 'access' ? (
             <div className="space-y-4">
+              {/* Scope ladder, top-down: org → compound → block. Access granted higher
+                  up cascades down (a compound grant covers every block in it). */}
               {isSuperAdmin && (
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setGrantScope('building')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    {t('users.scopeBuilding')}
-                  </button>
+                <div className="flex gap-1 flex-wrap">
                   <button
                     onClick={() => setGrantScope('org')}
                     className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
                   >
                     <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
                   </button>
+                  <button
+                    onClick={() => setGrantScope('compound')}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-[#349ECD] border-[#349ECD] text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <span className="flex items-center gap-1.5"><Boxes size={13} /> {t('users.scopeCompound')}</span>
+                  </button>
+                  <button
+                    onClick={() => setGrantScope('building')}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {t('users.scopeBuilding')}
+                  </button>
                 </div>
               )}
               {/* org admins stay on building scope only — no org-level grant management */}
 
-              {grantScope === 'org' && isSuperAdmin ? (
+              {grantScope === 'compound' && isSuperAdmin ? (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={selectedCompoundId}
+                      onChange={e => setSelectedCompoundId(e.target.value)}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 min-w-[280px]"
+                    >
+                      <option value="">{t('users.selectCompoundHint')}</option>
+                      {compounds.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({buildings.filter(b => b.compound_id === c.id).length} {t('buildings.blocks')})
+                        </option>
+                      ))}
+                    </select>
+                    {selectedCompoundId && (
+                      <Button size="sm" onClick={openCompoundGrantModal}><Shield size={14} /> {t('users.addAccess')}</Button>
+                    )}
+                  </div>
+
+                  {selectedCompoundId && (
+                    <p className="text-xs text-slate-500">{t('users.compoundScopeNote')}</p>
+                  )}
+
+                  {!selectedCompoundId ? (
+                    <Card><CardBody>
+                      <div className="text-center py-10">
+                        <Boxes size={32} className="mx-auto text-slate-600 mb-2" />
+                        <p className="text-sm text-slate-500">{t('users.selectCompoundHint')}</p>
+                      </div>
+                    </CardBody></Card>
+                  ) : compoundGrantLoading ? (
+                    <SkeletonTable rows={3} cols={3} />
+                  ) : compoundGrants.length === 0 ? (
+                    <Card><CardBody>
+                      <div className="text-center py-10">
+                        <Shield size={32} className="mx-auto text-slate-600 mb-2" />
+                        <p className="text-sm text-slate-500">{t('users.noCompoundGrants')}</p>
+                      </div>
+                    </CardBody></Card>
+                  ) : (
+                    <Card>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                              <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
+                              <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
+                              <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {compoundGrants.map(g => (
+                              <tr key={g.id} className="hover:bg-slate-50">
+                                <td className="px-4 py-3">
+                                  <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <Badge color={grantRoleColor[g.role] ?? 'slate'}>
+                                    {t(`users.roles.${g.role}`, { defaultValue: g.role })}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button onClick={() => removeCompoundGrant(g.id)} className="text-slate-500 hover:text-rose-400 transition cursor-pointer" title={t('users.revokeAccess')}>
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              ) : grantScope === 'org' && isSuperAdmin ? (
                 <>
                   <select
                     value={selectedOrgId}
@@ -858,6 +998,45 @@ export default function Users() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addOrgGrant} disabled={!orgGrantUserId}>{t('users.addOrgAccess')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Compound access — one grant, every block (0027) */}
+      <Modal open={compoundGrantModal} onClose={() => setCompoundGrantModal(false)} title={t('users.addCompoundAccess')} size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">{t('users.compoundScopeNote')}</p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700">{t('users.name')}</label>
+            <input
+              type="text"
+              placeholder={t('common.search')}
+              value={compoundGrantSearch}
+              onChange={e => { setCompoundGrantSearch(e.target.value); setCompoundGrantUserId(''); }}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50"
+            />
+            {compoundGrantSearch.length > 0 && (
+              <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+                {availableProfilesForCompound.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
+                ) : availableProfilesForCompound.slice(0, 20).map(p => (
+                  <button
+                    key={p.id} type="button"
+                    onClick={() => { setCompoundGrantUserId(p.id); setCompoundGrantSearch(p.full_name); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${compoundGrantUserId === p.id ? 'bg-[#57D6E2]/15 text-[#7fe3ec]' : 'text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    <span className="font-medium">{p.full_name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Select label={t('users.role')} value={compoundGrantRole} onChange={e => setCompoundGrantRole(e.target.value as GrantRole)}>
+            {COMPOUND_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>)}
+          </Select>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setCompoundGrantModal(false)}>{t('common.cancel')}</Button>
+            <Button onClick={addCompoundGrant} disabled={!compoundGrantUserId}>{t('users.addCompoundAccess')}</Button>
           </div>
         </div>
       </Modal>
