@@ -97,8 +97,11 @@ export default function Settings() {
     const blob = await cropToSquare(cropSrc, croppedArea);
     if (!blob) { setUploadingAvatar(false); toast.error(t('settings.uploadFailed')); return; }
 
+    // 'avatars' is a PUBLIC bucket (0030) — `attachments` went private in 0025,
+    // so a getPublicUrl() into it 404s. Folder must be the uid: the bucket's RLS
+    // only lets you write under avatars/<your uid>/.
     const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-    const url = await uploadFile('attachments', `avatars/${user.id}`, file);
+    const url = await uploadFile('avatars', user.id, file);
     if (!url) { setUploadingAvatar(false); toast.error(t('settings.uploadFailed')); return; }
 
     const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
