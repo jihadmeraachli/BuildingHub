@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Camera, Loader2, Mail, ShieldCheck, User as UserIcon } from 'lucide-react';
+import Cropper from 'react-easy-crop';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { uploadFile } from '@/lib/upload';
+import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 
 /**
  * Your own account. Everything here is self-service and scoped to auth.uid() —
@@ -29,6 +32,11 @@ export default function Settings() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // crop step
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedArea, setCroppedArea] = useState<CropArea | null>(null);
 
   // ---- email ----
   const [email, setEmail] = useState('');
@@ -72,19 +80,41 @@ export default function Settings() {
     refreshProfile();
   }
 
-  async function onPickAvatar(file: File | undefined) {
-    if (!file || !user) return;
+  // Pick -> crop -> upload. Straight object-cover on a rectangular photo
+  // centre-crops hard and reads as "zoomed in", so let people frame it.
+  function onPickAvatar(file: File | undefined) {
+    if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error(t('settings.imageOnly')); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error(t('settings.imageTooBig')); return; }
+    setCropSrc(URL.createObjectURL(file));
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+  }
+
+  async function confirmCrop() {
+    if (!cropSrc || !croppedArea || !user) return;
     setUploadingAvatar(true);
+    const blob = await cropToSquare(cropSrc, croppedArea);
+    if (!blob) { setUploadingAvatar(false); toast.error(t('settings.uploadFailed')); return; }
+
+    const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
     const url = await uploadFile('attachments', `avatars/${user.id}`, file);
     if (!url) { setUploadingAvatar(false); toast.error(t('settings.uploadFailed')); return; }
+
     const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
     setUploadingAvatar(false);
     if (error) { toast.error(error.message); return; }
+
+    URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
     setAvatarUrl(url);
     toast.success(t('settings.photoUpdated'));
     refreshProfile();
+  }
+
+  function cancelCrop() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
   }
 
   async function removeAvatar() {
@@ -122,6 +152,43 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl">
+      {/* crop / zoom before upload */}
+      <Modal open={!!cropSrc} onClose={cancelCrop} title={t('settings.cropTitle')} size="sm">
+        <div className="space-y-4">
+          <div className="relative w-full h-64 rounded-xl overflow-hidden bg-[#080b12]">
+            {cropSrc && (
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={(_area, areaPixels) => setCroppedArea(areaPixels)}
+              />
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">{t('settings.zoom')}</span>
+            <input
+              type="range" min={1} max={3} step={0.01}
+              value={zoom}
+              onChange={e => setZoom(Number(e.target.value))}
+              className="flex-1 cursor-pointer"
+            />
+          </div>
+          <p className="text-xs text-slate-500">{t('settings.cropHint')}</p>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={cancelCrop}>{t('common.cancel')}</Button>
+            <Button onClick={confirmCrop} loading={uploadingAvatar}>{t('settings.usePhoto')}</Button>
+          </div>
+        </div>
+      </Modal>
+
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-slate-900 tracking-tight">{t('settings.title')}</h1>
         <p className="text-sm text-slate-500 mt-0.5">{t('settings.subtitle')}</p>

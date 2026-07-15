@@ -637,6 +637,10 @@
     "updatePassword": "Update password",
     "pwTooShort": "Password must be at least 8 characters",
     "pwMismatch": "Passwords don't match",
-    "pwUpdated": "Password updated"
+    "pwUpdated": "Password updated",
+    "cropTitle": "Adjust your photo",
+    "zoom": "Zoom",
+    "cropHint": "Drag to reposition, pinch or use the slider to zoom.",
+    "usePhoto": "Use photo"
   }
 }
