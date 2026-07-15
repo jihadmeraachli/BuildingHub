@@ -71,7 +71,7 @@ export default function Structure() {
     const unitIds = unitList.map((x) => x.id);
     if (unitIds.length) {
       const [{ data: o }, { data: ug }] = await Promise.all([
-        supabase.from('memberships').select('id, user_id, unit_id, tenure').in('unit_id', unitIds),
+        supabase.from('memberships').select('id, user_id, unit_id, tenure').in('unit_id', unitIds).is('ended_at', null),
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', unitIds),
       ]);
       setOwners((o as OwnerRow[]) ?? []);
@@ -126,8 +126,11 @@ export default function Structure() {
     setOwnerPick(''); setOwnerTenure('owner');
     loadAll();
   }
+  // Move-out = soft-end (0026). Never hard-delete: the unit's ledger needs to know
+  // who was liable when each charge was raised (owner vs tenant billing).
   async function removeOwner(membershipId: string) {
-    await supabase.from('memberships').delete().eq('id', membershipId);
+    const { error } = await supabase.rpc('end_membership', { p_membership: membershipId });
+    if (error) { toast.error(error.message); return; }
     loadAll();
   }
 

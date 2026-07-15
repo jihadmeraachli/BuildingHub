@@ -35,6 +35,9 @@ export interface Profile {
   notify_whatsapp: boolean;
   avatar_url: string | null;
   is_platform_admin?: boolean;
+  deactivated_at?: string | null;
+  deactivated_by?: string | null;
+  deactivation_reason?: string | null;
   created_at: string;
 }
 
@@ -104,7 +107,10 @@ export type Capability =
   | 'resident.approve' | 'resident.manage' | 'grant.manage'
   | 'issue.view_all' | 'issue.update'
   | 'expense.manage' | 'charge.manage' | 'payment.record' | 'payment.confirm' | 'finance.view'
-  | 'meeting.manage' | 'org.manage' | 'org.assign_buildings';
+  | 'meeting.manage' | 'org.manage' | 'org.assign_buildings'
+  // user lifecycle (migration 0026). 'user.delete' belongs to NO role —
+  // platform admin only; it is never granted via role_has_cap().
+  | 'user.deactivate' | 'user.delete';
 
 export type GrantRole =
   | 'org_admin' | 'org_finance' | 'building_admin' | 'building_finance' | 'viewer';
@@ -161,6 +167,8 @@ export interface Membership {
   user_id: string;
   unit_id: string;
   tenure: Tenure;
+  /** Soft-end (move-out). NULL = active residency. Migration 0026. */
+  ended_at: string | null;
   created_at: string;
   unit?: Unit;
 }

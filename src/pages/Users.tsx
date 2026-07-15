@@ -129,7 +129,7 @@ export default function Users() {
     const unitList = (us as { id: string; label: string }[]) ?? [];
     const unitLabel = Object.fromEntries(unitList.map((u) => [u.id, u.label]));
     if (unitList.length) {
-      const { data: ms } = await supabase.from('memberships').select('user_id, unit_id, tenure').in('unit_id', unitList.map((u) => u.id));
+      const { data: ms } = await supabase.from('memberships').select('user_id, unit_id, tenure').in('unit_id', unitList.map((u) => u.id)).is('ended_at', null);
       const map: Record<string, { label: string; tenure: string }[]> = {};
       (ms as { user_id: string; unit_id: string; tenure: string }[] ?? []).forEach((m) => {
         (map[m.user_id] ??= []).push({ label: unitLabel[m.unit_id], tenure: m.tenure ?? 'owner' });
@@ -205,10 +205,46 @@ export default function Users() {
   }
 
   async function updateUser(id: string, patch: Partial<Profile>) {
-    await supabase.from('profiles').update(patch).eq('id', id);
+    // Surface DB guard errors (0026) instead of silently claiming success.
+    const { error } = await supabase.from('profiles').update(patch).eq('id', id);
+    if (error) { toast.error(error.message); return; }
     if (patch.status === 'active') toast.success(t('users.approved'));
     else if (patch.status === 'rejected') toast.success(t('users.rejected'));
-    else if (patch.status === 'inactive') toast.success(t('users.deactivated'));
+    loadUsers();
+  }
+
+  // Deactivate = the safe default. Guards live in the DB (0026): no self-deactivation,
+  // no deactivating at/above your level, no orphaning a building's last admin.
+  async function deactivateUser(id: string) {
+    const reason = prompt(t('users.deactivateReasonPrompt'));
+    if (reason === null) return; // cancelled
+    const { error } = await supabase.rpc('deactivate_user', { p_target: id, p_reason: reason || null });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.deactivated'));
+    loadUsers();
+  }
+
+  async function reactivateUser(id: string) {
+    const { error } = await supabase.rpc('reactivate_user', { p_target: id });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.reactivated'));
+    loadUsers();
+  }
+
+  // Hard delete — platform admin only. can_delete_user() returns the blockers so
+  // we can explain WHY rather than just failing.
+  async function deleteUser(id: string, name: string) {
+    const { data: blockers, error: checkErr } = await supabase.rpc('can_delete_user', { p_target: id });
+    if (checkErr) { toast.error(checkErr.message); return; }
+    const list = (blockers as string[]) ?? [];
+    if (list.length > 0) {
+      toast.error(`${t('users.cannotDelete')}\n\n• ${list.join('\n• ')}`, { duration: 8000 });
+      return;
+    }
+    if (!confirm(t('users.deleteConfirm', { name }))) return;
+    const { error } = await supabase.rpc('delete_user', { p_target: id });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.deleted'));
     loadUsers();
   }
 
@@ -544,11 +580,17 @@ export default function Users() {
                                   <Button size="sm" variant="danger" onClick={() => updateUser(u.id, { status: 'rejected' })}>{t('users.reject')}</Button>
                                 </>
                               )}
-                              {u.status === 'active' && (
-                                <Button size="sm" variant="secondary" onClick={() => updateUser(u.id, { status: 'inactive' })}>{t('users.deactivate')}</Button>
+                              {u.status === 'active' && u.id !== profile?.id && (
+                                <Button size="sm" variant="secondary" onClick={() => deactivateUser(u.id)}>{t('users.deactivate')}</Button>
                               )}
                               {u.status === 'inactive' && (
-                                <Button size="sm" onClick={() => updateUser(u.id, { status: 'active' })}>{t('common.reactivate')}</Button>
+                                <Button size="sm" onClick={() => reactivateUser(u.id)}>{t('common.reactivate')}</Button>
+                              )}
+                              {/* Hard delete: platform admin only, never self. Guards enforced in DB (0026). */}
+                              {isPlatformAdmin && u.id !== profile?.id && (
+                                <Button size="sm" variant="danger" onClick={() => deleteUser(u.id, u.full_name)} title={t('users.deleteHint')}>
+                                  <Trash2 size={14} />
+                                </Button>
                               )}
                             </div>
                           </td>

@@ -71,7 +71,6 @@
     "registrationSuccess": "Registration submitted. You will be notified once approved.",
     "invalidCredentials": "Invalid email or password.",
     "building": "Building",
-    "forgotPassword": "Forgot password?",
     "backToLogin": "Back to sign in",
     "resetTitle": "Reset your password",
     "resetSubtitle": "Enter your email and we'll send you a link to reset your password.",
@@ -280,7 +279,13 @@
     "inviteOrg": "Organization",
     "sendInvite": "Send invite",
     "inviteSent": "Invite sent to {{email}}.",
-    "inviteError": "Failed to send invite. Please try again."
+    "inviteError": "Failed to send invite. Please try again.",
+    "deactivateReasonPrompt": "Reason for deactivating (optional) — this is recorded in the audit trail:",
+    "reactivated": "Account reactivated",
+    "cannotDelete": "This account can't be deleted yet:",
+    "deleteConfirm": "Permanently delete {{name}}? This cannot be undone. Their financial history stays with the unit.",
+    "deleted": "Account deleted",
+    "deleteHint": "Delete account (platform admin only)"
   },
   "buildings": {
     "title": "Buildings",
@@ -332,7 +337,7 @@
     "addUnit": "Add Unit",
     "addGroup": "Add Group",
     "editUnit": "Edit Unit",
-    "owners": "Owner(s)",
+    "owners": "Owners",
     "shares": "Shares",
     "occupancy": "Occupancy",
     "occupied": "Occupied",
@@ -345,14 +350,16 @@
     "manageUnits": "Manage units",
     "unitLabel": "Unit label (e.g. 4B)",
     "shareWeight": "Share weight (حصص)",
-    "owners": "Owners",
     "members": "Members",
     "assignOwner": "Assign owner — Unit {{label}}",
     "assignMember": "Assign member — Unit {{label}}",
     "addOwner": "Add owner",
     "addMember": "Add person",
     "role": "Role",
-    "tenure": { "owner": "Owner", "tenant": "Tenant" },
+    "tenure": {
+      "owner": "Owner",
+      "tenant": "Tenant"
+    },
     "selectPerson": "— Select a person —",
     "ownerHint": "Only registered people appear here. Approve residents in the People page first.",
     "memberHint": "Only registered people appear here. Approve residents in the People page first.",
@@ -462,7 +469,11 @@
     "exportStatement": "Export Statement",
     "exportReport": "Export Report",
     "billedTo": "Charge to",
-    "billedToOptions": { "both": "All members", "owner": "Owner only", "tenant": "Tenant only" }
+    "billedToOptions": {
+      "both": "All members",
+      "owner": "Owner only",
+      "tenant": "Tenant only"
+    }
   },
   "inspections": {
     "title": "Inspections",
@@ -561,8 +572,20 @@
     "reconcileNote": "Amount due = base − current balance (surplus/deficit carried automatically).",
     "flatFeeNote": "Flat fee — the full base amount is charged every period, regardless of current balance.",
     "planType": "Billing model",
-    "planTypes": { "b1": "Standard (arrears true-up)", "b2": "Budget (flat fee)" },
-    "cadences": { "monthly": "Monthly", "quarterly": "Quarterly", "semiannual": "Semi-annual", "annual": "Annual" },
-    "methods": { "by_shares": "By shares", "equal": "Equal", "custom": "Manual (per unit)" }
+    "planTypes": {
+      "b1": "Standard (arrears true-up)",
+      "b2": "Budget (flat fee)"
+    },
+    "cadences": {
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "semiannual": "Semi-annual",
+      "annual": "Annual"
+    },
+    "methods": {
+      "by_shares": "By shares",
+      "equal": "Equal",
+      "custom": "Manual (per unit)"
+    }
   }
 }

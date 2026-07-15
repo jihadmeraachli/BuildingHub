@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { rolesHaveCap } from '@/lib/permissions';
 import type { Profile, Grant, Membership, Capability, GrantRole } from '@/types';
@@ -44,14 +45,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function fetchProfile(userId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    setProfile((data as Profile) ?? null);
+    const p = (data as Profile) ?? null;
+
+    // Deactivated accounts must not hold a session — otherwise "deactivate"
+    // is only a badge. Kick them straight back out to Login. (Migration 0026.)
+    if (p?.status === 'inactive') {
+      await supabase.auth.signOut();
+      setProfile(null);
+      toast.error('Your account has been deactivated. Please contact your building admin.');
+      return;
+    }
+
+    setProfile(p);
   }
 
   async function fetchAccess(userId: string) {
     // Grants + memberships for the user; org grants are cascaded to buildings below.
     const [{ data: grantData }, { data: memberData }] = await Promise.all([
       supabase.from('grants').select('*').eq('user_id', userId),
-      supabase.from('memberships').select('*, unit:units(*)').eq('user_id', userId),
+      // only ACTIVE residency — a moved-out member keeps history but loses access (0026)
+      supabase.from('memberships').select('*, unit:units(*)').eq('user_id', userId).is('ended_at', null),
     ]);
 
     const g = (grantData as Grant[]) ?? [];
