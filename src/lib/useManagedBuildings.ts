@@ -4,9 +4,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Building } from '@/types';
 
 /**
- * Buildings the current user may act on, resolved through the v3 model
- * (platform admin = all) with a fallback to the legacy profile.role so existing
- * admins keep working during the migration.
+ * Buildings the current user may act on, resolved through the v3 model:
+ * platform admin = all, otherwise the grants-derived manageableBuildingIds
+ * (building + compound + org scope — see AuthContext / user_can()).
+ * There is no legacy profiles.role fallback — that field grants nothing
+ * (migration 0028 backfilled the last of those admins into real grants).
  */
 export function useManagedBuildings() {
   const { isPlatformAdmin, manageableBuildingIds } = useAuth();

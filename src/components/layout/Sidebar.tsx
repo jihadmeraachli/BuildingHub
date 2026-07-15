@@ -132,15 +132,26 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         <div className="px-3 py-4 border-t border-white/5">
-          <div className="flex items-center gap-3 px-3 py-2 mb-1">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">
-              {profile?.full_name?.charAt(0).toUpperCase() ?? '?'}
-            </div>
+          {/* click your name -> your account settings */}
+          <NavLink
+            to="/settings"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 mb-1 rounded-xl transition-colors cursor-pointer ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`
+            }
+          >
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#57D6E2] to-[#349ECD] flex items-center justify-center text-[#062330] text-xs font-bold flex-shrink-0">
+                {profile?.full_name?.charAt(0).toUpperCase() ?? '?'}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{profile?.full_name ?? '—'}</p>
               <p className="text-xs text-slate-400 truncate">{displayRole}</p>
             </div>
-          </div>
+          </NavLink>
           <button
             onClick={signOut}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white w-full transition-colors cursor-pointer"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Menu, Bell, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
@@ -103,17 +104,26 @@ export function Header({ onMenuClick }: HeaderProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 ps-2.5 ms-1 border-s border-slate-200">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-sm font-semibold">
-            {profile?.full_name?.charAt(0).toUpperCase() ?? '?'}
-          </div>
+        {/* click your name -> your account settings */}
+        <Link
+          to="/settings"
+          title={t('settings.title')}
+          className="flex items-center gap-2.5 ps-2.5 ms-1 border-s border-slate-200 rounded-e-xl py-1 pe-1 hover:bg-white/5 transition cursor-pointer"
+        >
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#57D6E2] to-[#349ECD] flex items-center justify-center text-[#062330] text-sm font-bold">
+              {profile?.full_name?.charAt(0).toUpperCase() ?? '?'}
+            </div>
+          )}
           <div className="hidden sm:block text-sm leading-tight">
             <p className="font-medium text-slate-900">{profile?.full_name}</p>
             <p className="text-slate-500 text-xs mt-0.5">
               {profile?.apartment_number ?? displayRole}
             </p>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

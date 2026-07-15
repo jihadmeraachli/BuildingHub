@@ -20,6 +20,7 @@ const Contracts  = lazy(() => import('@/pages/Contracts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
 const Users      = lazy(() => import('@/pages/Users'));
 const Buildings  = lazy(() => import('@/pages/Buildings'));
+const Settings   = lazy(() => import('@/pages/Settings'));
 
 function PageFallback() {
   return <div className="p-6"><SkeletonCards count={3} /></div>;
@@ -53,6 +54,8 @@ export default function App() {
               <Route path="/issues" element={<Issues />} />
               <Route path="/users" element={<Users />} />
               <Route path="/buildings" element={<Buildings />} />
+              {/* your own account — no capability gate, everyone has one */}
+              <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
