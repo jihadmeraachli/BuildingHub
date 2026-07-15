@@ -3,6 +3,7 @@ import { Menu, Bell, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { topRole } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { setLanguage } from '@/i18n';
 import type { Notification } from '@/types';
@@ -15,13 +16,13 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { t, i18n } = useTranslation();
   const { profile, user, isPlatformAdmin, grants } = useAuth();
 
+  // Derived from ROLE_RANK, so new roles (compound_admin, building_super…) are
+  // labelled automatically. Never falls back to legacy profiles.role — that
+  // field is not what RLS enforces.
+  const top = topRole(grants.map(g => g.role));
   const displayRole = isPlatformAdmin
-    ? 'Platform Admin'
-    : grants.some(g => g.role === 'org_admin') ? 'Org Admin'
-    : grants.some(g => g.role === 'building_admin') ? 'Building Admin'
-    : grants.some(g => g.role === 'org_finance' || g.role === 'building_finance') ? 'Finance'
-    : grants.some(g => g.role === 'viewer') ? 'Viewer'
-    : profile?.role?.replace('_', ' ') ?? 'Member';
+    ? t('users.roles.platform_admin')
+    : top ? t(`users.roles.${top}`, { defaultValue: top }) : t('users.roles.resident');
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

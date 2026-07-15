@@ -266,6 +266,18 @@ export default function Users() {
     toast.success(t('users.grantRemoved')); loadCompoundGrants();
   }
 
+  /**
+   * Change an existing grant's role in place — no revoke-then-re-add.
+   * The DB re-checks it: grants_hierarchy_guard_trg fires BEFORE UPDATE too, so
+   * you still can't promote anyone to at/above your own level (0027).
+   */
+  async function updateGrantRole(id: string, role: GrantRole, reload: () => void) {
+    const { error } = await supabase.from('grants').update({ role }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.roleUpdated'));
+    reload();
+  }
+
   async function openGrantModal() {
     const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
     setAllProfiles(data ?? []);
@@ -607,9 +619,15 @@ export default function Users() {
                                   <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                  <Badge color={grantRoleColor[g.role] ?? 'slate'}>
-                                    {t(`users.roles.${g.role}`, { defaultValue: g.role })}
-                                  </Badge>
+                                  <select
+                                    value={g.role}
+                                    onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadCompoundGrants)}
+                                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 cursor-pointer"
+                                  >
+                                    {COMPOUND_ROLES.map(r => (
+                                      <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="px-4 py-3">
                                   <button onClick={() => removeCompoundGrant(g.id)} className="text-slate-500 hover:text-rose-400 transition cursor-pointer" title={t('users.revokeAccess')}>
@@ -671,9 +689,15 @@ export default function Users() {
                                   <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                  <Badge color={grantRoleColor[g.role] ?? 'slate'}>
-                                    {t(`users.roles.${g.role}`, { defaultValue: g.role })}
-                                  </Badge>
+                                  <select
+                                    value={g.role}
+                                    onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadOrgGrants)}
+                                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
+                                  >
+                                    {ORG_ROLES.map(r => (
+                                      <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="px-4 py-3">
                                   <button onClick={() => removeOrgGrant(g.id)} className="text-slate-300 hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
@@ -723,9 +747,15 @@ export default function Users() {
                                 )}
                               </td>
                               <td className="px-4 py-3">
-                                <Badge color={grantRoleColor[g.role] ?? 'slate'}>
-                                  {t(`users.roles.${g.role}`, { defaultValue: g.role })}
-                                </Badge>
+                                <select
+                                  value={g.role}
+                                  onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadGrants)}
+                                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                                >
+                                  {BUILDING_ROLES.map(r => (
+                                    <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
+                                  ))}
+                                </select>
                               </td>
                               <td className="px-4 py-3">
                                 <button onClick={() => removeGrant(g.id)} className="text-slate-300 hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>

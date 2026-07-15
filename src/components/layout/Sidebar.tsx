@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
+import { topRole } from '@/lib/permissions';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, X, ClipboardCheck, FileSignature,
@@ -25,13 +26,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const canPeople = canAny('resident.manage') || canAny('resident.approve') || isOrgAdmin;
   const canBuildings = isPlatformAdmin || isOrgAdmin;
 
+  // Derived from ROLE_RANK (see permissions.ts) — no hand-maintained ladder,
+  // no legacy profiles.role fallback.
+  const top = topRole(grants.map(g => g.role));
   const displayRole = isPlatformAdmin
-    ? 'Platform Admin'
-    : grants.some(g => g.role === 'org_admin') ? 'Org Admin'
-    : grants.some(g => g.role === 'building_admin') ? 'Building Admin'
-    : grants.some(g => g.role === 'org_finance' || g.role === 'building_finance') ? 'Finance'
-    : grants.some(g => g.role === 'viewer') ? 'Viewer'
-    : profile?.role?.replace('_', ' ') ?? 'Member';
+    ? t('users.roles.platform_admin')
+    : top ? t(`users.roles.${top}`, { defaultValue: top }) : t('users.roles.resident');
 
   const operationsLinks = [
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, show: true },

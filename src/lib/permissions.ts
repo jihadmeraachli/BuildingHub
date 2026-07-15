@@ -65,6 +65,17 @@ export function maxRank(roles: GrantRole[]): number {
   return roles.reduce((max, r) => Math.max(max, ROLE_RANK[r] ?? 0), 0) || 10;
 }
 
+/**
+ * The most senior role a person holds, for display.
+ * Derived from ROLE_RANK so new roles are picked up automatically — never
+ * hand-maintain a role ladder in the UI, and never fall back to the legacy
+ * profiles.role (it is not what RLS enforces).
+ */
+export function topRole(roles: GrantRole[]): GrantRole | null {
+  if (!roles.length) return null;
+  return roles.reduce((best, r) => ((ROLE_RANK[r] ?? 0) > (ROLE_RANK[best] ?? 0) ? r : best));
+}
+
 export function roleHasCap(role: GrantRole, cap: Capability): boolean {
   return ROLE_CAPS[role]?.includes(cap) ?? false;
 }

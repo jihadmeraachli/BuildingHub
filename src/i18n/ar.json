@@ -300,7 +300,8 @@
     "addCompoundAccess": "إضافة صلاحية على المجمّع",
     "compoundScopeNote": "صلاحية المجمّع تشمل كل المباني ضمن المجمّع — بما في ذلك المباني التي تُضاف لاحقًا.",
     "acrossBlocks": "عبر {{count}} مبانٍ",
-    "block": "المبنى"
+    "block": "المبنى",
+    "roleUpdated": "تم تحديث الدور"
   },
   "buildings": {
     "title": "المباني",

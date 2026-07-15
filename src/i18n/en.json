@@ -300,7 +300,8 @@
     "addCompoundAccess": "Add compound access",
     "compoundScopeNote": "Compound access covers every block in the compound — including blocks added later.",
     "acrossBlocks": "across {{count}} blocks",
-    "block": "Block"
+    "block": "Block",
+    "roleUpdated": "Role updated"
   },
   "buildings": {
     "title": "Buildings",
