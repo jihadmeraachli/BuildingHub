@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, ClipboardCheck, Pencil, Trash2, FileText } from 'lucide-react';
+import { Plus, ClipboardCheck, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
+import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
@@ -150,7 +151,7 @@ export default function Inspections() {
                       {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
                       {r.inspector && <><span>•</span><span>{r.inspector}</span></>}
                       {r.next_due_date && <><span>•</span><span>{t('inspections.nextDue')}: {format(new Date(r.next_due_date), 'MMM d, yyyy')}</span></>}
-                      {r.attachment_url && <><span>•</span><a href={r.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline"><FileText size={12} /> {t('inspections.viewReport')}</a></>}
+                      {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('inspections.viewReport')} className="inline-flex items-center gap-1 text-indigo-600 hover:underline" /></>}
                     </div>
                   </div>
                   {canManage && (

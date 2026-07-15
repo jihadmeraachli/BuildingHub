@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
+import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, BilledTo } from '@/types';
@@ -555,7 +556,7 @@ export default function Finance() {
                         <td className="px-5 py-3 font-semibold text-slate-900">{unitDisplay(p.unit_id)}</td>
                         <td className="px-5 py-3 text-slate-600">{t(`finance.methods.${p.method}`)}</td>
                         <td className="px-5 py-3 text-slate-500">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 text-slate-500"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <a href={p.receipt_url} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()} className="text-indigo-600 hover:text-indigo-800"><Paperclip size={13} /></a>}</span></td>
+                        <td className="px-5 py-3 text-slate-500"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-indigo-600 hover:text-indigo-800 inline-flex" icon={Paperclip} />}</span></td>
                         <td className="px-5 py-3 text-end font-semibold text-emerald-600 tnum">{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
                           <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
@@ -747,7 +748,7 @@ export default function Finance() {
                 <div key={x.l} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-[11px] text-slate-400 uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-slate-800 mt-0.5 capitalize">{x.v}</p></div>
               ))}
             </div>
-            {detailPayment.receipt_url && <a href={detailPayment.receipt_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline"><FileText size={15} /> {t('finance.viewReceipt')}</a>}
+            {detailPayment.receipt_url && <AttachmentLink url={detailPayment.receipt_url} label={t('finance.viewReceipt')} className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline" />}
             {canManageFinance && (
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <Button variant="danger" onClick={() => { const id = detailPayment.id; setDetailPayment(null); deletePayment(id); }}>{t('common.delete')}</Button>

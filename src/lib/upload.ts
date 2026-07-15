@@ -1,9 +1,5 @@
 import { supabase } from '@/lib/supabase';
 
-/**
- * Upload a file to a Storage bucket and return its public URL (or null on failure).
- * Failures are swallowed so a missing attachment never blocks saving the record.
- */
 export async function uploadFile(bucket: string, folder: string, file: File): Promise<string | null> {
   try {
     const safe = file.name.replace(/[^\w.\-]+/g, '_');
@@ -13,5 +9,21 @@ export async function uploadFile(bucket: string, folder: string, file: File): Pr
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   } catch {
     return null;
+  }
+}
+
+// Extracts the storage path from a stored URL or passthrough a bare path,
+// then returns a short-lived signed URL (1 hour). Falls back to the original
+// value if signing fails so the UI never hard-breaks.
+export async function getSignedUrl(urlOrPath: string, bucket = 'attachments', expiresIn = 3600): Promise<string> {
+  try {
+    const marker = `/object/public/${bucket}/`;
+    const path = urlOrPath.includes(marker)
+      ? urlOrPath.split(marker)[1]
+      : urlOrPath.replace(new RegExp(`^${bucket}/`), '');
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+    return data?.signedUrl ?? urlOrPath;
+  } catch {
+    return urlOrPath;
   }
 }

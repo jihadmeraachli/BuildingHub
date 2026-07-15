@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, FileSignature, Pencil, Trash2, FileText, Phone } from 'lucide-react';
+import { Plus, FileSignature, Pencil, Trash2, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
+import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
@@ -176,7 +177,7 @@ export default function Contracts() {
                     </p>
                   )}
                   {r.notes && <p className="text-xs text-slate-500">{r.notes}</p>}
-                  {r.attachment_url && <a href={r.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline pt-1"><FileText size={12} /> {t('contracts.viewDoc')}</a>}
+                  {r.attachment_url && <AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline pt-1" />}
                 </div>
               </CardBody></Card>
             ))}

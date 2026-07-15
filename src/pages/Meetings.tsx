@@ -6,6 +6,7 @@ import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, 
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
+import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
@@ -289,9 +290,7 @@ export default function Meetings() {
                             <div>
                               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attachments')}</p>
                               {m.attachment_urls.map((url, i) => (
-                                <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-blue-700 hover:underline">
-                                  <Paperclip size={13} /> {t('meetings.attachment', { n: i + 1 })}
-                                </a>
+                                <AttachmentLink key={i} url={url} label={t('meetings.attachment', { n: i + 1 })} icon={Paperclip} className="flex items-center gap-1.5 text-sm text-blue-700 hover:underline" />
                               ))}
                             </div>
                           )}
@@ -436,9 +435,7 @@ export default function Meetings() {
               <div>
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">{t('meetings.attachments')}</p>
                 {detailMeeting.attachment_urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
-                    <Paperclip size={13} /> {t('meetings.attachment', { n: i + 1 })}
-                  </a>
+                  <AttachmentLink key={i} url={url} label={t('meetings.attachment', { n: i + 1 })} icon={Paperclip} className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline" />
                 ))}
               </div>
             )}
