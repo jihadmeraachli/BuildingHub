@@ -237,7 +237,8 @@
       "resident": "مقيم",
       "compound_admin": "مدير المجمّع",
       "compound_finance": "محاسب المجمّع",
-      "building_super": "ناطور"
+      "building_super": "ناطور",
+      "platform_admin": "مسؤول المنصة"
     },
     "statuses": {
       "pending": "معلّق",

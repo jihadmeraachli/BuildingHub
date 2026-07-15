@@ -5,7 +5,7 @@ import { Boxes, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/lib/entities';
-import type { Profile, UserRole, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
+import type { Profile, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -28,9 +28,8 @@ const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_super', 'buildi
 const COMPOUND_ROLES: GrantRole[] = ['compound_admin', 'compound_finance', 'viewer'];
 const ORG_ROLES: GrantRole[] = ['org_admin', 'org_finance'];
 
-const roleColor: Record<UserRole, 'blue' | 'orange' | 'slate'> = {
-  super_admin: 'blue', building_admin: 'orange', resident: 'slate',
-};
+// NB: there is deliberately no legacy profiles.role colour map any more — the
+// Role column now reflects `grants` (what RLS actually enforces).
 const statusColor: Record<UserStatus, 'green' | 'yellow' | 'red' | 'slate'> = {
   active: 'green', pending: 'yellow', rejected: 'red', inactive: 'slate',
 };
@@ -49,6 +48,8 @@ export default function Users() {
   const showBuildingSelector = isSuperAdmin || isOrgAdmin;
 
   const [users, setUsers] = useState<Profile[]>([]);
+  /** userId -> grant roles covering the selected blocks (the REAL access). */
+  const [accessRoles, setAccessRoles] = useState<Record<string, GrantRole[]>>({});
   const [buildings, setBuildings] = useState<Building[]>([]);
   const entities = useEntities(buildings); // compounds (grouping blocks) + standalone buildings
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -176,6 +177,27 @@ export default function Users() {
     const { data } = await q;
     setUsers(data ?? []);
     setLoading(false);
+
+    // Effective management access for these blocks, resolved from `grants` —
+    // the same source user_can() enforces. Covers building, compound (0027) and
+    // org scopes, so the badge matches reality instead of legacy profiles.role.
+    const compoundIdSet = new Set(
+      buildings.filter(b => listBuildingIds.includes(b.id)).map(b => b.compound_id).filter(Boolean) as string[],
+    );
+    const { data: obRows } = await supabase
+      .from('org_buildings').select('org_id, building_id').in('building_id', listBuildingIds);
+    const orgIdSet = new Set(((obRows as { org_id: string }[]) ?? []).map(r => r.org_id));
+    const { data: gRows } = await supabase
+      .from('grants').select('user_id, role, scope_type, building_id, compound_id, org_id');
+    const roleMap: Record<string, GrantRole[]> = {};
+    for (const g of (gRows as Grant[]) ?? []) {
+      const covers =
+        (g.scope_type === 'building' && !!g.building_id && listBuildingIds.includes(g.building_id))
+        || (g.scope_type === 'compound' && !!g.compound_id && compoundIdSet.has(g.compound_id))
+        || (g.scope_type === 'org' && !!g.org_id && orgIdSet.has(g.org_id));
+      if (covers) (roleMap[g.user_id] ??= []).push(g.role);
+    }
+    setAccessRoles(roleMap);
 
     const { data: us } = await supabase.from('units').select('id, label').in('building_id', listBuildingIds);
     const unitList = (us as { id: string; label: string }[]) ?? [];
@@ -764,18 +786,22 @@ export default function Users() {
                               <span className="text-slate-400">{u.apartment_number ?? '—'}</span>
                             )}
                           </td>
+                          {/* EFFECTIVE access, read from `grants` — the same source RLS
+                              enforces. The old control here wrote the dead legacy
+                              profiles.role field, which granted nothing. */}
                           <td className="px-4 py-3">
-                            {isSuperAdmin ? (
-                              <select
-                                value={u.role}
-                                onChange={e => updateUser(u.id, { role: e.target.value as UserRole })}
-                                className="rounded border border-slate-300 px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                              >
-                                <option value="resident">{t('users.roles.resident')}</option>
-                                <option value="building_admin">{t('users.roles.building_admin')}</option>
-                              </select>
+                            {u.is_platform_admin ? (
+                              <Badge color="blue">{t('users.roles.platform_admin')}</Badge>
+                            ) : accessRoles[u.id]?.length ? (
+                              <div className="flex flex-wrap gap-1">
+                                {accessRoles[u.id].map((r, i) => (
+                                  <Badge key={i} color={grantRoleColor[r] ?? 'slate'}>
+                                    {t(`users.roles.${r}`, { defaultValue: r })}
+                                  </Badge>
+                                ))}
+                              </div>
                             ) : (
-                              <Badge color={roleColor[u.role]}>{t(`users.roles.${u.role}`)}</Badge>
+                              <span className="text-xs text-slate-500">{t('users.roles.resident')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3">

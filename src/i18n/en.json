@@ -237,7 +237,8 @@
       "resident": "Resident",
       "compound_admin": "Compound Admin",
       "compound_finance": "Compound Finance",
-      "building_super": "Superintendent"
+      "building_super": "Superintendent",
+      "platform_admin": "Platform Admin"
     },
     "statuses": {
       "pending": "Pending",
