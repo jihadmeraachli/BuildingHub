@@ -177,4 +177,21 @@ npm run dev         # http://localhost:5173
 
 ---
 
+## 9. Important modifications — do before/during scaling
+
+Prioritised by impact. Do these before or alongside the first real user onboarding.
+
+| Priority | Area | What | Why |
+|---|---|---|---|
+| 1 | **Scalability** | Index audit — add indexes on `grants(user_id)`, `memberships(user_id, unit_id)`, `charges(unit_id)`, `payments(unit_id)` | `user_can()` runs on every RLS-protected query; missing indexes mean full table scans at scale. Single biggest win before launch. |
+| 2 | **Security** | Storage signed URLs — replace public `attachments` bucket URLs with short-lived signed URLs | Bucket is currently fully public; anyone with a file URL can access invoices, receipts, financial documents. Unacceptable for a financial app. |
+| 3 | **Scalability / Ops** | Upgrade to Supabase Pro (minimum) before real users | Free tier: 500MB DB, 50k MAU, no PITR backups, limited connections. Pro adds PITR, 100k MAU, more connections. Business tier adds read replicas. |
+| 4 | **Scalability** | Materialised view for unit balances — pre-compute `SUM(charges) - SUM(payments)` per unit, refresh on charge/payment insert | Finance queries currently full-scan charges + payments on every load. Fine at hundreds of units; painful at 10k+. |
+| 5 | **Security** | Rate limiting on edge functions (`invite-user`, `send-reminders`) | No protection against hammering. Add Supabase's built-in rate limiting or a simple token-bucket check in the function. |
+| 6 | **Backup** | Weekly `pg_dump` export to Cloudflare R2 or S3 | Supabase Pro gives 7-day PITR but no offsite copy. A weekly export is a cheap extra safety net. |
+| 7 | **Security** | Pen-test the RLS policies | `user_can()` + compound/org cascades haven't been adversarially tested. Run a review before taking on enterprise customers. |
+| 8 | **Scalability** | Cache `user_can()` results per session | Eliminates repeated permission joins on every request. Only needed if index audit + materialised view aren't enough headroom. High effort — park until you hit the limit. |
+
+---
+
 *Questions on any of this — the code is documented and `docs/WORKFLOW.md` has the reasoning behind each decision.*
