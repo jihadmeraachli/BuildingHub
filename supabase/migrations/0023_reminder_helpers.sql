@@ -60,11 +60,16 @@ RETURNS TABLE (
     d.period_label,
     d.due_date,
     d.amount_due,
-    ARRAY_REMOVE(ARRAY_AGG(DISTINCT m.user_id) OVER (PARTITION BY d.unit_id), NULL) AS owner_user_ids
+    COALESCE(owners.user_ids, ARRAY[]::UUID[]) AS owner_user_ids
   FROM dues d
   JOIN units u ON u.id = d.unit_id
   JOIN buildings b ON b.id = d.building_id AND b.is_active = true
-  LEFT JOIN memberships m ON m.unit_id = d.unit_id AND m.tenure = 'owner'
+  LEFT JOIN (
+    SELECT unit_id, ARRAY_AGG(DISTINCT user_id) AS user_ids
+    FROM memberships
+    WHERE tenure = 'owner'
+    GROUP BY unit_id
+  ) owners ON owners.unit_id = d.unit_id
   WHERE d.due_date IS NOT NULL
     AND d.due_date < CURRENT_DATE
     AND d.amount_due > 0
