@@ -58,6 +58,14 @@ export default function Users() {
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [grantLoading, setGrantLoading] = useState(false);
   const [grantModal, setGrantModal] = useState(false);
+  // deactivate confirmation (real modal — window.prompt is blocked in sandboxed iframes)
+  const [deactivateTarget, setDeactivateTarget] = useState<Profile | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [deactivating, setDeactivating] = useState(false);
+  // hard delete (platform admin only) — blockers come from can_delete_user()
+  const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+  const [deleteBlockers, setDeleteBlockers] = useState<string[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [grantUserId, setGrantUserId] = useState('');
   const [grantRole, setGrantRole] = useState<GrantRole>('building_finance');
@@ -215,12 +223,19 @@ export default function Users() {
 
   // Deactivate = the safe default. Guards live in the DB (0026): no self-deactivation,
   // no deactivating at/above your level, no orphaning a building's last admin.
-  async function deactivateUser(id: string) {
-    const reason = prompt(t('users.deactivateReasonPrompt'));
-    if (reason === null) return; // cancelled
-    const { error } = await supabase.rpc('deactivate_user', { p_target: id, p_reason: reason || null });
+  // NB: uses a real modal, not window.prompt() — native dialogs are suppressed in
+  // sandboxed iframes (VS Code Simple Browser) and return null silently.
+  async function confirmDeactivate() {
+    if (!deactivateTarget) return;
+    setDeactivating(true);
+    const { error } = await supabase.rpc('deactivate_user', {
+      p_target: deactivateTarget.id,
+      p_reason: deactivateReason.trim() || null,
+    });
+    setDeactivating(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.deactivated'));
+    setDeactivateTarget(null);
     loadUsers();
   }
 
@@ -231,20 +246,25 @@ export default function Users() {
     loadUsers();
   }
 
-  // Hard delete — platform admin only. can_delete_user() returns the blockers so
-  // we can explain WHY rather than just failing.
-  async function deleteUser(id: string, name: string) {
-    const { data: blockers, error: checkErr } = await supabase.rpc('can_delete_user', { p_target: id });
-    if (checkErr) { toast.error(checkErr.message); return; }
-    const list = (blockers as string[]) ?? [];
-    if (list.length > 0) {
-      toast.error(`${t('users.cannotDelete')}\n\n• ${list.join('\n• ')}`, { duration: 8000 });
-      return;
-    }
-    if (!confirm(t('users.deleteConfirm', { name }))) return;
-    const { error } = await supabase.rpc('delete_user', { p_target: id });
+  // Hard delete — platform admin only. Opening the modal asks the DB why it might be
+  // blocked (can_delete_user) so we can SHOW the reasons instead of failing blindly.
+  // Modal, not confirm(): native dialogs are suppressed in sandboxed iframes.
+  async function openDelete(u: Profile) {
+    setDeleteTarget(u);
+    setDeleteBlockers(null); // null = still checking
+    const { data, error } = await supabase.rpc('can_delete_user', { p_target: u.id });
+    if (error) { toast.error(error.message); setDeleteTarget(null); return; }
+    setDeleteBlockers((data as string[]) ?? []);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.rpc('delete_user', { p_target: deleteTarget.id });
+    setDeleting(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.deleted'));
+    setDeleteTarget(null);
     loadUsers();
   }
 
@@ -581,14 +601,14 @@ export default function Users() {
                                 </>
                               )}
                               {u.status === 'active' && u.id !== profile?.id && (
-                                <Button size="sm" variant="secondary" onClick={() => deactivateUser(u.id)}>{t('users.deactivate')}</Button>
+                                <Button size="sm" variant="secondary" onClick={() => { setDeactivateReason(''); setDeactivateTarget(u); }}>{t('users.deactivate')}</Button>
                               )}
                               {u.status === 'inactive' && (
                                 <Button size="sm" onClick={() => reactivateUser(u.id)}>{t('common.reactivate')}</Button>
                               )}
                               {/* Hard delete: platform admin only, never self. Guards enforced in DB (0026). */}
                               {isPlatformAdmin && u.id !== profile?.id && (
-                                <Button size="sm" variant="danger" onClick={() => deleteUser(u.id, u.full_name)} title={t('users.deleteHint')}>
+                                <Button size="sm" variant="danger" onClick={() => openDelete(u)} title={t('users.deleteHint')}>
                                   <Trash2 size={14} />
                                 </Button>
                               )}
@@ -706,6 +726,66 @@ export default function Users() {
       </Modal>
 
       {/* ── Grant building access modal ───────────────────────────────────── */}
+      {/* Deactivate confirmation. The DB (0026) is what actually enforces the rules —
+          if it refuses (last admin, above your level, …) the error surfaces as a toast. */}
+      <Modal open={!!deactivateTarget} onClose={() => setDeactivateTarget(null)} title={t('users.deactivate')} size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">
+            {t('users.deactivateExplain', { name: deactivateTarget?.full_name ?? '' })}
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700">{t('users.deactivateReasonLabel')}</label>
+            <textarea
+              value={deactivateReason}
+              onChange={(e) => setDeactivateReason(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder={t('users.deactivateReasonPlaceholder')}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/40 resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setDeactivateTarget(null)}>{t('common.cancel')}</Button>
+            <Button variant="danger" loading={deactivating} onClick={confirmDeactivate}>{t('users.deactivate')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Hard delete. can_delete_user() tells us WHY it's blocked; the DB re-checks
+          on delete_user() regardless, so this is explanation, not enforcement. */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('users.deleteTitle')} size="sm">
+        <div className="space-y-4">
+          {deleteBlockers === null ? (
+            <p className="text-sm text-slate-500">{t('common.loading')}</p>
+          ) : deleteBlockers.length > 0 ? (
+            <>
+              <p className="text-sm font-medium text-rose-400">{t('users.cannotDelete')}</p>
+              <ul className="space-y-1.5">
+                {deleteBlockers.map((b, i) => (
+                  <li key={i} className="text-sm text-slate-300 flex gap-2">
+                    <span className="text-rose-400">•</span><span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-500">{t('users.deactivateInstead')}</p>
+              <div className="flex justify-end pt-1">
+                <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t('common.close')}</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-slate-500">
+                {t('users.deleteConfirm', { name: deleteTarget?.full_name ?? '' })}
+              </p>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
+                <Button variant="danger" loading={deleting} onClick={confirmDelete}>{t('users.deleteTitle')}</Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
       <Modal open={grantModal} onClose={() => setGrantModal(false)} title={t('users.addAccess')} size="sm">
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">

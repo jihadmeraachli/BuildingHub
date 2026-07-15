@@ -280,12 +280,16 @@
     "sendInvite": "Send invite",
     "inviteSent": "Invite sent to {{email}}.",
     "inviteError": "Failed to send invite. Please try again.",
-    "deactivateReasonPrompt": "Reason for deactivating (optional) — this is recorded in the audit trail:",
     "reactivated": "Account reactivated",
     "cannotDelete": "This account can't be deleted yet:",
     "deleteConfirm": "Permanently delete {{name}}? This cannot be undone. Their financial history stays with the unit.",
     "deleted": "Account deleted",
-    "deleteHint": "Delete account (platform admin only)"
+    "deleteHint": "Delete account (platform admin only)",
+    "deactivateExplain": "{{name}} will be signed out and blocked from logging in. Nothing is deleted — their history and any unpaid balance stay with the unit. You can reactivate them at any time.",
+    "deactivateReasonLabel": "Reason (optional)",
+    "deactivateReasonPlaceholder": "e.g. moved out, sold the unit, no longer on the committee…",
+    "deleteTitle": "Delete account",
+    "deactivateInstead": "Deactivate them instead — it blocks access without touching any records."
   },
   "buildings": {
     "title": "Buildings",
