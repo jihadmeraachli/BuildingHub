@@ -157,8 +157,14 @@ npm run dev         # http://localhost:5173
 - **Arabic RTL** — ✅ done.
 
 ### Platform & business
-- **Licensing module** — paid license rules; accounts must be licensed to use the solution.
-- **Payment gateway** — integrate a payment provider (Wish or equivalent).
+- **Licensing module** — DESIGNED, ready to build after shadcn/ui.
+  - Pricing: **$5/unit/month**. Buyer is a building, compound, or org — they purchase a pool of N unit licenses and assign them to specific units.
+  - Access: **full access locked** without a license (no read-only tier).
+  - Trial: **30 days**, activated manually by platform admin (not automatic).
+  - Payment: **Wish Money** (Lebanon) — integration later; launch with manual invoicing (platform admin marks as paid in app).
+  - DB tables: `licenses` (owner_type/id, quantity, price_per_unit, status: trial|active|expired, trial_ends_at, expires_at, notes) + `unit_licenses` (license_id, unit_id, UNIQUE). SQL function `is_licensed(unit_id)` for enforcement.
+  - Platform admin UI: Licenses section — activate trial, add paid license, assign units, see expiry status across all buildings/orgs.
+- **Payment gateway** — Wish Money integration (after licensing module UI is built).
 - **Scalability review** — discuss architecture limits and horizontal scaling.
 - **Security review** — harden beyond RLS: pen-test surface, secrets rotation, rate limiting.
 - **Backups & data residency** — backup strategy, retention, regional data requirements.
