@@ -64,6 +64,9 @@
   :root {
     --radius: 0.625rem;
 
+    /* Hero card gradient */
+    --hero-gradient: linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.44 0.10 186) 100%);
+
     /* Adaptive slate scale — light mode = Tailwind defaults */
     --bh-slate-50:  oklch(0.984 0.003 247.858);
     --bh-slate-100: oklch(0.968 0.007 247.896);
@@ -120,6 +123,9 @@
 
   /* ── Dark theme ───────────────────────────────── */
   .dark {
+    /* Hero card gradient — dark teal fading to near-black */
+    --hero-gradient: linear-gradient(135deg, oklch(0.28 0.09 185) 0%, oklch(0.14 0.03 264) 100%);
+
     /* Adaptive slate scale — dark mode inverts 50↔950, 100↔900, … */
     --bh-slate-50:  oklch(0.129 0.042 264.695);
     --bh-slate-100: oklch(0.208 0.042 265.755);
