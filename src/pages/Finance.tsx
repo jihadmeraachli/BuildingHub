@@ -521,7 +521,7 @@ export default function Finance() {
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-destructive dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-slate-400 hover:text-indigo-600 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
@@ -575,8 +575,8 @@ export default function Finance() {
                         <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
                           <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
-                            <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={15} /></button>
-                            <button onClick={(ev) => { ev.stopPropagation(); deletePayment(p.id); }} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
+                            <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-primary hover:text-primary/70 hover:bg-primary/10 cursor-pointer"><Pencil size={15} /></button>
+                            <button onClick={(ev) => { ev.stopPropagation(); deletePayment(p.id); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer"><Trash2 size={15} /></button>
                           </div></td>
                         )}
                       </tr>
