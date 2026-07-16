@@ -256,23 +256,23 @@ export default function Settings() {
             {profile?.apartment_number && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-muted-foreground">{t('settings.apartment')}</label>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-400">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground">
                   {profile.apartment_number}
-                  <span className="text-xs text-slate-500 ms-2">· {t('settings.managedByAdmin')}</span>
+                  <span className="text-xs text-muted-foreground ms-2">· {t('settings.managedByAdmin')}</span>
                 </div>
               </div>
             )}
 
             <div className="pt-1 space-y-2">
               <p className="text-sm font-medium text-muted-foreground">{t('settings.notifications')}</p>
-              <label className="flex items-center gap-2.5 text-sm text-slate-300 cursor-pointer">
+              <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
                 <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="w-4 h-4 rounded cursor-pointer" />
                 {t('settings.notifyEmail')}
               </label>
-              <label className="flex items-center gap-2.5 text-sm text-slate-300 cursor-pointer">
+              <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
                 <input type="checkbox" checked={notifyWhatsapp} onChange={e => setNotifyWhatsapp(e.target.checked)} className="w-4 h-4 rounded cursor-pointer" />
                 {t('settings.notifyWhatsapp')}
-                <span className="text-xs text-muted-foreground">({t('settings.comingSoon')})</span>
+                <span className="text-xs text-foreground dark:text-white">({t('settings.comingSoon')})</span>
               </label>
             </div>
 
