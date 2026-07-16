@@ -33,10 +33,10 @@ const ORG_ROLES: GrantRole[] = ['org_admin', 'org_finance'];
 const statusColor: Record<UserStatus, 'green' | 'yellow' | 'red' | 'slate'> = {
   active: 'green', pending: 'yellow', rejected: 'red', inactive: 'slate',
 };
-const grantRoleColor: Record<string, 'blue' | 'orange' | 'slate'> = {
+const grantRoleColor: Record<string, 'blue' | 'orange' | 'slate' | 'teal'> = {
   building_admin: 'blue', org_admin: 'blue', compound_admin: 'blue',
   building_finance: 'orange', org_finance: 'orange', compound_finance: 'orange',
-  building_super: 'slate', viewer: 'slate',
+  building_super: 'teal', viewer: 'slate',
 };
 
 export default function Users() {

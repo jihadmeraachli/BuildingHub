@@ -22,6 +22,7 @@ const badgeVariants = cva(
         orange:      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
         violet:      "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
         sky:         "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+        teal:        "bg-primary/10 text-primary dark:bg-primary/15",
       },
     },
     defaultVariants: {
@@ -30,7 +31,7 @@ const badgeVariants = cva(
   }
 )
 
-type BadgeColor = "green" | "red" | "yellow" | "slate" | "indigo" | "blue" | "orange" | "violet" | "sky"
+type BadgeColor = "green" | "red" | "yellow" | "slate" | "indigo" | "blue" | "orange" | "violet" | "sky" | "teal"
 
 function Badge({
   className,
