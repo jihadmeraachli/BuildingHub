@@ -183,6 +183,11 @@
     outline-color: var(--ring);
   }
 
+  /* Native <select> dropdown renders in the OS dark theme in dark mode */
+  .dark select {
+    color-scheme: dark;
+  }
+
   html {
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;

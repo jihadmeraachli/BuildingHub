@@ -325,7 +325,7 @@ function CoverageItem({ label, value, negative }: { label: string; value: string
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('text-xl font-bold tnum mt-0.5', negative ? 'text-destructive' : 'text-foreground')}>
+      <p className={cn('text-xl font-bold tnum mt-0.5', negative ? 'text-destructive dark:text-red-300' : 'text-foreground dark:text-white')}>
         {value}
       </p>
     </div>

@@ -46,7 +46,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
             <path key={s.name} d={path(s.data)} fill="none" stroke={s.color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
           ))}
           {idx !== null && (
-            <line x1={xPct(idx)} y1={0} x2={xPct(idx)} y2={100} stroke="#cbd5e1" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" />
+            <line x1={xPct(idx)} y1={0} x2={xPct(idx)} y2={100} className="stroke-border" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" />
           )}
         </svg>
 
@@ -58,7 +58,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
         {idx !== null && (
           <div className="absolute z-10 pointer-events-none"
             style={{ left: `${tipX}%`, top: `${tipTop}%`, transform: `translate(${tipAlignX}, ${flipDown ? '12px' : 'calc(-100% - 10px)'})` }}>
-            <div className="bg-slate-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap">
+            <div className="bg-popover text-popover-foreground border border-border text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap">
               <p className="font-medium mb-0.5">{labels[idx]}</p>
               {series.map((s) => (
                 <p key={s.name} className="flex items-center gap-1.5">
@@ -73,12 +73,12 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
 
       <div className="relative h-4 mt-1.5">
         {labels.map((l, i) => (
-          <span key={i} className="absolute text-[10px] text-slate-400 whitespace-nowrap" style={labelStyle(i)}>{l}</span>
+          <span key={i} className="absolute text-[10px] text-muted-foreground whitespace-nowrap" style={labelStyle(i)}>{l}</span>
         ))}
       </div>
       <div className="flex gap-4 mt-2">
         {series.map((s) => (
-          <span key={s.name} className="flex items-center gap-1.5 text-xs text-slate-500">
+          <span key={s.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} /> {s.name}
           </span>
         ))}
