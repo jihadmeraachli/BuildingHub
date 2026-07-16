@@ -4,6 +4,25 @@
 /* shadcn dark-class variant for Tailwind v4 */
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Make the slate color scale adaptive: dark mode inverts it so that
+ * text-slate-900 (dark on light bg) becomes near-white on dark bg —
+ * without touching any page files. Only slate is used across pages.
+ */
+@theme inline {
+  --color-slate-50:  var(--bh-slate-50);
+  --color-slate-100: var(--bh-slate-100);
+  --color-slate-200: var(--bh-slate-200);
+  --color-slate-300: var(--bh-slate-300);
+  --color-slate-400: var(--bh-slate-400);
+  --color-slate-500: var(--bh-slate-500);
+  --color-slate-600: var(--bh-slate-600);
+  --color-slate-700: var(--bh-slate-700);
+  --color-slate-800: var(--bh-slate-800);
+  --color-slate-900: var(--bh-slate-900);
+  --color-slate-950: var(--bh-slate-950);
+}
+
 /* Map CSS variables → Tailwind color utilities */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -44,6 +63,19 @@
   /* ── Light theme ──────────────────────────────── */
   :root {
     --radius: 0.625rem;
+
+    /* Adaptive slate scale — light mode = Tailwind defaults */
+    --bh-slate-50:  oklch(0.984 0.003 247.858);
+    --bh-slate-100: oklch(0.968 0.007 247.896);
+    --bh-slate-200: oklch(0.929 0.013 255.508);
+    --bh-slate-300: oklch(0.869 0.022 252.894);
+    --bh-slate-400: oklch(0.704 0.04  256.788);
+    --bh-slate-500: oklch(0.554 0.046 257.417);
+    --bh-slate-600: oklch(0.446 0.043 257.281);
+    --bh-slate-700: oklch(0.372 0.044 257.287);
+    --bh-slate-800: oklch(0.279 0.041 260.031);
+    --bh-slate-900: oklch(0.208 0.042 265.755);
+    --bh-slate-950: oklch(0.129 0.042 264.695);
 
     --background:             oklch(0.99 0 0);
     --foreground:             oklch(0.15 0.012 264);
@@ -88,6 +120,19 @@
 
   /* ── Dark theme ───────────────────────────────── */
   .dark {
+    /* Adaptive slate scale — dark mode inverts 50↔950, 100↔900, … */
+    --bh-slate-50:  oklch(0.129 0.042 264.695);
+    --bh-slate-100: oklch(0.208 0.042 265.755);
+    --bh-slate-200: oklch(0.279 0.041 260.031);
+    --bh-slate-300: oklch(0.372 0.044 257.287);
+    --bh-slate-400: oklch(0.446 0.043 257.281);
+    --bh-slate-500: oklch(0.554 0.046 257.417);
+    --bh-slate-600: oklch(0.704 0.04  256.788);
+    --bh-slate-700: oklch(0.869 0.022 252.894);
+    --bh-slate-800: oklch(0.929 0.013 255.508);
+    --bh-slate-900: oklch(0.968 0.007 247.896);
+    --bh-slate-950: oklch(0.984 0.003 247.858);
+
     --background:             oklch(0.12 0.010 264);
     --foreground:             oklch(0.96 0.004 264);
 
