@@ -249,8 +249,8 @@ export default function Settings() {
           </div>
 
           <div className="space-y-4">
-            <Input label={t('settings.fullName')} value={fullName} onChange={e => setFullName(e.target.value)} />
-            <Input label={t('settings.phone')} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+961 …" />
+            <Input label={t('settings.fullName')} value={fullName} onChange={e => setFullName(e.target.value)} className="text-primary" />
+            <Input label={t('settings.phone')} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+961 …" className="text-primary" />
 
             {/* Read-only: your unit and access are set by your building admin. */}
             {profile?.apartment_number && (
@@ -295,7 +295,7 @@ export default function Settings() {
           <p className="text-xs text-muted-foreground mb-4">{t('settings.emailNote')}</p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <Input label={t('settings.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} />
+              <Input label={t('settings.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} className="text-primary" />
             </div>
             <Button variant="secondary" onClick={saveEmail} loading={savingEmail} disabled={!email.trim() || email.trim() === user?.email}>
               {t('settings.updateEmail')}
@@ -312,8 +312,8 @@ export default function Settings() {
             <p className="text-sm font-bold text-primary">{t('settings.passwordTitle')}</p>
           </div>
           <div className="space-y-4">
-            <Input label={t('settings.newPassword')} type="password" value={pw1} onChange={e => setPw1(e.target.value)} autoComplete="new-password" />
-            <Input label={t('settings.confirmPassword')} type="password" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" />
+            <Input label={t('settings.newPassword')} type="password" value={pw1} onChange={e => setPw1(e.target.value)} autoComplete="new-password" className="text-primary" />
+            <Input label={t('settings.confirmPassword')} type="password" value={pw2} onChange={e => setPw2(e.target.value)} autoComplete="new-password" className="text-primary" />
             <div className="flex justify-end">
               <Button variant="secondary" onClick={savePassword} loading={savingPw} disabled={!pw1 || !pw2}>
                 {t('settings.updatePassword')}
