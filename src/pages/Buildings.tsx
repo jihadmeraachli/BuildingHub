@@ -231,8 +231,8 @@ export default function Buildings() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('buildings.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('buildings.subtitle')}</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('buildings.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('buildings.subtitle')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {isPlatformAdmin && (
@@ -253,16 +253,16 @@ export default function Buildings() {
       {isPlatformAdmin && organizations.length > 0 && (
         <Card className="mb-5">
           <CardBody>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('buildings.organizations')}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('buildings.organizations')}</p>
             <div className="flex flex-wrap gap-2">
               {organizations.map((o) => {
                 const count = orgBuildings.filter((ob) => ob.org_id === o.id).length;
                 return (
-                  <div key={o.id} className="inline-flex items-center gap-2 bg-white/[0.05] ring-1 ring-white/10 text-slate-100 rounded-xl px-3 py-1.5 text-sm">
-                    <Network size={14} className="text-[#7fe3ec]" />
+                  <div key={o.id} className="inline-flex items-center gap-2 bg-accent border border-border text-foreground rounded-xl px-3 py-1.5 text-sm">
+                    <Network size={14} className="text-primary" />
                     <span className="font-medium">{o.name}</span>
-                    <span className="text-slate-400 text-xs">· {t('buildings.orgCount', { count })}</span>
-                    <button onClick={() => openEditOrg(o)} className="text-slate-500 hover:text-[#57D6E2] cursor-pointer"><Pencil size={13} /></button>
+                    <span className="text-muted-foreground text-xs">· {t('buildings.orgCount', { count })}</span>
+                    <button onClick={() => openEditOrg(o)} className="text-muted-foreground hover:text-primary cursor-pointer"><Pencil size={13} /></button>
                   </div>
                 );
               })}
@@ -275,20 +275,20 @@ export default function Buildings() {
       {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
         <Card className="mb-5">
           <CardBody>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('buildings.compounds')}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('buildings.compounds')}</p>
             <div className="flex flex-wrap gap-2">
               {visibleCompounds.map((c) => {
                 const count = buildings.filter((b) => b.compound_id === c.id).length;
                 return (
-                  <div key={c.id} className="inline-flex items-center gap-2 bg-white/[0.05] ring-1 ring-white/10 text-slate-100 rounded-xl px-3 py-1.5 text-sm">
-                    <Boxes size={14} className="text-[#7fe3ec]" />
+                  <div key={c.id} className="inline-flex items-center gap-2 bg-accent border border-border text-foreground rounded-xl px-3 py-1.5 text-sm">
+                    <Boxes size={14} className="text-primary" />
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-slate-400 text-xs">· {t('buildings.blocksCount', { count })}</span>
-                    <select value={c.billing_mode} onChange={(e) => setCompoundMode(c.id, e.target.value)} className="ms-1 bg-white/10 border border-white/15 text-slate-100 rounded-lg text-xs px-1.5 py-0.5 focus:outline-none cursor-pointer">
+                    <span className="text-muted-foreground text-xs">· {t('buildings.blocksCount', { count })}</span>
+                    <select value={c.billing_mode} onChange={(e) => setCompoundMode(c.id, e.target.value)} className="ms-1 bg-background border border-border text-foreground rounded-lg text-xs px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer">
                       <option value="arrears">{t('buildings.modeArrears')}</option>
                       <option value="dues">{t('buildings.modeDues')}</option>
                     </select>
-                    <button onClick={() => openEditC(c)} className="text-slate-500 hover:text-[#57D6E2] cursor-pointer"><Pencil size={13} /></button>
+                    <button onClick={() => openEditC(c)} className="text-muted-foreground hover:text-primary cursor-pointer"><Pencil size={13} /></button>
                   </div>
                 );
               })}
@@ -300,36 +300,36 @@ export default function Buildings() {
       {loading ? (
         <SkeletonCards count={3} />
       ) : visibleBuildings.length === 0 ? (
-        <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('buildings.noBuildings')}</p></CardBody></Card>
+        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{t('buildings.noBuildings')}</p></CardBody></Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {visibleBuildings.map((b) => (
             <Card key={b.id} className="transition-shadow hover:shadow-md">
               <CardBody>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                    <Building2 size={20} className="text-indigo-600" />
+                  <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Building2 size={20} className="text-primary" />
                   </div>
                   <Badge color={b.is_active ? 'green' : 'slate'}>{b.is_active ? t('buildings.active') : t('buildings.inactive')}</Badge>
                 </div>
 
-                <h3 className="font-semibold text-slate-900 mt-3">{b.name}</h3>
-                <p className="text-sm text-slate-500">{b.address}</p>
-                <p className="text-sm text-slate-500">{b.city}, {b.country}</p>
+                <h3 className="font-semibold text-foreground mt-3">{b.name}</h3>
+                <p className="text-sm text-muted-foreground">{b.address}</p>
+                <p className="text-sm text-muted-foreground">{b.city}, {b.country}</p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {compoundName(b.compound_id) && (
-                    <div className="inline-flex items-center gap-1 text-xs text-indigo-600 bg-indigo-50 rounded-full px-2 py-0.5">
+                    <div className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 rounded-full px-2 py-0.5">
                       <Boxes size={11} /> {compoundName(b.compound_id)}
                     </div>
                   )}
                   {isPlatformAdmin && orgName(b.id) && (
-                    <div className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 rounded-full px-2 py-0.5">
+                    <div className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 dark:text-violet-300 dark:bg-violet-900/30 rounded-full px-2 py-0.5">
                       <Network size={11} /> {orgName(b.id)}
                     </div>
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2.5">
+                <div className="mt-4 pt-4 border-t border-border space-y-2.5">
                   {/* Platform admin: can reassign org and compound */}
                   {isPlatformAdmin && organizations.length > 0 && (
                     <SelectField value={orgByBuilding[b.id] || '__none__'} onValueChange={(v) => assignOrg(b.id, v === '__none__' ? '' : v)}>
@@ -349,7 +349,7 @@ export default function Buildings() {
                       <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
                     </SelectField>
                   ) : (
-                    <p className="text-xs text-slate-400">{t('buildings.modeViaCompound')}</p>
+                    <p className="text-xs text-muted-foreground">{t('buildings.modeViaCompound')}</p>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" variant="secondary" onClick={() => toggleActive(b.id, b.is_active)}>
@@ -397,7 +397,7 @@ export default function Buildings() {
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={compoundForm.name} onChange={(e) => setCompoundForm({ ...compoundForm, name: e.target.value })} placeholder="Marina Gardens" />
           <Input label={t('buildings.cityOptional')} value={compoundForm.city} onChange={(e) => setCompoundForm({ ...compoundForm, city: e.target.value })} />
-          <p className="text-xs text-slate-400">{t('buildings.compoundHint')}</p>
+          <p className="text-xs text-muted-foreground">{t('buildings.compoundHint')}</p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setCompoundModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addCompound}>{t('buildings.create')}</Button>
@@ -446,12 +446,12 @@ export default function Buildings() {
       <Modal open={!!mapBuilding} onClose={() => setMapBuilding(null)} title={mapBuilding?.name ?? ''} size="lg">
         {mapBuilding && (
           <div className="space-y-3">
-            <p className="text-sm text-slate-500">{mapBuilding.address}, {mapBuilding.city}, {mapBuilding.country}</p>
-            <div className="rounded-xl overflow-hidden border border-slate-200" style={{ height: 360 }}>
+            <p className="text-sm text-muted-foreground">{mapBuilding.address}, {mapBuilding.city}, {mapBuilding.country}</p>
+            <div className="rounded-xl overflow-hidden border border-border" style={{ height: 360 }}>
               <iframe title="Building location" src={buildEmbedUrl(mapBuilding)} width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
             </div>
             {mapBuilding.maps_url && (
-              <a href={mapBuilding.maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
+              <a href={mapBuilding.maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
                 <ExternalLink size={14} /> Open in Google Maps
               </a>
             )}
@@ -465,7 +465,7 @@ export default function Buildings() {
           <Input label={t('buildings.orgName')} value={orgForm.name} onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })} placeholder="Al Futtaim Property Management" />
           <Input label={t('buildings.orgEmail')} type="email" value={orgForm.contact_email} onChange={(e) => setOrgForm({ ...orgForm, contact_email: e.target.value })} />
           <Input label={t('buildings.orgPhone')} type="tel" value={orgForm.contact_phone} onChange={(e) => setOrgForm({ ...orgForm, contact_phone: e.target.value })} />
-          <p className="text-xs text-slate-400">{t('buildings.orgHint')}</p>
+          <p className="text-xs text-muted-foreground">{t('buildings.orgHint')}</p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOrgModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addOrg} disabled={!orgForm.name.trim()}>{t('buildings.create')}</Button>
