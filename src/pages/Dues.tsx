@@ -224,7 +224,7 @@ export default function Dues() {
                 <span className="text-slate-500">{t('dues.method')}: <span className="font-medium text-slate-800">{t(`dues.methods.${plan.method}`)}</span></span>
                 {plan.pool_amount != null && <span className="text-slate-500">{t('dues.pool')}: <span className="font-medium text-slate-800 tnum">{money(Number(plan.pool_amount))}</span></span>}
               </div>
-              <p className="text-xs text-slate-400 mt-2">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
+              <p className="text-xs text-muted-foreground mt-2">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
             </CardBody></Card>
 
             {loading ? <SkeletonTable rows={5} cols={6} />
@@ -265,7 +265,7 @@ export default function Dues() {
             <SelectItem value="b1">{t('dues.planTypes.b1')}</SelectItem>
             <SelectItem value="b2">{t('dues.planTypes.b2')}</SelectItem>
           </SelectField>
-          <p className="text-xs text-slate-400 -mt-2">{pPlanType === 'b2' ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
+          <p className="text-xs text-muted-foreground -mt-2">{pPlanType === 'b2' ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
           <div className="grid grid-cols-2 gap-3">
             <SelectField label={t('dues.cadence')} value={pCadence} onValueChange={(v) => setPCadence(v as DuesCadence)}>
               {CADENCES.map((c) => <SelectItem key={c} value={c}>{t(`dues.cadences.${c}`)}</SelectItem>)}
@@ -303,7 +303,7 @@ export default function Dues() {
             <Input label={t('dues.period')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
           </div>
-          <p className="text-xs text-slate-400">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
+          <p className="text-xs text-muted-foreground">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
           <div className="rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-3 py-2 bg-slate-50 text-xs font-medium text-slate-500">{t('dues.amountDue')} â€” {preview.length} units</div>
             <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
