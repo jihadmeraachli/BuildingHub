@@ -460,7 +460,7 @@ export default function Users() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="text-xl font-semibold text-slate-900">{t('users.title')}</h1>
+        <h1 className="text-xl font-semibold text-foreground">{t('users.title')}</h1>
         <div className="flex gap-2">
           {(isSuperAdmin || isOrgAdmin) && (
             <Button variant="secondary" onClick={openInviteModal}>
@@ -486,7 +486,7 @@ export default function Users() {
           <select
             value={entityKey}
             onChange={e => setEntityKey(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 min-w-[240px]"
+            className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[240px]"
           >
             {entities.length === 0 && <option value="">{t('common.selectBuilding')}</option>}
             {entities.map(e => (
@@ -500,7 +500,7 @@ export default function Users() {
             <select
               value={blockFilter}
               onChange={e => setBlockFilter(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50"
+              className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
             >
               <option value="">{t('finance.allBlocks')}</option>
               {selEntity.blocks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -508,7 +508,7 @@ export default function Users() {
           )}
 
           {selEntity?.kind === 'compound' && !blockFilter && selEntity.blocks.length > 1 && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-muted-foreground">
               {t('users.acrossBlocks', { count: selEntity.blocks.length })}
             </span>
           )}
@@ -517,7 +517,7 @@ export default function Users() {
 
       {!showContent ? (
         <Card><CardBody>
-          <p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p>
+          <p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p>
         </CardBody></Card>
       ) : (
         <>
@@ -526,7 +526,7 @@ export default function Users() {
               <button
                 key={t3.key}
                 onClick={() => setTab(t3.key)}
-                className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t3.key ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t3.key ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
               >
                 {t3.label}
                 {t3.key === 'pending' && pendingCount > 0 && (
@@ -545,20 +545,20 @@ export default function Users() {
                   {isSuperAdmin && (
                     <button
                       onClick={() => setGrantScope('org')}
-                      className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                      className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                     >
                       <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
                     </button>
                   )}
                   <button
                     onClick={() => setGrantScope('compound')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-[#349ECD] border-[#349ECD] text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-[#349ECD] border-[#349ECD] text-white' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                   >
                     <span className="flex items-center gap-1.5"><Boxes size={13} /> {t('users.scopeCompound')}</span>
                   </button>
                   <button
                     onClick={() => setGrantScope('building')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                   >
                     {t('users.scopeBuilding')}
                   </button>
@@ -572,7 +572,7 @@ export default function Users() {
                     <select
                       value={selectedCompoundId}
                       onChange={e => setSelectedCompoundId(e.target.value)}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 min-w-[280px]"
+                      className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]"
                     >
                       <option value="">{t('users.selectCompoundHint')}</option>
                       {compoundEntities.map(c => (
@@ -587,14 +587,14 @@ export default function Users() {
                   </div>
 
                   {selectedCompoundId && (
-                    <p className="text-xs text-slate-500">{t('users.compoundScopeNote')}</p>
+                    <p className="text-xs text-muted-foreground">{t('users.compoundScopeNote')}</p>
                   )}
 
                   {!selectedCompoundId ? (
                     <Card><CardBody>
                       <div className="text-center py-10">
-                        <Boxes size={32} className="mx-auto text-slate-600 mb-2" />
-                        <p className="text-sm text-slate-500">{t('users.selectCompoundHint')}</p>
+                        <Boxes size={32} className="mx-auto text-primary mb-2" />
+                        <p className="text-sm text-muted-foreground">{t('users.selectCompoundHint')}</p>
                       </div>
                     </CardBody></Card>
                   ) : compoundGrantLoading ? (
@@ -602,8 +602,8 @@ export default function Users() {
                   ) : compoundGrants.length === 0 ? (
                     <Card><CardBody>
                       <div className="text-center py-10">
-                        <Shield size={32} className="mx-auto text-slate-600 mb-2" />
-                        <p className="text-sm text-slate-500">{t('users.noCompoundGrants')}</p>
+                        <Shield size={32} className="mx-auto text-primary mb-2" />
+                        <p className="text-sm text-muted-foreground">{t('users.noCompoundGrants')}</p>
                       </div>
                     </CardBody></Card>
                   ) : (
@@ -611,23 +611,23 @@ export default function Users() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                            <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                               <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
                               <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
                               <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-border">
                             {compoundGrants.map(g => (
-                              <tr key={g.id} className="hover:bg-slate-50">
+                              <tr key={g.id} className="hover:bg-accent/30">
                                 <td className="px-4 py-3">
-                                  <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
+                                  <p className="font-medium text-foreground">{g.profiles?.full_name ?? '—'}</p>
                                 </td>
                                 <td className="px-4 py-3">
                                   <select
                                     value={g.role}
                                     onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadCompoundGrants)}
-                                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 cursor-pointer"
+                                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
                                   >
                                     {COMPOUND_ROLES.map(r => (
                                       <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
@@ -635,7 +635,7 @@ export default function Users() {
                                   </select>
                                 </td>
                                 <td className="px-4 py-3">
-                                  <button onClick={() => removeCompoundGrant(g.id)} className="text-slate-500 hover:text-rose-400 transition cursor-pointer" title={t('users.revokeAccess')}>
+                                  <button onClick={() => removeCompoundGrant(g.id)} className="text-muted-foreground hover:text-rose-400 transition cursor-pointer" title={t('users.revokeAccess')}>
                                     <Trash2 size={15} />
                                   </button>
                                 </td>
@@ -652,7 +652,7 @@ export default function Users() {
                   <select
                     value={selectedOrgId}
                     onChange={e => setSelectedOrgId(e.target.value)}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 min-w-[280px]"
+                    className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]"
                   >
                     <option value="">{t('users.selectOrgHint')}</option>
                     {organizations.map(o => (
@@ -663,8 +663,8 @@ export default function Users() {
                   {!selectedOrgId ? (
                     <Card><CardBody>
                       <div className="text-center py-10">
-                        <Network size={32} className="mx-auto text-slate-300 mb-2" />
-                        <p className="text-sm text-slate-500">{t('users.selectOrgHint')}</p>
+                        <Network size={32} className="mx-auto text-primary mb-2" />
+                        <p className="text-sm text-muted-foreground">{t('users.selectOrgHint')}</p>
                       </div>
                     </CardBody></Card>
                   ) : orgGrantLoading ? (
@@ -672,8 +672,8 @@ export default function Users() {
                   ) : orgGrants.length === 0 ? (
                     <Card><CardBody>
                       <div className="text-center py-10">
-                        <Shield size={32} className="mx-auto text-slate-300 mb-2" />
-                        <p className="text-sm text-slate-500">{t('users.noOrgGrants')}</p>
+                        <Shield size={32} className="mx-auto text-primary mb-2" />
+                        <p className="text-sm text-muted-foreground">{t('users.noOrgGrants')}</p>
                       </div>
                     </CardBody></Card>
                   ) : (
@@ -681,23 +681,23 @@ export default function Users() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                            <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                               <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
                               <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
                               <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-border">
                             {orgGrants.map(g => (
-                              <tr key={g.id} className="hover:bg-slate-50">
+                              <tr key={g.id} className="hover:bg-accent/30">
                                 <td className="px-4 py-3">
-                                  <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
+                                  <p className="font-medium text-foreground">{g.profiles?.full_name ?? '—'}</p>
                                 </td>
                                 <td className="px-4 py-3">
                                   <select
                                     value={g.role}
                                     onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadOrgGrants)}
-                                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
+                                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
                                   >
                                     {ORG_ROLES.map(r => (
                                       <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
@@ -705,7 +705,7 @@ export default function Users() {
                                   </select>
                                 </td>
                                 <td className="px-4 py-3">
-                                  <button onClick={() => removeOrgGrant(g.id)} className="text-slate-300 hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
+                                  <button onClick={() => removeOrgGrant(g.id)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
                                     <Trash2 size={15} />
                                   </button>
                                 </td>
@@ -720,15 +720,15 @@ export default function Users() {
               ) : (
                 !activeBuildingId ? (
                   <Card><CardBody>
-                    <p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p>
+                    <p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p>
                   </CardBody></Card>
                 ) : grantLoading ? (
                   <SkeletonTable rows={4} cols={3} />
                 ) : grants.length === 0 ? (
                   <Card><CardBody>
                     <div className="text-center py-10">
-                      <Shield size={32} className="mx-auto text-slate-300 mb-2" />
-                      <p className="text-sm text-slate-500">{t('users.noGrants')}</p>
+                      <Shield size={32} className="mx-auto text-primary mb-2" />
+                      <p className="text-sm text-muted-foreground">{t('users.noGrants')}</p>
                     </div>
                   </CardBody></Card>
                 ) : (
@@ -736,26 +736,26 @@ export default function Users() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                          <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                             <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
                             <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
                             <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-border">
                           {grants.map(g => (
-                            <tr key={g.id} className="hover:bg-slate-50">
+                            <tr key={g.id} className="hover:bg-accent/30">
                               <td className="px-4 py-3">
-                                <p className="font-medium text-slate-900">{g.profiles?.full_name ?? '—'}</p>
+                                <p className="font-medium text-foreground">{g.profiles?.full_name ?? '—'}</p>
                                 {g.profiles?.apartment_number && (
-                                  <p className="text-xs text-slate-400">Apt {g.profiles.apartment_number}</p>
+                                  <p className="text-xs text-muted-foreground">Apt {g.profiles.apartment_number}</p>
                                 )}
                               </td>
                               <td className="px-4 py-3">
                                 <select
                                   value={g.role}
                                   onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadGrants)}
-                                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                                  className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
                                 >
                                   {BUILDING_ROLES.map(r => (
                                     <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
@@ -763,7 +763,7 @@ export default function Users() {
                                 </select>
                               </td>
                               <td className="px-4 py-3">
-                                <button onClick={() => removeGrant(g.id)} className="text-slate-300 hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
+                                <button onClick={() => removeGrant(g.id)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
                                   <Trash2 size={15} />
                                 </button>
                               </td>
@@ -778,17 +778,17 @@ export default function Users() {
             </div>
           ) : (
             !activeBuildingId ? (
-              <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
+              <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
             ) : loading ? (
               <SkeletonTable rows={5} cols={6} />
             ) : users.length === 0 ? (
-              <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('users.noUsers')}</p></CardBody></Card>
+              <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.noUsers')}</p></CardBody></Card>
             ) : (
               <Card>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                      <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                         <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
                         {showBlockColumn && <th className="px-4 py-3 text-start font-medium">{t('users.block')}</th>}
                         <th className="px-4 py-3 text-start font-medium">{t('users.apartment')}</th>
@@ -798,27 +798,27 @@ export default function Users() {
                         <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-border">
                       {users.map(u => (
-                        <tr key={u.id} className="hover:bg-slate-50">
+                        <tr key={u.id} className="hover:bg-accent/30">
                           <td className="px-4 py-3">
-                            <p className="font-medium text-slate-900">{u.full_name}</p>
-                            <p className="text-xs text-slate-400">{u.phone ?? '—'}</p>
+                            <p className="font-medium text-foreground">{u.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{u.phone ?? '—'}</p>
                           </td>
                           {showBlockColumn && (
                             <td className="px-4 py-3">
-                              <span className="text-xs text-slate-400">{blockName[u.building_id ?? ''] ?? '—'}</span>
+                              <span className="text-xs text-muted-foreground">{blockName[u.building_id ?? ''] ?? '—'}</span>
                             </td>
                           )}
                           <td className="px-4 py-3">
                             {assigned[u.id]?.length ? (
                               <div className="flex flex-wrap gap-1">
                                 {assigned[u.id].map((m) => (
-                                  <span key={m.label} className={`text-xs rounded-full px-2 py-0.5 ${m.tenure === 'tenant' ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'}`}>{m.label}</span>
+                                  <span key={m.label} className={`text-xs rounded-full px-2 py-0.5 ${m.tenure === 'tenant' ? 'bg-amber-50 text-amber-700' : 'bg-primary/10 text-primary'}`}>{m.label}</span>
                                 ))}
                               </div>
                             ) : (
-                              <span className="text-slate-400">{u.apartment_number ?? '—'}</span>
+                              <span className="text-muted-foreground">{u.apartment_number ?? '—'}</span>
                             )}
                           </td>
                           {/* EFFECTIVE access, read from `grants` — the same source RLS
@@ -836,7 +836,7 @@ export default function Users() {
                                 ))}
                               </div>
                             ) : (
-                              <span className="text-xs text-slate-500">{t('users.roles.resident')}</span>
+                              <span className="text-xs text-muted-foreground">{t('users.roles.resident')}</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -844,11 +844,11 @@ export default function Users() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
-                              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                                 <input type="checkbox" checked={u.notify_email} onChange={e => updateUser(u.id, { notify_email: e.target.checked })} className="rounded" />
                                 {t('users.notifyEmail')}
                               </label>
-                              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                                 <input type="checkbox" checked={u.notify_whatsapp} onChange={e => updateUser(u.id, { notify_whatsapp: e.target.checked })} className="rounded" />
                                 {t('users.notifyWhatsapp')}
                               </label>
@@ -890,7 +890,7 @@ export default function Users() {
       {/* ── Invite new user modal ─────────────────────────────────────────── */}
       <Modal open={inviteModal} onClose={() => setInviteModal(false)} title={t('users.inviteTitle')} size="md">
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">{t('users.inviteSubtitle')}</p>
+          <p className="text-sm text-muted-foreground">{t('users.inviteSubtitle')}</p>
 
           <Input
             label={t('users.inviteFullName')}
@@ -913,8 +913,8 @@ export default function Users() {
             placeholder="+961 70 000 000"
           />
 
-          <div className="border-t border-slate-100 pt-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('users.inviteRoleSection')}</p>
+          <div className="border-t border-border pt-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('users.inviteRoleSection')}</p>
 
             {/* Scope type selector — org admins can invite to buildings/compounds, not org-level */}
             <div className="flex gap-1 flex-wrap mb-3">
@@ -931,7 +931,7 @@ export default function Users() {
                     setInviteScopeType(s);
                     setInviteGrantRole(s === 'org' ? 'org_admin' : s === 'compound' ? 'compound_admin' : 'building_admin');
                   }}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${inviteScopeType === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${inviteScopeType === s ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
                   {t(`users.inviteScope.${s}`)}
                 </button>
@@ -1017,18 +1017,18 @@ export default function Users() {
           if it refuses (last admin, above your level, …) the error surfaces as a toast. */}
       <Modal open={!!deactivateTarget} onClose={() => setDeactivateTarget(null)} title={t('users.deactivate')} size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {t('users.deactivateExplain', { name: deactivateTarget?.full_name ?? '' })}
           </p>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">{t('users.deactivateReasonLabel')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('users.deactivateReasonLabel')}</label>
             <textarea
               value={deactivateReason}
               onChange={(e) => setDeactivateReason(e.target.value)}
               rows={3}
               autoFocus
               placeholder={t('users.deactivateReasonPlaceholder')}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/40 resize-none"
+              className="rounded-xl border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 resize-none"
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
@@ -1043,25 +1043,25 @@ export default function Users() {
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('users.deleteTitle')} size="sm">
         <div className="space-y-4">
           {deleteBlockers === null ? (
-            <p className="text-sm text-slate-500">{t('common.loading')}</p>
+            <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
           ) : deleteBlockers.length > 0 ? (
             <>
               <p className="text-sm font-medium text-rose-400">{t('users.cannotDelete')}</p>
               <ul className="space-y-1.5">
                 {deleteBlockers.map((b, i) => (
-                  <li key={i} className="text-sm text-slate-300 flex gap-2">
+                  <li key={i} className="text-sm text-muted-foreground flex gap-2">
                     <span className="text-rose-400">•</span><span>{b}</span>
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-slate-500">{t('users.deactivateInstead')}</p>
+              <p className="text-xs text-muted-foreground">{t('users.deactivateInstead')}</p>
               <div className="flex justify-end pt-1">
                 <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t('common.close')}</Button>
               </div>
             </>
           ) : (
             <>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 {t('users.deleteConfirm', { name: deleteTarget?.full_name ?? '' })}
               </p>
               <div className="flex justify-end gap-2 pt-1">
@@ -1076,26 +1076,26 @@ export default function Users() {
       <Modal open={grantModal} onClose={() => setGrantModal(false)} title={t('users.addAccess')} size="sm">
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">{t('users.name')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('users.name')}</label>
             <input
               type="text"
               placeholder={t('common.search')}
               value={grantSearch}
               onChange={e => { setGrantSearch(e.target.value); setGrantUserId(''); }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
             />
             {grantSearch.length > 0 && (
-              <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+              <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border">
                 {availableProfiles.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
+                  <p className="text-xs text-muted-foreground text-center py-3">{t('users.noUsers')}</p>
                 ) : availableProfiles.slice(0, 20).map(p => (
                   <button
                     key={p.id} type="button"
                     onClick={() => { setGrantUserId(p.id); setGrantSearch(p.full_name); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${grantUserId === p.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${grantUserId === p.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}
                   >
                     <span className="font-medium">{p.full_name}</span>
-                    {p.apartment_number && <span className="text-slate-400 text-xs">· Apt {p.apartment_number}</span>}
+                    {p.apartment_number && <span className="text-muted-foreground text-xs">· Apt {p.apartment_number}</span>}
                   </button>
                 ))}
               </div>
@@ -1115,23 +1115,23 @@ export default function Users() {
       <Modal open={orgGrantModal} onClose={() => setOrgGrantModal(false)} title={t('users.addOrgAccess')} size="sm">
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">{t('users.name')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('users.name')}</label>
             <input
               type="text"
               placeholder={t('common.search')}
               value={orgGrantSearch}
               onChange={e => { setOrgGrantSearch(e.target.value); setOrgGrantUserId(''); }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
             />
             {orgGrantSearch.length > 0 && (
-              <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+              <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border">
                 {availableProfilesForOrg.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
+                  <p className="text-xs text-muted-foreground text-center py-3">{t('users.noUsers')}</p>
                 ) : availableProfilesForOrg.slice(0, 20).map(p => (
                   <button
                     key={p.id} type="button"
                     onClick={() => { setOrgGrantUserId(p.id); setOrgGrantSearch(p.full_name); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${orgGrantUserId === p.id ? 'bg-violet-50 text-violet-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${orgGrantUserId === p.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}
                   >
                     <span className="font-medium">{p.full_name}</span>
                   </button>
@@ -1152,25 +1152,25 @@ export default function Users() {
       {/* Compound access — one grant, every block (0027) */}
       <Modal open={compoundGrantModal} onClose={() => setCompoundGrantModal(false)} title={t('users.addCompoundAccess')} size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">{t('users.compoundScopeNote')}</p>
+          <p className="text-sm text-muted-foreground">{t('users.compoundScopeNote')}</p>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">{t('users.name')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('users.name')}</label>
             <input
               type="text"
               placeholder={t('common.search')}
               value={compoundGrantSearch}
               onChange={e => { setCompoundGrantSearch(e.target.value); setCompoundGrantUserId(''); }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50"
+              className="rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
             />
             {compoundGrantSearch.length > 0 && (
-              <div className="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+              <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border">
                 {availableProfilesForCompound.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-3">{t('users.noUsers')}</p>
+                  <p className="text-xs text-muted-foreground text-center py-3">{t('users.noUsers')}</p>
                 ) : availableProfilesForCompound.slice(0, 20).map(p => (
                   <button
                     key={p.id} type="button"
                     onClick={() => { setCompoundGrantUserId(p.id); setCompoundGrantSearch(p.full_name); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${compoundGrantUserId === p.id ? 'bg-[#57D6E2]/15 text-[#7fe3ec]' : 'text-slate-700 hover:bg-slate-50'}`}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${compoundGrantUserId === p.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}
                   >
                     <span className="font-medium">{p.full_name}</span>
                   </button>

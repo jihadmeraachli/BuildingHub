@@ -175,7 +175,7 @@ export default function Settings() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">{t('settings.zoom')}</span>
+            <span className="text-xs text-muted-foreground">{t('settings.zoom')}</span>
             <input
               type="range" min={1} max={3} step={0.01}
               value={zoom}
@@ -183,7 +183,7 @@ export default function Settings() {
               className="flex-1 cursor-pointer"
             />
           </div>
-          <p className="text-xs text-slate-500">{t('settings.cropHint')}</p>
+          <p className="text-xs text-muted-foreground">{t('settings.cropHint')}</p>
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={cancelCrop}>{t('common.cancel')}</Button>
@@ -194,7 +194,7 @@ export default function Settings() {
 
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-slate-900 tracking-tight">{t('settings.title')}</h1>
-        <p className="text-sm text-slate-500 mt-0.5">{t('settings.subtitle')}</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{t('settings.subtitle')}</p>
       </div>
 
       {/* ---------- photo + identity ---------- */}
@@ -228,10 +228,10 @@ export default function Settings() {
             </div>
 
             <div className="min-w-0">
-              <p className="font-semibold text-slate-900 truncate">{profile?.full_name}</p>
-              <p className="text-sm text-slate-500 truncate">{user?.email}</p>
+              <p className="font-semibold text-foreground truncate">{profile?.full_name}</p>
+              <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
               {avatarUrl && (
-                <button onClick={removeAvatar} className="text-xs text-slate-500 hover:text-rose-400 transition cursor-pointer mt-1">
+                <button onClick={removeAvatar} className="text-xs text-muted-foreground hover:text-rose-400 transition cursor-pointer mt-1">
                   {t('settings.removePhoto')}
                 </button>
               )}
@@ -255,7 +255,7 @@ export default function Settings() {
             {/* Read-only: your unit and access are set by your building admin. */}
             {profile?.apartment_number && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-slate-700">{t('settings.apartment')}</label>
+                <label className="text-sm font-medium text-muted-foreground">{t('settings.apartment')}</label>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-400">
                   {profile.apartment_number}
                   <span className="text-xs text-slate-500 ms-2">· {t('settings.managedByAdmin')}</span>
@@ -264,7 +264,7 @@ export default function Settings() {
             )}
 
             <div className="pt-1 space-y-2">
-              <p className="text-sm font-medium text-slate-700">{t('settings.notifications')}</p>
+              <p className="text-sm font-medium text-muted-foreground">{t('settings.notifications')}</p>
               <label className="flex items-center gap-2.5 text-sm text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="w-4 h-4 rounded cursor-pointer" />
                 {t('settings.notifyEmail')}
@@ -272,7 +272,7 @@ export default function Settings() {
               <label className="flex items-center gap-2.5 text-sm text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={notifyWhatsapp} onChange={e => setNotifyWhatsapp(e.target.checked)} className="w-4 h-4 rounded cursor-pointer" />
                 {t('settings.notifyWhatsapp')}
-                <span className="text-xs text-slate-500">({t('settings.comingSoon')})</span>
+                <span className="text-xs text-muted-foreground">({t('settings.comingSoon')})</span>
               </label>
             </div>
 
@@ -292,7 +292,7 @@ export default function Settings() {
             <Mail size={16} className="text-[#7fe3ec]" />
             <p className="text-sm font-semibold text-slate-200">{t('settings.emailTitle')}</p>
           </div>
-          <p className="text-xs text-slate-500 mb-4">{t('settings.emailNote')}</p>
+          <p className="text-xs text-muted-foreground mb-4">{t('settings.emailNote')}</p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input label={t('settings.email')} type="email" value={email} onChange={e => setEmail(e.target.value)} />
