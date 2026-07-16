@@ -213,7 +213,7 @@ export default function Issues() {
             {units.length > 0 && (
               <Controller name="apartment_number" control={control} render={({ field }) => (
                 <SelectField label={t('billing.apartment')} value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
-                  <SelectItem value="__none__">â€”</SelectItem>
+                  <SelectItem value="__none__">&#8212;</SelectItem>
                   {units.map((u) => <SelectItem key={u.id} value={u.label}>{u.label}</SelectItem>)}
                 </SelectField>
               )} />
