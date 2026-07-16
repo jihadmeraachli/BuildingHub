@@ -110,7 +110,7 @@ export default function Inspections() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('inspections.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('inspections.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('inspections.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
@@ -141,8 +141,8 @@ export default function Inspections() {
       {loading ? <SkeletonCards count={3} />
         : vRows.length === 0 ? (
           <Card><CardBody><div className="text-center py-10">
-            <ClipboardCheck className="mx-auto text-slate-300 mb-2" size={28} />
-            <p className="text-sm text-slate-500">{t('inspections.noInspections')}</p>
+            <ClipboardCheck className="mx-auto text-primary mb-2" size={28} />
+            <p className="text-sm text-muted-foreground">{t('inspections.noInspections')}</p>
           </div></CardBody></Card>
         ) : (
           <div className="space-y-3">
@@ -207,12 +207,12 @@ export default function Inspections() {
             <Input label={t('inspections.nextDue')} type="date" value={form.next_due_date} onChange={(e) => setForm({ ...form, next_due_date: e.target.value })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('inspections.outcome')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} />
+            <label className="text-sm font-medium text-muted-foreground">{t('inspections.outcome')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('inspections.attachment')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <label className="text-sm font-medium text-muted-foreground">{t('inspections.attachment')}</label>
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-muted-foreground file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
