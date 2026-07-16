@@ -265,28 +265,28 @@ function HeroCard({ label, amount, stats, pill, negative }: {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="relative overflow-hidden rounded-xl text-white p-6 lg:p-8"
+      className="relative overflow-hidden rounded-xl p-6 lg:p-8 text-foreground dark:text-white"
       style={{ background: 'var(--hero-gradient)' }}
     >
-      <div className="pointer-events-none absolute -top-20 -end-10 w-64 h-64 rounded-full blur-3xl bg-white/10" />
-      <div className="pointer-events-none absolute -bottom-20 -start-10 w-64 h-64 rounded-full blur-3xl bg-black/10" />
+      <div className="pointer-events-none absolute -top-20 -end-10 w-64 h-64 rounded-full blur-3xl bg-primary/10 dark:bg-white/10" />
+      <div className="pointer-events-none absolute -bottom-20 -start-10 w-64 h-64 rounded-full blur-3xl bg-black/5 dark:bg-black/10" />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/70">{label}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-foreground/60 dark:text-white/70">{label}</p>
           {pill && (
-            <span className="text-xs font-semibold rounded-full px-3 py-1 bg-white/20 text-white backdrop-blur-sm">
+            <span className="text-xs font-semibold rounded-full px-3 py-1 bg-primary/10 text-primary dark:bg-white/20 dark:text-white backdrop-blur-sm">
               {pill}
             </span>
           )}
         </div>
-        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-red-200')}>
+        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-destructive dark:text-red-200')}>
           {amount}
         </p>
         <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">
           {stats.map((s, i) => (
-            <div key={i} className={i > 0 ? 'border-s border-white/20 ps-8' : ''}>
-              <p className="text-xs text-white/60">{s.label}</p>
-              <p className="text-lg font-semibold tnum text-white mt-0.5">{s.value}</p>
+            <div key={i} className={i > 0 ? 'border-s border-foreground/15 dark:border-white/20 ps-8' : ''}>
+              <p className="text-xs text-foreground/50 dark:text-white/60">{s.label}</p>
+              <p className="text-lg font-semibold tnum mt-0.5">{s.value}</p>
             </div>
           ))}
         </div>

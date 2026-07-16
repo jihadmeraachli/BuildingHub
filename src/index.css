@@ -64,8 +64,8 @@
   :root {
     --radius: 0.625rem;
 
-    /* Hero card gradient */
-    --hero-gradient: linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.44 0.10 186) 100%);
+    /* Hero card gradient — teal fading into the page background */
+    --hero-gradient: linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.93 0.015 186) 100%);
 
     /* Adaptive slate scale — light mode = Tailwind defaults */
     --bh-slate-50:  oklch(0.984 0.003 247.858);
