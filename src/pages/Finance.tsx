@@ -409,7 +409,7 @@ export default function Finance() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('finance.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('finance.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('finance.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
@@ -780,7 +780,7 @@ export default function Finance() {
 function Kpi({ label, value, icon: Icon, hint }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string }) {
   return (
     <Card><CardBody><div className="flex items-start justify-between">
-      <div className="min-w-0"><p className="text-xs text-slate-500 font-medium">{label}</p><p className="text-xl lg:text-2xl font-bold text-slate-900 tnum mt-1 truncate">{value}</p>{hint && <p className="text-[11px] text-slate-400 mt-0.5">{hint}</p>}</div>
+      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className="text-xl lg:text-2xl font-bold text-foreground tnum mt-1 truncate">{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}</div>
       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-sm"><Icon size={18} /></div>
     </div></CardBody></Card>
   );
