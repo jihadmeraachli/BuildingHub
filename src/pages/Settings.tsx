@@ -266,11 +266,11 @@ export default function Settings() {
             <div className="pt-1 space-y-2">
               <p className="text-sm font-medium text-muted-foreground">{t('settings.notifications')}</p>
               <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
-                <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="w-4 h-4 rounded cursor-pointer" />
+                <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="w-4 h-4 rounded cursor-pointer accent-primary" />
                 {t('settings.notifyEmail')}
               </label>
               <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
-                <input type="checkbox" checked={notifyWhatsapp} onChange={e => setNotifyWhatsapp(e.target.checked)} className="w-4 h-4 rounded cursor-pointer" />
+                <input type="checkbox" checked={notifyWhatsapp} onChange={e => setNotifyWhatsapp(e.target.checked)} className="w-4 h-4 rounded cursor-pointer accent-primary" />
                 {t('settings.notifyWhatsapp')}
                 <span className="text-xs text-foreground dark:text-white">({t('settings.comingSoon')})</span>
               </label>
