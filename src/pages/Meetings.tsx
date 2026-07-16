@@ -182,7 +182,7 @@ export default function Meetings() {
 
       {!entity ? (
         <Card><CardBody>
-          <p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p>
+          <p className="text-sm text-muted-foreground text-center py-8">{t('finance.noBuildings')}</p>
         </CardBody></Card>
       ) : (<>
 
@@ -192,7 +192,7 @@ export default function Meetings() {
           <button
             key={t2}
             onClick={() => setTab(t2)}
-            className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+            className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
           >
             {t2 === 'scheduled' ? t('meetings.scheduled') : t('meetings.pastMeetings')}
           </button>
@@ -202,7 +202,7 @@ export default function Meetings() {
       {loading ? (
         <SkeletonCards count={3} />
       ) : meetings.length === 0 ? (
-        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">
+        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">
           {tab === 'scheduled' ? t('meetings.noScheduled') : t('meetings.noPast')}
         </p></CardBody></Card>
       ) : tab === 'scheduled' ? (
