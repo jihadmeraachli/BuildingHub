@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       return json({ error: 'email and full_name are required' }, 400);
     }
 
-    // Org admins cannot grant org-level access and can only invite to their own buildings
+    // Org admins cannot grant org-level access; compound/building must belong to their org
     if (!callerProfile?.is_platform_admin && isCallerOrgAdmin) {
       if (grant?.org_id) {
         return json({ error: 'Forbidden — org admins cannot grant org-level roles' }, 403);
@@ -71,6 +71,15 @@ Deno.serve(async (req) => {
           .eq('building_id', grant.building_id)
           .maybeSingle();
         if (!ob) return json({ error: 'Forbidden — building not in your org' }, 403);
+      }
+      if (grant?.compound_id) {
+        const { data: oc } = await admin
+          .from('compounds')
+          .select('id')
+          .in('org_id', callerOrgIds)
+          .eq('id', grant.compound_id)
+          .maybeSingle();
+        if (!oc) return json({ error: 'Forbidden — compound not in your org' }, 403);
       }
     }
 
@@ -111,12 +120,14 @@ Deno.serve(async (req) => {
     );
 
     // Insert the access grant if the caller requested one
-    if (grant?.role && (grant?.building_id || grant?.org_id)) {
+    if (grant?.role && (grant?.building_id || grant?.org_id || grant?.compound_id)) {
+      const scope_type = grant.org_id ? 'org' : grant.compound_id ? 'compound' : 'building';
       const { error: grantErr } = await admin.from('grants').insert({
         user_id: userId,
-        scope_type: grant.org_id ? 'org' : 'building',
+        scope_type,
         org_id: grant.org_id ?? null,
         building_id: grant.building_id ?? null,
+        compound_id: grant.compound_id ?? null,
         role: grant.role,
       });
       if (grantErr) console.error('Grant insert error:', grantErr.message);

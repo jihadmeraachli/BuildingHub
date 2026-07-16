@@ -17,7 +17,7 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 type Tab = 'all' | 'pending' | 'access';
 // Hierarchy: org > compound > building (migration 0027).
 type GrantScope = 'building' | 'compound' | 'org';
-type InviteScopeType = 'none' | 'building' | 'org';
+type InviteScopeType = 'none' | 'building' | 'compound' | 'org';
 
 type GrantRow = Grant & {
   profiles: { id: string; full_name: string; apartment_number: string | null } | null;
@@ -103,6 +103,7 @@ export default function Users() {
   const [inviteGrantRole, setInviteGrantRole] = useState<GrantRole>('building_admin');
   const [inviteBuildingId, setInviteBuildingId] = useState('');
   const [inviteOrgId, setInviteOrgId] = useState('');
+  const [inviteCompoundId, setInviteCompoundId] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
@@ -383,7 +384,7 @@ export default function Users() {
   function openInviteModal() {
     setInviteEmail(''); setInviteFullName(''); setInvitePhone('');
     setInviteScopeType('none'); setInviteGrantRole('building_admin');
-    setInviteBuildingId(''); setInviteOrgId('');
+    setInviteBuildingId(''); setInviteOrgId(''); setInviteCompoundId('');
     setInviteModal(true);
   }
 
@@ -394,6 +395,8 @@ export default function Users() {
     const grant =
       inviteScopeType === 'building' && inviteBuildingId
         ? { role: inviteGrantRole, building_id: inviteBuildingId, org_id: null }
+        : inviteScopeType === 'compound' && inviteCompoundId
+        ? { role: inviteGrantRole, compound_id: inviteCompoundId, building_id: null, org_id: null }
         : inviteScopeType === 'org' && inviteOrgId
         ? { role: inviteGrantRole, org_id: inviteOrgId, building_id: null }
         : null;
@@ -452,7 +455,7 @@ export default function Users() {
   const onOrgScope = tab === 'access' && grantScope === 'org' && isSuperAdmin;
   const showContent = listBuildingIds.length > 0 || isSuperAdmin;
 
-  const rolesForInviteScope = inviteScopeType === 'org' ? ORG_ROLES : BUILDING_ROLES;
+  const rolesForInviteScope = inviteScopeType === 'org' ? ORG_ROLES : inviteScopeType === 'compound' ? COMPOUND_ROLES : BUILDING_ROLES;
 
   return (
     <div>
@@ -537,14 +540,16 @@ export default function Users() {
             <div className="space-y-4">
               {/* Scope ladder, top-down: org → compound → block. Access granted higher
                   up cascades down (a compound grant covers every block in it). */}
-              {isSuperAdmin && (
+              {(isSuperAdmin || (isOrgAdmin && compoundEntities.length > 0)) && (
                 <div className="flex gap-1 flex-wrap">
-                  <button
-                    onClick={() => setGrantScope('org')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                  >
-                    <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
-                  </button>
+                  {isSuperAdmin && (
+                    <button
+                      onClick={() => setGrantScope('org')}
+                      className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setGrantScope('compound')}
                     className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-[#349ECD] border-[#349ECD] text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
@@ -559,9 +564,9 @@ export default function Users() {
                   </button>
                 </div>
               )}
-              {/* org admins stay on building scope only — no org-level grant management */}
+              {/* org admins without compounds stay on building scope only — no org-level grant management */}
 
-              {grantScope === 'compound' && isSuperAdmin ? (
+              {grantScope === 'compound' && (isSuperAdmin || isOrgAdmin) ? (
                 <>
                   <div className="flex items-center gap-2 flex-wrap">
                     <select
@@ -911,15 +916,20 @@ export default function Users() {
           <div className="border-t border-slate-100 pt-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{t('users.inviteRoleSection')}</p>
 
-            {/* Scope type selector — org admins can only invite to buildings, not org-level */}
-            <div className="flex gap-1 mb-3">
-              {(['none', 'building', ...(isSuperAdmin ? ['org'] : [])] as InviteScopeType[]).map(s => (
+            {/* Scope type selector — org admins can invite to buildings/compounds, not org-level */}
+            <div className="flex gap-1 flex-wrap mb-3">
+              {(
+                ['none', 'building',
+                  ...((isSuperAdmin || (isOrgAdmin && compoundEntities.length > 0)) ? ['compound'] : []),
+                  ...(isSuperAdmin ? ['org'] : []),
+                ] as InviteScopeType[]
+              ).map(s => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => {
                     setInviteScopeType(s);
-                    setInviteGrantRole(s === 'org' ? 'org_admin' : 'building_admin');
+                    setInviteGrantRole(s === 'org' ? 'org_admin' : s === 'compound' ? 'compound_admin' : 'building_admin');
                   }}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${inviteScopeType === s ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
                 >
@@ -944,6 +954,26 @@ export default function Users() {
                   onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
                 >
                   {BUILDING_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
+                </Select>
+              </div>
+            )}
+
+            {inviteScopeType === 'compound' && (
+              <div className="space-y-3">
+                <Select
+                  label={t('users.selectCompoundHint')}
+                  value={inviteCompoundId}
+                  onChange={e => setInviteCompoundId(e.target.value)}
+                >
+                  <option value="">{t('users.selectCompoundHint')}</option>
+                  {compoundEntities.map(c => <option key={c.id} value={c.id}>{c.name} ({c.blocks.length} {t('buildings.blocks')})</option>)}
+                </Select>
+                <Select
+                  label={t('users.role')}
+                  value={inviteGrantRole}
+                  onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
+                >
+                  {COMPOUND_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
                 </Select>
               </div>
             )}
