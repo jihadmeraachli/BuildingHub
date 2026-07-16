@@ -9,7 +9,7 @@ import { useEntities } from '@/lib/entities';
 import { supabase } from '@/lib/supabase';
 import type { Meeting } from '@/types';
 import { TrendChart } from '@/components/ui/Charts';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
@@ -163,16 +163,30 @@ export default function Dashboard() {
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 0 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[160px]">
-              <option value="">{t('dashboard.allBuildings')}</option>
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey || '__all__'} onValueChange={(v) => setEntityKey(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('dashboard.allBuildings')}</SelectItem>
+                {entities.map((e) => (
+                  <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </RadixSelect>
           )}
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {selEntity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {selEntity.blocks.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </RadixSelect>
           )}
         </div>
       </div>
