@@ -818,7 +818,7 @@ function ResidentDuesCard({ unitIds }: { unitIds: string[] }) {
   );
 }
 
-function Empty({ body }: { body: string }) { return <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{body}</p></CardBody></Card>; }
+function Empty({ body }: { body: string }) { return <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{body}</p></CardBody></Card>; }
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="max-w-md mx-auto text-center py-16">

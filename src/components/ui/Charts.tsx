@@ -132,7 +132,7 @@ export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data:
             <span className="text-slate-900 font-medium tnum">{fmtMoney(d.value)}</span>
           </div>
         ))}
-        {total === 0 && <p className="text-sm text-slate-400">No data for this period.</p>}
+        {total === 0 && <p className="text-sm text-muted-foreground">No data for this period.</p>}
       </div>
     </div>
   );
