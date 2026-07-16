@@ -445,7 +445,7 @@ export default function Finance() {
           </RadixSelect>
           {period === 'month' && (
             <input type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+              className="rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 dark:[color-scheme:dark]" />
           )}
         </div>
       </div>
