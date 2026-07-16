@@ -534,7 +534,7 @@ export default function Finance() {
 
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+                  <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.category')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.split')}</th>
@@ -543,12 +543,12 @@ export default function Finance() {
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pExpenses.map((e) => (
-                      <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-indigo-50/40 cursor-pointer">
-                        <td className="px-5 py-3 font-medium text-slate-900"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-slate-400" />}</span></td>
-                        <td className="px-5 py-3"><Badge color="indigo">{t(`finance.cats.${e.category}`)}</Badge></td>
-                        <td className="px-5 py-3 text-slate-500 text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
-                        <td className="px-5 py-3 text-slate-500">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 text-end font-semibold text-slate-900 tnum">{money(Number(e.amount_usd))}</td>
+                      <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
+                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
+                        <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
+                        <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(e.amount_usd))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -557,7 +557,7 @@ export default function Finance() {
 
               {tab === 'payments' && (pPayments.length === 0 ? <Empty body={t('finance.noPayments', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+                  <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.method')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
@@ -567,12 +567,12 @@ export default function Finance() {
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pPayments.map((p) => (
-                      <tr key={p.id} onClick={() => setDetailPayment(p)} className="hover:bg-indigo-50/40 cursor-pointer">
-                        <td className="px-5 py-3 font-semibold text-slate-900">{unitDisplay(p.unit_id)}</td>
-                        <td className="px-5 py-3 text-slate-600">{t(`finance.methods.${p.method}`)}</td>
-                        <td className="px-5 py-3 text-slate-500">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 text-slate-500"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-indigo-600 hover:text-indigo-800 inline-flex" icon={Paperclip} />}</span></td>
-                        <td className="px-5 py-3 text-end font-semibold text-emerald-600 tnum">{money(Number(p.amount_usd))}</td>
+                      <tr key={p.id} onClick={() => setDetailPayment(p)} className="hover:bg-primary/5 cursor-pointer">
+                        <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(p.unit_id)}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
+                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
                           <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
                             <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={15} /></button>
