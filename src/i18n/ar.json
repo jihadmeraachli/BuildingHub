@@ -349,7 +349,10 @@
     "orgCount": "{{count}} مبنى",
     "noOrgOption": "— بدون مؤسسة —",
     "orgAdded": "تم إنشاء المؤسسة.",
-    "blocks": "مبانٍ"
+    "blocks": "مبانٍ",
+    "standalone": "مستقل",
+    "searchPlaceholder": "البحث في المباني...",
+    "searchResults": "{{count}} من {{total}} مبنى"
   },
   "structure": {
     "title": "الهيكل",

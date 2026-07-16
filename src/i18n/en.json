@@ -349,7 +349,10 @@
     "orgCount": "{{count}} buildings",
     "noOrgOption": "— No organization —",
     "orgAdded": "Organization created.",
-    "blocks": "blocks"
+    "blocks": "blocks",
+    "standalone": "Standalone",
+    "searchPlaceholder": "Search buildings...",
+    "searchResults": "{{count}} of {{total}} buildings"
   },
   "structure": {
     "title": "Structure",
