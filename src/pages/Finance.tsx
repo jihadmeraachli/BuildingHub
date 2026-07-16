@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { MonthPicker } from '@/components/ui/MonthPicker';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
@@ -444,8 +445,7 @@ export default function Finance() {
             </SelectContent>
           </RadixSelect>
           {period === 'month' && (
-            <input type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
-              className="rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 dark:[color-scheme:dark]" />
+            <MonthPicker value={monthValue} onChange={setMonthValue} />
           )}
         </div>
       </div>
