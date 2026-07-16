@@ -293,7 +293,7 @@ function HeroCard({ label, amount, stats, pill, negative }: {
             </span>
           )}
         </div>
-        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-destructive dark:text-red-200')}>
+        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-red-400 dark:text-red-200')}>
           {amount}
         </p>
         <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">
@@ -339,7 +339,7 @@ function CoverageItem({ label, value, negative }: { label: string; value: string
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn('text-xl font-bold tnum mt-0.5', negative ? 'text-destructive dark:text-red-300' : 'text-foreground dark:text-white')}>
+      <p className={cn('text-xl font-bold tnum mt-0.5', negative ? 'text-red-400 dark:text-red-300' : 'text-foreground dark:text-white')}>
         {value}
       </p>
     </div>

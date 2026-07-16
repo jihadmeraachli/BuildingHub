@@ -519,7 +519,7 @@ export default function Finance() {
                           <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-foreground dark:text-white tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.charged)}</td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
-                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-destructive dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
                             <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
@@ -788,7 +788,7 @@ function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: s
   const gradient = gradients[tone ?? 'slate'] ?? 'from-teal-400 to-teal-600';
   return (
     <Card><CardBody><div className="flex items-start justify-between">
-      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className={`text-xl lg:text-2xl font-bold tnum mt-1 truncate ${tone === 'rose' ? 'text-destructive dark:text-red-300' : 'text-foreground'}`}>{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}</div>
+      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className={`text-xl lg:text-2xl font-bold tnum mt-1 truncate ${tone === 'rose' ? 'text-red-400 dark:text-red-300' : 'text-foreground'}`}>{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}</div>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradient} text-white shadow-sm`}><Icon size={18} /></div>
     </div></CardBody></Card>
   );
@@ -847,7 +847,7 @@ function StatementList({ charges, payments, unitLabel }: { charges: Charge[]; pa
           <tr key={i} className="hover:bg-slate-50/60">
             <td className="px-5 py-3 text-slate-500">{format(new Date(r.date), 'MMM d, yyyy')}</td>
             <td className="px-5 py-3 text-slate-800">{r.label} <span className="text-slate-400 text-xs">· {t('finance.unit')} {r.unit}</span></td>
-            <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-destructive dark:text-red-300' : 'text-emerald-600'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
+            <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>
         ))}
       </tbody>
