@@ -9,7 +9,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
-  CalendarClock, Settings, X,
+  CalendarClock, X, Network, Boxes,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -68,9 +68,11 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   ].filter(l => l.show !== false);
 
   const manageLinks = [
-    { to: '/buildings', label: t('nav.buildings'), icon: Building2, show: canBuildings },
-    { to: '/structure', label: t('nav.structure'), icon: Layers,    show: canStructure },
-    { to: '/users',     label: t('nav.people'),    icon: Users,     show: canPeople },
+    { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings },
+    { to: '/structure',     label: t('nav.structure'),     icon: Layers,    show: canStructure },
+    { to: '/users',         label: t('nav.people'),        icon: Users,     show: canPeople },
+    { to: '/organizations', label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
+    { to: '/compounds',     label: t('nav.compounds'),     icon: Boxes,     show: isPlatformAdmin || isOrgAdmin },
   ].filter(l => l.show);
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');
@@ -115,19 +117,12 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
           <>
             <div className="pt-4 pb-1 px-3">
               <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
-                {t('nav.settings')}
+                {t('nav.config')}
               </p>
             </div>
             {manageLinks.map(l => <NavItem key={l.to} {...l} />)}
           </>
         )}
-
-        <div className="pt-4 pb-1 px-3">
-          <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
-            {t('settings.title')}
-          </p>
-        </div>
-        <NavItem to="/settings" label={t('settings.title')} icon={Settings} />
       </nav>
 
       {/* User footer */}

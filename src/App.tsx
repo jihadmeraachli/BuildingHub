@@ -20,8 +20,10 @@ const Inspections = lazy(() => import('@/pages/Inspections'));
 const Contracts  = lazy(() => import('@/pages/Contracts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
 const Users      = lazy(() => import('@/pages/Users'));
-const Buildings  = lazy(() => import('@/pages/Buildings'));
-const Settings   = lazy(() => import('@/pages/Settings'));
+const Buildings      = lazy(() => import('@/pages/Buildings'));
+const Organizations  = lazy(() => import('@/pages/Organizations'));
+const Compounds      = lazy(() => import('@/pages/Compounds'));
+const Settings       = lazy(() => import('@/pages/Settings'));
 
 function PageFallback() {
   return <div className="p-6"><SkeletonCards count={3} /></div>;
@@ -55,7 +57,9 @@ export default function App() {
               <Route path="/billing" element={<Billing />} />
               <Route path="/issues" element={<Issues />} />
               <Route path="/users" element={<Users />} />
-              <Route path="/buildings" element={<Buildings />} />
+              <Route path="/buildings"     element={<Buildings />} />
+              <Route path="/organizations" element={<Organizations />} />
+              <Route path="/compounds"     element={<Compounds />} />
               {/* your own account — no capability gate, everyone has one */}
               <Route path="/settings" element={<Settings />} />
             </Route>
