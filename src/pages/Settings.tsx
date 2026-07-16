@@ -245,7 +245,7 @@ export default function Settings() {
         <CardBody>
           <div className="flex items-center gap-2 mb-4">
             <UserIcon size={16} className="text-[#7fe3ec]" />
-            <p className="text-sm font-bold text-primary">{t('settings.yourDetails')}</p>
+            <p className="text-sm font-semibold text-foreground">{t('settings.yourDetails')}</p>
           </div>
 
           <div className="space-y-4">
@@ -255,7 +255,7 @@ export default function Settings() {
             {/* Read-only: your unit and access are set by your building admin. */}
             {profile?.apartment_number && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-muted-foreground">{t('settings.apartment')}</label>
+                <label className="text-sm font-medium text-foreground">{t('settings.apartment')}</label>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground">
                   {profile.apartment_number}
                   <span className="text-xs text-muted-foreground ms-2">· {t('settings.managedByAdmin')}</span>
@@ -264,7 +264,7 @@ export default function Settings() {
             )}
 
             <div className="pt-1 space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">{t('settings.notifications')}</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.notifications')}</p>
               <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
                 <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="w-4 h-4 rounded cursor-pointer accent-primary" />
                 {t('settings.notifyEmail')}
@@ -290,7 +290,7 @@ export default function Settings() {
         <CardBody>
           <div className="flex items-center gap-2 mb-1">
             <Mail size={16} className="text-[#7fe3ec]" />
-            <p className="text-sm font-bold text-primary">{t('settings.emailTitle')}</p>
+            <p className="text-sm font-semibold text-foreground">{t('settings.emailTitle')}</p>
           </div>
           <p className="text-xs text-muted-foreground mb-4">{t('settings.emailNote')}</p>
           <div className="flex items-end gap-2">
@@ -309,7 +309,7 @@ export default function Settings() {
         <CardBody>
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={16} className="text-[#7fe3ec]" />
-            <p className="text-sm font-bold text-primary">{t('settings.passwordTitle')}</p>
+            <p className="text-sm font-semibold text-foreground">{t('settings.passwordTitle')}</p>
           </div>
           <div className="space-y-4">
             <Input label={t('settings.newPassword')} type="password" value={pw1} onChange={e => setPw1(e.target.value)} autoComplete="new-password" className="text-primary" />
