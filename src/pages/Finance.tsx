@@ -515,11 +515,11 @@ export default function Finance() {
                       const pct = r.charged > 0 ? (r.paid / r.charged) * 100 : (r.paid > 0 ? 100 : 0);
                       return (
                         <tr key={r.unit.id} className="hover:bg-slate-50/60">
-                          <td className="px-5 py-3 font-semibold text-destructive dark:text-red-300">{unitDisplay(r.unit.id)}</td>
-                          <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-destructive dark:text-red-300 tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
-                          <td className="px-5 py-3 text-end text-destructive dark:text-red-300 tnum">{money(r.charged)}</td>
-                          <td className="px-5 py-3 text-end text-destructive dark:text-red-300 tnum">{money(r.paid)}</td>
-                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-rose-600' : r.balance > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{money(r.balance)}</td>
+                          <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(r.unit.id)}</td>
+                          <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-foreground dark:text-white tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
+                          <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.charged)}</td>
+                          <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-destructive dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
                             <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-slate-400 hover:text-indigo-600 transition cursor-pointer">
                               <Download size={14} />
