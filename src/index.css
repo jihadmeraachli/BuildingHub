@@ -1,179 +1,171 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn dark-class variant for Tailwind v4 */
+@custom-variant dark (&:is(.dark *));
+
+/* Map CSS variables → Tailwind color utilities */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background:             var(--background);
+  --color-foreground:             var(--foreground);
+  --color-card:                   var(--card);
+  --color-card-foreground:        var(--card-foreground);
+  --color-popover:                var(--popover);
+  --color-popover-foreground:     var(--popover-foreground);
+  --color-primary:                var(--primary);
+  --color-primary-foreground:     var(--primary-foreground);
+  --color-secondary:              var(--secondary);
+  --color-secondary-foreground:   var(--secondary-foreground);
+  --color-muted:                  var(--muted);
+  --color-muted-foreground:       var(--muted-foreground);
+  --color-accent:                 var(--accent);
+  --color-accent-foreground:      var(--accent-foreground);
+  --color-destructive:            var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border:                 var(--border);
+  --color-input:                  var(--input);
+  --color-ring:                   var(--ring);
+  --color-sidebar:                var(--sidebar);
+  --color-sidebar-foreground:     var(--sidebar-foreground);
+  --color-sidebar-primary:        var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:         var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border:         var(--sidebar-border);
+  --color-sidebar-ring:           var(--sidebar-ring);
+}
 
 @layer base {
+  /* ── Light theme ──────────────────────────────── */
   :root {
-    --bh-bg: #f6f7fb;
-    --bh-ink: #0b1020;
+    --radius: 0.625rem;
+
+    --background:             oklch(0.99 0 0);
+    --foreground:             oklch(0.15 0.012 264);
+
+    --card:                   oklch(1 0 0);
+    --card-foreground:        oklch(0.15 0.012 264);
+
+    --popover:                oklch(1 0 0);
+    --popover-foreground:     oklch(0.15 0.012 264);
+
+    /* Teal-600 primary */
+    --primary:                oklch(0.54 0.115 186);
+    --primary-foreground:     oklch(1 0 0);
+
+    --secondary:              oklch(0.96 0.004 264);
+    --secondary-foreground:   oklch(0.25 0.012 264);
+
+    --muted:                  oklch(0.96 0.004 264);
+    --muted-foreground:       oklch(0.55 0.012 264);
+
+    /* Teal-50 accent tint */
+    --accent:                 oklch(0.96 0.02 186);
+    --accent-foreground:      oklch(0.35 0.10 186);
+
+    --destructive:            oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(1 0 0);
+
+    --border:                 oklch(0.90 0.004 264);
+    --input:                  oklch(0.90 0.004 264);
+    --ring:                   oklch(0.54 0.115 186);
+
+    /* Sidebar — slightly off-white/teal tinted */
+    --sidebar:                oklch(0.97 0.008 186);
+    --sidebar-foreground:     oklch(0.15 0.012 264);
+    --sidebar-primary:        oklch(0.54 0.115 186);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent:         oklch(0.93 0.018 186);
+    --sidebar-accent-foreground: oklch(0.25 0.012 264);
+    --sidebar-border:         oklch(0.87 0.010 186);
+    --sidebar-ring:           oklch(0.54 0.115 186);
+  }
+
+  /* ── Dark theme ───────────────────────────────── */
+  .dark {
+    --background:             oklch(0.12 0.010 264);
+    --foreground:             oklch(0.96 0.004 264);
+
+    --card:                   oklch(0.16 0.012 264);
+    --card-foreground:        oklch(0.96 0.004 264);
+
+    --popover:                oklch(0.16 0.012 264);
+    --popover-foreground:     oklch(0.96 0.004 264);
+
+    /* Teal-400 — lighter for dark backgrounds */
+    --primary:                oklch(0.72 0.14 185);
+    --primary-foreground:     oklch(0.12 0.010 264);
+
+    --secondary:              oklch(0.22 0.012 264);
+    --secondary-foreground:   oklch(0.96 0.004 264);
+
+    --muted:                  oklch(0.22 0.012 264);
+    --muted-foreground:       oklch(0.62 0.010 264);
+
+    --accent:                 oklch(0.24 0.04 186);
+    --accent-foreground:      oklch(0.80 0.10 185);
+
+    --destructive:            oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.12 0.010 264);
+
+    --border:                 oklch(0.26 0.012 264);
+    --input:                  oklch(0.26 0.012 264);
+    --ring:                   oklch(0.72 0.14 185);
+
+    --sidebar:                oklch(0.14 0.014 264);
+    --sidebar-foreground:     oklch(0.96 0.004 264);
+    --sidebar-primary:        oklch(0.72 0.14 185);
+    --sidebar-primary-foreground: oklch(0.12 0.010 264);
+    --sidebar-accent:         oklch(0.20 0.028 186);
+    --sidebar-accent-foreground: oklch(0.80 0.10 185);
+    --sidebar-border:         oklch(0.22 0.014 264);
+    --sidebar-ring:           oklch(0.72 0.14 185);
+  }
+
+  * {
+    border-color: var(--border);
+    outline-color: var(--ring);
   }
 
   html {
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   html[dir="rtl"] {
     font-family: 'Inter', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
   }
 
   body {
-    margin: 0;
-    color: var(--bh-ink);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-    background-color: var(--bh-bg);
-    /* subtle aurora — premium depth without going dark */
-    background-image:
-      radial-gradient(60rem 40rem at 12% -10%, rgba(99, 102, 241, 0.14), transparent 60%),
-      radial-gradient(50rem 40rem at 108% 8%, rgba(139, 92, 246, 0.12), transparent 55%),
-      radial-gradient(48rem 40rem at 50% 120%, rgba(16, 185, 129, 0.08), transparent 55%);
-    background-attachment: fixed;
+    background-color: var(--background);
+    color: var(--foreground);
   }
 
-  #root { min-height: 100vh; display: flex; flex-direction: column; }
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: #c7cbd9; border-radius: 9999px; border: 3px solid transparent; background-clip: content-box;
+    background: oklch(0.82 0.008 264);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background: #a3a9bd; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(0.70 0.010 264); background-clip: content-box; }
+
+  .dark ::-webkit-scrollbar-thumb { background: oklch(0.30 0.010 264); background-clip: content-box; }
+  .dark ::-webkit-scrollbar-thumb:hover { background: oklch(0.40 0.010 264); background-clip: content-box; }
 }
 
 @layer utilities {
   .tnum { font-variant-numeric: tabular-nums; }
-  /* Poppins = Tatawwor brand face → headings + big numbers */
-  .font-display { font-family: 'Poppins', 'Inter', sans-serif; letter-spacing: -0.02em; }
-
-  /* ---- Tatawwor brand: cyan #57D6E2 → blue #349ECD ---- */
-  .brand-grad { background-image: linear-gradient(120deg, #57D6E2 0%, #349ECD 100%); }
-  .brand-text {
-    background: linear-gradient(120deg, #57D6E2 0%, #349ECD 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  .glow-brand { box-shadow: 0 0 0 1px rgba(87,214,226,0.22), 0 18px 50px -12px rgba(52,158,205,0.5); }
-
-  /* dark frosted surface — for the dark showcase (Dashboard) */
-  .glass-dark {
-    background: rgba(255,255,255,0.045);
-    backdrop-filter: saturate(160%) blur(16px);
-    -webkit-backdrop-filter: saturate(160%) blur(16px);
-    border: 1px solid rgba(255,255,255,0.09);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 20px 40px -24px rgba(0,0,0,0.85);
-  }
-
-  /* frosted glass surface */
-  .glass {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: saturate(180%) blur(14px);
-    -webkit-backdrop-filter: saturate(180%) blur(14px);
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 0 1px 2px rgba(11, 16, 32, 0.04), 0 8px 24px -12px rgba(11, 16, 32, 0.18);
-  }
-  .glass-strong {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: saturate(180%) blur(18px);
-    -webkit-backdrop-filter: saturate(180%) blur(18px);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 0 1px 2px rgba(11, 16, 32, 0.05), 0 12px 40px -16px rgba(11, 16, 32, 0.25);
-  }
-  /* soft neon ring for focus/accent elements */
-  .glow-indigo { box-shadow: 0 0 0 1px rgba(99,102,241,0.25), 0 10px 30px -12px rgba(99,102,241,0.55); }
 }
-
-/* ============================================================
-   App-wide DARK theme — scoped to the signed-in shell (.app-dark).
-   Unlayered so it overrides Tailwind utilities. Auth pages (Login/
-   Register/SetPassword) sit OUTSIDE .app-dark and stay light.
-   ============================================================ */
-/* color-scheme:dark → browser renders ALL native controls dark: date/time
-   pickers + calendar icon, number spinners, <select> popups, autofill, etc.
-   accent-color → checkboxes / radios / range use the brand blue. */
-.app-dark { color: #e2e8f0; color-scheme: dark; accent-color: #349ECD; }
-
-/* frosted card surface → dark glass (flips every <Card> in the app) */
-.app-dark .glass {
-  background: rgba(255,255,255,0.045);
-  backdrop-filter: saturate(160%) blur(16px);
-  -webkit-backdrop-filter: saturate(160%) blur(16px);
-  border: 1px solid rgba(255,255,255,0.09);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 20px 40px -24px rgba(0,0,0,0.85);
-}
-.app-dark .glass-strong {
-  background: rgba(20,27,43,0.85);
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 24px 60px -24px rgba(0,0,0,0.9);
-}
-
-/* solid light surfaces → dark (cards, inputs, modals, dropdowns) */
-.app-dark .bg-white { background-color: #121826 !important; }
-.app-dark .bg-slate-50 { background-color: rgba(255,255,255,0.04) !important; }
-.app-dark .bg-slate-100 { background-color: rgba(255,255,255,0.06) !important; }
-.app-dark .hover\:bg-slate-50:hover { background-color: rgba(255,255,255,0.06) !important; }
-.app-dark .hover\:bg-slate-100:hover { background-color: rgba(255,255,255,0.09) !important; }
-
-/* neutral text scale → light */
-.app-dark .text-slate-900,
-.app-dark .text-slate-800 { color: #f1f5f9; }
-.app-dark .text-slate-700,
-.app-dark .text-slate-600 { color: #cbd5e1; }
-.app-dark .text-slate-500 { color: #97a4b8; }
-.app-dark .text-slate-400,
-.app-dark .text-slate-300 { color: #7c8aa0; }
-
-/* borders / dividers / rings → subtle light-on-dark */
-.app-dark .border-slate-100,
-.app-dark .border-slate-200,
-.app-dark .border-slate-300 { border-color: rgba(255,255,255,0.10); }
-.app-dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
-.app-dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
-.app-dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255,255,255,0.08); }
-.app-dark .ring-slate-200,
-.app-dark .ring-slate-900\/5 { --tw-ring-color: rgba(255,255,255,0.10); }
-
-/* inputs read light text on dark fields */
-.app-dark input, .app-dark select, .app-dark textarea { color: #f1f5f9; }
-.app-dark input::placeholder, .app-dark textarea::placeholder { color: #64748b; }
-
-/* darker scrollbar on the dark canvas */
-.app-dark ::-webkit-scrollbar-thumb { background: #2a3346; background-clip: content-box; }
-.app-dark ::-webkit-scrollbar-thumb:hover { background: #3a4560; background-clip: content-box; }
-
-/* colored "tint" chips / badges (bg-*-50/100) → translucent so they sit on dark,
-   and their paired dark text (*-600/700/800) → a lighter shade that reads on it */
-.app-dark .bg-indigo-50, .app-dark .bg-indigo-100 { background-color: rgba(99,102,241,0.15) !important; }
-.app-dark .bg-violet-50, .app-dark .bg-violet-100 { background-color: rgba(139,92,246,0.15) !important; }
-.app-dark .bg-sky-50, .app-dark .bg-sky-100,
-.app-dark .bg-cyan-50, .app-dark .bg-cyan-100 { background-color: rgba(87,214,226,0.15) !important; }
-.app-dark .bg-blue-50, .app-dark .bg-blue-100 { background-color: rgba(59,130,246,0.15) !important; }
-.app-dark .bg-emerald-50, .app-dark .bg-emerald-100,
-.app-dark .bg-green-50, .app-dark .bg-green-100 { background-color: rgba(16,185,129,0.15) !important; }
-.app-dark .bg-amber-50, .app-dark .bg-amber-100,
-.app-dark .bg-yellow-50, .app-dark .bg-yellow-100 { background-color: rgba(245,158,11,0.15) !important; }
-.app-dark .bg-rose-50, .app-dark .bg-rose-100,
-.app-dark .bg-red-50, .app-dark .bg-red-100 { background-color: rgba(244,63,94,0.15) !important; }
-
-.app-dark .text-indigo-600, .app-dark .text-indigo-700, .app-dark .text-indigo-800 { color: #a5b4fc; }
-.app-dark .text-violet-600, .app-dark .text-violet-700, .app-dark .text-violet-800 { color: #c4b5fd; }
-.app-dark .text-sky-600, .app-dark .text-sky-700, .app-dark .text-cyan-600, .app-dark .text-cyan-700 { color: #7fe3ec; }
-.app-dark .text-blue-600, .app-dark .text-blue-700, .app-dark .text-blue-800 { color: #93c5fd; }
-.app-dark .text-emerald-600, .app-dark .text-emerald-700, .app-dark .text-emerald-800,
-.app-dark .text-green-600, .app-dark .text-green-700 { color: #6ee7b7; }
-.app-dark .text-amber-600, .app-dark .text-amber-700, .app-dark .text-amber-800,
-.app-dark .text-yellow-600, .app-dark .text-yellow-700 { color: #fcd34d; }
-.app-dark .text-rose-600, .app-dark .text-rose-700, .app-dark .text-rose-800,
-.app-dark .text-red-600, .app-dark .text-red-700 { color: #fda4af; }
-
-/* native file inputs — the browser's default "Choose File" button is light */
-.app-dark input[type="file"] { color: #94a3b8; font-size: 0.875rem; }
-.app-dark input[type="file"]::file-selector-button,
-.app-dark input[type="file"]::-webkit-file-upload-button {
-  background: rgba(255,255,255,0.08);
-  color: #e2e8f0;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 0.625rem;
-  padding: 0.45rem 0.8rem;
-  margin-inline-end: 0.7rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.app-dark input[type="file"]::file-selector-button:hover,
-.app-dark input[type="file"]::-webkit-file-upload-button:hover { background: rgba(255,255,255,0.15); }
