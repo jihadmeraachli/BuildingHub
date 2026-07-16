@@ -114,7 +114,7 @@ export default function Issues() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('issues.title')}</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('issues.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
             <RadixSelect value={entityKey} onValueChange={setEntityKey}>
@@ -168,12 +168,12 @@ export default function Issues() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-medium text-slate-900">{issue.title}</h3>
+                      <h3 className="font-medium text-foreground">{issue.title}</h3>
                       <Badge color={priorityColor[issue.priority]}>{t(`issues.priorities.${issue.priority}`)}</Badge>
                       <Badge color={statusColor[issue.status]}>{t(`issues.statuses.${issue.status}`)}</Badge>
                     </div>
-                    <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                    <p className="text-sm text-muted-foreground mb-2">{issue.description}</p>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{issue.location}</span>
                       {multiBlock && <><span>â€¢</span><span>{blockName[issue.building_id]}</span></>}
                       {issue.apartment_number && <><span>â€¢</span><span>Apt {issue.apartment_number}</span></>}

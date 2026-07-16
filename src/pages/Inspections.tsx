@@ -109,7 +109,7 @@ export default function Inspections() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('inspections.title')}</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('inspections.title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t('inspections.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -151,7 +151,7 @@ export default function Inspections() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-slate-900">{r.title}</h3>
+                      <h3 className="font-semibold text-foreground">{r.title}</h3>
                       <Badge color="indigo">{t(`inspections.categories.${r.category}`)}</Badge>
                       <Badge color={statusColor[r.status]}>{t(`inspections.statuses.${r.status}`)}</Badge>
                     </div>
@@ -166,8 +166,8 @@ export default function Inspections() {
                   </div>
                   {canManage && (
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={15} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
+                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
+                      <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
                     </div>
                   )}
                 </div>
