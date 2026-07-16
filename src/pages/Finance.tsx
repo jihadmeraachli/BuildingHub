@@ -461,7 +461,7 @@ export default function Finance() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="inline-flex p-1 bg-slate-100 rounded-xl">
               {([['book', t('finance.book'), BookOpen], ['expenses', t('finance.expenses'), Receipt], ['payments', t('finance.payments'), HandCoins]] as ['book' | 'expenses' | 'payments', string, typeof BookOpen][]).map(([key, label, Icon]) => (
-                <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm dark:bg-primary/15 dark:text-primary dark:shadow-none' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}`}>
                   <Icon size={15} /> {label}
                 </button>
               ))}
