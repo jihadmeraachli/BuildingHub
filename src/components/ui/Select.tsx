@@ -23,7 +23,7 @@ function Select({ className, label, id, error, children, ...props }: SelectProps
       data-slot="select"
       aria-invalid={error ? true : undefined}
       className={cn(
-        "h-9 w-full min-w-0 appearance-none rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none",
+        "h-9 w-full min-w-0 appearance-none rounded-md border border-input bg-transparent dark:bg-popover px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none",
         "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         error && "border-destructive",
