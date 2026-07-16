@@ -26,6 +26,7 @@
     "required": "هذا الحقل مطلوب.",
     "markAllRead": "تحديد الكل كمقروء",
     "noNotifications": "لا توجد إشعارات بعد.",
+    "allRead": "كل شيء مقروء",
     "saved": "تم الحفظ بنجاح.",
     "all": "الكل",
     "selectBuilding": "— اختر مبنى —",
@@ -47,6 +48,9 @@
     "dues": "الرسوم",
     "users": "المستخدمون",
     "buildings": "المباني",
+    "organizations": "المنظمات",
+    "compounds": "المجمعات",
+    "config": "الإعدادات",
     "settings": "الإعدادات",
     "notifications": "الإشعارات",
     "profile": "الملف الشخصي",
@@ -345,7 +349,10 @@
     "orgCount": "{{count}} مبنى",
     "noOrgOption": "— بدون مؤسسة —",
     "orgAdded": "تم إنشاء المؤسسة.",
-    "blocks": "مبانٍ"
+    "blocks": "مبانٍ",
+    "standalone": "مستقل",
+    "searchPlaceholder": "البحث في المباني...",
+    "searchResults": "{{count}} من {{total}} مبنى"
   },
   "structure": {
     "title": "الهيكل",

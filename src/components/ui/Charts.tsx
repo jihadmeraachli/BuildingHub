@@ -3,6 +3,16 @@ import { useState } from 'react';
 
 export const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#0ea5e9', '#64748b'];
 
+const DONUT_GRADIENTS = [
+  { from: '#14b8a6', to: '#06b6d4' }, // teal → cyan
+  { from: '#8b5cf6', to: '#6366f1' }, // violet → indigo
+  { from: '#f59e0b', to: '#f97316' }, // amber → orange
+  { from: '#ec4899', to: '#f43f5e' }, // pink → rose
+  { from: '#10b981', to: '#14b8a6' }, // emerald → teal
+  { from: '#3b82f6', to: '#818cf8' }, // blue → indigo-light
+  { from: '#64748b', to: '#94a3b8' }, // slate
+];
+
 const fmtMoney = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const fmtMoney2 = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -46,7 +56,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
             <path key={s.name} d={path(s.data)} fill="none" stroke={s.color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
           ))}
           {idx !== null && (
-            <line x1={xPct(idx)} y1={0} x2={xPct(idx)} y2={100} stroke="#cbd5e1" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" />
+            <line x1={xPct(idx)} y1={0} x2={xPct(idx)} y2={100} className="stroke-border" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" />
           )}
         </svg>
 
@@ -58,7 +68,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
         {idx !== null && (
           <div className="absolute z-10 pointer-events-none"
             style={{ left: `${tipX}%`, top: `${tipTop}%`, transform: `translate(${tipAlignX}, ${flipDown ? '12px' : 'calc(-100% - 10px)'})` }}>
-            <div className="bg-slate-900 text-white text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap">
+            <div className="bg-popover text-popover-foreground border border-border text-xs rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap">
               <p className="font-medium mb-0.5">{labels[idx]}</p>
               {series.map((s) => (
                 <p key={s.name} className="flex items-center gap-1.5">
@@ -73,12 +83,12 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
 
       <div className="relative h-4 mt-1.5">
         {labels.map((l, i) => (
-          <span key={i} className="absolute text-[10px] text-slate-400 whitespace-nowrap" style={labelStyle(i)}>{l}</span>
+          <span key={i} className="absolute text-[10px] text-muted-foreground whitespace-nowrap" style={labelStyle(i)}>{l}</span>
         ))}
       </div>
       <div className="flex gap-4 mt-2">
         {series.map((s) => (
-          <span key={s.name} className="flex items-center gap-1.5 text-xs text-slate-500">
+          <span key={s.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} /> {s.name}
           </span>
         ))}
@@ -99,7 +109,15 @@ export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data:
     <div className="flex items-center gap-5">
       <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={thickness} />
+          <defs>
+            {DONUT_GRADIENTS.map((g, i) => (
+              <linearGradient key={i} id={`donut-grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={g.from} />
+                <stop offset="100%" stopColor={g.to} />
+              </linearGradient>
+            ))}
+          </defs>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeOpacity={0.08} strokeWidth={thickness} />
           {total > 0 && data.map((d, i) => {
             const frac = d.value / total;
             const dash = frac * c;
@@ -108,7 +126,7 @@ export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data:
                 key={i}
                 cx={size / 2} cy={size / 2} r={r}
                 fill="none"
-                stroke={d.color ?? CHART_COLORS[i % CHART_COLORS.length]}
+                stroke={`url(#donut-grad-${i % DONUT_GRADIENTS.length})`}
                 strokeWidth={thickness}
                 strokeDasharray={`${dash} ${c - dash}`}
                 strokeDashoffset={-offset}
@@ -120,19 +138,22 @@ export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data:
           })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-lg font-bold text-slate-900 tnum">{fmtMoney(total)}</span>
-          {centerLabel && <span className="text-[11px] text-slate-400">{centerLabel}</span>}
+          <span className="text-lg font-bold text-foreground tnum">{fmtMoney(total)}</span>
+          {centerLabel && <span className="text-[11px] text-muted-foreground">{centerLabel}</span>}
         </div>
       </div>
       <div className="flex-1 min-w-0 space-y-1.5">
-        {data.filter((d) => d.value > 0).map((d, i) => (
-          <div key={i} className="flex items-center gap-2 text-sm">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
-            <span className="text-slate-600 truncate flex-1">{d.label}</span>
-            <span className="text-slate-900 font-medium tnum">{fmtMoney(d.value)}</span>
-          </div>
-        ))}
-        {total === 0 && <p className="text-sm text-slate-400">No data for this period.</p>}
+        {data.filter((d) => d.value > 0).map((d, i) => {
+          const g = DONUT_GRADIENTS[i % DONUT_GRADIENTS.length];
+          return (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: `linear-gradient(135deg, ${g.from}, ${g.to})` }} />
+              <span className="text-muted-foreground truncate flex-1">{d.label}</span>
+              <span className="text-foreground font-medium tnum">{fmtMoney(d.value)}</span>
+            </div>
+          );
+        })}
+        {total === 0 && <p className="text-sm text-muted-foreground">No data for this period.</p>}
       </div>
     </div>
   );

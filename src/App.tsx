@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -19,8 +20,10 @@ const Inspections = lazy(() => import('@/pages/Inspections'));
 const Contracts  = lazy(() => import('@/pages/Contracts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
 const Users      = lazy(() => import('@/pages/Users'));
-const Buildings  = lazy(() => import('@/pages/Buildings'));
-const Settings   = lazy(() => import('@/pages/Settings'));
+const Buildings      = lazy(() => import('@/pages/Buildings'));
+const Organizations  = lazy(() => import('@/pages/Organizations'));
+const Compounds      = lazy(() => import('@/pages/Compounds'));
+const Settings       = lazy(() => import('@/pages/Settings'));
 
 function PageFallback() {
   return <div className="p-6"><SkeletonCards count={3} /></div>;
@@ -28,6 +31,7 @@ function PageFallback() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <Toaster position="top-right" richColors closeButton />
       <BrowserRouter>
@@ -53,7 +57,9 @@ export default function App() {
               <Route path="/billing" element={<Billing />} />
               <Route path="/issues" element={<Issues />} />
               <Route path="/users" element={<Users />} />
-              <Route path="/buildings" element={<Buildings />} />
+              <Route path="/buildings"     element={<Buildings />} />
+              <Route path="/organizations" element={<Organizations />} />
+              <Route path="/compounds"     element={<Compounds />} />
               {/* your own account — no capability gate, everyone has one */}
               <Route path="/settings" element={<Settings />} />
             </Route>
@@ -62,5 +68,6 @@ export default function App() {
         </Suspense>
       </BrowserRouter>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

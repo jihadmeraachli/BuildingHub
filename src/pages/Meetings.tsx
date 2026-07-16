@@ -14,7 +14,7 @@ import type { Meeting, Profile } from '@/types';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
@@ -151,15 +151,25 @@ export default function Meetings() {
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('meetings.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[160px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {isManager && entity && (
             <>
@@ -172,7 +182,7 @@ export default function Meetings() {
 
       {!entity ? (
         <Card><CardBody>
-          <p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p>
+          <p className="text-sm text-muted-foreground text-center py-8">{t('finance.noBuildings')}</p>
         </CardBody></Card>
       ) : (<>
 
@@ -182,7 +192,7 @@ export default function Meetings() {
           <button
             key={t2}
             onClick={() => setTab(t2)}
-            className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+            className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
           >
             {t2 === 'scheduled' ? t('meetings.scheduled') : t('meetings.pastMeetings')}
           </button>
@@ -192,7 +202,7 @@ export default function Meetings() {
       {loading ? (
         <SkeletonCards count={3} />
       ) : meetings.length === 0 ? (
-        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">
+        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">
           {tab === 'scheduled' ? t('meetings.noScheduled') : t('meetings.noPast')}
         </p></CardBody></Card>
       ) : tab === 'scheduled' ? (
@@ -309,9 +319,9 @@ export default function Meetings() {
       <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title={t('meetings.scheduleMeeting')}>
         <form onSubmit={scheduleForm.handleSubmit(onSchedule)} className="space-y-4">
           {(entity?.blocks.length ?? 0) > 1 && (
-            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
-              {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
+              {entity!.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           <Input label={t('meetings.meetingTitle')} {...scheduleForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
@@ -319,19 +329,19 @@ export default function Meetings() {
             <Input label={t('meetings.meetingTime')} type="time" {...scheduleForm.register('meeting_time')} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('meetings.notesOptional')}</label>
-            <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" {...scheduleForm.register('summary')} />
+            <label className="text-sm font-medium text-muted-foreground">{t('meetings.notesOptional')}</label>
+            <textarea className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...scheduleForm.register('summary')} />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('meetings.attendees')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('meetings.attendees')}</label>
             <AttendeePicker users={buildingUsers} selected={selectedAttendees} setSelected={setSelectedAttendees} />
           </div>
 
-          <div className="rounded-xl border border-slate-200 p-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+          <div className="rounded-xl border border-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
               <input type="checkbox" checked={scheduleOnline} onChange={(e) => setScheduleOnline(e.target.checked)} className="rounded" />
-              <Video size={15} className="text-indigo-600" /> {t('meetings.onlineMeeting')}
+              <Video size={15} className="text-primary" /> {t('meetings.onlineMeeting')}
             </label>
             {scheduleOnline && (
               <input
@@ -339,17 +349,17 @@ export default function Meetings() {
                 value={scheduleUrl}
                 onChange={(e) => setScheduleUrl(e.target.value)}
                 placeholder={t('meetings.meetingLinkPlaceholder')}
-                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
               />
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('meetings.attachments')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('meetings.attachments')}</label>
             <input type="file" multiple onChange={(e) => setScheduleFiles(Array.from(e.target.files ?? []))}
-              className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+              className="text-sm text-muted-foreground file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
-          <p className="text-xs text-slate-400 bg-indigo-50 rounded-lg px-3 py-2">
+          <p className="text-xs text-muted-foreground bg-primary/10 rounded-lg px-3 py-2">
             📅 {t('meetings.calendarHint')}
           </p>
           <div className="flex justify-end gap-2 pt-2">
@@ -363,9 +373,9 @@ export default function Meetings() {
       <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title={t('meetings.addRecord')} size="lg">
         <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
           {(entity?.blocks.length ?? 0) > 1 && (
-            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
-              {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
+              {entity!.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
@@ -373,19 +383,19 @@ export default function Meetings() {
             <Input label={t('meetings.meetingTime')} type="time" {...addForm.register('meeting_time')} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('meetings.summary')}</label>
-            <textarea className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]" {...addForm.register('summary', { required: true })} />
+            <label className="text-sm font-medium text-muted-foreground">{t('meetings.summary')}</label>
+            <textarea className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[100px]" {...addForm.register('summary', { required: true })} />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('meetings.attendees')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('meetings.attendees')}</label>
             <AttendeePicker users={buildingUsers} selected={selectedAttendees} setSelected={setSelectedAttendees} />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('meetings.attachmentsPast')}</label>
+            <label className="text-sm font-medium text-muted-foreground">{t('meetings.attachmentsPast')}</label>
             <input type="file" multiple onChange={(e) => setAddFiles(Array.from(e.target.files ?? []))}
-              className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+              className="text-sm text-muted-foreground file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }}>{t('common.cancel')}</Button>
@@ -460,34 +470,34 @@ function AttendeePicker({ users, selected, setSelected }: { users: Profile[]; se
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">{t('meetings.attendeePicker', { selected: selected.length, total: users.length })}</span>
-        <button type="button" onClick={() => setSelected(allOn ? [] : users.map(u => u.id))} className="text-xs font-medium text-indigo-600 hover:underline cursor-pointer">
+        <span className="text-xs text-muted-foreground">{t('meetings.attendeePicker', { selected: selected.length, total: users.length })}</span>
+        <button type="button" onClick={() => setSelected(allOn ? [] : users.map(u => u.id))} className="text-xs font-medium text-primary hover:underline cursor-pointer">
           {allOn ? t('common.clearAll') : t('common.selectAll')}
         </button>
       </div>
       {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="flex flex-wrap gap-1.5 p-2 bg-accent/30 rounded-xl border border-border">
           {users.filter(u => selected.includes(u.id)).map(u => (
-            <span key={u.id} className="flex items-center gap-1 text-xs bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-full">
+            <span key={u.id} className="flex items-center gap-1 text-xs bg-background border border-border text-foreground px-2 py-1 rounded-full">
               {u.full_name}{u.apartment_number ? ` (${u.apartment_number})` : ''}
-              <button type="button" onClick={() => toggle(u.id)} className="text-slate-400 hover:text-rose-500 cursor-pointer"><X size={11} /></button>
+              <button type="button" onClick={() => toggle(u.id)} className="text-muted-foreground hover:text-rose-500 cursor-pointer"><X size={11} /></button>
             </span>
           ))}
         </div>
       )}
       <div className="relative">
-        <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input type="text" placeholder={t('meetings.searchResidents')} value={search} onChange={e => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+          className="w-full rounded-xl border border-border bg-background text-foreground ps-8 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50" />
       </div>
-      <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+      <div className="max-h-40 overflow-y-auto border border-border rounded-xl divide-y divide-border">
         {filtered.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-3">{t('meetings.noResidents')}</p>
+          <p className="text-xs text-muted-foreground text-center py-3">{t('meetings.noResidents')}</p>
         ) : filtered.map(u => (
           <button key={u.id} type="button" onClick={() => toggle(u.id)}
-            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selected.includes(u.id) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'}`}>
+            className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selected.includes(u.id) ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}>
             <span>{u.full_name}{u.apartment_number ? ` — Apt ${u.apartment_number}` : ''}</span>
-            {selected.includes(u.id) && <span className="text-xs text-indigo-500">✓</span>}
+            {selected.includes(u.id) && <span className="text-xs text-primary">&#10003;</span>}
           </button>
         ))}
       </div>

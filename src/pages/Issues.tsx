@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Plus, Image } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ import type { Issue, IssueStatus, IssuePriority } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -47,10 +47,10 @@ export default function Issues() {
   const [createBuildingId, setCreateBuildingId] = useState('');
   const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
 
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
+  const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<{
     title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList;
   }>();
-  const { register: registerUpdate, handleSubmit: handleUpdate, setValue } = useForm<{ status: IssueStatus; resolution_notes: string }>();
+  const { register: registerUpdate, handleSubmit: handleUpdate, setValue, control: controlUpdate } = useForm<{ status: IssueStatus; resolution_notes: string }>();
 
   useEffect(() => { if (effectiveBuildingIds.length) loadIssues(); else setIssues([]); }, [idsKey, myOnly, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -114,38 +114,53 @@ export default function Issues() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('issues.title')}</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('issues.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[160px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `â–£ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {isManager && (
-            <button onClick={() => setMyOnly(!myOnly)} className={`text-sm px-3 py-1.5 rounded-xl border transition cursor-pointer ${myOnly ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            <button onClick={() => setMyOnly(!myOnly)} className={`text-sm px-3 py-1.5 rounded-xl border transition cursor-pointer ${myOnly ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
               {myOnly ? t('issues.allIssues') : t('issues.myIssues')}
             </button>
           )}
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | 'open' | 'in_progress' | 'resolved')}>
-            <option value="all">{t('issues.allIssues')}</option>
-            <option value="open">{t('issues.statuses.open')}</option>
-            <option value="in_progress">{t('issues.statuses.in_progress')}</option>
-            <option value="resolved">{t('issues.statuses.resolved')}</option>
-          </Select>
+          <RadixSelect value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | 'open' | 'in_progress' | 'resolved')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('issues.allIssues')}</SelectItem>
+              <SelectItem value="open">{t('issues.statuses.open')}</SelectItem>
+              <SelectItem value="in_progress">{t('issues.statuses.in_progress')}</SelectItem>
+              <SelectItem value="resolved">{t('issues.statuses.resolved')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
           {entity && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
         </div>
       </div>
 
       {!entity ? (
-        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
+        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
       ) : loading ? <SkeletonCards count={3} />
-        : issues.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
+        : issues.length === 0 ? <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
         : (
           <div className="space-y-3">
             {issues.map((issue) => (
@@ -153,20 +168,20 @@ export default function Issues() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-medium text-slate-900">{issue.title}</h3>
+                      <h3 className="font-medium text-foreground">{issue.title}</h3>
                       <Badge color={priorityColor[issue.priority]}>{t(`issues.priorities.${issue.priority}`)}</Badge>
                       <Badge color={statusColor[issue.status]}>{t(`issues.statuses.${issue.status}`)}</Badge>
                     </div>
-                    <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                    <p className="text-sm text-muted-foreground mb-2">{issue.description}</p>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{issue.location}</span>
-                      {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}
-                      {issue.apartment_number && <><span>•</span><span>Apt {issue.apartment_number}</span></>}
-                      <span>•</span>
+                      {multiBlock && <><span>â€¢</span><span>{blockName[issue.building_id]}</span></>}
+                      {issue.apartment_number && <><span>â€¢</span><span>Apt {issue.apartment_number}</span></>}
+                      <span>â€¢</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
-                      <span>•</span>
+                      <span>â€¢</span>
                       <span>{format(new Date(issue.created_at), 'MMM d, yyyy')}</span>
-                      {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
+                      {issue.photo_urls?.length > 0 && <><span>â€¢</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
                     </div>
                     {issue.resolution_notes && <p className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>}
                   </div>
@@ -184,32 +199,36 @@ export default function Issues() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('issues.logIssue')} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {blockOptions.length > 1 && (
-            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
-              {blockOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
+              {blockOptions.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           <Input label={t('issues.issueTitle')} {...register('title', { required: true })} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">{t('issues.description')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" {...register('description', { required: true })} />
+            <label className="text-sm font-medium text-muted-foreground">{t('issues.description')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...register('description', { required: true })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('issues.location')} {...register('location', { required: true })} />
             {units.length > 0 && (
-              <Select label={t('billing.apartment')} {...register('apartment_number')}>
-                <option value="">—</option>
-                {units.map((u) => <option key={u.id} value={u.label}>{u.label}</option>)}
-              </Select>
+              <Controller name="apartment_number" control={control} render={({ field }) => (
+                <SelectField label={t('billing.apartment')} value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
+                  <SelectItem value="__none__">&#8212;</SelectItem>
+                  {units.map((u) => <SelectItem key={u.id} value={u.label}>{u.label}</SelectItem>)}
+                </SelectField>
+              )} />
             )}
           </div>
-          <Select label={t('issues.priority')} {...register('priority', { required: true })}>
-            <option value="low">{t('issues.priorities.low')}</option>
-            <option value="medium">{t('issues.priorities.medium')}</option>
-            <option value="urgent">{t('issues.priorities.urgent')}</option>
-          </Select>
+          <Controller name="priority" control={control} rules={{ required: true }} render={({ field }) => (
+            <SelectField label={t('issues.priority')} value={field.value ?? 'low'} onValueChange={field.onChange}>
+              <SelectItem value="low">{t('issues.priorities.low')}</SelectItem>
+              <SelectItem value="medium">{t('issues.priorities.medium')}</SelectItem>
+              <SelectItem value="urgent">{t('issues.priorities.urgent')}</SelectItem>
+            </SelectField>
+          )} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">{t('issues.photos')}</label>
-            <input type="file" accept="image/*" multiple className="text-sm text-slate-600 file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" {...register('photos')} />
+            <label className="text-sm font-medium text-muted-foreground">{t('issues.photos')}</label>
+            <input type="file" accept="image/*" multiple className="text-sm text-muted-foreground file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" {...register('photos')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
@@ -220,14 +239,16 @@ export default function Issues() {
 
       <Modal open={!!selectedIssue} onClose={() => setSelectedIssue(null)} title={t('issues.updateStatus')} size="sm">
         <form onSubmit={handleUpdate(onUpdateStatus)} className="space-y-4">
-          <Select label={t('issues.status')} {...registerUpdate('status')}>
-            <option value="open">{t('issues.statuses.open')}</option>
-            <option value="in_progress">{t('issues.statuses.in_progress')}</option>
-            <option value="resolved">{t('issues.statuses.resolved')}</option>
-          </Select>
+          <Controller name="status" control={controlUpdate} render={({ field }) => (
+            <SelectField label={t('issues.status')} value={field.value ?? 'open'} onValueChange={field.onChange}>
+              <SelectItem value="open">{t('issues.statuses.open')}</SelectItem>
+              <SelectItem value="in_progress">{t('issues.statuses.in_progress')}</SelectItem>
+              <SelectItem value="resolved">{t('issues.statuses.resolved')}</SelectItem>
+            </SelectField>
+          )} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">{t('issues.resolutionNotes')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" {...registerUpdate('resolution_notes')} />
+            <label className="text-sm font-medium text-muted-foreground">{t('issues.resolutionNotes')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...registerUpdate('resolution_notes')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setSelectedIssue(null)}>{t('common.cancel')}</Button>

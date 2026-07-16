@@ -13,7 +13,7 @@ import type { Inspection, InspectionCategory, InspectionStatus } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -109,20 +109,30 @@ export default function Inspections() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('inspections.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('inspections.subtitle')}</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('inspections.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('inspections.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[180px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('inspections.add')}</Button>}
         </div>
@@ -131,8 +141,8 @@ export default function Inspections() {
       {loading ? <SkeletonCards count={3} />
         : vRows.length === 0 ? (
           <Card><CardBody><div className="text-center py-10">
-            <ClipboardCheck className="mx-auto text-slate-300 mb-2" size={28} />
-            <p className="text-sm text-slate-500">{t('inspections.noInspections')}</p>
+            <ClipboardCheck className="mx-auto text-primary mb-2" size={28} />
+            <p className="text-sm text-muted-foreground">{t('inspections.noInspections')}</p>
           </div></CardBody></Card>
         ) : (
           <div className="space-y-3">
@@ -141,23 +151,23 @@ export default function Inspections() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-slate-900">{r.title}</h3>
+                      <h3 className="font-semibold text-foreground">{r.title}</h3>
                       <Badge color="indigo">{t(`inspections.categories.${r.category}`)}</Badge>
                       <Badge color={statusColor[r.status]}>{t(`inspections.statuses.${r.status}`)}</Badge>
                     </div>
-                    {r.outcome && <p className="text-sm text-slate-600 mb-2">{r.outcome}</p>}
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                    {r.outcome && <p className="text-sm text-muted-foreground mb-2">{r.outcome}</p>}
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{format(new Date(r.inspection_date), 'MMM d, yyyy')}</span>
                       {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
                       {r.inspector && <><span>•</span><span>{r.inspector}</span></>}
                       {r.next_due_date && <><span>•</span><span>{t('inspections.nextDue')}: {format(new Date(r.next_due_date), 'MMM d, yyyy')}</span></>}
-                      {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('inspections.viewReport')} className="inline-flex items-center gap-1 text-indigo-600 hover:underline" /></>}
+                      {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('inspections.viewReport')} className="inline-flex items-center gap-1 text-primary hover:underline" /></>}
                     </div>
                   </div>
                   {canManage && (
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={15} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
+                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
+                      <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
                     </div>
                   )}
                 </div>
@@ -169,26 +179,26 @@ export default function Inspections() {
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? t('inspections.edit') : t('inspections.add')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('inspections.category')} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as InspectionCategory })}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{t(`inspections.categories.${c}`)}</option>)}
-            </Select>
-            <Select label={t('inspections.status')} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as InspectionStatus })}>
-              {STATUSES.map((s) => <option key={s} value={s}>{t(`inspections.statuses.${s}`)}</option>)}
-            </Select>
+            <SelectField label={t('inspections.category')} value={form.category} onValueChange={(v) => setForm({ ...form, category: v as InspectionCategory })}>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`inspections.categories.${c}`)}</SelectItem>)}
+            </SelectField>
+            <SelectField label={t('inspections.status')} value={form.status} onValueChange={(v) => setForm({ ...form, status: v as InspectionStatus })}>
+              {STATUSES.map((s) => <SelectItem key={s} value={s}>{t(`inspections.statuses.${s}`)}</SelectItem>)}
+            </SelectField>
           </div>
           <Input label={t('inspections.inspectionTitle')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Input label={t('inspections.inspector')} value={form.inspector} onChange={(e) => setForm({ ...form, inspector: e.target.value })} />
           {entity?.kind === 'compound' && (
             <div className="grid grid-cols-2 gap-3">
-              <Select label={t('finance.applyTo')} value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as 'all' | 'block' })}>
-                <option value="all">{t('finance.wholeCompound')}</option>
-                <option value="block">{t('finance.aBlock')}</option>
-              </Select>
+              <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>
+                <SelectItem value="all">{t('finance.wholeCompound')}</SelectItem>
+                <SelectItem value="block">{t('finance.aBlock')}</SelectItem>
+              </SelectField>
               {form.scope === 'block' && (
-                <Select label={t('finance.block')} value={form.block_id} onChange={(e) => setForm({ ...form, block_id: e.target.value })}>
-                  <option value="">—</option>
-                  {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </Select>
+                <SelectField label={t('finance.block')} value={form.block_id || '__none__'} onValueChange={(v) => setForm({ ...form, block_id: v === '__none__' ? '' : v })}>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectField>
               )}
             </div>
           )}
@@ -197,12 +207,12 @@ export default function Inspections() {
             <Input label={t('inspections.nextDue')} type="date" value={form.next_due_date} onChange={(e) => setForm({ ...form, next_due_date: e.target.value })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('inspections.outcome')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} />
+            <label className="text-sm font-medium text-muted-foreground">{t('inspections.outcome')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('inspections.attachment')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <label className="text-sm font-medium text-muted-foreground">{t('inspections.attachment')}</label>
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-muted-foreground file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>

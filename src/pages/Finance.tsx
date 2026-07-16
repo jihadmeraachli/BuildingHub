@@ -13,9 +13,10 @@ import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, 
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { MonthPicker } from '@/components/ui/MonthPicker';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
@@ -409,28 +410,42 @@ export default function Finance() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('finance.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('finance.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('finance.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[180px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
-          <Select value={period} onChange={(e) => setPeriod(e.target.value as 'month' | 'year' | 'all')}>
-            <option value="all">{t('finance.allTime')}</option>
-            <option value="year">{t('finance.thisYear')}</option>
-            <option value="month">{t('finance.month')}</option>
-          </Select>
+          <RadixSelect value={period} onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+              <SelectItem value="month">{t('finance.month')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
           {period === 'month' && (
-            <input type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+            <MonthPicker value={monthValue} onChange={setMonthValue} />
           )}
         </div>
       </div>
@@ -447,13 +462,13 @@ export default function Finance() {
           <div className="grid lg:grid-cols-3 gap-4 mb-6">
             <Card className="lg:col-span-2"><CardBody>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-slate-700">{t('dashboard.collectedVsSpent')}</p>
-                <span className="text-xs text-slate-400">{periodLabel}{blockFilter ? ` · ${blockName[blockFilter]}` : ''}</span>
+                <p className="text-sm font-semibold text-primary">{t('dashboard.collectedVsSpent')}</p>
+                <span className="text-xs text-muted-foreground">{periodLabel}{blockFilter ? ` · ${blockName[blockFilter]}` : ''}</span>
               </div>
               <TrendChart labels={trend.labels} series={[{ name: t('finance.collected'), color: '#10b981', data: trend.collected }, { name: t('finance.billed'), color: '#6366f1', data: trend.billed }]} />
             </CardBody></Card>
             <Card><CardBody>
-              <p className="text-sm font-semibold text-slate-700 mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-slate-400 text-xs">· {periodLabel}</span></p>
+              <p className="text-sm font-semibold text-primary mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-muted-foreground text-xs">· {periodLabel}</span></p>
               <Donut data={breakdown} centerLabel={t('finance.billed')} />
             </CardBody></Card>
           </div>
@@ -461,7 +476,7 @@ export default function Finance() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="inline-flex p-1 bg-slate-100 rounded-xl">
               {([['book', t('finance.book'), BookOpen], ['expenses', t('finance.expenses'), Receipt], ['payments', t('finance.payments'), HandCoins]] as ['book' | 'expenses' | 'payments', string, typeof BookOpen][]).map(([key, label, Icon]) => (
-                <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm dark:bg-primary/20 dark:text-primary dark:shadow-none' : 'text-slate-500 hover:text-slate-700 dark:text-white dark:hover:text-primary'}`}>
                   <Icon size={15} /> {label}
                 </button>
               ))}
@@ -487,7 +502,7 @@ export default function Finance() {
             <>
               {tab === 'book' && (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+                  <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
                     <th className="px-5 py-3 text-start font-medium w-40">{t('finance.collectedCol')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.billed')}</th>
@@ -500,13 +515,13 @@ export default function Finance() {
                       const pct = r.charged > 0 ? (r.paid / r.charged) * 100 : (r.paid > 0 ? 100 : 0);
                       return (
                         <tr key={r.unit.id} className="hover:bg-slate-50/60">
-                          <td className="px-5 py-3 font-semibold text-slate-900">{unitDisplay(r.unit.id)}</td>
-                          <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-slate-400 tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
-                          <td className="px-5 py-3 text-end text-slate-600 tnum">{money(r.charged)}</td>
-                          <td className="px-5 py-3 text-end text-slate-600 tnum">{money(r.paid)}</td>
-                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-rose-600' : r.balance > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{money(r.balance)}</td>
+                          <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(r.unit.id)}</td>
+                          <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-foreground dark:text-white tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
+                          <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.charged)}</td>
+                          <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-slate-400 hover:text-indigo-600 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
@@ -519,7 +534,7 @@ export default function Finance() {
 
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+                  <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.category')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.split')}</th>
@@ -528,12 +543,12 @@ export default function Finance() {
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pExpenses.map((e) => (
-                      <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-indigo-50/40 cursor-pointer">
-                        <td className="px-5 py-3 font-medium text-slate-900"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-slate-400" />}</span></td>
-                        <td className="px-5 py-3"><Badge color="indigo">{t(`finance.cats.${e.category}`)}</Badge></td>
-                        <td className="px-5 py-3 text-slate-500 text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
-                        <td className="px-5 py-3 text-slate-500">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 text-end font-semibold text-slate-900 tnum">{money(Number(e.amount_usd))}</td>
+                      <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
+                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
+                        <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
+                        <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(e.amount_usd))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -542,7 +557,7 @@ export default function Finance() {
 
               {tab === 'payments' && (pPayments.length === 0 ? <Empty body={t('finance.noPayments', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+                  <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.method')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
@@ -552,16 +567,16 @@ export default function Finance() {
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pPayments.map((p) => (
-                      <tr key={p.id} onClick={() => setDetailPayment(p)} className="hover:bg-indigo-50/40 cursor-pointer">
-                        <td className="px-5 py-3 font-semibold text-slate-900">{unitDisplay(p.unit_id)}</td>
-                        <td className="px-5 py-3 text-slate-600">{t(`finance.methods.${p.method}`)}</td>
-                        <td className="px-5 py-3 text-slate-500">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 text-slate-500"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-indigo-600 hover:text-indigo-800 inline-flex" icon={Paperclip} />}</span></td>
-                        <td className="px-5 py-3 text-end font-semibold text-emerald-600 tnum">{money(Number(p.amount_usd))}</td>
+                      <tr key={p.id} onClick={() => setDetailPayment(p)} className="hover:bg-primary/5 cursor-pointer">
+                        <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(p.unit_id)}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
+                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
                           <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
-                            <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={15} /></button>
-                            <button onClick={(ev) => { ev.stopPropagation(); deletePayment(p.id); }} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
+                            <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-primary hover:text-primary/70 hover:bg-primary/10 cursor-pointer"><Pencil size={15} /></button>
+                            <button onClick={(ev) => { ev.stopPropagation(); deletePayment(p.id); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer"><Trash2 size={15} /></button>
                           </div></td>
                         )}
                       </tr>
@@ -578,45 +593,45 @@ export default function Finance() {
       <Modal open={expOpen} onClose={() => setExpOpen(false)} title={editingExpenseId ? t('finance.editExpense') : t('finance.recordExpense')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('finance.category')} value={expForm.category} onChange={(e) => { const cat = e.target.value as ExpenseCategory; setExpForm({ ...expForm, category: cat, billed_to: defaultBilledTo(cat) }); }}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{t(`finance.cats.${c}`)}</option>)}
-            </Select>
+            <SelectField label={t('finance.category')} value={expForm.category} onValueChange={(v) => { const cat = v as ExpenseCategory; setExpForm({ ...expForm, category: cat, billed_to: defaultBilledTo(cat) }); }}>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`finance.cats.${c}`)}</SelectItem>)}
+            </SelectField>
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
           </div>
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
           <div className="grid grid-cols-3 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
-            <Select label={t('finance.applyTo')} value={expForm.scope} onChange={(e) => setExpForm({ ...expForm, scope: e.target.value as ExpScope })}>
-              <option value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</option>
-              {entity?.kind === 'compound' && multiBlock && <option value="block">{t('finance.aBlock')}</option>}
-              <option value="group">{t('finance.aGroup')}</option>
-              <option value="units">{t('finance.selectedUnits')}</option>
-              <option value="unit">{t('finance.singleUnit')}</option>
-            </Select>
-            <Select label={t('finance.billedTo')} value={expForm.billed_to} onChange={(e) => setExpForm({ ...expForm, billed_to: e.target.value as BilledTo })}>
-              <option value="both">{t('finance.billedToOptions.both')}</option>
-              <option value="owner">{t('finance.billedToOptions.owner')}</option>
-              <option value="tenant">{t('finance.billedToOptions.tenant')}</option>
-            </Select>
+            <SelectField label={t('finance.applyTo')} value={expForm.scope} onValueChange={(v) => setExpForm({ ...expForm, scope: v as ExpScope })}>
+              <SelectItem value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</SelectItem>
+              {entity?.kind === 'compound' && multiBlock && <SelectItem value="block">{t('finance.aBlock')}</SelectItem>}
+              <SelectItem value="group">{t('finance.aGroup')}</SelectItem>
+              <SelectItem value="units">{t('finance.selectedUnits')}</SelectItem>
+              <SelectItem value="unit">{t('finance.singleUnit')}</SelectItem>
+            </SelectField>
+            <SelectField label={t('finance.billedTo')} value={expForm.billed_to} onValueChange={(v) => setExpForm({ ...expForm, billed_to: v as BilledTo })}>
+              <SelectItem value="both">{t('finance.billedToOptions.both')}</SelectItem>
+              <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
+              <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
+            </SelectField>
           </div>
 
           {expForm.scope === 'block' && (
-            <Select label={t('finance.block')} value={expForm.block_id} onChange={(e) => setExpForm({ ...expForm, block_id: e.target.value })}>
-              <option value="">{t('finance.selectUnit')}</option>
-              {entity?.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={expForm.block_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, block_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
+              {entity?.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           {expForm.scope === 'group' && (
-            <Select label={t('finance.group')} value={expForm.group_id} onChange={(e) => setExpForm({ ...expForm, group_id: e.target.value })}>
-              <option value="">{t('finance.selectGroup')}</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.group')} value={expForm.group_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, group_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('finance.selectGroup')}</SelectItem>
+              {groups.map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectField>
           )}
           {expForm.scope === 'unit' && (
-            <Select label={t('finance.unit')} value={expForm.unit_id} onChange={(e) => setExpForm({ ...expForm, unit_id: e.target.value })}>
-              <option value="">{t('finance.selectUnit')}</option>
-              {units.map((u) => <option key={u.id} value={u.id}>{unitDisplay(u.id)}</option>)}
-            </Select>
+            <SelectField label={t('finance.unit')} value={expForm.unit_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, unit_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
+              {units.map((u) => <SelectItem key={u.id} value={u.id}>{unitDisplay(u.id)}</SelectItem>)}
+            </SelectField>
           )}
           {expForm.scope === 'units' && (
             <div>
@@ -635,11 +650,11 @@ export default function Finance() {
             </div>
           )}
 
-          <Select label={t('finance.splitMethod')} value={expForm.method} onChange={(e) => setExpForm({ ...expForm, method: e.target.value as AllocationMethod })}>
-            <option value="by_shares">{t('finance.byShares')}</option>
-            <option value="equal">{t('finance.equally')}</option>
-            <option value="custom">{t('finance.customAmounts')}</option>
-          </Select>
+          <SelectField label={t('finance.splitMethod')} value={expForm.method} onValueChange={(v) => setExpForm({ ...expForm, method: v as AllocationMethod })}>
+            <SelectItem value="by_shares">{t('finance.byShares')}</SelectItem>
+            <SelectItem value="equal">{t('finance.equally')}</SelectItem>
+            <SelectItem value="custom">{t('finance.customAmounts')}</SelectItem>
+          </SelectField>
 
           {targetUnits.length > 0 && (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
@@ -665,7 +680,7 @@ export default function Finance() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.invoiceOptional')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setExpFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setExpFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setExpOpen(false)}>{t('common.cancel')}</Button>
@@ -677,21 +692,21 @@ export default function Finance() {
       {/* Payment modal */}
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title={editingPaymentId ? t('finance.editPayment') : t('finance.recordPayment')}>
         <div className="space-y-4">
-          <Select label={t('finance.unit')} value={payForm.unit_id} onChange={(e) => setPayForm({ ...payForm, unit_id: e.target.value })}>
-            <option value="">{t('finance.selectUnit')}</option>
-            {book.map((r) => <option key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</option>)}
-          </Select>
+          <SelectField label={t('finance.unit')} value={payForm.unit_id || '__none__'} onValueChange={(v) => setPayForm({ ...payForm, unit_id: v === '__none__' ? '' : v })}>
+            <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
+            {book.map((r) => <SelectItem key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</SelectItem>)}
+          </SelectField>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
-            <Select label={t('finance.method')} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value as PaymentMethod })}>
-              {PAY_METHODS.map((m) => <option key={m} value={m}>{t(`finance.methods.${m}`)}</option>)}
-            </Select>
+            <SelectField label={t('finance.method')} value={payForm.method} onValueChange={(v) => setPayForm({ ...payForm, method: v as PaymentMethod })}>
+              {PAY_METHODS.map((m) => <SelectItem key={m} value={m}>{t(`finance.methods.${m}`)}</SelectItem>)}
+            </SelectField>
           </div>
           <Input label={t('finance.date')} type="date" value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} />
           <Input label={t('finance.noteOptional')} value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.receiptOptional')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setPayFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setPayFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setPayOpen(false)}>{t('common.cancel')}</Button>
@@ -762,12 +777,19 @@ export default function Finance() {
   );
 }
 
-function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: string; icon: ElementType; tone: 'indigo' | 'emerald' | 'rose' | 'amber' | 'slate'; hint?: string }) {
-  const tones: Record<string, string> = { indigo: 'bg-indigo-50 text-indigo-600', emerald: 'bg-emerald-50 text-emerald-600', rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', slate: 'bg-slate-100 text-slate-500' };
+function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string }) {
+  const gradients: Record<string, string> = {
+    emerald: 'from-emerald-400 to-teal-500',
+    indigo:  'from-violet-400 to-indigo-500',
+    rose:    'from-rose-400 to-pink-500',
+    amber:   'from-amber-400 to-orange-500',
+    slate:   'from-slate-400 to-slate-500',
+  };
+  const gradient = gradients[tone ?? 'slate'] ?? 'from-teal-400 to-teal-600';
   return (
     <Card><CardBody><div className="flex items-start justify-between">
-      <div className="min-w-0"><p className="text-xs text-slate-500 font-medium">{label}</p><p className="text-xl lg:text-2xl font-bold text-slate-900 tnum mt-1 truncate">{value}</p>{hint && <p className="text-[11px] text-slate-400 mt-0.5">{hint}</p>}</div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tones[tone]}`}><Icon size={18} /></div>
+      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className={`text-xl lg:text-2xl font-bold tnum mt-1 truncate ${tone === 'rose' ? 'text-red-400 dark:text-red-300' : 'text-foreground'}`}>{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}</div>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradient} text-white shadow-sm`}><Icon size={18} /></div>
     </div></CardBody></Card>
   );
 }
@@ -783,7 +805,7 @@ function ResidentDuesCard({ unitIds }: { unitIds: string[] }) {
   if (!rows.length) return null;
   return (
     <Card className="mb-4"><CardBody>
-      <p className="text-sm font-semibold text-slate-700 mb-3">{t('dues.residentTitle')}</p>
+      <p className="text-sm font-semibold text-primary mb-3">{t('dues.residentTitle')}</p>
       <div className="space-y-2">
         {rows.map((d) => (
           <div key={d.id} className="flex items-center justify-between text-sm">
@@ -796,7 +818,7 @@ function ResidentDuesCard({ unitIds }: { unitIds: string[] }) {
   );
 }
 
-function Empty({ body }: { body: string }) { return <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{body}</p></CardBody></Card>; }
+function Empty({ body }: { body: string }) { return <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{body}</p></CardBody></Card>; }
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="max-w-md mx-auto text-center py-16">
@@ -825,7 +847,7 @@ function StatementList({ charges, payments, unitLabel }: { charges: Charge[]; pa
           <tr key={i} className="hover:bg-slate-50/60">
             <td className="px-5 py-3 text-slate-500">{format(new Date(r.date), 'MMM d, yyyy')}</td>
             <td className="px-5 py-3 text-slate-800">{r.label} <span className="text-slate-400 text-xs">· {t('finance.unit')} {r.unit}</span></td>
-            <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-slate-700' : 'text-emerald-600'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
+            <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>
         ))}
       </tbody>

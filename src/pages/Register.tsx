@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 
 const schema = z.object({
@@ -30,7 +30,7 @@ export default function Register() {
   const [success, setSuccess] = useState(false);
   const [serverError, setServerError] = useState('');
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
@@ -98,17 +98,20 @@ export default function Register() {
             <Input label={t('auth.apartmentNumber')} error={errors.apartment_number?.message} {...register('apartment_number')} />
             <Input label={t('auth.phone')} type="tel" error={errors.phone?.message} {...register('phone')} />
           </div>
-          <Select
-            label={t('auth.building')}
-            error={errors.building_id?.message}
-            onFocus={loadBuildings}
-            {...register('building_id')}
-          >
-            <option value="">{loadingBuildings ? t('common.loading') : `-- ${t('auth.building')} --`}</option>
-            {buildings.map(b => (
-              <option key={b.id} value={b.id}>{b.name} — {b.city}</option>
-            ))}
-          </Select>
+          <Controller name="building_id" control={control} render={({ field }) => (
+            <SelectField
+              label={t('auth.building')}
+              error={errors.building_id?.message}
+              value={field.value || '__none__'}
+              onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
+              onOpenChange={(open) => { if (open) loadBuildings(); }}
+            >
+              <SelectItem value="__none__">{loadingBuildings ? t('common.loading') : `-- ${t('auth.building')} --`}</SelectItem>
+              {buildings.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.name} — {b.city}</SelectItem>
+              ))}
+            </SelectField>
+          )} />
           <Button type="submit" loading={isSubmitting} className="w-full mt-2">
             {t('auth.register')}
           </Button>

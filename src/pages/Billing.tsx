@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Plus, Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ import type { BillingEntry, BillingCategory, Building } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -32,7 +32,7 @@ export default function Billing() {
   const isAdmin = isPlatformAdmin || canAny('expense.manage');
   const activeBuildingId = isPlatformAdmin ? selectedBuildingId : (profile?.building_id ?? '');
 
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<{
+  const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<{
     category: BillingCategory; description: string; amount_usd: number;
     due_date: string; apartment_number: string; invoice: FileList;
   }>();
@@ -109,16 +109,15 @@ export default function Billing() {
       {/* Super admin: building selector */}
       {isPlatformAdmin && (
         <div className="mb-4">
-          <select
-            value={selectedBuildingId}
-            onChange={e => setSelectedBuildingId(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[240px]"
-          >
-            <option value="">{t('common.selectBuilding')}</option>
-            {buildings.map(b => (
-              <option key={b.id} value={b.id}>{b.name} ({b.city})</option>
-            ))}
-          </select>
+          <RadixSelect value={selectedBuildingId || '__none__'} onValueChange={(v) => setSelectedBuildingId(v === '__none__' ? '' : v)}>
+            <SelectTrigger className="min-w-[240px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
+              {buildings.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>
+              ))}
+            </SelectContent>
+          </RadixSelect>
         </div>
       )}
 
@@ -128,23 +127,21 @@ export default function Billing() {
         </CardBody></Card>
       ) : (<>
         <div className="flex flex-wrap gap-3 mb-4">
-          <select
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">{t('billing.category')}: {t('common.all')}</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{t(`billing.categories.${c}`)}</option>)}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">{t('billing.status')}: {t('common.all')}</option>
-            <option value="unpaid">{t('billing.unpaid')}</option>
-            <option value="paid">{t('billing.paid')}</option>
-          </select>
+          <RadixSelect value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('billing.category')}: {t('common.all')}</SelectItem>
+              {CATEGORIES.map(c => <SelectItem key={c} value={c}>{t(`billing.categories.${c}`)}</SelectItem>)}
+            </SelectContent>
+          </RadixSelect>
+          <RadixSelect value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('billing.status')}: {t('common.all')}</SelectItem>
+              <SelectItem value="unpaid">{t('billing.unpaid')}</SelectItem>
+              <SelectItem value="paid">{t('billing.paid')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
         </div>
 
         {loading ? (
@@ -208,9 +205,11 @@ export default function Billing() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('billing.addEntry')} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Select label={t('billing.category')} {...register('category', { required: true })}>
-            {CATEGORIES.map(c => <option key={c} value={c}>{t(`billing.categories.${c}`)}</option>)}
-          </Select>
+          <Controller name="category" control={control} rules={{ required: true }} render={({ field }) => (
+            <SelectField label={t('billing.category')} value={field.value || CATEGORIES[0]} onValueChange={field.onChange}>
+              {CATEGORIES.map(c => <SelectItem key={c} value={c}>{t(`billing.categories.${c}`)}</SelectItem>)}
+            </SelectField>
+          )} />
           <Input label={t('billing.description')} {...register('description', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('billing.amount')} type="number" step="0.01" min="0" {...register('amount_usd', { required: true })} />

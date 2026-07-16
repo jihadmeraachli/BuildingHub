@@ -26,6 +26,7 @@
     "required": "This field is required.",
     "markAllRead": "Mark all read",
     "noNotifications": "No notifications yet.",
+    "allRead": "All caught up",
     "saved": "Saved successfully.",
     "all": "All",
     "selectBuilding": "— Select a building —",
@@ -47,6 +48,9 @@
     "issues": "Issues",
     "users": "Users",
     "buildings": "Buildings",
+    "organizations": "Organizations",
+    "compounds": "Compounds",
+    "config": "Config",
     "settings": "Settings",
     "notifications": "Notifications",
     "profile": "Profile",
@@ -345,7 +349,10 @@
     "orgCount": "{{count}} buildings",
     "noOrgOption": "— No organization —",
     "orgAdded": "Organization created.",
-    "blocks": "blocks"
+    "blocks": "blocks",
+    "standalone": "Standalone",
+    "searchPlaceholder": "Search buildings...",
+    "searchResults": "{{count}} of {{total}} buildings"
   },
   "structure": {
     "title": "Structure",

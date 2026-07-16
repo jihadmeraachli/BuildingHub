@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -9,12 +9,16 @@ import { useEntities } from '@/lib/entities';
 import { supabase } from '@/lib/supabase';
 import type { Meeting } from '@/types';
 import { TrendChart } from '@/components/ui/Charts';
+import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import {
-  AlertTriangle, Home, TrendingUp, AlertCircle, Wallet, Plus, HandCoins, Layers, ArrowRight, CalendarDays,
+  AlertTriangle, Home, TrendingUp, AlertCircle, Wallet,
+  Plus, HandCoins, Layers, ArrowRight, CalendarDays,
 } from 'lucide-react';
 
-// signed currency: -$1,234.00  (fixes the "-$-" double-sign bug)
-const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (n: number) =>
+  `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface Agg {
   collected: number; spent: number; billed: number; outstanding: number; ytd: number;
@@ -74,58 +78,53 @@ export default function Dashboard() {
 
     const billed = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
     const collected = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
-    const spent = billed; // expense-driven: total charges == total expenses (block-tagged)
+    const spent = billed;
 
     const perUnit: Record<string, number> = {};
     charges.forEach((c) => { perUnit[c.unit_id] = (perUnit[c.unit_id] ?? 0) - Number(c.amount_usd); });
     payments.forEach((p) => { perUnit[p.unit_id] = (perUnit[p.unit_id] ?? 0) + Number(p.amount_usd); });
-    const outstanding = Object.values(perUnit).reduce((s, b) => s + (b < 0 ? -b : 0), 0);
+    const outstanding = Object.values(perUnit).filter((v) => v < 0).reduce((s, v) => s + Math.abs(v), 0);
 
-    const ref = new Date();
-    const ytd = payments.filter((p) => new Date(p.paid_on).getFullYear() === ref.getFullYear())
-      .reduce((s, p) => s + Number(p.amount_usd), 0);
+    const now = new Date();
+    const ytdStart = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+    const ytd = payments.filter((p) => p.paid_on >= ytdStart).reduce((s, p) => s + Number(p.amount_usd), 0);
 
-    const buckets = Array.from({ length: 12 }, (_, k) => {
-      const d = new Date(ref.getFullYear(), ref.getMonth() - 11 + k, 1);
-      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString(undefined, { month: 'short' }), collected: 0, spent: 0 };
-    });
-    const bucketFor = (dt: string) => { const d = new Date(dt); return buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`); };
-    payments.forEach((p) => { const m = bucketFor(p.paid_on); if (m) m.collected += Number(p.amount_usd); });
-    charges.forEach((c) => { const m = bucketFor(c.charge_date); if (m) m.spent += Number(c.amount_usd); });
-    setMonthly({
-      labels: buckets.map((b) => b.label),
-      collected: buckets.map((b) => Math.round(b.collected * 100) / 100),
-      spent: buckets.map((b) => Math.round(b.spent * 100) / 100),
-    });
-
-    setAgg({
-      collected, spent, billed, outstanding: Math.round(outstanding * 100) / 100, ytd: Math.round(ytd * 100) / 100,
-      units: unitsRes.count ?? 0, openIssues: issuesRes.count ?? 0,
-    });
-
-    // coverage: reserve runway + latest dues issued
-    const fundLocal = Math.round((collected - spent) * 100) / 100;
-    const monthsWithSpend = buckets.filter((s) => s.spent > 0).length || 1;
-    const avgMonthly = buckets.reduce((s, x) => s + x.spent, 0) / monthsWithSpend;
-    const runwayMonths = avgMonthly > 0 ? Math.round((Math.max(0, fundLocal) / avgMonthly) * 10) / 10 : 0;
-    const duesRows = (duesRes.data as { amount_due: number; period_label: string; created_at: string }[]) ?? [];
-    let duesIssued = 0, duesPeriod = '';
-    if (duesRows.length) {
-      const latest = duesRows.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b));
-      duesPeriod = latest.period_label;
-      duesIssued = Math.round(duesRows.filter((d) => d.period_label === duesPeriod).reduce((s, d) => s + Number(d.amount_due), 0) * 100) / 100;
+    // Monthly breakdown (last 12 months)
+    const months: Record<string, { collected: number; spent: number }> = {};
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months[format(d, 'MMM yy')] = { collected: 0, spent: 0 };
     }
-    setCoverage({ runwayMonths, duesIssued, duesPeriod });
+    payments.forEach((p) => {
+      const key = format(new Date(p.paid_on), 'MMM yy');
+      if (months[key]) months[key].collected += Number(p.amount_usd);
+    });
+    charges.forEach((c) => {
+      const key = format(new Date(c.charge_date), 'MMM yy');
+      if (months[key]) months[key].spent += Number(c.amount_usd);
+    });
+
+    const dues = (duesRes.data as { amount_due: number; period_label: string; created_at: string }[]) ?? [];
+    const latestPeriod = dues.sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.period_label ?? '';
+    const duesIssued = dues.filter((d) => d.period_label === latestPeriod).reduce((s, d) => s + Number(d.amount_due), 0);
+    const avgMonthlySpend = Object.values(months).reduce((s, m) => s + m.spent, 0) / 12;
+    const reserve = Math.round((collected - spent) * 100) / 100;
+    const runwayMonths = avgMonthlySpend > 0 ? Math.floor(Math.max(0, reserve) / avgMonthlySpend) : 0;
+    setCoverage({ runwayMonths, duesIssued, duesPeriod: latestPeriod });
+
+    setAgg({ collected, spent, billed, outstanding, ytd, units: unitsRes.count ?? 0, openIssues: issuesRes.count ?? 0 });
+    setMonthly({ labels: Object.keys(months), collected: Object.values(months).map((m) => m.collected), spent: Object.values(months).map((m) => m.spent) });
   }
 
   async function loadResident() {
-    const [{ data: c }, { data: p }] = await Promise.all([
-      supabase.from('charges').select('amount_usd').in('unit_id', myUnitIds),
-      supabase.from('payments').select('amount_usd').in('unit_id', myUnitIds),
+    const inIds = myUnitIds.length ? myUnitIds : ['00000000-0000-0000-0000-000000000000'];
+    const [c, p] = await Promise.all([
+      supabase.from('charges').select('amount_usd').in('unit_id', inIds),
+      supabase.from('payments').select('amount_usd').in('unit_id', inIds),
     ]);
     setResident({
-      charged: ((c as { amount_usd: number }[]) ?? []).reduce((s, x) => s + Number(x.amount_usd), 0),
-      paid: ((p as { amount_usd: number }[]) ?? []).reduce((s, x) => s + Number(x.amount_usd), 0),
+      charged: ((c.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
+      paid: ((p.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
     });
   }
 
@@ -133,204 +132,175 @@ export default function Dashboard() {
   const fund = Math.round((agg.collected - agg.spent) * 100) / 100;
   const collectionRate = agg.billed > 0 ? Math.round((agg.collected / agg.billed) * 100) : 0;
 
-  // ---------- RESIDENT ----------
+  // ── Resident view ──────────────────────────────────────────────────────────
   if (!isManager) {
     const balance = Math.round((resident.paid - resident.charged) * 100) / 100;
     return (
-      <DashCanvas>
+      <div className="space-y-6 max-w-2xl">
         <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
         <HeroCard
           label={balance < 0 ? t('dashboard.youOwe') : t('dashboard.creditBalance')}
           amount={money(Math.abs(balance))}
-          stats={[{ label: t('dashboard.totalCharged'), value: money(resident.charged) }, { label: t('dashboard.totalPaid'), value: money(resident.paid) }]}
+          negative={balance < 0}
+          stats={[
+            { label: t('dashboard.totalCharged'), value: money(resident.charged) },
+            { label: t('dashboard.totalPaid'),    value: money(resident.paid) },
+          ]}
         />
-        <div className="mt-5">
-          <Link to="/finance"><QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} /></Link>
-        </div>
+        <Link to="/finance">
+          <QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} />
+        </Link>
         <MeetingsCard meetings={upcoming} />
-      </DashCanvas>
+      </div>
     );
   }
 
-  // ---------- MANAGER ----------
+  // ── Manager view ───────────────────────────────────────────────────────────
   return (
-    <DashCanvas>
+    <div className="space-y-6">
+      {/* Page header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 0 && (
-            <select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className={SELECT_DARK + ' min-w-[160px]'}>
-              <option value="">{t('dashboard.allBuildings')}</option>
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </select>
+            <RadixSelect value={entityKey || '__all__'} onValueChange={(v) => setEntityKey(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('dashboard.allBuildings')}</SelectItem>
+                {entities.map((e) => (
+                  <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </RadixSelect>
           )}
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
-            <select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)} className={SELECT_DARK}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {selEntity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {selEntity.blocks.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </RadixSelect>
           )}
         </div>
       </div>
 
+      {/* Hero card */}
       <HeroCard
         label={t('dashboard.fundBalance')}
         amount={money(fund)}
+        negative={fund < 0}
         pill={t('dashboard.percentCollected', { pct: collectionRate })}
         stats={[
           { label: t('dashboard.collected'), value: money(agg.collected) },
-          { label: t('dashboard.spent'), value: money(agg.spent) },
+          { label: t('dashboard.spent'),     value: money(agg.spent) },
           { label: t('dashboard.yearToDate'), value: money(agg.ytd) },
         ]}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
-        <Stat label={t('dashboard.outstanding')} value={money(agg.outstanding)} icon={AlertCircle} tone={agg.outstanding > 0 ? 'amber' : 'slate'} />
-        <Stat label={t('dashboard.totalBilled')} value={money(agg.billed)} icon={TrendingUp} tone="emerald" />
-        <Stat label={t('dashboard.units')} value={String(agg.units)} icon={Home} tone="brand" />
-        <Stat label={t('dashboard.openIssues')} value={String(agg.openIssues)} icon={AlertTriangle} tone={agg.openIssues > 0 ? 'rose' : 'slate'} />
+      {/* Stat row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label={t('dashboard.outstanding')} value={money(agg.outstanding)} icon={AlertCircle} accent={agg.outstanding > 0 ? 'amber' : 'default'} />
+        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}        icon={TrendingUp}  accent="teal" />
+        <StatCard label={t('dashboard.units')}         value={String(agg.units)}          icon={Home}        accent="teal" />
+        <StatCard label={t('dashboard.openIssues')}   value={String(agg.openIssues)}   icon={AlertTriangle} accent={agg.openIssues > 0 ? 'rose' : 'default'} />
       </div>
 
-      <Panel className="mt-5 p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold text-slate-200">{t('dashboard.collectedVsSpent')}</p>
-          <span className="text-xs text-slate-500">{t('dashboard.last12Hover')}</span>
-        </div>
-        <TrendChart labels={monthly.labels} series={[
-          { name: t('dashboard.collected'), color: '#57D6E2', data: monthly.collected },
-          { name: t('dashboard.spent'), color: '#fb7185', data: monthly.spent },
-        ]} />
-      </Panel>
-
-      <Panel className="mt-5 p-5">
-        <p className="text-sm font-semibold text-slate-200 mb-3">{t('dashboard.coverage')}</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-slate-400">{t('dashboard.reserve')}</p>
-            <p className={`font-display text-xl font-bold tnum mt-0.5 ${fund < 0 ? 'text-rose-400' : 'text-white'}`}>{money(fund)}</p>
+      {/* Charts */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold">{t('dashboard.collectedVsSpent')}</p>
+            <span className="text-xs text-muted-foreground">{t('dashboard.last12Hover')}</span>
           </div>
-          <div>
-            <p className="text-xs text-slate-400">{t('dashboard.runway')}</p>
-            <p className="font-display text-xl font-bold tnum mt-0.5 text-white">{coverage.runwayMonths} {t('dashboard.monthsShort')}</p>
-          </div>
-          {coverage.duesPeriod && (
-            <div>
-              <p className="text-xs text-slate-400">{t('dashboard.duesIssued')} · {coverage.duesPeriod}</p>
-              <p className="font-display text-xl font-bold tnum mt-0.5 text-white">{money(coverage.duesIssued)}</p>
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-slate-500 mt-2">{coverage.runwayMonths >= 1 ? t('dashboard.safeNote', { n: coverage.runwayMonths }) : t('dashboard.tightNote')}</p>
-      </Panel>
+          <TrendChart labels={monthly.labels} series={[
+            { name: t('dashboard.collected'), color: 'hsl(var(--primary))', data: monthly.collected },
+            { name: t('dashboard.spent'),     color: 'hsl(var(--destructive))', data: monthly.spent },
+          ]} />
+        </CardContent>
+      </Card>
 
-      <h2 className="text-xs font-semibold text-slate-400 mt-8 mb-3 uppercase tracking-[0.15em]">{t('dashboard.quickActions')}</h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Link to="/finance"><QuickLink icon={Plus} title={t('dashboard.recordExpense')} desc={t('dashboard.recordExpenseDesc')} /></Link>
-        <Link to="/finance"><QuickLink icon={HandCoins} title={t('dashboard.recordPayment')} desc={t('dashboard.recordPaymentDesc')} /></Link>
-        <Link to="/structure"><QuickLink icon={Layers} title={t('dashboard.manageStructure')} desc={t('dashboard.manageStructureDesc')} /></Link>
+      <Card>
+        <CardContent className="pt-4">
+          <p className="text-sm font-semibold mb-4">{t('dashboard.coverage')}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+            <CoverageItem label={t('dashboard.reserve')} value={money(fund)} negative={fund < 0} />
+            <CoverageItem label={t('dashboard.runway')} value={`${coverage.runwayMonths} ${t('dashboard.monthsShort')}`} />
+            {coverage.duesPeriod && (
+              <CoverageItem label={`${t('dashboard.duesIssued')} · ${coverage.duesPeriod}`} value={money(coverage.duesIssued)} />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            {coverage.runwayMonths >= 1 ? t('dashboard.safeNote', { n: coverage.runwayMonths }) : t('dashboard.tightNote')}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Quick actions */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{t('dashboard.quickActions')}</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <Link to="/finance"><QuickLink icon={Plus}      title={t('dashboard.recordExpense')}     desc={t('dashboard.recordExpenseDesc')} /></Link>
+          <Link to="/finance"><QuickLink icon={HandCoins} title={t('dashboard.recordPayment')}     desc={t('dashboard.recordPaymentDesc')} /></Link>
+          <Link to="/structure"><QuickLink icon={Layers}  title={t('dashboard.manageStructure')}   desc={t('dashboard.manageStructureDesc')} /></Link>
+        </div>
       </div>
 
       <MeetingsCard meetings={upcoming} />
-    </DashCanvas>
-  );
-}
-
-// dark full-bleed canvas — cyan/blue aurora + faint grid (Tatawwor brand)
-// NOTE: base bg + glows are painted on the element itself (not a -z-10 child),
-// otherwise they render behind the app's light bg-slate-50 → white-on-white.
-function DashCanvas({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="relative -m-4 lg:-m-6 p-5 lg:p-8 min-h-[calc(100dvh-4rem)] overflow-hidden text-slate-200"
-      style={{
-        backgroundColor: '#080b12',
-        backgroundImage:
-          'radial-gradient(42rem 30rem at 12% -8%, rgba(87,214,226,0.20), transparent 60%), radial-gradient(40rem 30rem at 106% 0%, rgba(52,158,205,0.18), transparent 55%), radial-gradient(46rem 34rem at 55% 122%, rgba(52,158,205,0.10), transparent 55%)',
-      }}
-    >
-      {/* faint tech grid overlay */}
-      <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.7) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.7) 1px, transparent 1px)', backgroundSize: '34px 34px', opacity: 0.05, maskImage: 'radial-gradient(75% 60% at 50% 20%, #000, transparent)', WebkitMaskImage: 'radial-gradient(75% 60% at 50% 20%, #000, transparent)' }} />
-      <div className="relative">{children}</div>
     </div>
   );
 }
 
-const SELECT_DARK = 'rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50 [&>option]:text-slate-900';
-
-function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`glass-dark rounded-2xl ${className}`}>{children}</div>;
-}
-
-function MeetingsCard({ meetings }: { meetings: Meeting[] }) {
-  const { t } = useTranslation();
-  if (meetings.length === 0) return null;
-  return (
-    <>
-      <h2 className="text-xs font-semibold text-slate-400 mt-8 mb-3 uppercase tracking-[0.15em]">{t('dashboard.upcomingMeetings')}</h2>
-      <div className="space-y-3">
-        {meetings.map((m) => (
-          <div key={m.id} className="glass-dark rounded-2xl p-4 transition-colors hover:border-[#57D6E2]/40">
-            <div className="flex items-center gap-4">
-              <div className="flex-shrink-0 text-center rounded-xl px-3.5 py-2 min-w-[58px] bg-[#57D6E2]/12 ring-1 ring-[#57D6E2]/20">
-                <p className="text-[10px] text-[#7fe3ec] font-semibold uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
-                <p className="font-display text-xl font-bold text-white leading-none">{format(new Date(m.meeting_date), 'd')}</p>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-white truncate">{m.title}</p>
-                <p className="text-sm text-slate-400">
-                  {format(new Date(m.meeting_date), 'EEEE, MMM d, yyyy')}{m.meeting_time ? ` · ${m.meeting_time.slice(0, 5)}` : ''}
-                </p>
-              </div>
-              <Link to="/meetings" className="text-slate-500 hover:text-[#57D6E2] transition"><CalendarDays size={18} /></Link>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function Greeting({ name, subtitle }: { name: string; subtitle: string }) {
   const { t } = useTranslation();
   return (
-    <div className="mb-6">
-      <h1 className="font-display text-3xl lg:text-4xl font-bold text-white tracking-tight">
+    <div>
+      <h1 className="text-2xl font-bold tracking-tight">
         {name ? `${t('dashboard.welcome')}, ${name}` : t('dashboard.welcome')} <span className="inline-block">👋</span>
       </h1>
-      <p className="text-sm text-slate-400 mt-1">{subtitle}</p>
+      <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
     </div>
   );
 }
 
-function HeroCard({ label, amount, stats, pill }: {
-  label: string; amount: string; stats: { label: string; value: string }[]; pill?: string;
+function HeroCard({ label, amount, stats, pill, negative }: {
+  label: string; amount: string; stats: { label: string; value: string }[]; pill?: string; negative?: boolean;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="relative overflow-hidden rounded-3xl text-white p-6 lg:p-8 glow-brand"
-      style={{ background: 'linear-gradient(135deg, #0c2b3d 0%, #0a1a28 45%, #070d16 100%)' }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="relative overflow-hidden rounded-xl p-6 lg:p-8 text-foreground dark:text-white"
+      style={{ background: 'var(--hero-gradient)' }}
     >
-      {/* brand rim */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px brand-grad opacity-80" />
-      {/* animated brand glows */}
-      <motion.div className="pointer-events-none absolute -top-24 -end-16 w-80 h-80 rounded-full blur-3xl" style={{ background: 'rgba(87,214,226,0.30)' }}
-        animate={{ x: [0, 24, 0], y: [0, 18, 0] }} transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="pointer-events-none absolute -bottom-28 -start-16 w-80 h-80 rounded-full blur-3xl" style={{ background: 'rgba(52,158,205,0.26)' }}
-        animate={{ x: [0, -20, 0], y: [0, -16, 0] }} transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
-      {/* faint grid */}
-      <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+      <div className="pointer-events-none absolute -top-20 -end-10 w-64 h-64 rounded-full blur-3xl bg-primary/10 dark:bg-white/10" />
+      <div className="pointer-events-none absolute -bottom-20 -start-10 w-64 h-64 rounded-full blur-3xl bg-black/5 dark:bg-black/10" />
       <div className="relative">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-cyan-100/70 font-semibold uppercase tracking-[0.14em]">{label}</p>
-          {pill && <span className="text-xs font-bold rounded-full px-3 py-1 text-[#062330] brand-grad">{pill}</span>}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-foreground/60 dark:text-white/70">{label}</p>
+          {pill && (
+            <span className="text-xs font-semibold rounded-full px-3 py-1 bg-primary/10 text-primary dark:bg-white/20 dark:text-white backdrop-blur-sm">
+              {pill}
+            </span>
+          )}
         </div>
-        <p className="font-display text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum" style={{ textShadow: '0 4px 34px rgba(87,214,226,0.35)' }}>{amount}</p>
-        <div className="flex flex-wrap gap-x-8 gap-y-3 mt-7">
+        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-red-400 dark:text-red-200')}>
+          {amount}
+        </p>
+        <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">
           {stats.map((s, i) => (
-            <div key={i} className={i > 0 ? 'border-s border-white/10 ps-8' : ''}>
-              <p className="text-xs text-slate-400">{s.label}</p>
-              <p className="font-display text-lg font-semibold tnum text-white mt-0.5">{s.value}</p>
+            <div key={i} className={i > 0 ? 'border-s border-foreground/15 dark:border-white/20 ps-8' : ''}>
+              <p className="text-xs text-foreground/50 dark:text-white/60">{s.label}</p>
+              <p className="text-lg font-semibold tnum mt-0.5">{s.value}</p>
             </div>
           ))}
         </div>
@@ -339,37 +309,91 @@ function HeroCard({ label, amount, stats, pill }: {
   );
 }
 
-function Stat({ label, value, icon: Icon, tone }: { label: string; value: string; icon: ElementType; tone: 'brand' | 'emerald' | 'rose' | 'amber' | 'slate' }) {
-  const tones: Record<string, string> = {
-    brand: 'bg-[#57D6E2]/12 text-[#7fe3ec]', emerald: 'bg-emerald-400/12 text-emerald-300',
-    rose: 'bg-rose-400/12 text-rose-300', amber: 'bg-amber-400/12 text-amber-300', slate: 'bg-white/8 text-slate-300',
+type Accent = 'teal' | 'amber' | 'rose' | 'default';
+
+function StatCard({ label, value, icon: Icon, accent }: { label: string; value: string; icon: ElementType; accent: Accent }) {
+  const iconClass: Record<Accent, string> = {
+    teal:    'bg-primary/10 text-primary',
+    amber:   'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+    rose:    'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
+    default: 'bg-muted text-muted-foreground',
   };
   return (
-    <motion.div whileHover={{ y: -4 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="glass-dark rounded-2xl p-4 transition-colors hover:border-[#57D6E2]/40">
-      <div className="flex items-start justify-between">
-        <div className="min-w-0">
-          <p className="text-xs text-slate-400 font-medium">{label}</p>
-          <p className="font-display text-2xl font-bold text-white tnum mt-1 truncate">{value}</p>
+    <Card className="gap-3 py-4">
+      <CardContent className="px-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground font-medium">{label}</p>
+            <p className="text-2xl font-bold tnum mt-1 truncate">{value}</p>
+          </div>
+          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', iconClass[accent])}>
+            <Icon size={16} />
+          </div>
         </div>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tones[tone]}`}><Icon size={18} /></div>
-      </div>
-    </motion.div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CoverageItem({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={cn('text-xl font-bold tnum mt-0.5', negative ? 'text-red-400 dark:text-red-300' : 'text-foreground dark:text-white')}>
+        {value}
+      </p>
+    </div>
   );
 }
 
 function QuickLink({ icon: Icon, title, desc }: { icon: ElementType; title: string; desc: string }) {
   return (
-    <div className="group glass-dark rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:border-[#57D6E2]/40 cursor-pointer">
-      <div className="flex items-center gap-3.5">
-        <div className="w-11 h-11 rounded-xl bg-[#57D6E2]/12 text-[#7fe3ec] flex items-center justify-center flex-shrink-0 transition-all group-hover:bg-gradient-to-br group-hover:from-[#57D6E2] group-hover:to-[#349ECD] group-hover:text-[#062330]">
-          <Icon size={19} />
+    <Card className="group cursor-pointer transition-shadow hover:shadow-md gap-0 py-0">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <Icon size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm">{title}</p>
+            <p className="text-xs text-muted-foreground">{desc}</p>
+          </div>
+          <ArrowRight size={15} className="text-muted-foreground group-hover:text-primary transition-colors rtl:rotate-180 shrink-0" />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-white text-sm">{title}</p>
-          <p className="text-xs text-slate-400">{desc}</p>
-        </div>
-        <ArrowRight size={16} className="text-slate-500 group-hover:text-[#57D6E2] transition-colors rtl:rotate-180" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function MeetingsCard({ meetings }: { meetings: Meeting[] }) {
+  const { t } = useTranslation();
+  if (meetings.length === 0) return null;
+  return (
+    <div>
+      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{t('dashboard.upcomingMeetings')}</h2>
+      <div className="space-y-2">
+        {meetings.map((m) => (
+          <Card key={m.id} className="gap-0 py-0">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="shrink-0 text-center rounded-lg px-3 py-2 min-w-[52px] bg-primary/10">
+                  <p className="text-[10px] text-primary font-semibold uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
+                  <p className="text-xl font-bold text-primary leading-none">{format(new Date(m.meeting_date), 'd')}</p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold truncate">{m.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(m.meeting_date), 'EEEE, MMM d, yyyy')}
+                    {m.meeting_time ? ` · ${m.meeting_time.slice(0, 5)}` : ''}
+                  </p>
+                </div>
+                <Link to="/meetings" className="text-muted-foreground hover:text-primary transition-colors shrink-0">
+                  <CalendarDays size={16} />
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
