@@ -845,11 +845,11 @@ export default function Users() {
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
                               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                                <input type="checkbox" checked={u.notify_email} onChange={e => updateUser(u.id, { notify_email: e.target.checked })} className="rounded" />
+                                <input type="checkbox" checked={u.notify_email} onChange={e => updateUser(u.id, { notify_email: e.target.checked })} className="rounded accent-primary" />
                                 {t('users.notifyEmail')}
                               </label>
                               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                                <input type="checkbox" checked={u.notify_whatsapp} onChange={e => updateUser(u.id, { notify_whatsapp: e.target.checked })} className="rounded" />
+                                <input type="checkbox" checked={u.notify_whatsapp} onChange={e => updateUser(u.id, { notify_whatsapp: e.target.checked })} className="rounded accent-primary" />
                                 {t('users.notifyWhatsapp')}
                               </label>
                             </div>
