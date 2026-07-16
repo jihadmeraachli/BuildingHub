@@ -12,7 +12,7 @@ import type { Unit, Charge, Payment, DuesPlan, Dues as DuesItem, DuesCadence, Du
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
@@ -177,15 +177,25 @@ export default function Dues() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[180px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {canManage && entity && <Button variant="secondary" onClick={openPlan}><Settings2 size={16} /> {plan ? t('dues.editPlan') : t('dues.setupPlan')}</Button>}
           {canManage && entity && plan && <Button onClick={() => { setGenPeriod(''); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
@@ -251,18 +261,18 @@ export default function Dues() {
       {/* Plan modal */}
       <Modal open={planOpen} onClose={() => setPlanOpen(false)} title={plan ? t('dues.editPlan') : t('dues.setupPlan')} size="lg">
         <div className="space-y-4">
-          <Select label={t('dues.planType')} value={pPlanType} onChange={(e) => setPPlanType(e.target.value as DuesPlanType)}>
-            <option value="b1">{t('dues.planTypes.b1')}</option>
-            <option value="b2">{t('dues.planTypes.b2')}</option>
-          </Select>
+          <SelectField label={t('dues.planType')} value={pPlanType} onValueChange={(v) => setPPlanType(v as DuesPlanType)}>
+            <SelectItem value="b1">{t('dues.planTypes.b1')}</SelectItem>
+            <SelectItem value="b2">{t('dues.planTypes.b2')}</SelectItem>
+          </SelectField>
           <p className="text-xs text-slate-400 -mt-2">{pPlanType === 'b2' ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('dues.cadence')} value={pCadence} onChange={(e) => setPCadence(e.target.value as DuesCadence)}>
-              {CADENCES.map((c) => <option key={c} value={c}>{t(`dues.cadences.${c}`)}</option>)}
-            </Select>
-            <Select label={t('dues.method')} value={pMethod} onChange={(e) => setPMethod(e.target.value as DuesMethod)}>
-              {METHODS.map((m) => <option key={m} value={m}>{t(`dues.methods.${m}`)}</option>)}
-            </Select>
+            <SelectField label={t('dues.cadence')} value={pCadence} onValueChange={(v) => setPCadence(v as DuesCadence)}>
+              {CADENCES.map((c) => <SelectItem key={c} value={c}>{t(`dues.cadences.${c}`)}</SelectItem>)}
+            </SelectField>
+            <SelectField label={t('dues.method')} value={pMethod} onValueChange={(v) => setPMethod(v as DuesMethod)}>
+              {METHODS.map((m) => <SelectItem key={m} value={m}>{t(`dues.methods.${m}`)}</SelectItem>)}
+            </SelectField>
           </div>
           {pMethod !== 'custom'
             ? <Input label={t('dues.pool')} type="number" step="0.01" min="0" value={pPool} onChange={(e) => setPPool(e.target.value)} />

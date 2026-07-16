@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { Select } from '@/components/ui/Select';
+import { SelectField, SelectItem } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 type Tab = 'all' | 'pending' | 'access';
@@ -940,61 +940,61 @@ export default function Users() {
 
             {inviteScopeType === 'building' && (
               <div className="space-y-3">
-                <Select
+                <SelectField
                   label={t('users.inviteBuilding')}
-                  value={inviteBuildingId}
-                  onChange={e => setInviteBuildingId(e.target.value)}
+                  value={inviteBuildingId || '__none__'}
+                  onValueChange={v => setInviteBuildingId(v === '__none__' ? '' : v)}
                 >
-                  <option value="">{t('common.selectBuilding')}</option>
-                  {buildings.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city})</option>)}
-                </Select>
-                <Select
+                  <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
+                  {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>)}
+                </SelectField>
+                <SelectField
                   label={t('users.role')}
                   value={inviteGrantRole}
-                  onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
+                  onValueChange={v => setInviteGrantRole(v as GrantRole)}
                 >
-                  {BUILDING_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
-                </Select>
+                  {BUILDING_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>)}
+                </SelectField>
               </div>
             )}
 
             {inviteScopeType === 'compound' && (
               <div className="space-y-3">
-                <Select
+                <SelectField
                   label={t('users.selectCompoundHint')}
-                  value={inviteCompoundId}
-                  onChange={e => setInviteCompoundId(e.target.value)}
+                  value={inviteCompoundId || '__none__'}
+                  onValueChange={v => setInviteCompoundId(v === '__none__' ? '' : v)}
                 >
-                  <option value="">{t('users.selectCompoundHint')}</option>
-                  {compoundEntities.map(c => <option key={c.id} value={c.id}>{c.name} ({c.blocks.length} {t('buildings.blocks')})</option>)}
-                </Select>
-                <Select
+                  <SelectItem value="__none__">{t('users.selectCompoundHint')}</SelectItem>
+                  {compoundEntities.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.blocks.length} {t('buildings.blocks')})</SelectItem>)}
+                </SelectField>
+                <SelectField
                   label={t('users.role')}
                   value={inviteGrantRole}
-                  onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
+                  onValueChange={v => setInviteGrantRole(v as GrantRole)}
                 >
-                  {COMPOUND_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
-                </Select>
+                  {COMPOUND_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>)}
+                </SelectField>
               </div>
             )}
 
             {inviteScopeType === 'org' && (
               <div className="space-y-3">
-                <Select
+                <SelectField
                   label={t('users.inviteOrg')}
-                  value={inviteOrgId}
-                  onChange={e => setInviteOrgId(e.target.value)}
+                  value={inviteOrgId || '__none__'}
+                  onValueChange={v => setInviteOrgId(v === '__none__' ? '' : v)}
                 >
-                  <option value="">{t('users.selectOrgHint')}</option>
-                  {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </Select>
-                <Select
+                  <SelectItem value="__none__">{t('users.selectOrgHint')}</SelectItem>
+                  {organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                </SelectField>
+                <SelectField
                   label={t('users.role')}
                   value={inviteGrantRole}
-                  onChange={e => setInviteGrantRole(e.target.value as GrantRole)}
+                  onValueChange={v => setInviteGrantRole(v as GrantRole)}
                 >
-                  {rolesForInviteScope.map(r => <option key={r} value={r}>{t(`users.roles.${r}`)}</option>)}
-                </Select>
+                  {rolesForInviteScope.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>)}
+                </SelectField>
               </div>
             )}
           </div>
@@ -1101,9 +1101,9 @@ export default function Users() {
               </div>
             )}
           </div>
-          <Select label={t('users.role')} value={grantRole} onChange={e => setGrantRole(e.target.value as GrantRole)}>
-            {BUILDING_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>)}
-          </Select>
+          <SelectField label={t('users.role')} value={grantRole} onValueChange={v => setGrantRole(v as GrantRole)}>
+            {BUILDING_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
+          </SelectField>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addGrant} disabled={!grantUserId}>{t('users.addAccess')}</Button>
@@ -1139,9 +1139,9 @@ export default function Users() {
               </div>
             )}
           </div>
-          <Select label={t('users.role')} value={orgGrantRole} onChange={e => setOrgGrantRole(e.target.value as GrantRole)}>
-            {ORG_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>)}
-          </Select>
+          <SelectField label={t('users.role')} value={orgGrantRole} onValueChange={v => setOrgGrantRole(v as GrantRole)}>
+            {ORG_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
+          </SelectField>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addOrgGrant} disabled={!orgGrantUserId}>{t('users.addOrgAccess')}</Button>
@@ -1178,9 +1178,9 @@ export default function Users() {
               </div>
             )}
           </div>
-          <Select label={t('users.role')} value={compoundGrantRole} onChange={e => setCompoundGrantRole(e.target.value as GrantRole)}>
-            {COMPOUND_ROLES.map(r => <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>)}
-          </Select>
+          <SelectField label={t('users.role')} value={compoundGrantRole} onValueChange={v => setCompoundGrantRole(v as GrantRole)}>
+            {COMPOUND_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
+          </SelectField>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setCompoundGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addCompoundGrant} disabled={!compoundGrantUserId}>{t('users.addCompoundAccess')}</Button>

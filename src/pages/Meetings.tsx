@@ -14,7 +14,7 @@ import type { Meeting, Profile } from '@/types';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
@@ -151,15 +151,25 @@ export default function Meetings() {
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('meetings.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[160px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {isManager && entity && (
             <>
@@ -309,9 +319,9 @@ export default function Meetings() {
       <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title={t('meetings.scheduleMeeting')}>
         <form onSubmit={scheduleForm.handleSubmit(onSchedule)} className="space-y-4">
           {(entity?.blocks.length ?? 0) > 1 && (
-            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
-              {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
+              {entity!.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           <Input label={t('meetings.meetingTitle')} {...scheduleForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
@@ -363,9 +373,9 @@ export default function Meetings() {
       <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title={t('meetings.addRecord')} size="lg">
         <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
           {(entity?.blocks.length ?? 0) > 1 && (
-            <Select label={t('finance.block')} value={createBuildingId} onChange={(e) => setCreateBuildingId(e.target.value)}>
-              {entity!.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
+              {entity!.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
           <div className="grid grid-cols-2 gap-3">

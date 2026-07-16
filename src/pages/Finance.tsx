@@ -13,7 +13,7 @@ import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, 
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
@@ -413,21 +413,36 @@ export default function Finance() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[180px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
-          <Select value={period} onChange={(e) => setPeriod(e.target.value as 'month' | 'year' | 'all')}>
-            <option value="all">{t('finance.allTime')}</option>
-            <option value="year">{t('finance.thisYear')}</option>
-            <option value="month">{t('finance.month')}</option>
-          </Select>
+          <RadixSelect value={period} onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+              <SelectItem value="month">{t('finance.month')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
           {period === 'month' && (
             <input type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
@@ -578,45 +593,45 @@ export default function Finance() {
       <Modal open={expOpen} onClose={() => setExpOpen(false)} title={editingExpenseId ? t('finance.editExpense') : t('finance.recordExpense')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('finance.category')} value={expForm.category} onChange={(e) => { const cat = e.target.value as ExpenseCategory; setExpForm({ ...expForm, category: cat, billed_to: defaultBilledTo(cat) }); }}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{t(`finance.cats.${c}`)}</option>)}
-            </Select>
+            <SelectField label={t('finance.category')} value={expForm.category} onValueChange={(v) => { const cat = v as ExpenseCategory; setExpForm({ ...expForm, category: cat, billed_to: defaultBilledTo(cat) }); }}>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`finance.cats.${c}`)}</SelectItem>)}
+            </SelectField>
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
           </div>
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
           <div className="grid grid-cols-3 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
-            <Select label={t('finance.applyTo')} value={expForm.scope} onChange={(e) => setExpForm({ ...expForm, scope: e.target.value as ExpScope })}>
-              <option value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</option>
-              {entity?.kind === 'compound' && multiBlock && <option value="block">{t('finance.aBlock')}</option>}
-              <option value="group">{t('finance.aGroup')}</option>
-              <option value="units">{t('finance.selectedUnits')}</option>
-              <option value="unit">{t('finance.singleUnit')}</option>
-            </Select>
-            <Select label={t('finance.billedTo')} value={expForm.billed_to} onChange={(e) => setExpForm({ ...expForm, billed_to: e.target.value as BilledTo })}>
-              <option value="both">{t('finance.billedToOptions.both')}</option>
-              <option value="owner">{t('finance.billedToOptions.owner')}</option>
-              <option value="tenant">{t('finance.billedToOptions.tenant')}</option>
-            </Select>
+            <SelectField label={t('finance.applyTo')} value={expForm.scope} onValueChange={(v) => setExpForm({ ...expForm, scope: v as ExpScope })}>
+              <SelectItem value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</SelectItem>
+              {entity?.kind === 'compound' && multiBlock && <SelectItem value="block">{t('finance.aBlock')}</SelectItem>}
+              <SelectItem value="group">{t('finance.aGroup')}</SelectItem>
+              <SelectItem value="units">{t('finance.selectedUnits')}</SelectItem>
+              <SelectItem value="unit">{t('finance.singleUnit')}</SelectItem>
+            </SelectField>
+            <SelectField label={t('finance.billedTo')} value={expForm.billed_to} onValueChange={(v) => setExpForm({ ...expForm, billed_to: v as BilledTo })}>
+              <SelectItem value="both">{t('finance.billedToOptions.both')}</SelectItem>
+              <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
+              <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
+            </SelectField>
           </div>
 
           {expForm.scope === 'block' && (
-            <Select label={t('finance.block')} value={expForm.block_id} onChange={(e) => setExpForm({ ...expForm, block_id: e.target.value })}>
-              <option value="">{t('finance.selectUnit')}</option>
-              {entity?.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.block')} value={expForm.block_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, block_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
+              {entity?.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
           )}
           {expForm.scope === 'group' && (
-            <Select label={t('finance.group')} value={expForm.group_id} onChange={(e) => setExpForm({ ...expForm, group_id: e.target.value })}>
-              <option value="">{t('finance.selectGroup')}</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </Select>
+            <SelectField label={t('finance.group')} value={expForm.group_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, group_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('finance.selectGroup')}</SelectItem>
+              {groups.map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectField>
           )}
           {expForm.scope === 'unit' && (
-            <Select label={t('finance.unit')} value={expForm.unit_id} onChange={(e) => setExpForm({ ...expForm, unit_id: e.target.value })}>
-              <option value="">{t('finance.selectUnit')}</option>
-              {units.map((u) => <option key={u.id} value={u.id}>{unitDisplay(u.id)}</option>)}
-            </Select>
+            <SelectField label={t('finance.unit')} value={expForm.unit_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, unit_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
+              {units.map((u) => <SelectItem key={u.id} value={u.id}>{unitDisplay(u.id)}</SelectItem>)}
+            </SelectField>
           )}
           {expForm.scope === 'units' && (
             <div>
@@ -635,11 +650,11 @@ export default function Finance() {
             </div>
           )}
 
-          <Select label={t('finance.splitMethod')} value={expForm.method} onChange={(e) => setExpForm({ ...expForm, method: e.target.value as AllocationMethod })}>
-            <option value="by_shares">{t('finance.byShares')}</option>
-            <option value="equal">{t('finance.equally')}</option>
-            <option value="custom">{t('finance.customAmounts')}</option>
-          </Select>
+          <SelectField label={t('finance.splitMethod')} value={expForm.method} onValueChange={(v) => setExpForm({ ...expForm, method: v as AllocationMethod })}>
+            <SelectItem value="by_shares">{t('finance.byShares')}</SelectItem>
+            <SelectItem value="equal">{t('finance.equally')}</SelectItem>
+            <SelectItem value="custom">{t('finance.customAmounts')}</SelectItem>
+          </SelectField>
 
           {targetUnits.length > 0 && (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
@@ -677,15 +692,15 @@ export default function Finance() {
       {/* Payment modal */}
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title={editingPaymentId ? t('finance.editPayment') : t('finance.recordPayment')}>
         <div className="space-y-4">
-          <Select label={t('finance.unit')} value={payForm.unit_id} onChange={(e) => setPayForm({ ...payForm, unit_id: e.target.value })}>
-            <option value="">{t('finance.selectUnit')}</option>
-            {book.map((r) => <option key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</option>)}
-          </Select>
+          <SelectField label={t('finance.unit')} value={payForm.unit_id || '__none__'} onValueChange={(v) => setPayForm({ ...payForm, unit_id: v === '__none__' ? '' : v })}>
+            <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
+            {book.map((r) => <SelectItem key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</SelectItem>)}
+          </SelectField>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
-            <Select label={t('finance.method')} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value as PaymentMethod })}>
-              {PAY_METHODS.map((m) => <option key={m} value={m}>{t(`finance.methods.${m}`)}</option>)}
-            </Select>
+            <SelectField label={t('finance.method')} value={payForm.method} onValueChange={(v) => setPayForm({ ...payForm, method: v as PaymentMethod })}>
+              {PAY_METHODS.map((m) => <SelectItem key={m} value={m}>{t(`finance.methods.${m}`)}</SelectItem>)}
+            </SelectField>
           </div>
           <Input label={t('finance.date')} type="date" value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} />
           <Input label={t('finance.noteOptional')} value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} />

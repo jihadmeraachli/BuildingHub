@@ -9,7 +9,7 @@ import type { Unit, Group, Occupancy, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -165,14 +165,20 @@ export default function Structure() {
           <p className="text-sm text-slate-500 mt-0.5">{t('structure.subtitle')}</p>
         </div>
         {buildings.length > 1 && (
-          <Select value={buildingId} onChange={(e) => setBuildingId(e.target.value)} className="min-w-[220px]">
-            {compoundList.filter((c) => buildings.some((b) => b.compound_id === c.id)).map((c) => (
-              <optgroup key={c.id} label={c.name}>
-                {buildings.filter((b) => b.compound_id === c.id).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </optgroup>
-            ))}
-            {buildings.filter((b) => !b.compound_id).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </Select>
+          <RadixSelect value={buildingId} onValueChange={setBuildingId}>
+            <SelectTrigger className="min-w-[220px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {compoundList.filter((c) => buildings.some((b) => b.compound_id === c.id)).map((c) => (
+                <SelectGroup key={c.id}>
+                  <SelectLabel>{c.name}</SelectLabel>
+                  {buildings.filter((b) => b.compound_id === c.id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectGroup>
+              ))}
+              {buildings.filter((b) => !b.compound_id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </RadixSelect>
         )}
       </div>
 
@@ -311,11 +317,11 @@ export default function Structure() {
           <Input label={t('structure.unitLabel')} value={unitForm.label} onChange={(e) => setUnitForm({ ...unitForm, label: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('structure.shareWeight')} type="number" step="0.01" min="0" value={unitForm.share_weight} onChange={(e) => setUnitForm({ ...unitForm, share_weight: e.target.value })} />
-            <Select label={t('structure.occupancy')} value={unitForm.occupancy} onChange={(e) => setUnitForm({ ...unitForm, occupancy: e.target.value as Occupancy })}>
-              <option value="occupied">{t('structure.occupied')}</option>
-              <option value="vacant">{t('structure.vacant')}</option>
-              <option value="abroad">{t('structure.abroad')}</option>
-            </Select>
+            <SelectField label={t('structure.occupancy')} value={unitForm.occupancy} onValueChange={(v) => setUnitForm({ ...unitForm, occupancy: v as Occupancy })}>
+              <SelectItem value="occupied">{t('structure.occupied')}</SelectItem>
+              <SelectItem value="vacant">{t('structure.vacant')}</SelectItem>
+              <SelectItem value="abroad">{t('structure.abroad')}</SelectItem>
+            </SelectField>
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setUnitModal({ open: false })}>{t('common.cancel')}</Button>
@@ -338,16 +344,16 @@ export default function Structure() {
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('structure.addMember')} value={ownerPick} onChange={(e) => setOwnerPick(e.target.value)}>
-              <option value="">{t('structure.selectPerson')}</option>
+            <SelectField label={t('structure.addMember')} value={ownerPick || '__none__'} onValueChange={(v) => setOwnerPick(v === '__none__' ? '' : v)}>
+              <SelectItem value="__none__">{t('structure.selectPerson')}</SelectItem>
               {profiles
                 .filter((p) => !ownerModal || !ownersOf(ownerModal.id).some((o) => o.user_id === p.id))
-                .map((p) => <option key={p.id} value={p.id}>{p.full_name}{p.apartment_number ? ` (${p.apartment_number})` : ''}</option>)}
-            </Select>
-            <Select label={t('structure.role')} value={ownerTenure} onChange={(e) => setOwnerTenure(e.target.value as Tenure)}>
-              <option value="owner">{t('structure.tenure.owner')}</option>
-              <option value="tenant">{t('structure.tenure.tenant')}</option>
-            </Select>
+                .map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}{p.apartment_number ? ` (${p.apartment_number})` : ''}</SelectItem>)}
+            </SelectField>
+            <SelectField label={t('structure.role')} value={ownerTenure} onValueChange={(v) => setOwnerTenure(v as Tenure)}>
+              <SelectItem value="owner">{t('structure.tenure.owner')}</SelectItem>
+              <SelectItem value="tenant">{t('structure.tenure.tenant')}</SelectItem>
+            </SelectField>
           </div>
           <p className="text-xs text-slate-400">{t('structure.memberHint')}</p>
           <div className="flex justify-end gap-2">

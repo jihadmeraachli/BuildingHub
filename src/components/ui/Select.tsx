@@ -207,9 +207,42 @@ function SelectScrollDownButton({
   )
 }
 
+// ── SelectField: Radix select with label + error, drop-in for <Select label=…> ──
+
+function SelectField({
+  label,
+  error,
+  children,
+  ...props
+}: Omit<React.ComponentProps<typeof SelectPrimitive.Root>, 'children'> & {
+  label?: string;
+  error?: string;
+  children?: React.ReactNode;
+}) {
+  const el = (
+    <RadixSelect {...props}>
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {children}
+      </SelectContent>
+    </RadixSelect>
+  );
+  if (!label && !error) return el;
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && <Label>{label}</Label>}
+      {el}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 export {
   Select,
   RadixSelect,
+  SelectField,
   SelectContent,
   SelectGroup,
   SelectItem,

@@ -13,7 +13,7 @@ import type { ServiceContract, ServiceType, BillingCycle } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -127,15 +127,25 @@ export default function Contracts() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <Select value={entityKey} onChange={(e) => setEntityKey(e.target.value)} className="min-w-[180px]">
-              {entities.map((e) => <option key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</option>)}
-            </Select>
+            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
+              <SelectTrigger className="min-w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <Select value={blockFilter} onChange={(e) => setBlockFilter(e.target.value)}>
-              <option value="">{t('finance.allBlocks')}</option>
-              {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </Select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
           {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('contracts.add')}</Button>}
         </div>
@@ -187,22 +197,22 @@ export default function Contracts() {
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? t('contracts.edit') : t('contracts.add')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Select label={t('contracts.service')} value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value as ServiceType })}>
-              {SERVICES.map((s) => <option key={s} value={s}>{t(`contracts.services.${s}`)}</option>)}
-            </Select>
+            <SelectField label={t('contracts.service')} value={form.service} onValueChange={(v) => setForm({ ...form, service: v as ServiceType })}>
+              {SERVICES.map((s) => <SelectItem key={s} value={s}>{t(`contracts.services.${s}`)}</SelectItem>)}
+            </SelectField>
             <Input label={t('contracts.provider')} value={form.provider_name} onChange={(e) => setForm({ ...form, provider_name: e.target.value })} />
           </div>
           {entity?.kind === 'compound' && (
             <div className="grid grid-cols-2 gap-3">
-              <Select label={t('finance.applyTo')} value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as 'all' | 'block' })}>
-                <option value="all">{t('finance.wholeCompound')}</option>
-                <option value="block">{t('finance.aBlock')}</option>
-              </Select>
+              <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>
+                <SelectItem value="all">{t('finance.wholeCompound')}</SelectItem>
+                <SelectItem value="block">{t('finance.aBlock')}</SelectItem>
+              </SelectField>
               {form.scope === 'block' && (
-                <Select label={t('finance.block')} value={form.block_id} onChange={(e) => setForm({ ...form, block_id: e.target.value })}>
-                  <option value="">—</option>
-                  {entity.blocks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </Select>
+                <SelectField label={t('finance.block')} value={form.block_id || '__none__'} onValueChange={(v) => setForm({ ...form, block_id: v === '__none__' ? '' : v })}>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectField>
               )}
             </div>
           )}
@@ -216,9 +226,9 @@ export default function Contracts() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('contracts.amount')} type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-            <Select label={t('contracts.cycle')} value={form.billing_cycle} onChange={(e) => setForm({ ...form, billing_cycle: e.target.value as BillingCycle })}>
-              {CYCLES.map((c) => <option key={c} value={c}>{t(`contracts.cycles.${c}`)}</option>)}
-            </Select>
+            <SelectField label={t('contracts.cycle')} value={form.billing_cycle} onValueChange={(v) => setForm({ ...form, billing_cycle: v as BillingCycle })}>
+              {CYCLES.map((c) => <SelectItem key={c} value={c}>{t(`contracts.cycles.${c}`)}</SelectItem>)}
+            </SelectField>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('contracts.notes')}</label>

@@ -9,7 +9,8 @@ import type { Building, Compound, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { Controller } from 'react-hook-form';
+import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -55,7 +56,7 @@ export default function Buildings() {
   const [editOrg, setEditOrg] = useState<Organization | null>(null);
   const [eoForm, setEoForm] = useState({ name: '', contact_email: '', contact_phone: '' });
 
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<FormData>();
+  const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<FormData>();
 
   useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -331,22 +332,22 @@ export default function Buildings() {
                 <div className="mt-4 pt-4 border-t border-slate-100 space-y-2.5">
                   {/* Platform admin: can reassign org and compound */}
                   {isPlatformAdmin && organizations.length > 0 && (
-                    <Select value={orgByBuilding[b.id] ?? ''} onChange={(e) => assignOrg(b.id, e.target.value)} className="text-sm py-2">
-                      <option value="">{t('buildings.noOrgOption')}</option>
-                      {organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                    </Select>
+                    <SelectField value={orgByBuilding[b.id] || '__none__'} onValueChange={(v) => assignOrg(b.id, v === '__none__' ? '' : v)}>
+                      <SelectItem value="__none__">{t('buildings.noOrgOption')}</SelectItem>
+                      {organizations.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    </SelectField>
                   )}
                   {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
-                    <Select value={b.compound_id ?? ''} onChange={(e) => assignCompound(b.id, e.target.value)} className="text-sm py-2">
-                      <option value="">{t('buildings.noCompoundOption')}</option>
-                      {visibleCompounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </Select>
+                    <SelectField value={b.compound_id || '__none__'} onValueChange={(v) => assignCompound(b.id, v === '__none__' ? '' : v)}>
+                      <SelectItem value="__none__">{t('buildings.noCompoundOption')}</SelectItem>
+                      {visibleCompounds.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectField>
                   )}
                   {!b.compound_id ? (
-                    <Select value={b.billing_mode} onChange={(e) => setBuildingMode(b.id, e.target.value)} className="text-sm py-2">
-                      <option value="arrears">{t('buildings.modeArrears')}</option>
-                      <option value="dues">{t('buildings.modeDues')}</option>
-                    </Select>
+                    <SelectField value={b.billing_mode} onValueChange={(v) => setBuildingMode(b.id, v)}>
+                      <SelectItem value="arrears">{t('buildings.modeArrears')}</SelectItem>
+                      <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
+                    </SelectField>
                   ) : (
                     <p className="text-xs text-slate-400">{t('buildings.modeViaCompound')}</p>
                   )}
@@ -376,10 +377,12 @@ export default function Buildings() {
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
           {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
-            <Select label={t('buildings.compound')} {...register('compound_id')}>
-              <option value="">{t('buildings.noCompoundOption')}</option>
-              {visibleCompounds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
+            <Controller name="compound_id" control={control} render={({ field }) => (
+              <SelectField label={t('buildings.compound')} value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
+                <SelectItem value="__none__">{t('buildings.noCompoundOption')}</SelectItem>
+                {visibleCompounds.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectField>
+            )} />
           )}
           <Input label={t('buildings.mapsLink')} placeholder={t('buildings.mapsPlaceholder')} {...register('maps_url')} />
           <div className="flex justify-end gap-2 pt-2">
