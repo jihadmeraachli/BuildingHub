@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
@@ -122,7 +122,7 @@ export default function Issues() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
+                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `â–£ ${e.name}` : e.name}</SelectItem>)}
               </SelectContent>
             </RadixSelect>
           )}
@@ -138,7 +138,7 @@ export default function Issues() {
             </RadixSelect>
           )}
           {isManager && (
-            <button onClick={() => setMyOnly(!myOnly)} className={`text-sm px-3 py-1.5 rounded-xl border transition cursor-pointer ${myOnly ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            <button onClick={() => setMyOnly(!myOnly)} className={`text-sm px-3 py-1.5 rounded-xl border transition cursor-pointer ${myOnly ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
               {myOnly ? t('issues.allIssues') : t('issues.myIssues')}
             </button>
           )}
@@ -158,9 +158,9 @@ export default function Issues() {
       </div>
 
       {!entity ? (
-        <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
+        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
       ) : loading ? <SkeletonCards count={3} />
-        : issues.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
+        : issues.length === 0 ? <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
         : (
           <div className="space-y-3">
             {issues.map((issue) => (
@@ -175,13 +175,13 @@ export default function Issues() {
                     <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                       <span>{issue.location}</span>
-                      {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}
-                      {issue.apartment_number && <><span>•</span><span>Apt {issue.apartment_number}</span></>}
-                      <span>•</span>
+                      {multiBlock && <><span>â€¢</span><span>{blockName[issue.building_id]}</span></>}
+                      {issue.apartment_number && <><span>â€¢</span><span>Apt {issue.apartment_number}</span></>}
+                      <span>â€¢</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
-                      <span>•</span>
+                      <span>â€¢</span>
                       <span>{format(new Date(issue.created_at), 'MMM d, yyyy')}</span>
-                      {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
+                      {issue.photo_urls?.length > 0 && <><span>â€¢</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
                     </div>
                     {issue.resolution_notes && <p className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>}
                   </div>
@@ -205,15 +205,15 @@ export default function Issues() {
           )}
           <Input label={t('issues.issueTitle')} {...register('title', { required: true })} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">{t('issues.description')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" {...register('description', { required: true })} />
+            <label className="text-sm font-medium text-muted-foreground">{t('issues.description')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...register('description', { required: true })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('issues.location')} {...register('location', { required: true })} />
             {units.length > 0 && (
               <Controller name="apartment_number" control={control} render={({ field }) => (
                 <SelectField label={t('billing.apartment')} value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
-                  <SelectItem value="__none__">—</SelectItem>
+                  <SelectItem value="__none__">â€”</SelectItem>
                   {units.map((u) => <SelectItem key={u.id} value={u.label}>{u.label}</SelectItem>)}
                 </SelectField>
               )} />
@@ -227,8 +227,8 @@ export default function Issues() {
             </SelectField>
           )} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">{t('issues.photos')}</label>
-            <input type="file" accept="image/*" multiple className="text-sm text-slate-600 file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" {...register('photos')} />
+            <label className="text-sm font-medium text-muted-foreground">{t('issues.photos')}</label>
+            <input type="file" accept="image/*" multiple className="text-sm text-muted-foreground file:me-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" {...register('photos')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
@@ -247,8 +247,8 @@ export default function Issues() {
             </SelectField>
           )} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">{t('issues.resolutionNotes')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[80px]" {...registerUpdate('resolution_notes')} />
+            <label className="text-sm font-medium text-muted-foreground">{t('issues.resolutionNotes')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...registerUpdate('resolution_notes')} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setSelectedIssue(null)}>{t('common.cancel')}</Button>
