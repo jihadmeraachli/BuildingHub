@@ -462,13 +462,13 @@ export default function Finance() {
           <div className="grid lg:grid-cols-3 gap-4 mb-6">
             <Card className="lg:col-span-2"><CardBody>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-slate-700">{t('dashboard.collectedVsSpent')}</p>
+                <p className="text-sm font-semibold text-primary">{t('dashboard.collectedVsSpent')}</p>
                 <span className="text-xs text-slate-400">{periodLabel}{blockFilter ? ` · ${blockName[blockFilter]}` : ''}</span>
               </div>
               <TrendChart labels={trend.labels} series={[{ name: t('finance.collected'), color: '#10b981', data: trend.collected }, { name: t('finance.billed'), color: '#6366f1', data: trend.billed }]} />
             </CardBody></Card>
             <Card><CardBody>
-              <p className="text-sm font-semibold text-slate-700 mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-slate-400 text-xs">· {periodLabel}</span></p>
+              <p className="text-sm font-semibold text-primary mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-slate-400 text-xs">· {periodLabel}</span></p>
               <Donut data={breakdown} centerLabel={t('finance.billed')} />
             </CardBody></Card>
           </div>
@@ -476,7 +476,7 @@ export default function Finance() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="inline-flex p-1 bg-slate-100 rounded-xl">
               {([['book', t('finance.book'), BookOpen], ['expenses', t('finance.expenses'), Receipt], ['payments', t('finance.payments'), HandCoins]] as ['book' | 'expenses' | 'payments', string, typeof BookOpen][]).map(([key, label, Icon]) => (
-                <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm dark:bg-primary/15 dark:text-primary dark:shadow-none' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm dark:bg-primary/20 dark:text-primary dark:shadow-none' : 'text-slate-500 hover:text-slate-700 dark:text-white dark:hover:text-primary'}`}>
                   <Icon size={15} /> {label}
                 </button>
               ))}
@@ -680,7 +680,7 @@ export default function Finance() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.invoiceOptional')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setExpFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setExpFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setExpOpen(false)}>{t('common.cancel')}</Button>
@@ -706,7 +706,7 @@ export default function Finance() {
           <Input label={t('finance.noteOptional')} value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.receiptOptional')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setPayFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setPayFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setPayOpen(false)}>{t('common.cancel')}</Button>
@@ -777,12 +777,11 @@ export default function Finance() {
   );
 }
 
-function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: string; icon: ElementType; tone: 'indigo' | 'emerald' | 'rose' | 'amber' | 'slate'; hint?: string }) {
-  const tones: Record<string, string> = { indigo: 'bg-indigo-50 text-indigo-600', emerald: 'bg-emerald-50 text-emerald-600', rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', slate: 'bg-slate-100 text-slate-500' };
+function Kpi({ label, value, icon: Icon, hint }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string }) {
   return (
     <Card><CardBody><div className="flex items-start justify-between">
       <div className="min-w-0"><p className="text-xs text-slate-500 font-medium">{label}</p><p className="text-xl lg:text-2xl font-bold text-slate-900 tnum mt-1 truncate">{value}</p>{hint && <p className="text-[11px] text-slate-400 mt-0.5">{hint}</p>}</div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${tones[tone]}`}><Icon size={18} /></div>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-sm"><Icon size={18} /></div>
     </div></CardBody></Card>
   );
 }
@@ -798,7 +797,7 @@ function ResidentDuesCard({ unitIds }: { unitIds: string[] }) {
   if (!rows.length) return null;
   return (
     <Card className="mb-4"><CardBody>
-      <p className="text-sm font-semibold text-slate-700 mb-3">{t('dues.residentTitle')}</p>
+      <p className="text-sm font-semibold text-primary mb-3">{t('dues.residentTitle')}</p>
       <div className="space-y-2">
         {rows.map((d) => (
           <div key={d.id} className="flex items-center justify-between text-sm">
