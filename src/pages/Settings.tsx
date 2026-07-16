@@ -245,7 +245,7 @@ export default function Settings() {
         <CardBody>
           <div className="flex items-center gap-2 mb-4">
             <UserIcon size={16} className="text-[#7fe3ec]" />
-            <p className="text-sm font-semibold text-foreground">{t('settings.yourDetails')}</p>
+            <p className="text-sm font-bold text-primary">{t('settings.yourDetails')}</p>
           </div>
 
           <div className="space-y-4">
@@ -290,7 +290,7 @@ export default function Settings() {
         <CardBody>
           <div className="flex items-center gap-2 mb-1">
             <Mail size={16} className="text-[#7fe3ec]" />
-            <p className="text-sm font-semibold text-foreground">{t('settings.emailTitle')}</p>
+            <p className="text-sm font-bold text-primary">{t('settings.emailTitle')}</p>
           </div>
           <p className="text-xs text-muted-foreground mb-4">{t('settings.emailNote')}</p>
           <div className="flex items-end gap-2">
@@ -309,7 +309,7 @@ export default function Settings() {
         <CardBody>
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={16} className="text-[#7fe3ec]" />
-            <p className="text-sm font-semibold text-foreground">{t('settings.passwordTitle')}</p>
+            <p className="text-sm font-bold text-primary">{t('settings.passwordTitle')}</p>
           </div>
           <div className="space-y-4">
             <Input label={t('settings.newPassword')} type="password" value={pw1} onChange={e => setPw1(e.target.value)} autoComplete="new-password" />
