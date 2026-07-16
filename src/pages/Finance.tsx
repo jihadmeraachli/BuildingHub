@@ -777,11 +777,19 @@ export default function Finance() {
   );
 }
 
-function Kpi({ label, value, icon: Icon, hint }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string }) {
+function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string }) {
+  const gradients: Record<string, string> = {
+    emerald: 'from-emerald-400 to-teal-500',
+    indigo:  'from-violet-400 to-indigo-500',
+    rose:    'from-rose-400 to-pink-500',
+    amber:   'from-amber-400 to-orange-500',
+    slate:   'from-slate-400 to-slate-500',
+  };
+  const gradient = gradients[tone ?? 'slate'] ?? 'from-teal-400 to-teal-600';
   return (
     <Card><CardBody><div className="flex items-start justify-between">
       <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className="text-xl lg:text-2xl font-bold text-foreground tnum mt-1 truncate">{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}</div>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-sm"><Icon size={18} /></div>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradient} text-white shadow-sm`}><Icon size={18} /></div>
     </div></CardBody></Card>
   );
 }
