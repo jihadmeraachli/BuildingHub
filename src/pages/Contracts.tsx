@@ -123,7 +123,7 @@ export default function Contracts() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('contracts.title')}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{t('contracts.subtitle')}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('contracts.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
@@ -154,8 +154,8 @@ export default function Contracts() {
       {loading ? <SkeletonCards count={3} />
         : vRows.length === 0 ? (
           <Card><CardBody><div className="text-center py-10">
-            <FileSignature className="mx-auto text-slate-300 mb-2" size={28} />
-            <p className="text-sm text-slate-500">{t('contracts.noContracts')}</p>
+            <FileSignature className="mx-auto text-primary mb-2" size={28} />
+            <p className="text-sm text-muted-foreground">{t('contracts.noContracts')}</p>
           </div></CardBody></Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -164,30 +164,30 @@ export default function Contracts() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <Badge color="indigo">{t(`contracts.services.${r.service}`)}</Badge>
-                    <h3 className="font-semibold text-slate-900 mt-2">{r.provider_name}</h3>
-                    {scopeLabel(r) && <p className="text-[11px] text-slate-400 mt-0.5">{scopeLabel(r)}</p>}
+                    <h3 className="font-semibold text-foreground mt-2">{r.provider_name}</h3>
+                    {scopeLabel(r) && <p className="text-[11px] text-muted-foreground mt-0.5">{scopeLabel(r)}</p>}
                   </div>
                   {canManage && (
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><Pencil size={14} /></button>
-                      <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={14} /></button>
+                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
+                      <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
                     </div>
                   )}
                 </div>
-                {r.contact_name && <p className="text-sm text-slate-500 mt-2">{r.contact_name}</p>}
-                {r.contact_phone && <p className="text-xs text-slate-400 flex items-center gap-1"><Phone size={11} /> {r.contact_phone}</p>}
-                <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-sm">
+                {r.contact_name && <p className="text-sm text-muted-foreground mt-2">{r.contact_name}</p>}
+                {r.contact_phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone size={11} /> {r.contact_phone}</p>}
+                <div className="mt-3 pt-3 border-t border-border space-y-1 text-sm">
                   {r.amount_usd != null && (
-                    <p className="text-slate-700 tnum font-medium">{money(Number(r.amount_usd))}{r.billing_cycle && <span className="text-slate-400 text-xs font-normal"> / {t(`contracts.cycles.${r.billing_cycle}`)}</span>}</p>
+                    <p className="text-foreground tnum font-medium">{money(Number(r.amount_usd))}{r.billing_cycle && <span className="text-muted-foreground text-xs font-normal"> / {t(`contracts.cycles.${r.billing_cycle}`)}</span>}</p>
                   )}
                   {(r.start_date || r.end_date) && (
-                    <p className="text-xs text-slate-500 flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
                       {r.start_date ? format(new Date(r.start_date), 'MMM yyyy') : '—'} → {r.end_date ? format(new Date(r.end_date), 'MMM yyyy') : '—'}
                       {expiryBadge(r.end_date)}
                     </p>
                   )}
-                  {r.notes && <p className="text-xs text-slate-500">{r.notes}</p>}
-                  {r.attachment_url && <AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline pt-1" />}
+                  {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
+                  {r.attachment_url && <AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-xs text-primary hover:underline pt-1" />}
                 </div>
               </CardBody></Card>
             ))}
@@ -231,12 +231,12 @@ export default function Contracts() {
             </SelectField>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('contracts.notes')}</label>
-            <textarea className="rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <label className="text-sm font-medium text-muted-foreground">{t('contracts.notes')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-600">{t('contracts.attachment')}</label>
-            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-sm file:bg-white file:cursor-pointer" />
+            <label className="text-sm font-medium text-muted-foreground">{t('contracts.attachment')}</label>
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-muted-foreground file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
