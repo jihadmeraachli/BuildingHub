@@ -1,972 +1,975 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
-  Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle,
-  Loader2, ChevronRight, Building2, X, Trash2, UserPlus,
+  Upload, Download, Users, Building2, Home, BarChart3,
+  CheckCircle2, Loader2, X, RefreshCw,
 } from 'lucide-react';
+import type { Grant } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
-import { Card, CardBody } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-type Step = 'upload' | 'mapping' | 'importing' | 'done';
-type OwnerInviteStatus = 'pending' | 'inviting' | 'invited' | 'exists' | 'error';
+type ImportTab = 'users' | 'buildings' | 'units' | 'expenses';
+type StepState = 'upload' | 'preview' | 'running' | 'done';
+type RowStatus = 'pending' | 'processing' | 'done' | 'exists' | 'skipped' | 'error';
 
-interface PdfRow {
-  unit_label:  string;
-  balance_due: number;
-  owner_name:  string;
-  owner_phone: string;
-  notes:       string;
+interface ProgressRow { label: string; detail?: string; status: RowStatus; error?: string; }
+interface UserRow { name: string; email: string; phone: string; role: string; }
+interface BuildingRow { name: string; address: string; city: string; compound_name: string; }
+interface UnitRow { label: string; floor: string; building_name: string; owner_email: string; tenant_email: string; share_weight: string; }
+interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
+interface DbBuilding { id: string; name: string; }
+
+interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; }
+interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; }
+interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
-interface OwnerRow {
-  unit_id:     string;
-  unit_label:  string;
-  owner_name:  string;
-  owner_phone: string;
+async function parseSpreadsheet(file: File): Promise<Record<string, string>[]> {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
+  if (raw.length < 2) return [];
+  const headers = (raw[0] as unknown[]).map(h => String(h ?? '').trim());
+  return raw.slice(1).map(row => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => { obj[h] = String((row as unknown[])[i] ?? '').trim(); });
+    return obj;
+  }).filter(row => Object.values(row).some(v => v !== ''));
 }
 
-const IMPORT_FIELDS = [
-  { value: 'unit_label',   label: 'Unit / Apt No.' },
-  { value: 'balance_due',  label: 'Balance Due (USD)' },
-  { value: 'share_weight', label: 'Share Weight' },
-  { value: 'occupancy',    label: 'Occupancy' },
-  { value: 'owner_name',   label: 'Owner Name' },
-  { value: 'owner_phone',  label: 'Owner Phone' },
-  { value: 'notes',        label: 'Notes' },
-  { value: 'SKIP',         label: '— Skip column —' },
-] as const;
-
-type FieldValue = typeof IMPORT_FIELDS[number]['value'];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function normalizeNumber(val: unknown): number {
-  if (typeof val === 'number') return isNaN(val) ? 0 : val;
-  const s = String(val ?? '')
-    .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
-    .replace(/[^\d.-]/g, '');
-  return parseFloat(s) || 0;
+function pickCol(row: Record<string, string>, ...candidates: string[]): string {
+  const lower = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]));
+  for (const c of candidates) {
+    const v = lower[c.toLowerCase()];
+    if (v !== undefined) return v;
+  }
+  return '';
 }
 
-function normalizeOccupancy(val: string): 'occupied' | 'vacant' | 'abroad' {
-  const v = val.toLowerCase();
-  if (/vacant|empty|شاغر|فارغ|خالي/.test(v)) return 'vacant';
-  if (/abroad|outside|خارج|سفر/.test(v)) return 'abroad';
-  return 'occupied';
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+function matchUnit(units: DbUnit[], label: string): DbUnit | undefined {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+  return units.find(u => norm(u.label) === norm(label));
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ─── Status chip ─────────────────────────────────────────────────────────────
+
+function StatusChip({ status, error }: { status: RowStatus; error?: string }) {
+  if (status === 'pending')    return <span className="text-muted-foreground text-xs">Pending</span>;
+  if (status === 'processing') return <Loader2 size={14} className="animate-spin text-primary" />;
+  if (status === 'done')       return <CheckCircle2 size={14} className="text-emerald-400" />;
+  if (status === 'exists')     return <span className="text-xs text-amber-300">Already exists</span>;
+  if (status === 'skipped')    return <span className="text-xs text-muted-foreground">Skipped</span>;
+  return <span className="text-xs text-red-400 truncate max-w-[120px]" title={error}>{error ?? 'Error'}</span>;
+}
+
+// ─── Drop zone ───────────────────────────────────────────────────────────────
+
+function DropZone({ onFile, accept, hint }: { onFile: (f: File) => void; accept?: string; hint?: string }) {
+  const [dragging, setDragging] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) onFile(f);
+  }, [onFile]);
+  return (
+    <div
+      onDrop={onDrop}
+      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onClick={() => ref.current?.click()}
+      className={cn(
+        'border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors',
+        dragging ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+      )}
+    >
+      <Upload size={32} className="text-primary/60" />
+      <p className="text-sm text-muted-foreground text-center">
+        Drop file here or <span className="text-primary font-medium">click to browse</span>
+      </p>
+      {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
+      <input ref={ref} type="file" accept={accept} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+    </div>
+  );
+}
+
+// ─── Progress table ──────────────────────────────────────────────────────────
+
+function ProgressTable({ rows, title }: { rows: ProgressRow[]; title?: string }) {
+  const done = rows.filter(r => r.status === 'done' || r.status === 'exists').length;
+  const errs = rows.filter(r => r.status === 'error').length;
+  return (
+    <div className="space-y-2">
+      {title && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{title}</p>}
+      <div className="rounded-lg border border-border overflow-hidden text-sm">
+        <div className="divide-y divide-border max-h-72 overflow-y-auto">
+          {rows.map((r, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-2">
+              <div className="flex-1 min-w-0">
+                <span className="font-medium truncate block">{r.label}</span>
+                {r.detail && <span className="text-xs text-muted-foreground">{r.detail}</span>}
+              </div>
+              <StatusChip status={r.status} error={r.error} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {rows.some(r => r.status !== 'pending' && r.status !== 'processing') && (
+        <p className="text-xs text-muted-foreground">{done} of {rows.length} succeeded{errs > 0 ? `, ${errs} failed` : ''}</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Import() {
-  const { user, isPlatformAdmin, grants } = useAuth();
+  const { grants, isPlatformAdmin } = useAuth();
   const { buildings } = useManagedBuildings();
+  const [activeTab, setActiveTab] = useState<ImportTab>('users');
 
   const canImport = isPlatformAdmin || grants.some(g =>
     ['building_admin', 'org_admin', 'compound_admin'].includes(g.role)
   );
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [step, setStep] = useState<Step>('upload');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-
-  // Upload
-  const [fileName, setFileName]       = useState('');
-  const [isPdf, setIsPdf]             = useState(false);
-  const [pdfBase64, setPdfBase64]     = useState('');
-  const [sheetNames, setSheetNames]   = useState<string[]>([]);
-  const [selectedSheet, setSelectedSheet] = useState('');
-  const [workbookData, setWorkbookData]   = useState<XLSX.WorkBook | null>(null);
-  const [headers, setHeaders]         = useState<string[]>([]);
-  const [rows, setRows]               = useState<Record<string, unknown>[]>([]);
-  const [buildingId, setBuildingId]   = useState('');
-
-  // Mapping (Excel) / Review (PDF)
-  const [mapping, setMapping]         = useState<Record<string, FieldValue>>({});
-  const [pdfRows, setPdfRows]         = useState<PdfRow[]>([]);
-  const [aiLoading, setAiLoading]     = useState(false);
-
-  // Import progress
-  const [progress, setProgress]       = useState(0);
-  const [importTotal, setImportTotal] = useState(0);
-  const [results, setResults]         = useState({ units: 0, balances: 0, skipped: 0, errors: 0 });
-
-  // Owner assignment (done step)
-  const [ownerRows, setOwnerRows]         = useState<OwnerRow[]>([]);
-  const [ownerEmails, setOwnerEmails]     = useState<Record<string, string>>({});
-  const [ownerStatuses, setOwnerStatuses] = useState<Record<string, OwnerInviteStatus>>({});
-  const [inviting, setInviting]           = useState(false);
-
-  // ── File helpers ───────────────────────────────────────────────────────────
-
-  function resetFile() {
-    setFileName(''); setIsPdf(false); setPdfBase64('');
-    setHeaders([]); setRows([]);
-    setSheetNames([]); setSelectedSheet(''); setWorkbookData(null);
-    setPdfRows([]);
-  }
-
-  function loadSheet(wb: XLSX.WorkBook, sheet: string) {
-    const ws = wb.Sheets[sheet];
-    const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
-    if (data.length === 0) { toast.error('This sheet appears to be empty.'); return; }
-    setHeaders(Object.keys(data[0]));
-    setRows(data);
-    setSelectedSheet(sheet);
-  }
-
-  function handleFile(file: File) {
-    if (!/\.(xlsx|xls|csv|pdf)$/i.test(file.name)) {
-      toast.error('Supported formats: .xlsx, .xls, .csv, .pdf');
-      return;
-    }
-    resetFile();
-    setFileName(file.name);
-
-    if (/\.pdf$/i.test(file.name)) {
-      if (file.size > 4 * 1024 * 1024) {
-        toast.error('PDF must be under 4 MB. Try splitting or compressing it first.');
-        setFileName('');
-        return;
-      }
-      setIsPdf(true);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target!.result as string;
-        setPdfBase64(dataUrl.split(',')[1]);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const wb = XLSX.read(e.target!.result, { type: 'array' });
-          setWorkbookData(wb);
-          setSheetNames(wb.SheetNames);
-          loadSheet(wb, wb.SheetNames[0]);
-        } catch {
-          toast.error('Could not read this file. Make sure it is a valid Excel or CSV file.');
-          setFileName('');
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    }
-  }
-
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Analysis ───────────────────────────────────────────────────────────────
-
-  async function analyzeFile() {
-    if (!fileName || !buildingId) {
-      toast.error('Please select a file and a building first.');
-      return;
-    }
-    setAiLoading(true);
-    isPdf ? await analyzePdf() : await analyzeExcel();
-    setAiLoading(false);
-  }
-
-  async function analyzePdf() {
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-pdf-import', {
-        body: { pdf: pdfBase64 },
-      });
-      if (error) throw error;
-      const extracted: PdfRow[] = data?.rows ?? [];
-      if (extracted.length === 0) {
-        toast.error('No unit data could be extracted from this PDF. Check the file and try again.');
-        return;
-      }
-      setPdfRows(extracted);
-      setStep('mapping');
-    } catch {
-      toast.error('PDF extraction failed — check that the ai-pdf-import function is deployed.');
-    }
-  }
-
-  async function analyzeExcel() {
-    if (!rows.length) { toast.error('File is empty.'); return; }
-    const samples = rows.slice(0, 5).map(r =>
-      Object.fromEntries(headers.map(h => [h, String(r[h] ?? '')]))
-    );
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-import-mapping', {
-        body: { headers, samples },
-      });
-      if (error) throw error;
-      const aiMappings: Record<string, string> = data?.mappings ?? {};
-      const full: Record<string, FieldValue> = {};
-      for (const h of headers) {
-        const s = aiMappings[h] as FieldValue | undefined;
-        full[h] = IMPORT_FIELDS.some(f => f.value === s) ? s! : 'SKIP';
-      }
-      setMapping(full);
-    } catch {
-      toast.error('AI mapping unavailable — please map columns manually below.');
-      setMapping(Object.fromEntries(headers.map(h => [h, 'SKIP' as FieldValue])));
-    }
-    setStep('mapping');
-  }
-
-  // ── Import ─────────────────────────────────────────────────────────────────
-
-  function getKey(field: FieldValue): string {
-    return Object.entries(mapping).find(([, v]) => v === field)?.[0] ?? '';
-  }
-
-  async function runImport() {
-    setOwnerRows([]);
-    setOwnerEmails({});
-    setOwnerStatuses({});
-    isPdf ? await runPdfImport() : await runExcelImport();
-  }
-
-  async function runPdfImport() {
-    setStep('importing');
-    setProgress(0);
-    setImportTotal(pdfRows.length);
-    let units = 0, balances = 0, skipped = 0, errors = 0;
-    const collected: OwnerRow[] = [];
-
-    for (let i = 0; i < pdfRows.length; i++) {
-      setProgress(i + 1);
-      const row = pdfRows[i];
-      if (!row.unit_label.trim()) { skipped++; continue; }
-
-      const { data: unit, error: unitErr } = await supabase
-        .from('units')
-        .insert({ building_id: buildingId, label: row.unit_label.trim() })
-        .select('id').single();
-
-      if (unitErr) { errors++; continue; }
-      units++;
-
-      if (row.owner_name.trim()) {
-        collected.push({
-          unit_id:     (unit as { id: string }).id,
-          unit_label:  row.unit_label.trim(),
-          owner_name:  row.owner_name.trim(),
-          owner_phone: row.owner_phone,
-        });
-      }
-
-      if (row.balance_due > 0) {
-        const desc = row.notes
-          ? `Opening balance — ${row.notes}`
-          : 'Opening balance (imported)';
-        const { error: chargeErr } = await supabase.from('charges').insert({
-          unit_id:     (unit as { id: string }).id,
-          building_id: buildingId,
-          category:    'other',
-          description: desc,
-          amount_usd:  row.balance_due,
-          charge_date: new Date().toISOString().split('T')[0],
-          created_by:  user?.id ?? null,
-        });
-        if (!chargeErr) balances++;
-      }
-    }
-    setOwnerRows(collected);
-    setResults({ units, balances, skipped, errors });
-    setStep('done');
-  }
-
-  async function runExcelImport() {
-    const labelKey      = getKey('unit_label');
-    const balanceKey    = getKey('balance_due');
-    const shareKey      = getKey('share_weight');
-    const occupancyKey  = getKey('occupancy');
-    const ownerNameKey  = getKey('owner_name');
-    const ownerPhoneKey = getKey('owner_phone');
-
-    if (!labelKey) {
-      toast.error('No column mapped to "Unit / Apt No." — cannot import.');
-      return;
-    }
-    setStep('importing');
-    setProgress(0);
-    setImportTotal(rows.length);
-    let units = 0, balances = 0, skipped = 0, errors = 0;
-    const collected: OwnerRow[] = [];
-
-    for (let i = 0; i < rows.length; i++) {
-      setProgress(i + 1);
-      const row = rows[i];
-      const label = String(row[labelKey] ?? '').trim();
-      if (!label) { skipped++; continue; }
-
-      const unitData: Record<string, unknown> = { building_id: buildingId, label };
-      if (shareKey) {
-        const sw = normalizeNumber(row[shareKey]);
-        if (sw > 0) unitData.share_weight = sw;
-      }
-      if (occupancyKey) {
-        unitData.occupancy = normalizeOccupancy(String(row[occupancyKey] ?? ''));
-      }
-
-      const { data: unit, error: unitErr } = await supabase
-        .from('units').insert(unitData).select('id').single();
-
-      if (unitErr) { errors++; continue; }
-      units++;
-
-      const oName = ownerNameKey ? String(row[ownerNameKey] ?? '').trim() : '';
-      if (oName) {
-        collected.push({
-          unit_id:     (unit as { id: string }).id,
-          unit_label:  label,
-          owner_name:  oName,
-          owner_phone: ownerPhoneKey ? String(row[ownerPhoneKey] ?? '') : '',
-        });
-      }
-
-      if (balanceKey) {
-        const balance = normalizeNumber(row[balanceKey]);
-        if (balance > 0) {
-          const { error: chargeErr } = await supabase.from('charges').insert({
-            unit_id:     (unit as { id: string }).id,
-            building_id: buildingId,
-            category:    'other',
-            description: 'Opening balance (imported)',
-            amount_usd:  balance,
-            charge_date: new Date().toISOString().split('T')[0],
-            created_by:  user?.id ?? null,
-          });
-          if (!chargeErr) balances++;
-        }
-      }
-    }
-    setOwnerRows(collected);
-    setResults({ units, balances, skipped, errors });
-    setStep('done');
-  }
-
-  // ── Owner assignment ───────────────────────────────────────────────────────
-
-  async function inviteOwners() {
-    setInviting(true);
-    const newStatuses = { ...ownerStatuses };
-
-    for (const row of ownerRows) {
-      const email = ownerEmails[row.unit_id]?.trim();
-      if (!email) continue;
-      if (ownerStatuses[row.unit_id] === 'invited' || ownerStatuses[row.unit_id] === 'exists') continue;
-
-      newStatuses[row.unit_id] = 'inviting';
-      setOwnerStatuses({ ...newStatuses });
-
-      const { data, error } = await supabase.functions.invoke('invite-user', {
-        body: { email, full_name: row.owner_name, phone: row.owner_phone || null, mode: 'import' },
-      });
-
-      if (error || !data?.user_id) {
-        newStatuses[row.unit_id] = 'error';
-        setOwnerStatuses({ ...newStatuses });
-        continue;
-      }
-
-      const { error: memErr } = await supabase.from('memberships').insert({
-        user_id: data.user_id,
-        unit_id: row.unit_id,
-        tenure:  'owner',
-      });
-
-      newStatuses[row.unit_id] = memErr ? 'error' : (data.existing ? 'exists' : 'invited');
-      setOwnerStatuses({ ...newStatuses });
-    }
-
-    setInviting(false);
-  }
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-
   if (!canImport) {
     return (
-      <Card><CardBody>
-        <p className="text-sm text-muted-foreground text-center py-10">
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
           You don't have permission to import data.
-        </p>
-      </CardBody></Card>
+        </CardContent>
+      </Card>
     );
   }
 
-  const building = buildings.find(b => b.id === buildingId);
-
-  const steps: { id: Step; label: string }[] = [
-    { id: 'upload',    label: 'Upload' },
-    { id: 'mapping',   label: isPdf ? 'Review Data' : 'Map Columns' },
-    { id: 'importing', label: 'Import' },
-    { id: 'done',      label: 'Done' },
+  const TABS: { key: ImportTab; label: string; Icon: React.ElementType }[] = [
+    { key: 'users',     label: 'Users',              Icon: Users },
+    { key: 'buildings', label: 'Buildings',           Icon: Building2 },
+    { key: 'units',     label: 'Units',               Icon: Home },
+    { key: 'expenses',  label: 'Expenses & Balances', Icon: BarChart3 },
   ];
-  const stepIndex = steps.findIndex(s => s.id === step);
-
-  const pendingInvites = ownerRows.filter(r =>
-    ownerEmails[r.unit_id]?.trim() &&
-    ownerStatuses[r.unit_id] !== 'invited' &&
-    ownerStatuses[r.unit_id] !== 'exists'
-  );
-  const invitedCount = Object.values(ownerStatuses).filter(s => s === 'invited').length;
-  const existingCount = Object.values(ownerStatuses).filter(s => s === 'exists').length;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Import Building Data</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Upload an Excel, CSV, or PDF file — Arabic content fully supported.
-        </p>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Bulk Import</h1>
+        <p className="text-sm text-muted-foreground mt-1">Onboard clients, buildings, units, and financial data at scale.</p>
       </div>
 
-      {/* Step progress */}
-      <div className="flex items-center gap-1 mb-8">
-        {steps.map((s, i) => (
-          <div key={s.id} className="flex items-center gap-1">
-            <div className={cn(
-              'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full',
-              i < stepIndex   ? 'bg-primary/10 text-primary' :
-              i === stepIndex ? 'bg-primary text-primary-foreground' :
-              'bg-muted text-muted-foreground'
-            )}>
-              {i < stepIndex ? <CheckCircle2 size={12} /> : <span>{i + 1}</span>}
-              {s.label}
-            </div>
-            {i < steps.length - 1 && <ChevronRight size={12} className="text-muted-foreground/40" />}
-          </div>
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {TABS.map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0',
+              activeTab === key
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
         ))}
       </div>
 
-      {/* ── Step 1: Upload ── */}
-      {step === 'upload' && (
-        <div className="space-y-5">
-          <Card>
-            <CardBody>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv,.pdf"
-                className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-              />
-              <div
-                onDrop={onDrop}
-                onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                onDragLeave={() => setDragging(false)}
-                onClick={() => !fileName && fileInputRef.current?.click()}
-                className={cn(
-                  'border-2 border-dashed rounded-xl p-8 text-center transition-colors',
-                  dragging  ? 'border-primary bg-primary/5' :
-                  fileName  ? 'border-border bg-muted/20 cursor-default' :
-                  'border-border hover:border-primary/60 hover:bg-muted/10 cursor-pointer'
-                )}
-              >
-                {fileName ? (
-                  <div className="flex items-center justify-center gap-3">
-                    {isPdf
-                      ? <FileText size={24} className="text-primary shrink-0" />
-                      : <FileSpreadsheet size={24} className="text-primary shrink-0" />
-                    }
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-foreground">{fileName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {isPdf
-                          ? 'PDF ready — AI will extract the data'
-                          : `${rows.length} rows · ${headers.length} columns`
-                        }
-                      </p>
-                    </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); resetFile(); }}
-                      className="ml-2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <Upload size={28} className="mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-sm font-medium text-foreground">Drop your file here</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      or click to browse — .xlsx · .xls · .csv · .pdf
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Arabic content is fully supported</p>
-                  </>
-                )}
-              </div>
+      {activeTab === 'users'     && <UsersTab />}
+      {activeTab === 'buildings' && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
+      {activeTab === 'units'     && <UnitsTab buildings={buildings as DbBuilding[]} />}
+      {activeTab === 'expenses'  && <ExpensesTab buildings={buildings as DbBuilding[]} />}
+    </div>
+  );
+}
 
-              {/* Sheet selector — Excel only */}
-              {!isPdf && sheetNames.length > 1 && (
-                <div className="mt-4">
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sheet</label>
-                  <div className="flex flex-wrap gap-2">
-                    {sheetNames.map(s => (
-                      <button
-                        key={s}
-                        onClick={() => workbookData && loadSheet(workbookData, s)}
-                        className={cn(
-                          'text-xs px-3 py-1.5 rounded-md border transition-colors cursor-pointer',
-                          selectedSheet === s
-                            ? 'border-primary bg-primary/5 text-primary font-medium'
-                            : 'border-border text-muted-foreground hover:border-primary/40'
-                        )}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardBody>
-          </Card>
+// ════════════════════════════════════════════════════════════════════════════
+// TAB 1 — USERS
+// ════════════════════════════════════════════════════════════════════════════
 
-          {/* Building selector */}
-          <Card>
-            <CardBody>
-              <label className="block text-sm font-medium text-foreground mb-3">
-                Which building is this data for?
-              </label>
-              <div className="grid sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-                {buildings.filter(b => b.is_active).map(b => (
-                  <button
-                    key={b.id}
-                    onClick={() => setBuildingId(b.id)}
-                    className={cn(
-                      'flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-colors cursor-pointer',
-                      buildingId === b.id
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-border hover:border-primary/40 hover:bg-muted/30'
-                    )}
-                  >
-                    <Building2 size={14} className="shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{b.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{b.city}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </CardBody>
-          </Card>
+function UsersTab() {
+  const [step, setStep] = useState<StepState>('upload');
+  const [rows, setRows] = useState<UserRow[]>([]);
+  const [progress, setProgress] = useState<ProgressRow[]>([]);
 
-          {/* Raw preview — Excel only */}
-          {!isPdf && headers.length > 0 && (
-            <Card>
-              <CardBody>
-                <p className="text-xs font-medium text-muted-foreground mb-2">File preview (first 3 rows)</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr>
-                        {headers.map(h => (
-                          <th key={h} className="text-left text-muted-foreground font-medium px-2 py-1.5 border-b border-border whitespace-nowrap">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.slice(0, 3).map((row, i) => (
-                        <tr key={i} className="border-b border-border/40 last:border-0">
-                          {headers.map(h => (
-                            <td key={h} className="px-2 py-1.5 text-foreground whitespace-nowrap max-w-[140px] truncate">
-                              {String(row[h] ?? '')}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardBody>
-            </Card>
-          )}
+  const TEMPLATE = [
+    ['Name', 'Email', 'Phone', 'Role'],
+    ['Ahmad Hassan', 'ahmad@example.com', '+9611234567', 'owner'],
+    ['Lara Khoury', 'lara@example.com', '+9619876543', 'tenant'],
+  ];
 
-          <div className="flex justify-end">
-            <Button
-              onClick={analyzeFile}
-              disabled={!fileName || !buildingId || aiLoading}
-              loading={aiLoading}
-            >
-              {aiLoading
-                ? (isPdf ? 'Extracting…' : 'Analyzing…')
-                : (isPdf ? 'Extract with AI →' : 'Analyze with AI →')
-              }
-            </Button>
-          </div>
-        </div>
-      )}
+  async function handleFile(file: File) {
+    try {
+      const data = await parseSpreadsheet(file);
+      if (!data.length) { toast.error('File appears empty'); return; }
+      const parsed: UserRow[] = data.map(row => ({
+        name:  pickCol(row, 'name', 'full name', 'client name', 'الاسم'),
+        email: pickCol(row, 'email', 'email address', 'البريد'),
+        phone: pickCol(row, 'phone', 'mobile', 'telephone', 'الهاتف'),
+        role:  pickCol(row, 'role', 'type', 'الدور').toLowerCase().includes('tenant') ? 'tenant' : 'owner',
+      })).filter(r => r.email.includes('@'));
+      if (!parsed.length) { toast.error('No valid email rows found'); return; }
+      setRows(parsed);
+      setStep('preview');
+    } catch { toast.error('Could not read file'); }
+  }
 
-      {/* ── Step 2a: Excel — Map Columns ── */}
-      {step === 'mapping' && !isPdf && (
-        <div className="space-y-5">
-          <Card>
-            <CardBody>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Review column mapping</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    AI mapped {Object.values(mapping).filter(v => v !== 'SKIP').length} of {headers.length} columns.
-                    Adjust any that look wrong.
-                  </p>
-                </div>
-                <div className="text-right text-xs text-muted-foreground shrink-0">
-                  <p className="font-medium text-foreground">{building?.name}</p>
-                  <p>{rows.length} rows</p>
-                </div>
-              </div>
+  async function runImport() {
+    setProgress(rows.map(r => ({ label: r.name || r.email, detail: r.email, status: 'pending' })));
+    setStep('running');
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
+      try {
+        const { data, error } = await supabase.functions.invoke('invite-user', {
+          body: { email: row.email.trim().toLowerCase(), full_name: row.name || row.email, phone: row.phone || null, mode: 'import' },
+        });
+        if (error) throw new Error(error.message);
+        const st: RowStatus = data?.existing ? 'exists' : 'done';
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: st } : p));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'error', error: msg } : p));
+      }
+    }
+    setStep('done');
+  }
 
-              <div className="space-y-2">
-                {headers.map(h => {
-                  const sampleVals = rows.slice(0, 3).map(r => String(r[h] ?? '')).filter(Boolean);
-                  return (
-                    <div key={h} className={cn(
-                      'flex items-center gap-3 p-2.5 rounded-lg border',
-                      mapping[h] !== 'SKIP' ? 'border-primary/30 bg-primary/5' : 'border-border'
-                    )}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate" dir="auto">{h}</p>
-                        <p className="text-xs text-muted-foreground truncate" dir="auto">
-                          {sampleVals.join(' · ') || 'no data'}
-                        </p>
-                      </div>
-                      <select
-                        value={mapping[h] ?? 'SKIP'}
-                        onChange={e => setMapping(prev => ({ ...prev, [h]: e.target.value as FieldValue }))}
-                        className="text-xs rounded-md border border-border bg-background text-foreground px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring/50 cursor-pointer shrink-0"
-                      >
-                        {IMPORT_FIELDS.map(f => (
-                          <option key={f.value} value={f.value}>{f.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
+  function reset() { setStep('upload'); setRows([]); setProgress([]); }
 
-              {!getKey('unit_label') && (
-                <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                  <AlertCircle size={14} className="text-yellow-600 shrink-0" />
-                  <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                    Map at least one column to "Unit / Apt No." to proceed.
-                  </p>
-                </div>
-              )}
-            </CardBody>
-          </Card>
+  if (step === 'upload') return (
+    <div className="space-y-4 max-w-xl">
+      <p className="text-sm text-muted-foreground">Upload a spreadsheet of users to bulk-invite them. Each user receives a magic-link email to set up their account.</p>
+      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('users-template.csv', TEMPLATE)}>
+        <Download size={14} /> Download template
+      </Button>
+      <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls" hint="CSV or Excel • Name, Email, Phone, Role" />
+    </div>
+  );
 
-          {getKey('unit_label') && (
-            <Card>
-              <CardBody>
-                <p className="text-xs font-medium text-muted-foreground mb-2">What will be imported</p>
-                <div className="flex gap-6">
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{rows.length}</p>
-                    <p className="text-xs text-muted-foreground">units</p>
-                  </div>
-                  {getKey('balance_due') && (
-                    <div>
-                      <p className="text-2xl font-bold text-foreground">
-                        {rows.filter(r => normalizeNumber(r[getKey('balance_due')]) > 0).length}
-                      </p>
-                      <p className="text-xs text-muted-foreground">with opening balances</p>
-                    </div>
-                  )}
-                  {getKey('owner_name') && (
-                    <div>
-                      <p className="text-2xl font-bold text-foreground">
-                        {rows.filter(r => String(r[getKey('owner_name')] ?? '').trim()).length}
-                      </p>
-                      <p className="text-xs text-muted-foreground">with owner names</p>
-                    </div>
-                  )}
-                </div>
-              </CardBody>
-            </Card>
-          )}
+  if (step === 'preview') return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{rows.length} user{rows.length !== 1 ? 's' : ''} ready to invite</p>
+        <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden text-sm">
+        <table className="w-full">
+          <thead className="bg-muted/40">
+            <tr>{['Name', 'Email', 'Phone', 'Role'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="px-4 py-2">{r.name}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.email}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.phone}</td>
+                <td className="px-4 py-2 capitalize">{r.role}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={runImport}>Send {rows.length} invitation{rows.length !== 1 ? 's' : ''}</Button>
+        <Button variant="outline" onClick={reset}>Cancel</Button>
+      </div>
+    </div>
+  );
 
-          <div className="flex justify-between">
-            <Button variant="secondary" onClick={() => setStep('upload')}>← Back</Button>
-            <Button onClick={runImport} disabled={!getKey('unit_label')}>
-              Import {rows.length} rows →
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 2b: PDF — Review Extracted Data ── */}
-      {step === 'mapping' && isPdf && (
-        <div className="space-y-5">
-          <Card>
-            <CardBody>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Review extracted data</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    AI found {pdfRows.length} units. Edit or remove any rows before importing.
-                  </p>
-                </div>
-                <div className="text-right text-xs text-muted-foreground shrink-0">
-                  <p className="font-medium text-foreground">{building?.name}</p>
-                  <p>{pdfRows.filter(r => r.balance_due > 0).length} with balances</p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left text-muted-foreground font-medium px-2 py-2">Unit No.</th>
-                      <th className="text-left text-muted-foreground font-medium px-2 py-2">Balance (USD)</th>
-                      <th className="text-left text-muted-foreground font-medium px-2 py-2 hidden sm:table-cell">Owner</th>
-                      <th className="text-left text-muted-foreground font-medium px-2 py-2 hidden md:table-cell">Phone</th>
-                      <th className="text-left text-muted-foreground font-medium px-2 py-2 hidden lg:table-cell">Notes</th>
-                      <th className="w-8" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pdfRows.map((row, i) => (
-                      <tr key={i} className="border-b border-border/40 last:border-0 hover:bg-muted/20">
-                        <td className="px-2 py-1.5">
-                          <input
-                            value={row.unit_label}
-                            dir="auto"
-                            onChange={e => setPdfRows(prev => prev.map((r, idx) =>
-                              idx === i ? { ...r, unit_label: e.target.value } : r
-                            ))}
-                            className="w-20 text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-ring/50"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={row.balance_due}
-                            onChange={e => setPdfRows(prev => prev.map((r, idx) =>
-                              idx === i ? { ...r, balance_due: parseFloat(e.target.value) || 0 } : r
-                            ))}
-                            className="w-24 text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-ring/50"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 text-muted-foreground hidden sm:table-cell" dir="auto">
-                          {row.owner_name || <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                        <td className="px-2 py-1.5 text-muted-foreground hidden md:table-cell">
-                          {row.owner_phone || <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                        <td className="px-2 py-1.5 text-muted-foreground hidden lg:table-cell max-w-[160px] truncate">
-                          {row.notes || <span className="text-muted-foreground/40">—</span>}
-                        </td>
-                        <td className="px-2 py-1.5">
-                          <button
-                            onClick={() => setPdfRows(prev => prev.filter((_, idx) => idx !== i))}
-                            className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {pdfRows.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">All rows removed.</p>
-              )}
-            </CardBody>
-          </Card>
-
-          <div className="flex justify-between">
-            <Button variant="secondary" onClick={() => setStep('upload')}>← Back</Button>
-            <Button onClick={runImport} disabled={pdfRows.length === 0}>
-              Import {pdfRows.length} units →
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Importing ── */}
-      {step === 'importing' && (
-        <Card>
-          <CardBody>
-            <div className="py-8 text-center">
-              <Loader2 size={32} className="mx-auto text-primary mb-4 animate-spin" />
-              <p className="text-base font-medium text-foreground">Importing data…</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {progress} of {importTotal} rows
-              </p>
-              <div className="w-full max-w-xs mx-auto mt-4 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-200"
-                  style={{ width: `${importTotal > 0 ? (progress / importTotal) * 100 : 0}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">Please don't close this tab.</p>
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {/* ── Step 4: Done ── */}
+  if (step === 'running' || step === 'done') return (
+    <div className="space-y-4 max-w-xl">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">{step === 'running' ? 'Sending invitations…' : 'Done'}</p>
+        {step === 'done' && <Button variant="ghost" size="sm" onClick={reset}><RefreshCw size={14} className="me-1" />Import more</Button>}
+      </div>
+      <ProgressTable rows={progress} />
       {step === 'done' && (
-        <div className="space-y-5">
-          {/* Results */}
-          <Card>
-            <CardBody>
-              <div className="flex items-center gap-3 mb-5">
-                <CheckCircle2 size={24} className="text-green-500 shrink-0" />
-                <div>
-                  <p className="text-base font-semibold text-foreground">Import complete</p>
-                  <p className="text-xs text-muted-foreground">{building?.name}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="rounded-xl bg-green-500/10 p-4 text-center">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{results.units}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">units created</p>
-                </div>
-                <div className="rounded-xl bg-primary/10 p-4 text-center">
-                  <p className="text-2xl font-bold text-primary">{results.balances}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">opening balances</p>
-                </div>
-                <div className="rounded-xl bg-muted p-4 text-center">
-                  <p className="text-2xl font-bold text-muted-foreground">{results.skipped}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">rows skipped</p>
-                </div>
-                <div className={cn('rounded-xl p-4 text-center', results.errors > 0 ? 'bg-red-500/10' : 'bg-muted')}>
-                  <p className={cn('text-2xl font-bold', results.errors > 0 ? 'text-red-500' : 'text-muted-foreground')}>
-                    {results.errors}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">errors</p>
-                </div>
-              </div>
-              {results.errors > 0 && (
-                <p className="text-xs text-muted-foreground mt-4">
-                  Rows with errors were skipped. Re-import is safe — duplicate labels will error and skip automatically.
-                </p>
-              )}
-            </CardBody>
-          </Card>
+        <p className="text-xs text-muted-foreground">Users who already have an account show as "Already exists" — no duplicate invite was sent.</p>
+      )}
+    </div>
+  );
 
-          {/* Owner assignment */}
-          {ownerRows.length > 0 && (
-            <Card>
-              <CardBody>
-                <div className="flex items-center gap-2 mb-1">
-                  <UserPlus size={16} className="text-primary shrink-0" />
-                  <p className="text-sm font-semibold text-foreground">Assign owners to units</p>
-                </div>
-                <p className="text-xs text-muted-foreground mb-4">
-                  {ownerRows.length} units have owner names from the file. Enter each owner's email to invite
-                  them and link them to their unit. Leave blank to skip — you can always invite later from the
-                  Users page.
-                </p>
+  return null;
+}
 
-                {(invitedCount > 0 || existingCount > 0) && (
-                  <div className="flex gap-4 mb-4 text-xs">
-                    {invitedCount > 0 && (
-                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <CheckCircle2 size={12} /> {invitedCount} invited
-                      </span>
-                    )}
-                    {existingCount > 0 && (
-                      <span className="flex items-center gap-1 text-primary">
-                        <CheckCircle2 size={12} /> {existingCount} linked to existing account
-                      </span>
-                    )}
-                  </div>
-                )}
+// ════════════════════════════════════════════════════════════════════════════
+// TAB 2 — BUILDINGS
+// ════════════════════════════════════════════════════════════════════════════
 
-                <div className="space-y-2">
-                  {ownerRows.map(row => {
-                    const status = ownerStatuses[row.unit_id] ?? 'pending';
-                    const isDone = status === 'invited' || status === 'exists';
-                    return (
-                      <div key={row.unit_id} className="flex items-center gap-3">
-                        <div className="w-24 shrink-0">
-                          <p className="text-xs font-medium text-foreground truncate">{row.unit_label}</p>
-                          <p className="text-xs text-muted-foreground truncate" dir="auto">{row.owner_name}</p>
-                          {row.owner_phone && (
-                            <p className="text-xs text-muted-foreground/60">{row.owner_phone}</p>
-                          )}
-                        </div>
-                        <input
-                          type="email"
-                          placeholder="owner@email.com"
-                          disabled={isDone || inviting}
-                          value={ownerEmails[row.unit_id] ?? ''}
-                          onChange={e => setOwnerEmails(prev => ({ ...prev, [row.unit_id]: e.target.value }))}
-                          className={cn(
-                            'flex-1 text-xs rounded-md border bg-background px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring/50 transition-colors',
-                            isDone
-                              ? 'border-border/40 text-muted-foreground cursor-not-allowed'
-                              : 'border-border text-foreground'
-                          )}
-                        />
-                        <div className="w-5 shrink-0 flex items-center justify-center">
-                          {status === 'inviting' && <Loader2 size={14} className="animate-spin text-primary" />}
-                          {status === 'invited'  && <CheckCircle2 size={14} className="text-green-500" />}
-                          {status === 'exists'   && <CheckCircle2 size={14} className="text-primary" />}
-                          {status === 'error'    && <AlertCircle  size={14} className="text-red-500" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+function BuildingsTab({ isPlatformAdmin, grants }: { isPlatformAdmin: boolean; grants: Grant[] }) {
+  const [step, setStep] = useState<StepState>('upload');
+  const [rows, setRows] = useState<BuildingRow[]>([]);
+  const [progress, setProgress] = useState<ProgressRow[]>([]);
+  const [orgId, setOrgId] = useState<string>('');
+  const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([]);
 
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    onClick={inviteOwners}
-                    disabled={inviting || pendingInvites.length === 0}
-                    loading={inviting}
-                    variant="secondary"
-                  >
-                    {inviting
-                      ? 'Inviting…'
-                      : `Invite & Assign${pendingInvites.length > 0 ? ` (${pendingInvites.length})` : ''}`
-                    }
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-          )}
+  const TEMPLATE = [
+    ['Building Name', 'Address', 'City', 'Compound Name'],
+    ['Block A', '123 Hamra St', 'Beirut', 'Sunset Gardens'],
+    ['Block B', '125 Hamra St', 'Beirut', 'Sunset Gardens'],
+    ['Tower C', '55 Verdun Ave', 'Beirut', ''],
+  ];
 
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setStep('upload');
-                resetFile();
-                setBuildingId('');
-                setMapping({});
-                setProgress(0);
-                setOwnerRows([]);
-                setOwnerEmails({});
-                setOwnerStatuses({});
-              }}
-            >
-              Import another file
-            </Button>
-            <Button onClick={() => { window.location.href = '/structure'; }}>
-              View structure →
-            </Button>
-          </div>
+  // Auto-detect org for org admins
+  useEffect(() => {
+    const grant = grants.find(g => g.scope_type === 'org' && g.role === 'org_admin');
+    if (grant?.org_id) setOrgId(grant.org_id);
+  }, [grants]);
+
+  // Platform admins see org picker
+  useEffect(() => {
+    if (!isPlatformAdmin) return;
+    supabase.from('orgs').select('id, name').order('name').then(({ data }) => setOrgs(data ?? []));
+  }, [isPlatformAdmin]);
+
+  async function handleFile(file: File) {
+    try {
+      const data = await parseSpreadsheet(file);
+      if (!data.length) { toast.error('File appears empty'); return; }
+      const parsed: BuildingRow[] = data.map(row => ({
+        name:          pickCol(row, 'building name', 'name', 'الاسم', 'building'),
+        address:       pickCol(row, 'address', 'العنوان') || '-',
+        city:          pickCol(row, 'city', 'المدينة') || 'Beirut',
+        compound_name: pickCol(row, 'compound name', 'compound', 'المجمع'),
+      })).filter(r => r.name);
+      if (!parsed.length) { toast.error('No valid building rows found'); return; }
+      setRows(parsed);
+      setStep('preview');
+    } catch { toast.error('Could not read file'); }
+  }
+
+  async function runImport() {
+    setProgress(rows.map(r => ({ label: r.name, detail: r.compound_name ? `Compound: ${r.compound_name}` : 'Standalone', status: 'pending' })));
+    setStep('running');
+
+    // Cache compound name → id
+    const compoundCache: Record<string, string> = {};
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
+      try {
+        let compound_id: string | null = null;
+
+        if (row.compound_name) {
+          if (compoundCache[row.compound_name]) {
+            compound_id = compoundCache[row.compound_name];
+          } else {
+            // Find or create compound
+            const { data: existing } = await supabase
+              .from('compounds')
+              .select('id')
+              .ilike('name', row.compound_name)
+              .maybeSingle();
+            if (existing) {
+              compound_id = existing.id;
+            } else {
+              const { data: created, error: cErr } = await supabase
+                .from('compounds')
+                .insert({ name: row.compound_name, city: row.city, country: 'Lebanon', ...(orgId ? { org_id: orgId } : {}) })
+                .select('id').single();
+              if (cErr) throw new Error(`Compound: ${cErr.message}`);
+              compound_id = created.id;
+            }
+            compoundCache[row.compound_name] = compound_id!;
+          }
+        }
+
+        const { data: bld, error: bErr } = await supabase
+          .from('buildings')
+          .insert({ name: row.name, address: row.address, city: row.city, country: 'Lebanon', compound_id })
+          .select('id').single();
+        if (bErr) throw new Error(bErr.message);
+
+        // Link to org
+        if (orgId && bld?.id) {
+          await supabase.from('org_buildings').insert({ org_id: orgId, building_id: bld.id });
+        }
+
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done' } : p));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'error', error: msg } : p));
+      }
+    }
+    setStep('done');
+  }
+
+  function reset() { setStep('upload'); setRows([]); setProgress([]); }
+
+  if (step === 'upload') return (
+    <div className="space-y-4 max-w-xl">
+      <p className="text-sm text-muted-foreground">Import buildings and compounds. Use the Compound Name column to group blocks under a compound — leave it blank for standalone buildings.</p>
+      {isPlatformAdmin && orgs.length > 0 && (
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Assign to org (optional)</label>
+          <select
+            value={orgId}
+            onChange={e => setOrgId(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">— No org —</option>
+            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
         </div>
       )}
+      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('buildings-template.csv', TEMPLATE)}>
+        <Download size={14} /> Download template
+      </Button>
+      <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls" hint="CSV or Excel • Building Name, Address, City, Compound Name" />
+    </div>
+  );
+
+  if (step === 'preview') return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{rows.length} building{rows.length !== 1 ? 's' : ''} ready to import</p>
+        <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted/40">
+            <tr>{['Building Name', 'Compound', 'Address', 'City'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="px-4 py-2 font-medium">{r.name}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.compound_name || '—'}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.address}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.city}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={runImport}>Import {rows.length} building{rows.length !== 1 ? 's' : ''}</Button>
+        <Button variant="outline" onClick={reset}>Cancel</Button>
+      </div>
+    </div>
+  );
+
+  if (step === 'running' || step === 'done') return (
+    <div className="space-y-4 max-w-xl">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">{step === 'running' ? 'Importing buildings…' : 'Done'}</p>
+        {step === 'done' && <Button variant="ghost" size="sm" onClick={reset}><RefreshCw size={14} className="me-1" />Import more</Button>}
+      </div>
+      <ProgressTable rows={progress} />
+    </div>
+  );
+
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TAB 3 — UNITS
+// ════════════════════════════════════════════════════════════════════════════
+
+function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
+  const [step, setStep] = useState<StepState>('upload');
+  const [rows, setRows] = useState<UnitRow[]>([]);
+  const [progress, setProgress] = useState<ProgressRow[]>([]);
+
+  const TEMPLATE = [
+    ['Unit Label', 'Floor', 'Building Name', 'Owner Email', 'Tenant Email', 'Share Weight'],
+    ['A101', '1', 'Block A', 'owner@email.com', '', '1.0'],
+    ['A102', '1', 'Block A', '', '', '1.0'],
+    ['B201', '2', 'Block B', 'owner2@email.com', 'tenant@email.com', '1.5'],
+  ];
+
+  async function handleFile(file: File) {
+    try {
+      const data = await parseSpreadsheet(file);
+      if (!data.length) { toast.error('File appears empty'); return; }
+      const parsed: UnitRow[] = data.map(row => ({
+        label:         pickCol(row, 'unit label', 'unit', 'apt', 'apartment', 'رقم الشقة', 'الوحدة'),
+        floor:         pickCol(row, 'floor', 'الطابق'),
+        building_name: pickCol(row, 'building name', 'building', 'block', 'المبنى'),
+        owner_email:   pickCol(row, 'owner email', 'owner', 'المالك'),
+        tenant_email:  pickCol(row, 'tenant email', 'tenant', 'المستأجر'),
+        share_weight:  pickCol(row, 'share weight', 'share', 'الحصة') || '1',
+      })).filter(r => r.label);
+      if (!parsed.length) { toast.error('No valid unit rows found'); return; }
+      setRows(parsed);
+      setStep('preview');
+    } catch { toast.error('Could not read file'); }
+  }
+
+  async function runImport() {
+    setProgress(rows.map(r => ({ label: r.label, detail: r.building_name, status: 'pending' })));
+    setStep('running');
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
+      try {
+        const building = buildings.find(b => b.name.toLowerCase() === row.building_name.toLowerCase());
+        if (!building) throw new Error(`Building "${row.building_name}" not found`);
+
+        const { data: unit, error: uErr } = await supabase
+          .from('units')
+          .insert({
+            building_id:  building.id,
+            label:        row.label,
+            share_weight: parseFloat(row.share_weight) || 1,
+          })
+          .select('id').single();
+        if (uErr) throw new Error(uErr.message);
+
+        // Link owner
+        if (row.owner_email.includes('@')) {
+          const { data: inv } = await supabase.functions.invoke('invite-user', {
+            body: { email: row.owner_email.trim().toLowerCase(), full_name: row.owner_email, mode: 'import' },
+          });
+          if (inv?.user_id) {
+            await supabase.from('memberships').insert({ user_id: inv.user_id, unit_id: unit.id, tenure: 'owner' });
+          }
+        }
+
+        // Link tenant
+        if (row.tenant_email.includes('@')) {
+          const { data: inv } = await supabase.functions.invoke('invite-user', {
+            body: { email: row.tenant_email.trim().toLowerCase(), full_name: row.tenant_email, mode: 'import' },
+          });
+          if (inv?.user_id) {
+            await supabase.from('memberships').insert({ user_id: inv.user_id, unit_id: unit.id, tenure: 'tenant' });
+          }
+        }
+
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done' } : p));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'error', error: msg } : p));
+      }
+    }
+    setStep('done');
+  }
+
+  function reset() { setStep('upload'); setRows([]); setProgress([]); }
+
+  if (step === 'upload') return (
+    <div className="space-y-4 max-w-xl">
+      <p className="text-sm text-muted-foreground">Import units and automatically link them to owners or tenants by email. Users who haven't accepted their invitation yet are still linked — their status (active/inactive) reflects acceptance only.</p>
+      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('units-template.csv', TEMPLATE)}>
+        <Download size={14} /> Download template
+      </Button>
+      <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls" hint="CSV or Excel • Unit Label, Floor, Building Name, Owner Email, Share Weight" />
+    </div>
+  );
+
+  if (step === 'preview') return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{rows.length} unit{rows.length !== 1 ? 's' : ''} ready to import</p>
+        <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted/40">
+            <tr>{['Unit', 'Floor', 'Building', 'Owner Email', 'Tenant Email', 'Share Wt'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td className="px-4 py-2 font-medium">{r.label}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.floor || '—'}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>
+                <td className="px-4 py-2 text-muted-foreground text-xs">{r.owner_email || '—'}</td>
+                <td className="px-4 py-2 text-muted-foreground text-xs">{r.tenant_email || '—'}</td>
+                <td className="px-4 py-2 text-muted-foreground">{r.share_weight || '1'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {buildings.length === 0 && (
+        <p className="text-xs text-amber-300">⚠ No buildings found — import buildings first or ensure you have access to at least one building.</p>
+      )}
+      <div className="flex gap-2">
+        <Button onClick={runImport} disabled={buildings.length === 0}>Import {rows.length} unit{rows.length !== 1 ? 's' : ''}</Button>
+        <Button variant="outline" onClick={reset}>Cancel</Button>
+      </div>
+    </div>
+  );
+
+  if (step === 'running' || step === 'done') return (
+    <div className="space-y-4 max-w-xl">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">{step === 'running' ? 'Importing units…' : 'Done'}</p>
+        {step === 'done' && <Button variant="ghost" size="sm" onClick={reset}><RefreshCw size={14} className="me-1" />Import more</Button>}
+      </div>
+      <ProgressTable rows={progress} />
+    </div>
+  );
+
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TAB 4 — EXPENSES & BALANCES (AI)
+// ════════════════════════════════════════════════════════════════════════════
+
+function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
+  const { user } = useAuth();
+  const [buildingId, setBuildingId] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiResult, setAiResult] = useState<{ expenses: AiExpenseRow[]; unit_charges: AiUnitCharge[]; unit_payments: AiUnitPayment[] } | null>(null);
+  const [dbUnits, setDbUnits] = useState<DbUnit[]>([]);
+  const [progress, setProgress] = useState<ProgressRow[]>([]);
+  const [step, setStep] = useState<StepState>('upload');
+  const [fileName, setFileName] = useState('');
+
+  // Load units when building selected
+  useEffect(() => {
+    if (!buildingId) { setDbUnits([]); return; }
+    supabase.from('units').select('id, label, share_weight, building_id').eq('building_id', buildingId)
+      .then(({ data }) => setDbUnits((data ?? []) as DbUnit[]));
+  }, [buildingId]);
+
+  async function handleFile(file: File) {
+    if (!buildingId) { toast.error('Select a building first'); return; }
+    setFileName(file.name);
+
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const MAX = 10 * 1024 * 1024;
+    if (file.size > MAX) { toast.error('File too large (max 10 MB)'); return; }
+
+    setAnalyzing(true);
+    try {
+      let content: string, format: string;
+
+      if (ext === 'pdf') {
+        const buf = await file.arrayBuffer();
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        content = b64; format = 'pdf';
+      } else if (['jpg', 'jpeg'].includes(ext)) {
+        const buf = await file.arrayBuffer();
+        content = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        format = 'jpeg';
+      } else if (ext === 'png') {
+        const buf = await file.arrayBuffer();
+        content = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        format = 'png';
+      } else {
+        // Excel / CSV — convert to CSV text
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        content = XLSX.utils.sheet_to_csv(ws);
+        format = 'excel';
+      }
+
+      const { data, error } = await supabase.functions.invoke('ai-expense-import', {
+        body: { content, format, filename: file.name },
+      });
+      if (error) throw new Error(error.message);
+
+      // Match unit labels to DB units
+      const expenses: AiExpenseRow[] = data.expenses ?? [];
+      const unit_charges: AiUnitCharge[] = (data.unit_charges ?? []).map((c: AiUnitCharge) => ({
+        ...c, unit_id: matchUnit(dbUnits, c.unit_label)?.id,
+      }));
+      const unit_payments: AiUnitPayment[] = (data.unit_payments ?? []).map((p: AiUnitPayment) => ({
+        ...p, unit_id: matchUnit(dbUnits, p.unit_label)?.id,
+      }));
+
+      if (!expenses.length && !unit_charges.length && !unit_payments.length) {
+        toast.error('AI could not extract any data from this file');
+        return;
+      }
+
+      setAiResult({ expenses, unit_charges, unit_payments });
+      setStep('preview');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Analysis failed');
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function runImport() {
+    if (!aiResult || !buildingId) return;
+    const { expenses, unit_charges, unit_payments } = aiResult;
+
+    const allRows: ProgressRow[] = [
+      ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toFixed(2)} · building expense`, status: 'pending' as RowStatus })),
+      ...unit_charges.filter(c => c.unit_id).map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toFixed(2)} charge`, status: 'pending' as RowStatus })),
+      ...unit_payments.filter(p => p.unit_id).map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toFixed(2)} payment`, status: 'pending' as RowStatus })),
+    ];
+    setProgress(allRows);
+    setStep('running');
+
+    let idx = 0;
+
+    // Expenses — create + allocate by share weight
+    const totalWeight = dbUnits.reduce((s, u) => s + Number(u.share_weight), 0) || 1;
+
+    for (const exp of expenses) {
+      setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
+      try {
+        const validCategory = ['water','electricity','common_expenses','projects','contracts','fines','other'].includes(exp.category)
+          ? exp.category : 'other';
+
+        const { data: expRow, error: eErr } = await supabase.from('expenses').insert({
+          building_id:  buildingId,
+          category:     validCategory,
+          description:  exp.description,
+          amount_usd:   exp.amount_usd,
+          expense_date: exp.expense_date ?? todayStr(),
+          scope_type:   'block',
+          method:       'by_shares',
+          created_by:   user?.id,
+        }).select('id').single();
+        if (eErr) throw new Error(eErr.message);
+
+        // Allocate charges per unit
+        if (dbUnits.length > 0) {
+          const chargeRows = dbUnits.map(u => ({
+            expense_id:  expRow.id,
+            unit_id:     u.id,
+            building_id: buildingId,
+            category:    validCategory,
+            description: exp.description,
+            amount_usd:  Math.round((exp.amount_usd * Number(u.share_weight) / totalWeight) * 100) / 100,
+            charge_date: exp.expense_date ?? todayStr(),
+            billed_to:   'both',
+            created_by:  user?.id,
+          })).filter(c => c.amount_usd > 0);
+          if (chargeRows.length) await supabase.from('charges').insert(chargeRows);
+        }
+
+        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'error', error: msg } : p));
+      }
+      idx++;
+    }
+
+    // Unit charges (direct per-unit)
+    for (const charge of unit_charges.filter(c => c.unit_id)) {
+      setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
+      try {
+        const { error } = await supabase.from('charges').insert({
+          unit_id:     charge.unit_id,
+          building_id: buildingId,
+          category:    'other',
+          description: charge.description,
+          amount_usd:  charge.amount_usd,
+          charge_date: charge.charge_date ?? todayStr(),
+          billed_to:   'both',
+          created_by:  user?.id,
+        });
+        if (error) throw new Error(error.message);
+        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'error', error: msg } : p));
+      }
+      idx++;
+    }
+
+    // Unit payments
+    for (const pmt of unit_payments.filter(p => p.unit_id)) {
+      setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
+      try {
+        const { error } = await supabase.from('payments').insert({
+          unit_id:     pmt.unit_id,
+          building_id: buildingId,
+          amount_usd:  pmt.amount_usd,
+          method:      'other',
+          paid_on:     pmt.paid_on ?? todayStr(),
+          note:        'Imported',
+          recorded_by: user?.id,
+        });
+        if (error) throw new Error(error.message);
+        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'error', error: msg } : p));
+      }
+      idx++;
+    }
+
+    setStep('done');
+  }
+
+  function reset() { setStep('upload'); setAiResult(null); setProgress([]); setFileName(''); }
+
+  const unmatched_charges = aiResult?.unit_charges.filter(c => !c.unit_id).length ?? 0;
+  const unmatched_payments = aiResult?.unit_payments.filter(p => !p.unit_id).length ?? 0;
+
+  if (step === 'upload') return (
+    <div className="space-y-4 max-w-xl">
+      <p className="text-sm text-muted-foreground">Upload any financial document — Trial Balance, payments spreadsheet, or scanned statement. The AI will extract expenses and per-unit balances automatically.</p>
+      <p className="text-xs text-muted-foreground/70">Supports: Excel, CSV, PDF, JPEG, PNG</p>
+
+      {buildings.length === 0 ? (
+        <p className="text-sm text-amber-300">Import buildings and units first before importing expenses.</p>
+      ) : (
+        <>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Building *</label>
+            <select
+              value={buildingId}
+              onChange={e => setBuildingId(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select a building…</option>
+              {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          {analyzing ? (
+            <div className="flex items-center gap-3 py-8 justify-center text-muted-foreground">
+              <Loader2 size={20} className="animate-spin text-primary" />
+              <span className="text-sm">AI is reading your document…</span>
+            </div>
+          ) : (
+            <DropZone
+              onFile={handleFile}
+              accept=".csv,.xlsx,.xls,.pdf,.jpg,.jpeg,.png"
+              hint="Excel, CSV, PDF, JPEG, or PNG"
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  if (step === 'preview' && aiResult) {
+    const { expenses, unit_charges, unit_payments } = aiResult;
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">AI extracted from: <span className="text-primary">{fileName}</span></p>
+            {(unmatched_charges > 0 || unmatched_payments > 0) && (
+              <p className="text-xs text-amber-300 mt-1">⚠ {unmatched_charges + unmatched_payments} unit(s) could not be matched — they will be skipped. Check unit labels match exactly.</p>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
+        </div>
+
+        {expenses.length > 0 && (
+          <PreviewSection title={`Building Expenses (${expenses.length})`} hint="Will be allocated to all units by share weight">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40"><tr>
+                {['Category', 'Description', 'Amount (USD)', 'Date'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-border">
+                {expenses.map((e, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-2 capitalize text-xs text-muted-foreground">{e.category.replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-2">{e.description}</td>
+                    <td className="px-4 py-2 tnum font-medium">${e.amount_usd.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-muted-foreground text-xs">{e.expense_date ?? 'Today'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </PreviewSection>
+        )}
+
+        {unit_charges.length > 0 && (
+          <PreviewSection title={`Unit Balances (${unit_charges.filter(c => c.unit_id).length} matched, ${unmatched_charges} skipped)`}>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40"><tr>
+                {['Unit', 'Description', 'Amount (USD)', 'Match'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-border">
+                {unit_charges.map((c, i) => (
+                  <tr key={i} className={!c.unit_id ? 'opacity-40' : ''}>
+                    <td className="px-4 py-2 font-medium">{c.unit_label}</td>
+                    <td className="px-4 py-2 text-muted-foreground text-xs">{c.description}</td>
+                    <td className="px-4 py-2 tnum">${c.amount_usd.toFixed(2)}</td>
+                    <td className="px-4 py-2">
+                      {c.unit_id
+                        ? <CheckCircle2 size={14} className="text-emerald-400" />
+                        : <span className="text-xs text-amber-300">No match</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </PreviewSection>
+        )}
+
+        {unit_payments.length > 0 && (
+          <PreviewSection title={`Unit Payments (${unit_payments.filter(p => p.unit_id).length} matched, ${unmatched_payments} skipped)`}>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40"><tr>
+                {['Unit', 'Amount (USD)', 'Date', 'Match'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-border">
+                {unit_payments.map((p, i) => (
+                  <tr key={i} className={!p.unit_id ? 'opacity-40' : ''}>
+                    <td className="px-4 py-2 font-medium">{p.unit_label}</td>
+                    <td className="px-4 py-2 tnum">${p.amount_usd.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-muted-foreground text-xs">{p.paid_on ?? 'Today'}</td>
+                    <td className="px-4 py-2">
+                      {p.unit_id
+                        ? <CheckCircle2 size={14} className="text-emerald-400" />
+                        : <span className="text-xs text-amber-300">No match</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </PreviewSection>
+        )}
+
+        <div className="flex gap-2">
+          <Button onClick={runImport}>Import data</Button>
+          <Button variant="outline" onClick={reset}>Cancel</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'running' || step === 'done') return (
+    <div className="space-y-4 max-w-xl">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold">{step === 'running' ? 'Importing…' : 'Done'}</p>
+        {step === 'done' && <Button variant="ghost" size="sm" onClick={reset}><RefreshCw size={14} className="me-1" />Import more</Button>}
+      </div>
+      <ProgressTable rows={progress} />
+    </div>
+  );
+
+  return null;
+}
+
+function PreviewSection({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{title}</p>
+        {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
+      </div>
+      <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">{children}</div>
     </div>
   );
 }
