@@ -9,7 +9,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
-  CalendarClock, X, Network, Boxes,
+  CalendarClock, X, Network, Boxes, FileUp,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -73,6 +73,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/users',         label: t('nav.people'),        icon: Users,     show: canPeople },
     { to: '/organizations', label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
     { to: '/compounds',     label: t('nav.compounds'),     icon: Boxes,     show: isPlatformAdmin || isOrgAdmin },
+    { to: '/import',        label: 'Import',               icon: FileUp,    show: canBuildings || canStructure },
   ].filter(l => l.show);
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');

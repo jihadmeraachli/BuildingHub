@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Boxes, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Boxes, Mail, Network, Pencil, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/lib/entities';
@@ -81,6 +81,10 @@ export default function Users() {
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
   const [deleteBlockers, setDeleteBlockers] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // edit profile (platform admin only)
+  const [editTarget, setEditTarget] = useState<Profile | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '' });
+  const [editSaving, setEditSaving] = useState(false);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [grantUserId, setGrantUserId] = useState('');
   const [grantRole, setGrantRole] = useState<GrantRole>('building_finance');
@@ -368,6 +372,25 @@ export default function Users() {
     const { data, error } = await supabase.rpc('can_delete_user', { p_target: u.id });
     if (error) { toast.error(error.message); setDeleteTarget(null); return; }
     setDeleteBlockers((data as string[]) ?? []);
+  }
+
+  function openEdit(u: Profile) {
+    setEditForm({ full_name: u.full_name, phone: u.phone ?? '' });
+    setEditTarget(u);
+  }
+
+  async function saveEdit() {
+    if (!editTarget) return;
+    setEditSaving(true);
+    const { error } = await supabase.from('profiles').update({
+      full_name: editForm.full_name.trim(),
+      phone: editForm.phone.trim() || null,
+    }).eq('id', editTarget.id);
+    setEditSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Profile updated');
+    setEditTarget(null);
+    loadUsers();
   }
 
   async function confirmDelete() {
@@ -868,6 +891,12 @@ export default function Users() {
                               {u.status === 'inactive' && (
                                 <Button size="sm" onClick={() => reactivateUser(u.id)}>{t('common.reactivate')}</Button>
                               )}
+                              {/* Edit profile: platform admin only. */}
+                              {isPlatformAdmin && (
+                                <Button size="sm" variant="secondary" onClick={() => openEdit(u)}>
+                                  <Pencil size={14} />
+                                </Button>
+                              )}
                               {/* Hard delete: platform admin only, never self. Guards enforced in DB (0026). */}
                               {isPlatformAdmin && u.id !== profile?.id && (
                                 <Button size="sm" variant="danger" onClick={() => openDelete(u)} title={t('users.deleteHint')}>
@@ -1145,6 +1174,30 @@ export default function Users() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addOrgGrant} disabled={!orgGrantUserId}>{t('users.addOrgAccess')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Edit profile modal — platform admin only */}
+      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit User" size="sm">
+        <div className="space-y-4">
+          <Input
+            label={t('users.inviteFullName')}
+            value={editForm.full_name}
+            onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+          />
+          <Input
+            label={t('users.invitePhone')}
+            type="tel"
+            value={editForm.phone}
+            onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
+            placeholder="+961 70 000 000"
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
+            <Button onClick={saveEdit} loading={editSaving} disabled={!editForm.full_name.trim()}>
+              {t('common.save')}
+            </Button>
           </div>
         </div>
       </Modal>

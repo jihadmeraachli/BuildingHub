@@ -2,14 +2,15 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
-import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X } from 'lucide-react';
+import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Building, Compound, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Input, SelectInput } from '@/components/ui/Input';
+import { LEBANON_CITIES, COUNTRIES } from '@/lib/locationData';
 import { Controller } from 'react-hook-form';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
@@ -93,14 +94,13 @@ function SearchableColFilter({
         ref={triggerRef}
         type="button"
         onClick={toggle}
+        title={value ? selectedLabel : undefined}
         className={cn(
-          'w-full mt-1.5 text-xs rounded-md border px-2 py-1 text-left truncate focus:outline-none focus:ring-1 focus:ring-ring/60 cursor-pointer transition-colors',
-          value
-            ? 'border-primary/60 bg-primary/5 text-primary font-medium'
-            : 'border-border bg-background text-muted-foreground'
+          'inline-flex items-center justify-center w-4 h-4 rounded transition-colors cursor-pointer focus:outline-none',
+          value ? 'text-primary' : 'text-muted-foreground/50 hover:text-muted-foreground'
         )}
       >
-        {selectedLabel}
+        <ChevronDown size={12} />
       </button>
 
       {open && rect && createPortal(
@@ -421,7 +421,7 @@ export default function Buildings() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border align-top">
+                <tr className="border-b border-border">
                   {/* Name — search bar handles text search */}
                   <th className="text-start text-xs font-medium text-muted-foreground py-3 px-4">
                     {t('buildings.name')}
@@ -429,54 +429,64 @@ export default function Buildings() {
 
                   {/* City */}
                   <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
-                    {t('buildings.city')}
-                    <SearchableColFilter
-                      value={filters.city}
-                      onChange={v => setFilter('city', v)}
-                      options={cityOptions}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <span>{t('buildings.city')}</span>
+                      <SearchableColFilter
+                        value={filters.city}
+                        onChange={v => setFilter('city', v)}
+                        options={cityOptions}
+                      />
+                    </div>
                   </th>
 
                   {/* Organization — platform admin only, searchable */}
                   {isPlatformAdmin && (
                     <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                      {t('nav.organizations')}
-                      <SearchableColFilter
-                        value={filters.org}
-                        onChange={v => setFilter('org', v)}
-                        options={orgOptions}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <span>{t('nav.organizations')}</span>
+                        <SearchableColFilter
+                          value={filters.org}
+                          onChange={v => setFilter('org', v)}
+                          options={orgOptions}
+                        />
+                      </div>
                     </th>
                   )}
 
                   {/* Compound — searchable */}
                   <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
-                    {t('nav.compounds')}
-                    <SearchableColFilter
-                      value={filters.compound}
-                      onChange={v => setFilter('compound', v)}
-                      options={compoundOptions}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <span>{t('nav.compounds')}</span>
+                      <SearchableColFilter
+                        value={filters.compound}
+                        onChange={v => setFilter('compound', v)}
+                        options={compoundOptions}
+                      />
+                    </div>
                   </th>
 
                   {/* Status */}
                   <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3">
-                    {t('common.status')}
-                    <SearchableColFilter
-                      value={filters.status}
-                      onChange={v => setFilter('status', v)}
-                      options={statusOptions}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <span>{t('common.status')}</span>
+                      <SearchableColFilter
+                        value={filters.status}
+                        onChange={v => setFilter('status', v)}
+                        options={statusOptions}
+                      />
+                    </div>
                   </th>
 
                   {/* Billing mode */}
                   <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">
-                    Billing
-                    <SearchableColFilter
-                      value={filters.billing}
-                      onChange={v => setFilter('billing', v)}
-                      options={billingOptions}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <span>Billing</span>
+                      <SearchableColFilter
+                        value={filters.billing}
+                        onChange={v => setFilter('billing', v)}
+                        options={billingOptions}
+                      />
+                    </div>
                   </th>
 
                   <th className="py-3 px-4 w-16" />
@@ -574,8 +584,13 @@ export default function Buildings() {
           <Input label={t('buildings.name')} {...register('name', { required: true })} />
           <Input label={t('buildings.address')} {...register('address', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('buildings.city')} {...register('city', { required: true })} />
-            <Input label={t('buildings.country')} defaultValue="Lebanon" {...register('country', { required: true })} />
+            <SelectInput label={t('buildings.city')} {...register('city', { required: true })}>
+              <option value="">— {t('buildings.city')} —</option>
+              {LEBANON_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </SelectInput>
+            <SelectInput label={t('buildings.country')} defaultValue="Lebanon" {...register('country', { required: true })}>
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </SelectInput>
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
@@ -601,8 +616,13 @@ export default function Buildings() {
           <Input label={t('buildings.name')} value={ebForm.name} onChange={e => setEbForm({ ...ebForm, name: e.target.value })} />
           <Input label={t('buildings.address')} value={ebForm.address} onChange={e => setEbForm({ ...ebForm, address: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('buildings.city')} value={ebForm.city} onChange={e => setEbForm({ ...ebForm, city: e.target.value })} />
-            <Input label={t('buildings.country')} value={ebForm.country} onChange={e => setEbForm({ ...ebForm, country: e.target.value })} />
+            <SelectInput label={t('buildings.city')} value={ebForm.city} onChange={e => setEbForm({ ...ebForm, city: e.target.value })}>
+              <option value="">— {t('buildings.city')} —</option>
+              {LEBANON_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </SelectInput>
+            <SelectInput label={t('buildings.country')} value={ebForm.country} onChange={e => setEbForm({ ...ebForm, country: e.target.value })}>
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </SelectInput>
           </div>
           <Input label={t('buildings.contactEmail')} type="email" value={ebForm.contact_email} onChange={e => setEbForm({ ...ebForm, contact_email: e.target.value })} />
           <Input label={t('buildings.contactPhone')} type="tel" value={ebForm.contact_phone} onChange={e => setEbForm({ ...ebForm, contact_phone: e.target.value })} />

@@ -34,4 +34,36 @@ function Input({ className, type, label, id, error, ...props }: InputProps) {
   )
 }
 
-export { Input }
+type SelectInputProps = React.ComponentProps<"select"> & {
+  label?: string;
+  error?: string;
+  children: React.ReactNode;
+};
+
+function SelectInput({ className, label, id, error, children, ...props }: SelectInputProps) {
+  const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+  const el = (
+    <select
+      id={selectId}
+      data-slot="input"
+      className={cn(
+        "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none text-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 cursor-pointer",
+        "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </select>
+  );
+  if (!label && !error) return el;
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && <Label htmlFor={selectId}>{label}</Label>}
+      {el}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+export { Input, SelectInput }

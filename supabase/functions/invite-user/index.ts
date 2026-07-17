@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403);
     }
 
-    const { email, full_name, phone, grant } = await req.json();
+    const { email, full_name, phone, grant, mode } = await req.json();
     if (!email?.trim() || !full_name?.trim()) {
       return json({ error: 'email and full_name are required' }, 400);
     }
@@ -93,8 +93,14 @@ Deno.serve(async (req) => {
     );
 
     if (inviteErr) {
-      // User already registered — tell the admin to use the Access panel instead
       if (inviteErr.message?.toLowerCase().includes('already')) {
+        // Import mode: look up the existing user and return their ID so the caller can create a membership
+        if (mode === 'import') {
+          const { data: existing } = await admin.auth.admin.getUserByEmail(email.trim().toLowerCase());
+          if (existing?.user) {
+            return json({ success: true, user_id: existing.user.id, existing: true });
+          }
+        }
         return json({
           error: 'A user with this email already exists. Use the Access tab to assign them a role.',
           code: 'already_exists',

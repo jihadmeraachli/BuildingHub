@@ -23,6 +23,7 @@ const Users      = lazy(() => import('@/pages/Users'));
 const Buildings      = lazy(() => import('@/pages/Buildings'));
 const Organizations  = lazy(() => import('@/pages/Organizations'));
 const Compounds      = lazy(() => import('@/pages/Compounds'));
+const Import         = lazy(() => import('@/pages/Import'));
 const Settings       = lazy(() => import('@/pages/Settings'));
 
 function PageFallback() {
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/buildings"     element={<Buildings />} />
               <Route path="/organizations" element={<Organizations />} />
               <Route path="/compounds"     element={<Compounds />} />
+              <Route path="/import"        element={<Import />} />
               {/* your own account — no capability gate, everyone has one */}
               <Route path="/settings" element={<Settings />} />
             </Route>
