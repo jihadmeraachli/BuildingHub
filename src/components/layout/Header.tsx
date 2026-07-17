@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Menu, Bell, Globe, Sun, Moon } from 'lucide-react';
+import { Menu, Bell, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { setLanguage } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -19,7 +18,6 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { isDark, setTheme, theme } = useTheme();
 
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -48,11 +46,6 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   function toggleLang() { setLanguage(i18n.language === 'ar' ? 'en' : 'ar'); }
 
-  function toggleTheme() {
-    if (theme === 'system') setTheme(isDark ? 'light' : 'dark');
-    else setTheme(isDark ? 'light' : 'dark');
-  }
-
   return (
     <header className="h-14 shrink-0 flex items-center justify-between gap-2 px-4 lg:px-6 border-b border-border bg-background">
       {/* Mobile menu trigger */}
@@ -69,11 +62,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex-1" />
 
       <div className="flex items-center gap-1">
-        {/* Theme toggle */}
-        <Button variant="ghost" size="icon-sm" onClick={toggleTheme} aria-label="Toggle theme">
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-        </Button>
-
         {/* Language toggle */}
         <Button
           variant="ghost"
