@@ -14,6 +14,7 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { MonthPicker } from '@/components/ui/MonthPicker';
@@ -86,10 +87,10 @@ export default function Finance() {
   }, [buildings, compounds]);
 
   const [entityKey, setEntityKey] = useState('');
-  const [blockFilter, setBlockFilter] = useState('');
+  const [blockFilters, setBlockFilters] = useState<string[]>([]);
   useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
   const entity = entities.find((e) => e.key === entityKey) ?? null;
-  useEffect(() => { setBlockFilter(''); }, [entityKey]);
+  useEffect(() => { setBlockFilters([]); }, [entityKey]);
 
   const [tab, setTab] = useState<'book' | 'expenses' | 'payments'>('book');
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
@@ -172,12 +173,12 @@ export default function Finance() {
     return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
   };
 
-  // block-filter (client side) — slices everything to one block
-  const inBlock = (bid: string | null) => !blockFilter || bid === blockFilter;
+  // block-filter (client side) — slices to selected blocks; [] = all
+  const inBlock = (bid: string | null) => blockFilters.length === 0 || (bid != null && blockFilters.includes(bid));
   const vUnits = units.filter((u) => inBlock(u.building_id));
   const vCharges = charges.filter((c) => inBlock(c.building_id));
   const vPayments = payments.filter((p) => inBlock(p.building_id));
-  const vExpenses = expenses.filter((e) => inBlock(e.building_id) || (!blockFilter && !e.building_id));
+  const vExpenses = expenses.filter((e) => inBlock(e.building_id) || (blockFilters.length === 0 && !e.building_id));
 
   // period filter
   const now = new Date();
@@ -424,15 +425,12 @@ export default function Finance() {
             </RadixSelect>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
-                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-              </SelectContent>
-            </RadixSelect>
+            <MultiSelect
+              options={entity.blocks.map(b => ({ value: b.id, label: b.name }))}
+              value={blockFilters}
+              onChange={setBlockFilters}
+              allLabel={t('finance.allBlocks')}
+            />
           )}
           <RadixSelect value={period} onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}>
             <SelectTrigger>
@@ -463,7 +461,7 @@ export default function Finance() {
             <Card className="lg:col-span-2"><CardBody>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-primary">{t('dashboard.collectedVsSpent')}</p>
-                <span className="text-xs text-muted-foreground">{periodLabel}{blockFilter ? ` · ${blockName[blockFilter]}` : ''}</span>
+                <span className="text-xs text-muted-foreground">{periodLabel}{blockFilters.length === 1 ? ` · ${blockName[blockFilters[0]]}` : blockFilters.length > 1 ? ` · ${blockFilters.length} blocks` : ''}</span>
               </div>
               <TrendChart labels={trend.labels} series={[{ name: t('finance.collected'), color: '#10b981', data: trend.collected }, { name: t('finance.billed'), color: '#6366f1', data: trend.billed }]} />
             </CardBody></Card>

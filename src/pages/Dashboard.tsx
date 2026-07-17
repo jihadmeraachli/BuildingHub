@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import type { Meeting } from '@/types';
 import { TrendChart } from '@/components/ui/Charts';
 import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
@@ -37,8 +38,8 @@ export default function Dashboard() {
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
   const [entityKey, setEntityKey] = useState('');
-  const [blockFilter, setBlockFilter] = useState('');
-  useEffect(() => { setBlockFilter(''); }, [entityKey]);
+  const [blockFilters, setBlockFilters] = useState<string[]>([]);
+  useEffect(() => { setBlockFilters([]); }, [entityKey]);
   const selEntity = entities.find((e) => e.key === entityKey) ?? null;
   const [coverage, setCoverage] = useState({ runwayMonths: 0, duesIssued: 0, duesPeriod: '' });
   const buildingIds = useMemo(() => buildings.map((b) => b.id), [buildings]);
@@ -48,22 +49,22 @@ export default function Dashboard() {
     if (isManager) loadManager();
     else if (myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, isManager, entityKey, blockFilter]);
+  }, [idsKey, isManager, entityKey, blockFilters]);
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
     let q = supabase.from('meetings').select('*').gte('meeting_date', today);
     if (isManager) {
-      const scope = entityKey ? (blockFilter ? [blockFilter] : (selEntity?.buildingIds ?? buildingIds)) : buildingIds;
+      const scope = entityKey ? (blockFilters.length > 0 ? blockFilters : (selEntity?.buildingIds ?? buildingIds)) : buildingIds;
       q = q.in('building_id', scope.length ? scope : ['00000000-0000-0000-0000-000000000000']);
     }
     q.order('meeting_date', { ascending: true }).limit(5).then(({ data }) => setUpcoming((data as Meeting[]) ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, entityKey, blockFilter, isManager]);
+  }, [idsKey, entityKey, blockFilters, isManager]);
 
   async function loadManager() {
     const ent = entities.find((e) => e.key === entityKey);
-    const scope = entityKey ? (blockFilter ? [blockFilter] : (ent?.buildingIds ?? buildingIds)) : buildingIds;
+    const scope = entityKey ? (blockFilters.length > 0 ? blockFilters : (ent?.buildingIds ?? buildingIds)) : buildingIds;
     const inIds = scope.length ? scope : ['00000000-0000-0000-0000-000000000000'];
     const [chargesRes, paymentsRes, unitsRes, issuesRes, duesRes] = await Promise.all([
       supabase.from('charges').select('amount_usd, unit_id, charge_date').in('building_id', inIds),
@@ -176,17 +177,12 @@ export default function Dashboard() {
             </RadixSelect>
           )}
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
-            <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
-                {selEntity.blocks.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </RadixSelect>
+            <MultiSelect
+              options={selEntity.blocks.map(b => ({ value: b.id, label: b.name }))}
+              value={blockFilters}
+              onChange={setBlockFilters}
+              allLabel={t('finance.allBlocks')}
+            />
           )}
         </div>
       </div>
@@ -206,10 +202,10 @@ export default function Dashboard() {
 
       {/* Stat row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label={t('dashboard.outstanding')} value={money(agg.outstanding)} icon={AlertCircle} accent={agg.outstanding > 0 ? 'amber' : 'default'} />
-        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}        icon={TrendingUp}  accent="teal" />
-        <StatCard label={t('dashboard.units')}         value={String(agg.units)}          icon={Home}        accent="teal" />
-        <StatCard label={t('dashboard.openIssues')}   value={String(agg.openIssues)}   icon={AlertTriangle} accent={agg.openIssues > 0 ? 'rose' : 'default'} />
+        <StatCard label={t('dashboard.outstanding')} value={money(agg.outstanding)} icon={AlertCircle}   accent="teal" />
+        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}      icon={TrendingUp}    accent="teal" />
+        <StatCard label={t('dashboard.units')}        value={String(agg.units)}      icon={Home}          accent="teal" />
+        <StatCard label={t('dashboard.openIssues')}   value={String(agg.openIssues)} icon={AlertTriangle} accent="teal" />
       </div>
 
       {/* Charts */}
@@ -313,10 +309,10 @@ type Accent = 'teal' | 'amber' | 'rose' | 'default';
 
 function StatCard({ label, value, icon: Icon, accent }: { label: string; value: string; icon: ElementType; accent: Accent }) {
   const iconClass: Record<Accent, string> = {
-    teal:    'bg-primary/10 text-primary',
-    amber:   'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-    rose:    'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-    default: 'bg-muted text-muted-foreground',
+    teal:    'bg-primary/15 text-primary',
+    amber:   'bg-amber-400/15 text-amber-300',
+    rose:    'bg-rose-400/15 text-rose-300',
+    default: 'bg-primary/10 text-primary/50',
   };
   return (
     <Card className="gap-3 py-4">
