@@ -12,6 +12,7 @@ import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
 import type { Entity } from '@/lib/entities';
 import { Button } from '@/components/ui/button';
+import { RadixSelect, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectSeparator } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -886,27 +887,32 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         <>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Building / Compound *</label>
-            <select
-              value={entityKey}
-              onChange={e => { setEntityKey(e.target.value); setAiResult(null); }}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Select a building or compound…</option>
-              {entities.some(e => e.kind === 'compound') && (
-                <optgroup label="Compounds">
-                  {entities.filter(e => e.kind === 'compound').map(e => (
-                    <option key={e.key} value={e.key}>{e.name} ({e.blocks.length} blocks)</option>
-                  ))}
-                </optgroup>
-              )}
-              {entities.some(e => e.kind === 'building') && (
-                <optgroup label="Buildings">
-                  {entities.filter(e => e.kind === 'building').map(e => (
-                    <option key={e.key} value={e.key}>{e.name}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+            <RadixSelect value={entityKey} onValueChange={v => { setEntityKey(v); setAiResult(null); }}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a building or compound…" />
+              </SelectTrigger>
+              <SelectContent>
+                {entities.some(e => e.kind === 'compound') && (
+                  <SelectGroup>
+                    <SelectLabel>Compounds</SelectLabel>
+                    {entities.filter(e => e.kind === 'compound').map(e => (
+                      <SelectItem key={e.key} value={e.key}>{e.name} ({e.blocks.length} blocks)</SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                {entities.some(e => e.kind === 'compound') && entities.some(e => e.kind === 'building') && (
+                  <SelectSeparator />
+                )}
+                {entities.some(e => e.kind === 'building') && (
+                  <SelectGroup>
+                    <SelectLabel>Buildings</SelectLabel>
+                    {entities.filter(e => e.kind === 'building').map(e => (
+                      <SelectItem key={e.key} value={e.key}>{e.name}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </RadixSelect>
           </div>
           {selectedEntity?.kind === 'compound' && (
             <p className="text-xs text-muted-foreground/70">
