@@ -52,7 +52,8 @@ Return ONLY a JSON object — no markdown, no explanation — with exactly these
     {
       "unit_label": "string",
       "amount_usd": 0.00,
-      "paid_on": "YYYY-MM-DD or null"
+      "paid_on": "YYYY-MM-DD or null",
+      "method": "cash|bank_transfer|cheque|other"
     }
   ]
 }
@@ -78,7 +79,13 @@ Special cases:
 - Per-unit rows with budget + payments + remaining balance → populate unit_charges (remaining balance) and unit_payments (payments column)
 - Documents with both building totals AND per-unit data → populate all three arrays
 - Convert Arabic-Indic numerals to Western digits in all fields
-- Keep Arabic names as-is in description fields`;
+- Keep Arabic names as-is in description fields
+
+Method mapping for unit_payments:
+- "cheque", "check", "chèque", "صك", "شيك" → "cheque"
+- "bank transfer", "wire", "swift", "bank", "transfer", "ach", "تحويل" → "bank_transfer"
+- "cash", "fresh", "usd fresh", "نقد", "كاش" → "cash"
+- anything else or unknown → "other"`;
 
   let contentBlock: Record<string, unknown>;
   if (format === 'pdf') {
@@ -147,9 +154,11 @@ Special cases:
     return { unit_label: str(r.unit_label), description: str(r.description) || 'Outstanding balance', amount_usd: num(r.amount_usd), charge_date: r.charge_date ? str(r.charge_date) : null };
   }).filter(c => c.unit_label && c.amount_usd > 0);
 
+  const VALID_METHODS = ['cash', 'bank_transfer', 'cheque', 'other'];
   const unit_payments = (parsed.unit_payments ?? []).map((p: unknown) => {
     const r = p as Record<string, unknown>;
-    return { unit_label: str(r.unit_label), amount_usd: num(r.amount_usd), paid_on: r.paid_on ? str(r.paid_on) : null };
+    const method = VALID_METHODS.includes(str(r.method)) ? str(r.method) : 'other';
+    return { unit_label: str(r.unit_label), amount_usd: num(r.amount_usd), paid_on: r.paid_on ? str(r.paid_on) : null, method };
   }).filter(p => p.unit_label && p.amount_usd > 0);
 
   return json({ expenses, unit_charges, unit_payments });

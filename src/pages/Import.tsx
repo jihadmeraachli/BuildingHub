@@ -28,7 +28,7 @@ interface DbBuilding { id: string; name: string; }
 
 interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; }
 interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; }
-interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; }
+interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; method?: string; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -800,7 +800,7 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
           unit_id:     pmt.unit_id,
           building_id: buildingId,
           amount_usd:  pmt.amount_usd,
-          method:      'other',
+          method:      (pmt.method ?? 'other') as 'cash' | 'bank_transfer' | 'cheque' | 'other',
           paid_on:     pmt.paid_on ?? todayStr(),
           note:        'Imported',
           recorded_by: user?.id,
