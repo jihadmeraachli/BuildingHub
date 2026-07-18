@@ -28,6 +28,15 @@ Deno.serve(async (req) => {
     return json({ error: (e instanceof Error ? e.message : 'Bad request') }, 400);
   }
 
+  // Truncate large CSVs to first 150 rows to stay within token limits
+  if (format === 'excel') {
+    const lines = content.split('\n');
+    if (lines.length > 151) {
+      content = lines.slice(0, 151).join('\n');
+      console.log(`CSV truncated to 150 rows (was ${lines.length - 1} rows)`);
+    }
+  }
+
   const PROMPT = `You are extracting financial data from a building management document.
 
 Return ONLY a JSON object — no markdown, no explanation — with exactly these keys:
@@ -101,6 +110,7 @@ Method mapping for unit_payments:
     contentBlock = { type: 'text', text: content };
   }
 
+  console.log(`Calling Anthropic: format=${format}, content_length=${content.length}`);
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -110,7 +120,7 @@ Method mapping for unit_payments:
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4096,
       messages: [{
         role: 'user',
@@ -124,8 +134,10 @@ Method mapping for unit_payments:
 
   if (!response.ok) {
     const err = await response.text();
+    console.error(`Anthropic error ${response.status}: ${err}`);
     return json({ error: `Anthropic API error: ${err}` }, 502);
   }
+  console.log('Anthropic responded OK');
 
   const result = await response.json();
   const text: string = result.content?.[0]?.text ?? '{}';
