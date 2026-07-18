@@ -87,7 +87,9 @@ Rules for unit_payments (per-unit payments already received):
 
 Special cases:
 - Trial Balance (account codes, debit/credit columns) → populate expenses only
-- Per-unit rows with budget + payments + remaining balance → populate unit_charges (remaining balance) and unit_payments (payments column)
+- Per-unit rows with a "Total Charged", "Total Billed", "Gross", or "Budget" column PLUS a payment column: map the TOTAL CHARGED column directly to unit_charges.amount_usd (do NOT subtract payments or compute a remaining — use the full gross amount). Map the payment column to unit_payments.amount_usd.
+- Per-unit rows with ONLY a remaining/outstanding balance column (no total charged column): use that remaining balance as unit_charges.amount_usd.
+- Per-unit rows with both a total-charged column and a remaining-balance column: ignore the remaining balance; use total charged for unit_charges and the payment column for unit_payments.
 - Documents with both building totals AND per-unit data → populate all three arrays
 - Convert Arabic-Indic numerals to Western digits in all fields
 - Keep Arabic names as-is in description fields
@@ -111,24 +113,34 @@ Method mapping for unit_payments:
   }
 
   console.log(`Calling Anthropic: format=${format}, content_length=${content.length}`);
+  const headers: Record<string, string> = {
+    'x-api-key': ANTHROPIC_API_KEY,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+  };
+  // PDF beta header only needed for PDF content
+  if (format === 'pdf') headers['anthropic-beta'] = 'pdfs-2024-09-25';
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'pdfs-2024-09-25',
-      'content-type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{
-        role: 'user',
-        content: [
-          contentBlock,
-          { type: 'text', text: PROMPT },
-        ],
-      }],
+      max_tokens: 8192,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            contentBlock,
+            { type: 'text', text: PROMPT },
+          ],
+        },
+        {
+          // Prefill forces the model to start JSON directly — no fences, no preamble
+          role: 'assistant',
+          content: '{',
+        },
+      ],
     }),
   });
 
@@ -140,16 +152,17 @@ Method mapping for unit_payments:
   console.log('Anthropic responded OK');
 
   const result = await response.json();
-  const text: string = result.content?.[0]?.text ?? '{}';
-  const match = text.match(/\{[\s\S]*\}/);
+  // Prefill means the model continued from '{' — prepend it back
+  const fragment: string = result.content?.[0]?.text ?? '}';
+  const raw = '{' + fragment;
+  console.log(`AI response (first 300 chars): ${raw.slice(0, 300)}`);
 
-  if (!match) return json({ error: 'Could not parse AI response', raw: text }, 422);
-
-  let parsed: { expenses?: unknown[]; unit_charges?: unknown[]; unit_payments?: unknown[] };
+  let parsed: { expenses?: unknown[]; unit_charges?: unknown[]; unit_payments?: unknown[] } = {};
   try {
-    parsed = JSON.parse(match[0]);
-  } catch {
-    return json({ error: 'Invalid JSON from AI', raw: text }, 422);
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    console.error(`JSON.parse failed: ${e}. Raw: ${raw.slice(0, 200)}`);
+    return json({ error: 'Invalid JSON from AI', raw }, 422);
   }
 
   function num(v: unknown): number {
