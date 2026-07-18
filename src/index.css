@@ -183,10 +183,12 @@
     outline-color: var(--ring);
   }
 
-  /* Native <select>: give the closed control and every open option a dark bg */
+  /* Native <select>: teal accent replaces browser-default blue */
   .dark select {
     background-color: var(--popover);
     color: var(--popover-foreground);
+    accent-color: var(--primary);
+    color-scheme: dark;
   }
   .dark option {
     background-color: var(--popover);
