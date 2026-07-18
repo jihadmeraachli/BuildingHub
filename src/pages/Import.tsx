@@ -685,6 +685,8 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
 
   async function handleFile(file: File) {
     if (!entityKey) { toast.error('Select a building or compound first'); return; }
+    setAiResult(null);
+    setStep('upload');
     setFileName(file.name);
 
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
