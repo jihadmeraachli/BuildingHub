@@ -819,12 +819,41 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
 
   function reset() { setStep('upload'); setAiResult(null); setProgress([]); setFileName(''); }
 
+  function downloadExpensesTemplate() {
+    const wb = XLSX.utils.book_new();
+
+    const expenses = XLSX.utils.aoa_to_sheet([
+      ['Description', 'Category', 'Amount (USD)', 'Date (YYYY-MM-DD)'],
+      ['Security services', 'common_expenses', 500.00, '2024-01-31'],
+      ['Water & generator diesel', 'water', 320.00, '2024-01-31'],
+      ['Electricity', 'electricity', 210.00, '2024-01-31'],
+      ['Elevator maintenance contract', 'contracts', 150.00, '2024-01-31'],
+    ]);
+    expenses['!cols'] = [{ wch: 35 }, { wch: 20 }, { wch: 16 }, { wch: 20 }];
+
+    const balances = XLSX.utils.aoa_to_sheet([
+      ['Unit Label', 'Outstanding Balance (USD)', 'Payment Amount (USD)', 'Payment Date (YYYY-MM-DD)', 'Payment Method (cash / cheque / bank_transfer)'],
+      ['A101', 150.00, 100.00, '2024-01-15', 'cash'],
+      ['A102', 200.00, 200.00, '2024-01-10', 'cheque'],
+      ['B201', 75.00, '', '', ''],
+      ['B202', 0, 300.00, '2024-01-20', 'bank_transfer'],
+    ]);
+    balances['!cols'] = [{ wch: 14 }, { wch: 26 }, { wch: 22 }, { wch: 28 }, { wch: 44 }];
+
+    XLSX.utils.book_append_sheet(wb, expenses, 'Building Expenses');
+    XLSX.utils.book_append_sheet(wb, balances, 'Unit Balances & Payments');
+    XLSX.writeFile(wb, 'expenses-template.xlsx');
+  }
+
   const unmatched_charges = aiResult?.unit_charges.filter(c => !c.unit_id).length ?? 0;
   const unmatched_payments = aiResult?.unit_payments.filter(p => !p.unit_id).length ?? 0;
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
       <p className="text-sm text-muted-foreground">Upload any financial document — Trial Balance, payments spreadsheet, or scanned statement. The AI will extract expenses and per-unit balances automatically.</p>
+      <Button variant="outline" size="sm" className="gap-2" onClick={downloadExpensesTemplate}>
+        <Download size={14} /> Download template
+      </Button>
       <p className="text-xs text-muted-foreground/70">Supports: Excel, CSV, PDF, JPEG, PNG</p>
 
       {buildings.length === 0 ? (
