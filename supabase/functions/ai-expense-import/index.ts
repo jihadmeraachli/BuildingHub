@@ -37,7 +37,8 @@ Return ONLY a JSON object — no markdown, no explanation — with exactly these
       "description": "string",
       "category": "common_expenses|water|electricity|contracts|projects|fines|other",
       "amount_usd": 0.00,
-      "expense_date": "YYYY-MM-DD or null"
+      "expense_date": "YYYY-MM-DD or null",
+      "block": "single letter or identifier e.g. A, B — or null if compound-wide"
     }
   ],
   "unit_charges": [
@@ -63,6 +64,7 @@ Rules for expenses (building-wide line items — e.g. security services, janitor
 - category: common_expenses for management/admin/services; water for water/generator/diesel; electricity for power; contracts for service contracts; projects for construction/capital; fines for penalties; other for the rest
 - amount_usd: USD value only, positive. Ignore LBP columns entirely.
 - expense_date: use the document's period end date, or null if unclear
+- block: if the document has sections per block/tower (e.g. "Block A expenses", column header "A"), set to the block letter/identifier. Otherwise null.
 
 Rules for unit_charges (per-unit outstanding balances or dues owed):
 - unit_label: the apartment/unit code (A104, 201, "1 East", etc.)
@@ -146,7 +148,7 @@ Method mapping for unit_payments:
 
   const expenses = (parsed.expenses ?? []).map((e: unknown) => {
     const r = e as Record<string, unknown>;
-    return { description: str(r.description), category: str(r.category) || 'other', amount_usd: num(r.amount_usd), expense_date: r.expense_date ? str(r.expense_date) : null };
+    return { description: str(r.description), category: str(r.category) || 'other', amount_usd: num(r.amount_usd), expense_date: r.expense_date ? str(r.expense_date) : null, block: r.block ? str(r.block) : null };
   }).filter(e => e.amount_usd > 0 && e.description);
 
   const unit_charges = (parsed.unit_charges ?? []).map((c: unknown) => {

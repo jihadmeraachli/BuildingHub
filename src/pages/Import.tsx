@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
+import { useEntities } from '@/lib/entities';
+import type { Entity } from '@/lib/entities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -26,9 +28,9 @@ interface UnitRow { label: string; floor: string; building_name: string; owner_e
 interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
 interface DbBuilding { id: string; name: string; }
 
-interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; }
-interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; }
-interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; method?: string; }
+interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; block?: string | null; }
+interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; building_id?: string; }
+interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; method?: string; building_id?: string; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,15 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 function matchUnit(units: DbUnit[], label: string): DbUnit | undefined {
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
   return units.find(u => norm(u.label) === norm(label));
+}
+
+function matchBlock(blocks: { id: string; name: string }[], hint: string | null | undefined): string {
+  if (!blocks.length) return '';
+  if (!hint || blocks.length === 1) return blocks[0].id;
+  const h = hint.trim().toUpperCase();
+  return blocks.find(b => b.name.toUpperCase() === h)?.id
+    ?? blocks.find(b => b.name.toUpperCase().includes(h) || h.includes(b.name.toUpperCase()))?.id
+    ?? blocks[0].id;
 }
 
 // ─── Status chip ─────────────────────────────────────────────────────────────
@@ -146,6 +157,7 @@ function ProgressTable({ rows, title }: { rows: ProgressRow[]; title?: string })
 export default function Import() {
   const { grants, isPlatformAdmin } = useAuth();
   const { buildings } = useManagedBuildings();
+  const entities = useEntities(buildings as Parameters<typeof useEntities>[0]);
   const [activeTab, setActiveTab] = useState<ImportTab>('users');
 
   const canImport = isPlatformAdmin || grants.some(g =>
@@ -198,7 +210,7 @@ export default function Import() {
       {activeTab === 'users'     && <UsersTab />}
       {activeTab === 'buildings' && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
       {activeTab === 'units'     && <UnitsTab buildings={buildings as DbBuilding[]} />}
-      {activeTab === 'expenses'  && <ExpensesTab buildings={buildings as DbBuilding[]} />}
+      {activeTab === 'expenses'  && <ExpensesTab entities={entities} />}
     </div>
   );
 }
@@ -632,9 +644,9 @@ function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
 // TAB 4 — EXPENSES & BALANCES (AI)
 // ════════════════════════════════════════════════════════════════════════════
 
-function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
+function ExpensesTab({ entities }: { entities: Entity[] }) {
   const { user } = useAuth();
-  const [buildingId, setBuildingId] = useState('');
+  const [entityKey, setEntityKey] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState<{ expenses: AiExpenseRow[]; unit_charges: AiUnitCharge[]; unit_payments: AiUnitPayment[] } | null>(null);
   const [dbUnits, setDbUnits] = useState<DbUnit[]>([]);
@@ -642,15 +654,18 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
   const [step, setStep] = useState<StepState>('upload');
   const [fileName, setFileName] = useState('');
 
-  // Load units when building selected
+  const selectedEntity = entities.find(e => e.key === entityKey) ?? null;
+
+  // Load units for all blocks when entity selected
   useEffect(() => {
-    if (!buildingId) { setDbUnits([]); return; }
-    supabase.from('units').select('id, label, share_weight, building_id').eq('building_id', buildingId)
+    if (!selectedEntity) { setDbUnits([]); return; }
+    supabase.from('units').select('id, label, share_weight, building_id')
+      .in('building_id', selectedEntity.buildingIds)
       .then(({ data }) => setDbUnits((data ?? []) as DbUnit[]));
-  }, [buildingId]);
+  }, [entityKey]);
 
   async function handleFile(file: File) {
-    if (!buildingId) { toast.error('Select a building first'); return; }
+    if (!entityKey) { toast.error('Select a building or compound first'); return; }
     setFileName(file.name);
 
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
@@ -687,14 +702,16 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
       });
       if (error) throw new Error(error.message);
 
-      // Match unit labels to DB units
+      // Match unit labels to DB units (spans all blocks for compound)
       const expenses: AiExpenseRow[] = data.expenses ?? [];
-      const unit_charges: AiUnitCharge[] = (data.unit_charges ?? []).map((c: AiUnitCharge) => ({
-        ...c, unit_id: matchUnit(dbUnits, c.unit_label)?.id,
-      }));
-      const unit_payments: AiUnitPayment[] = (data.unit_payments ?? []).map((p: AiUnitPayment) => ({
-        ...p, unit_id: matchUnit(dbUnits, p.unit_label)?.id,
-      }));
+      const unit_charges: AiUnitCharge[] = (data.unit_charges ?? []).map((c: AiUnitCharge) => {
+        const unit = matchUnit(dbUnits, c.unit_label);
+        return { ...c, unit_id: unit?.id, building_id: unit?.building_id };
+      });
+      const unit_payments: AiUnitPayment[] = (data.unit_payments ?? []).map((p: AiUnitPayment) => {
+        const unit = matchUnit(dbUnits, p.unit_label);
+        return { ...p, unit_id: unit?.id, building_id: unit?.building_id };
+      });
 
       if (!expenses.length && !unit_charges.length && !unit_payments.length) {
         toast.error('AI could not extract any data from this file');
@@ -711,11 +728,11 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
   }
 
   async function runImport() {
-    if (!aiResult || !buildingId) return;
+    if (!aiResult || !selectedEntity) return;
     const { expenses, unit_charges, unit_payments } = aiResult;
 
     const allRows: ProgressRow[] = [
-      ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toFixed(2)} · building expense`, status: 'pending' as RowStatus })),
+      ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toFixed(2)} · expense${e.block ? ` · Block ${e.block}` : ''}`, status: 'pending' as RowStatus })),
       ...unit_charges.filter(c => c.unit_id).map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toFixed(2)} charge`, status: 'pending' as RowStatus })),
       ...unit_payments.filter(p => p.unit_id).map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toFixed(2)} payment`, status: 'pending' as RowStatus })),
     ];
@@ -724,14 +741,22 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
 
     let idx = 0;
 
-    // Expenses — create + allocate by share weight
-    const totalWeight = dbUnits.reduce((s, u) => s + Number(u.share_weight), 0) || 1;
+    // Group units by building for per-block expense allocation
+    const unitsByBuilding = dbUnits.reduce((acc, u) => {
+      (acc[u.building_id] ??= []).push(u);
+      return acc;
+    }, {} as Record<string, DbUnit[]>);
 
+    // Expenses — route to correct block, allocate by share weight within that block
     for (const exp of expenses) {
       setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
       try {
         const validCategory = ['water','electricity','common_expenses','projects','contracts','fines','other'].includes(exp.category)
           ? exp.category : 'other';
+
+        const buildingId = matchBlock(selectedEntity.blocks, exp.block);
+        const blockUnits = unitsByBuilding[buildingId] ?? [];
+        const totalWeight = blockUnits.reduce((s, u) => s + Number(u.share_weight), 0) || 1;
 
         const { data: expRow, error: eErr } = await supabase.from('expenses').insert({
           building_id:  buildingId,
@@ -745,9 +770,8 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
         }).select('id').single();
         if (eErr) throw new Error(eErr.message);
 
-        // Allocate charges per unit
-        if (dbUnits.length > 0) {
-          const chargeRows = dbUnits.map(u => ({
+        if (blockUnits.length > 0) {
+          const chargeRows = blockUnits.map(u => ({
             expense_id:  expRow.id,
             unit_id:     u.id,
             building_id: buildingId,
@@ -769,13 +793,13 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
       idx++;
     }
 
-    // Unit charges (direct per-unit)
+    // Unit charges — building_id comes from the matched unit
     for (const charge of unit_charges.filter(c => c.unit_id)) {
       setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
       try {
         const { error } = await supabase.from('charges').insert({
           unit_id:     charge.unit_id,
-          building_id: buildingId,
+          building_id: charge.building_id ?? selectedEntity.buildingIds[0],
           category:    'other',
           description: charge.description,
           amount_usd:  charge.amount_usd,
@@ -792,13 +816,13 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
       idx++;
     }
 
-    // Unit payments
+    // Unit payments — building_id comes from the matched unit
     for (const pmt of unit_payments.filter(p => p.unit_id)) {
       setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
       try {
         const { error } = await supabase.from('payments').insert({
           unit_id:     pmt.unit_id,
-          building_id: buildingId,
+          building_id: pmt.building_id ?? selectedEntity.buildingIds[0],
           amount_usd:  pmt.amount_usd,
           method:      (pmt.method ?? 'other') as 'cash' | 'bank_transfer' | 'cheque' | 'other',
           paid_on:     pmt.paid_on ?? todayStr(),
@@ -854,23 +878,41 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
       <Button variant="outline" size="sm" className="gap-2" onClick={downloadExpensesTemplate}>
         <Download size={14} /> Download template
       </Button>
-      <p className="text-xs text-muted-foreground/70">Supports: Excel, CSV, PDF, JPEG, PNG</p>
+      <p className="text-xs text-muted-foreground/70">Supports: Excel, CSV, PDF, JPEG, PNG · For compounds, unit prefix (A101 → Block A) determines the block.</p>
 
-      {buildings.length === 0 ? (
+      {entities.length === 0 ? (
         <p className="text-sm text-amber-300">Import buildings and units first before importing expenses.</p>
       ) : (
         <>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Building *</label>
+            <label className="text-xs font-medium text-muted-foreground">Building / Compound *</label>
             <select
-              value={buildingId}
-              onChange={e => setBuildingId(e.target.value)}
+              value={entityKey}
+              onChange={e => { setEntityKey(e.target.value); setAiResult(null); }}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">Select a building…</option>
-              {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              <option value="">Select a building or compound…</option>
+              {entities.some(e => e.kind === 'compound') && (
+                <optgroup label="Compounds">
+                  {entities.filter(e => e.kind === 'compound').map(e => (
+                    <option key={e.key} value={e.key}>{e.name} ({e.blocks.length} blocks)</option>
+                  ))}
+                </optgroup>
+              )}
+              {entities.some(e => e.kind === 'building') && (
+                <optgroup label="Buildings">
+                  {entities.filter(e => e.kind === 'building').map(e => (
+                    <option key={e.key} value={e.key}>{e.name}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
+          {selectedEntity?.kind === 'compound' && (
+            <p className="text-xs text-muted-foreground/70">
+              Blocks: {selectedEntity.blocks.map(b => b.name).join(' · ')} — {dbUnits.length} units loaded
+            </p>
+          )}
           {analyzing ? (
             <div className="flex items-center gap-3 py-8 justify-center text-muted-foreground">
               <Loader2 size={20} className="animate-spin text-primary" />
@@ -903,10 +945,10 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
         </div>
 
         {expenses.length > 0 && (
-          <PreviewSection title={`Building Expenses (${expenses.length})`} hint="Will be allocated to all units by share weight">
+          <PreviewSection title={`Building Expenses (${expenses.length})`} hint="Will be allocated to all units in each block by share weight">
             <table className="w-full text-sm">
               <thead className="bg-muted/40"><tr>
-                {['Category', 'Description', 'Amount (USD)', 'Date'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
+                {['Category', 'Description', 'Amount (USD)', 'Date', ...(selectedEntity?.kind === 'compound' ? ['Block'] : [])].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
               </tr></thead>
               <tbody className="divide-y divide-border">
                 {expenses.map((e, i) => (
@@ -915,6 +957,9 @@ function ExpensesTab({ buildings }: { buildings: DbBuilding[] }) {
                     <td className="px-4 py-2">{e.description}</td>
                     <td className="px-4 py-2 tnum font-medium">${e.amount_usd.toFixed(2)}</td>
                     <td className="px-4 py-2 text-muted-foreground text-xs">{e.expense_date ?? 'Today'}</td>
+                    {selectedEntity?.kind === 'compound' && (
+                      <td className="px-4 py-2 text-xs font-medium text-primary">{e.block ?? <span className="text-muted-foreground">auto</span>}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
