@@ -77,8 +77,8 @@ Rules for expenses (building-wide line items — e.g. security services, janitor
 
 Rules for unit_charges (per-unit outstanding balances or dues owed):
 - unit_label: the apartment/unit code (A104, 201, "1 East", etc.)
-- amount_usd: positive USD balance the unit owes. Skip units with 0 or negative (credit) balances.
-- description: "Outstanding balance" if not specified
+- amount_usd: USD balance — positive means the unit owes money, negative means the unit is in credit (overpaid). Skip units with exactly 0 balance.
+- description: "Outstanding balance" if positive, "Credit balance" if negative, or use document text
 - charge_date: from document or null
 
 Rules for unit_payments (per-unit payments already received):
@@ -156,6 +156,10 @@ Method mapping for unit_payments:
     if (typeof v === 'number') return isNaN(v) ? 0 : Math.abs(v);
     return Math.abs(parseFloat(String(v ?? '0')) || 0);
   }
+  function signedNum(v: unknown): number {
+    if (typeof v === 'number') return isNaN(v) ? 0 : v;
+    return parseFloat(String(v ?? '0')) || 0;
+  }
   function str(v: unknown): string { return String(v ?? '').trim(); }
 
   const expenses = (parsed.expenses ?? []).map((e: unknown) => {
@@ -165,8 +169,8 @@ Method mapping for unit_payments:
 
   const unit_charges = (parsed.unit_charges ?? []).map((c: unknown) => {
     const r = c as Record<string, unknown>;
-    return { unit_label: str(r.unit_label), description: str(r.description) || 'Outstanding balance', amount_usd: num(r.amount_usd), charge_date: r.charge_date ? str(r.charge_date) : null };
-  }).filter(c => c.unit_label && c.amount_usd > 0);
+    return { unit_label: str(r.unit_label), description: str(r.description) || 'Outstanding balance', amount_usd: signedNum(r.amount_usd), charge_date: r.charge_date ? str(r.charge_date) : null };
+  }).filter(c => c.unit_label && c.amount_usd !== 0);
 
   const VALID_METHODS = ['cash', 'bank_transfer', 'cheque', 'other'];
   const unit_payments = (parsed.unit_payments ?? []).map((p: unknown) => {

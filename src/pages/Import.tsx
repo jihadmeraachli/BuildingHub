@@ -1004,7 +1004,9 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
                   <tr key={i} className={!c.unit_id ? 'opacity-40' : ''}>
                     <td className="px-4 py-2 font-medium">{c.unit_label}</td>
                     <td className="px-4 py-2 text-muted-foreground text-xs">{c.description}</td>
-                    <td className="px-4 py-2 tnum">${c.amount_usd.toFixed(2)}</td>
+                    <td className={`px-4 py-2 tnum ${c.amount_usd < 0 ? 'text-emerald-400' : ''}`}>
+                      {c.amount_usd < 0 ? `−$${Math.abs(c.amount_usd).toFixed(2)} CR` : `$${c.amount_usd.toFixed(2)}`}
+                    </td>
                     <td className="px-4 py-2">
                       {c.unit_id
                         ? <CheckCircle2 size={14} className="text-emerald-400" />
