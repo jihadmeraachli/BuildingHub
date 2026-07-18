@@ -135,7 +135,7 @@ function DropZone({ onFile, accept, hint }: { onFile: (f: File) => void; accept?
         Drop file here or <span className="text-primary font-medium">click to browse</span>
       </p>
       {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
-      <input ref={ref} type="file" accept={accept} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+      <input ref={ref} type="file" accept={accept} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { onFile(f); e.target.value = ''; } }} />
     </div>
   );
 }
