@@ -25,9 +25,9 @@ type RowStatus = 'pending' | 'processing' | 'done' | 'exists' | 'skipped' | 'err
 interface ProgressRow { label: string; detail?: string; status: RowStatus; error?: string; }
 interface UserRow { name: string; email: string; phone: string; role: string; }
 interface BuildingRow { name: string; address: string; city: string; compound_name: string; }
-interface UnitRow { label: string; floor: string; building_name: string; owner_email: string; tenant_email: string; share_weight: string; }
+interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; tenant_email: string; share_weight: string; }
 interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
-interface DbBuilding { id: string; name: string; }
+
 
 interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; block?: string | null; }
 interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; building_id?: string; }
@@ -72,6 +72,21 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 function matchUnit(units: DbUnit[], label: string): DbUnit | undefined {
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
   return units.find(u => norm(u.label) === norm(label));
+}
+
+function findBuildingId(entities: Entity[], buildingName: string, compoundName: string): string | null {
+  const norm = (s: string) => s.toLowerCase().trim();
+  const bNorm = norm(buildingName);
+  const cNorm = norm(compoundName);
+  if (cNorm) {
+    const entity = entities.find(e => e.kind === 'compound' && norm(e.name) === cNorm);
+    if (entity) return entity.blocks.find(b => norm(b.name) === bNorm)?.id ?? null;
+  }
+  for (const entity of entities) {
+    const block = entity.blocks.find(b => norm(b.name) === bNorm);
+    if (block) return block.id;
+  }
+  return null;
 }
 
 function matchBlock(blocks: { id: string; name: string }[], hint: string | null | undefined): string {
@@ -210,7 +225,7 @@ export default function Import() {
 
       {activeTab === 'users'     && <UsersTab />}
       {activeTab === 'buildings' && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
-      {activeTab === 'units'     && <UnitsTab buildings={buildings as DbBuilding[]} />}
+      {activeTab === 'units'     && <UnitsTab entities={entities} />}
       {activeTab === 'expenses'  && <ExpensesTab entities={entities} />}
     </div>
   );
@@ -501,16 +516,17 @@ function BuildingsTab({ isPlatformAdmin, grants }: { isPlatformAdmin: boolean; g
 // TAB 3 — UNITS
 // ════════════════════════════════════════════════════════════════════════════
 
-function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
+function UnitsTab({ entities }: { entities: Entity[] }) {
   const [step, setStep] = useState<StepState>('upload');
   const [rows, setRows] = useState<UnitRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
 
   const TEMPLATE = [
-    ['Unit Label', 'Floor', 'Building Name', 'Owner Email', 'Tenant Email', 'Share Weight'],
-    ['A101', '1', 'Block A', 'owner@email.com', '', '1.0'],
-    ['A102', '1', 'Block A', '', '', '1.0'],
-    ['B201', '2', 'Block B', 'owner2@email.com', 'tenant@email.com', '1.5'],
+    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Owner Email', 'Tenant Email', 'Share Weight'],
+    ['A101', '1', 'Block A', 'Tower XYZ', '', '', '1.0'],
+    ['A102', '1', 'Block A', 'Tower XYZ', '', '', '1.0'],
+    ['B201', '2', 'Block B', 'Tower XYZ', '', '', '1.5'],
+    ['101',  '1', 'Standalone Building', '', '', '', '1.0'],
   ];
 
   async function handleFile(file: File) {
@@ -521,6 +537,7 @@ function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
         label:         pickCol(row, 'unit label', 'unit', 'apt', 'apartment', 'رقم الشقة', 'الوحدة'),
         floor:         pickCol(row, 'floor', 'الطابق'),
         building_name: pickCol(row, 'building name', 'building', 'block', 'المبنى'),
+        compound_name: pickCol(row, 'compound name', 'compound', 'tower', 'المجمع'),
         owner_email:   pickCol(row, 'owner email', 'owner', 'المالك'),
         tenant_email:  pickCol(row, 'tenant email', 'tenant', 'المستأجر'),
         share_weight:  pickCol(row, 'share weight', 'share', 'الحصة') || '1',
@@ -532,20 +549,20 @@ function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
   }
 
   async function runImport() {
-    setProgress(rows.map(r => ({ label: r.label, detail: r.building_name, status: 'pending' })));
+    setProgress(rows.map(r => ({ label: r.label, detail: r.compound_name ? `${r.compound_name} › ${r.building_name}` : r.building_name, status: 'pending' })));
     setStep('running');
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
       try {
-        const building = buildings.find(b => b.name.toLowerCase() === row.building_name.toLowerCase());
-        if (!building) throw new Error(`Building "${row.building_name}" not found`);
+        const buildingId = findBuildingId(entities, row.building_name, row.compound_name);
+        if (!buildingId) throw new Error(`Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
 
         const { data: unit, error: uErr } = await supabase
           .from('units')
           .insert({
-            building_id:  building.id,
+            building_id:  buildingId,
             label:        row.label,
             share_weight: parseFloat(row.share_weight) || 1,
           })
@@ -602,14 +619,15 @@ function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
       <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
         <table className="w-full">
           <thead className="bg-muted/40">
-            <tr>{['Unit', 'Floor', 'Building', 'Owner Email', 'Tenant Email', 'Share Wt'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
+            <tr>{['Unit', 'Floor', 'Building', 'Compound', 'Owner Email', 'Tenant Email', 'Share Wt'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
-              <tr key={i}>
+              <tr key={i} className={!findBuildingId(entities, r.building_name, r.compound_name) ? 'opacity-40' : ''}>
                 <td className="px-4 py-2 font-medium">{r.label}</td>
                 <td className="px-4 py-2 text-muted-foreground">{r.floor || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>
+                <td className="px-4 py-2 text-muted-foreground text-xs">{r.compound_name || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground text-xs">{r.owner_email || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground text-xs">{r.tenant_email || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground">{r.share_weight || '1'}</td>
@@ -618,11 +636,11 @@ function UnitsTab({ buildings }: { buildings: DbBuilding[] }) {
           </tbody>
         </table>
       </div>
-      {buildings.length === 0 && (
+      {entities.length === 0 && (
         <p className="text-xs text-amber-300">⚠ No buildings found — import buildings first or ensure you have access to at least one building.</p>
       )}
       <div className="flex gap-2">
-        <Button onClick={runImport} disabled={buildings.length === 0}>Import {rows.length} unit{rows.length !== 1 ? 's' : ''}</Button>
+        <Button onClick={runImport} disabled={entities.length === 0}>Import {rows.length} unit{rows.length !== 1 ? 's' : ''}</Button>
         <Button variant="outline" onClick={reset}>Cancel</Button>
       </div>
     </div>
