@@ -63,31 +63,34 @@ export default function SetPassword() {
   if (!sessionReady) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm bg-card rounded-2xl shadow-sm border border-border p-8">
         <div className="flex items-center gap-2.5 mb-8">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm">BH</div>
-          <span className="text-lg font-bold text-slate-900">BuildingHub</span>
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-extrabold text-sm"
+            style={{ background: 'linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.38 0.14 185) 100%)' }}
+          >AB</div>
+          <span className="text-lg font-bold text-foreground">Abniyah</span>
         </div>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0">
-            <ShieldCheck size={20} className="text-indigo-600" />
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <ShieldCheck size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">{t('auth.setPasswordTitle')}</h2>
-            <p className="text-xs text-slate-500">{t('auth.setPasswordSubtitle')}</p>
+            <h2 className="text-lg font-bold text-foreground">{t('auth.setPasswordTitle')}</h2>
+            <p className="text-xs text-muted-foreground">{t('auth.setPasswordSubtitle')}</p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">
+          <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         )}

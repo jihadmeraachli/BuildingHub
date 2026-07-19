@@ -99,9 +99,9 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       {/* Logo */}
       <div className="flex items-center gap-3 h-14 px-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center justify-center w-7 h-7 rounded-md bg-sidebar-primary text-sidebar-primary-foreground text-xs font-extrabold shrink-0">
-          BH
+          AB
         </div>
-        <span className="font-semibold text-sm text-sidebar-foreground tracking-tight">BuildingHub</span>
+        <span className="font-semibold text-sm text-sidebar-foreground tracking-tight">Abniyah</span>
         <button
           onClick={onClose}
           className="ms-auto lg:hidden text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors cursor-pointer"

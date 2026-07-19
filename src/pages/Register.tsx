@@ -80,7 +80,7 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-background">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-sm border border-border p-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-foreground">BuildingHub</h2>
+          <h2 className="text-2xl font-bold text-foreground">Abniyah</h2>
           <p className="text-muted-foreground text-sm mt-1">{t('auth.register')}</p>
         </div>
 

@@ -57,8 +57,8 @@ export default function Login() {
       <div className="absolute bottom-0 -start-24 w-96 h-96 rounded-full bg-[oklch(0.55_0.18_185)]/20 blur-3xl" />
       <div className="relative z-10 flex flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-extrabold">BH</div>
-          <span className="text-lg font-bold">BuildingHub</span>
+          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-extrabold">AB</div>
+          <span className="text-lg font-bold">Abniyah</span>
         </div>
         <div>
           <h1
@@ -72,7 +72,7 @@ export default function Login() {
           >Run your building<br />like a pro.</h1>
           <p className="text-lg text-white/80 max-w-md">Expenses, collections, and the building book — all in one place. Built for Lebanon's buildings & compounds.</p>
         </div>
-        <p className="text-sm text-white/50">© BuildingHub</p>
+        <p className="text-sm text-white/50">© Abniyah</p>
       </div>
     </div>
   );
@@ -98,8 +98,8 @@ export default function Login() {
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-extrabold text-sm"
                 style={{ background: 'linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.38 0.14 185) 100%)' }}
-              >BH</div>
-              <span className="text-lg font-bold text-foreground">BuildingHub</span>
+              >AB</div>
+              <span className="text-lg font-bold text-foreground">Abniyah</span>
             </div>
             {langToggle}
           </div>

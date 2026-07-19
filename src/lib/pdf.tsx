@@ -69,12 +69,12 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
   const balance = totalPaid - totalCharged;
 
   return (
-    <Document title={`Statement — ${unitLabel}`} author="BuildingHub">
+    <Document title={`Statement — ${unitLabel}`} author="Abniyah">
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.brand}>BuildingHub</Text>
+            <Text style={s.brand}>Abniyah</Text>
             <Text style={s.brandSub}>{buildingName}</Text>
           </View>
           <View style={s.metaRight}>
@@ -157,7 +157,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
 
         {/* Footer */}
         <View style={s.footer} fixed>
-          <Text style={s.footerText}>BuildingHub · {buildingName}</Text>
+          <Text style={s.footerText}>Abniyah · {buildingName}</Text>
           <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -178,12 +178,12 @@ export interface BuildingReportProps {
 
 export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, expenses }: BuildingReportProps) {
   return (
-    <Document title={`Financial Report — ${entityName}`} author="BuildingHub">
+    <Document title={`Financial Report — ${entityName}`} author="Abniyah">
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.brand}>BuildingHub</Text>
+            <Text style={s.brand}>Abniyah</Text>
             <Text style={s.brandSub}>{entityName}</Text>
           </View>
           <View style={s.metaRight}>
@@ -266,7 +266,7 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
 
         {/* Footer */}
         <View style={s.footer} fixed>
-          <Text style={s.footerText}>BuildingHub · {entityName}</Text>
+          <Text style={s.footerText}>Abniyah · {entityName}</Text>
           <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
