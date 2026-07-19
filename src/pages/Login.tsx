@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Logo } from '@/components/ui/Logo';
 import { setLanguage } from '@/i18n';
 import { Globe, ArrowLeft, Mail } from 'lucide-react';
 
@@ -57,7 +58,7 @@ export default function Login() {
       <div className="absolute bottom-0 -start-24 w-96 h-96 rounded-full bg-[oklch(0.55_0.18_185)]/20 blur-3xl" />
       <div className="relative z-10 flex flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-extrabold">AB</div>
+          <Logo size={40} variant="white" />
           <span className="text-lg font-bold">Abniyah</span>
         </div>
         <div>
@@ -95,10 +96,7 @@ export default function Login() {
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5 lg:hidden">
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-extrabold text-sm"
-                style={{ background: 'linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.38 0.14 185) 100%)' }}
-              >AB</div>
+              <Logo size={36} />
               <span className="text-lg font-bold text-foreground">Abniyah</span>
             </div>
             {langToggle}

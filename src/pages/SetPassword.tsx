@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Logo } from '@/components/ui/Logo';
 import { ShieldCheck } from 'lucide-react';
 
 export default function SetPassword() {
@@ -72,10 +73,7 @@ export default function SetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm bg-card rounded-2xl shadow-sm border border-border p-8">
         <div className="flex items-center gap-2.5 mb-8">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-extrabold text-sm"
-            style={{ background: 'linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.38 0.14 185) 100%)' }}
-          >AB</div>
+          <Logo size={36} />
           <span className="text-lg font-bold text-foreground">Abniyah</span>
         </div>
 

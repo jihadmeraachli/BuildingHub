@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { Logo } from '@/components/ui/Logo';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { topRole } from '@/lib/permissions';
@@ -98,9 +99,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-3 h-14 px-4 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-sidebar-primary text-sidebar-primary-foreground text-xs font-extrabold shrink-0">
-          AB
-        </div>
+        <Logo size={26} className="shrink-0" />
         <span className="font-semibold text-sm text-sidebar-foreground tracking-tight">Abniyah</span>
         <button
           onClick={onClose}
