@@ -65,11 +65,11 @@ export default function Register() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-white">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-background">
         <div className="max-w-sm text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">{t('auth.registrationSuccess').split('.')[0]}</h2>
-          <p className="text-slate-500 text-sm mb-6">{t('auth.registrationSuccess')}</p>
+          <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl text-primary">✓</div>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t('auth.registrationSuccess').split('.')[0]}</h2>
+          <p className="text-muted-foreground text-sm mb-6">{t('auth.registrationSuccess')}</p>
           <Button onClick={() => navigate('/')} variant="secondary">{t('auth.loginHere')}</Button>
         </div>
       </div>
@@ -77,15 +77,15 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-slate-50">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-background">
+      <div className="w-full max-w-md bg-card rounded-2xl shadow-sm border border-border p-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900">BuildingHub</h2>
-          <p className="text-slate-500 text-sm mt-1">{t('auth.register')}</p>
+          <h2 className="text-2xl font-bold text-foreground">BuildingHub</h2>
+          <p className="text-muted-foreground text-sm mt-1">{t('auth.register')}</p>
         </div>
 
         {serverError && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
             {serverError}
           </div>
         )}
@@ -117,9 +117,9 @@ export default function Register() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           {t('auth.hasAccount')}{' '}
-          <Link to="/" className="text-blue-700 font-medium hover:underline">{t('auth.loginHere')}</Link>
+          <Link to="/" className="text-primary font-semibold hover:underline">{t('auth.loginHere')}</Link>
         </p>
       </div>
     </div>

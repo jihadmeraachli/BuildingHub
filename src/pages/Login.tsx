@@ -49,9 +49,12 @@ export default function Login() {
   }
 
   const brandPanel = (
-    <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 overflow-hidden">
+    <div
+      className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, oklch(0.38 0.14 185) 0%, oklch(0.22 0.05 185) 100%)' }}
+    >
       <div className="absolute -top-24 -end-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute bottom-0 -start-24 w-96 h-96 rounded-full bg-violet-400/20 blur-3xl" />
+      <div className="absolute bottom-0 -start-24 w-96 h-96 rounded-full bg-[oklch(0.55_0.18_185)]/20 blur-3xl" />
       <div className="relative z-10 flex flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-extrabold">BH</div>
@@ -69,7 +72,7 @@ export default function Login() {
   const langToggle = (
     <button
       onClick={() => setLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
-      className="ms-auto flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 cursor-pointer"
+      className="ms-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer"
     >
       <Globe size={14} />
       {i18n.language === 'ar' ? 'EN' : 'عر'}
@@ -80,23 +83,26 @@ export default function Login() {
     <div className="min-h-screen flex">
       {brandPanel}
 
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-white">
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-background">
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5 lg:hidden">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-extrabold text-sm">BH</div>
-              <span className="text-lg font-bold text-slate-900">BuildingHub</span>
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-extrabold text-sm"
+                style={{ background: 'linear-gradient(135deg, oklch(0.54 0.115 186) 0%, oklch(0.38 0.14 185) 100%)' }}
+              >BH</div>
+              <span className="text-lg font-bold text-foreground">BuildingHub</span>
             </div>
             {langToggle}
           </div>
 
           {mode === 'login' && (
             <>
-              <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
-              <p className="text-slate-500 text-sm mt-1 mb-6">{t('auth.login')} to continue</p>
+              <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
+              <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.login')} to continue</p>
 
               {error && (
-                <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">
+                <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
                   {error}
                 </div>
               )}
@@ -108,7 +114,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => { setError(''); setMode('forgot'); }}
-                    className="mt-1.5 text-xs text-indigo-600 hover:underline cursor-pointer"
+                    className="mt-1.5 text-xs text-primary hover:underline cursor-pointer"
                   >
                     {t('auth.forgotPassword')}
                   </button>
@@ -116,9 +122,9 @@ export default function Login() {
                 <Button type="submit" loading={isSubmitting} className="w-full mt-2">{t('auth.login')}</Button>
               </form>
 
-              <p className="mt-6 text-center text-sm text-slate-500">
+              <p className="mt-6 text-center text-sm text-muted-foreground">
                 {t('auth.noAccount')}{' '}
-                <Link to="/register" className="text-indigo-600 font-semibold hover:underline">{t('auth.registerHere')}</Link>
+                <Link to="/register" className="text-primary font-semibold hover:underline">{t('auth.registerHere')}</Link>
               </p>
             </>
           )}
@@ -127,13 +133,13 @@ export default function Login() {
             <>
               <button
                 onClick={() => setMode('login')}
-                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6 cursor-pointer"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 cursor-pointer"
               >
                 <ArrowLeft size={14} /> {t('auth.backToLogin')}
               </button>
 
-              <h2 className="text-2xl font-bold text-slate-900">{t('auth.resetTitle')}</h2>
-              <p className="text-slate-500 text-sm mt-1 mb-6">{t('auth.resetSubtitle')}</p>
+              <h2 className="text-2xl font-bold text-foreground">{t('auth.resetTitle')}</h2>
+              <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.resetSubtitle')}</p>
 
               <form onSubmit={onResetSubmit} className="space-y-4">
                 <Input
@@ -152,14 +158,14 @@ export default function Login() {
 
           {mode === 'forgot-sent' && (
             <div className="text-center">
-              <div className="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-4">
-                <Mail size={26} className="text-indigo-600" />
+              <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
+                <Mail size={26} className="text-primary" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">{t('auth.resetSentTitle')}</h2>
-              <p className="text-slate-500 text-sm mb-6">{t('auth.resetSentBody', { email: resetEmail })}</p>
+              <h2 className="text-xl font-bold text-foreground mb-2">{t('auth.resetSentTitle')}</h2>
+              <p className="text-muted-foreground text-sm mb-6">{t('auth.resetSentBody', { email: resetEmail })}</p>
               <button
                 onClick={() => { setMode('login'); setResetEmail(''); }}
-                className="text-sm text-indigo-600 hover:underline cursor-pointer"
+                className="text-sm text-primary hover:underline cursor-pointer"
               >
                 {t('auth.backToLogin')}
               </button>
