@@ -56,27 +56,24 @@ export default function Login() {
     >
       <div className="absolute -top-24 -end-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
       <div className="absolute bottom-0 -start-24 w-96 h-96 rounded-full bg-[oklch(0.55_0.18_185)]/20 blur-3xl" />
-      <div className="relative z-10 flex flex-col items-center justify-center h-full p-12 text-white gap-10">
-        {/* Full logo on a floating card — matches the Canva mockup */}
-        <div
-          style={{
-            background: 'rgba(255,255,255,0.96)',
-            borderRadius: 28,
-            padding: '44px 52px',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.18)',
-          }}
-        >
-          <img
-            src="/logo-full.png"
-            alt="Abniyah"
-            style={{ width: 220, display: 'block' }}
-            draggable={false}
-          />
+      <div className="relative z-10 flex flex-col justify-between p-12 text-white">
+        <div className="flex items-center gap-2.5">
+          <Logo size={40} variant="white" />
+          <span className="text-lg font-bold">Abniyah</span>
         </div>
-        <p className="text-base text-white/70 text-center max-w-xs leading-relaxed">
-          Expenses, collections, and the building book —<br />all in one place.
-        </p>
-        <p className="absolute bottom-8 text-sm text-white/40">© Abniyah</p>
+        <div>
+          <h1
+            className="text-4xl font-bold leading-tight mb-3"
+            style={{
+              background: 'linear-gradient(100deg, oklch(1 0 0) 0%, oklch(0.72 0.012 185) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >Run your building<br />like a pro.</h1>
+          <p className="text-lg text-white/80 max-w-md">Expenses, collections, and the building book — all in one place. Built for Lebanon's buildings & compounds.</p>
+        </div>
+        <p className="text-sm text-white/50">© Abniyah</p>
       </div>
     </div>
   );
