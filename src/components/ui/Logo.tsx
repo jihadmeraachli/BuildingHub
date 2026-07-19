@@ -1,7 +1,9 @@
+import { cn } from '@/lib/utils';
+
 interface LogoProps {
   size?: number;
   className?: string;
-  /** Use on dark teal / brand-panel backgrounds — inverts to white */
+  /** 'white' = on dark/teal panels; 'default' = adapts to light/dark theme */
   variant?: 'default' | 'white';
 }
 
@@ -13,8 +15,15 @@ export function Logo({ size = 32, className, variant = 'default' }: LogoProps) {
       height={size}
       alt="Abniyah"
       draggable={false}
-      className={className}
-      style={variant === 'white' ? { filter: 'brightness(0) invert(1)', opacity: 0.9 } : undefined}
+      className={cn(
+        // Remove the white PNG background via blend modes:
+        // • multiply on light bg → white pixels vanish, building shows naturally
+        // • screen + invert(1) on dark bg → white bg vanishes, building appears bright
+        variant === 'white'
+          ? '[mix-blend-mode:screen] [filter:invert(1)]'
+          : '[mix-blend-mode:multiply] dark:[mix-blend-mode:screen] dark:[filter:invert(1)]',
+        className,
+      )}
     />
   );
 }
