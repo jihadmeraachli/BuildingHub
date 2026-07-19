@@ -61,7 +61,15 @@ export default function Login() {
           <span className="text-lg font-bold">BuildingHub</span>
         </div>
         <div>
-          <h1 className="text-gradient text-4xl font-bold leading-tight mb-3">Run your building<br />like a pro.</h1>
+          <h1
+            className="text-4xl font-bold leading-tight mb-3"
+            style={{
+              background: 'linear-gradient(100deg, oklch(1 0 0) 0%, oklch(0.72 0.012 185) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >Run your building<br />like a pro.</h1>
           <p className="text-lg text-white/80 max-w-md">Expenses, collections, and the building book — all in one place. Built for Lebanon's buildings & compounds.</p>
         </div>
         <p className="text-sm text-white/50">© BuildingHub</p>
