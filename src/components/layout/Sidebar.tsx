@@ -10,7 +10,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
-  CalendarClock, X, Network, Boxes, FileUp,
+  CalendarClock, X, Network, Boxes, FileUp, KeyRound,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -42,6 +42,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const location = useLocation();
 
   const isOrgAdmin = grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
+  const isScopeAdmin = grants.some(g => ['building_admin', 'compound_admin', 'org_admin'].includes(g.role));
   const canStructure = canAny('unit.manage') || isOrgAdmin;
   const canPeople = canAny('resident.manage') || canAny('resident.approve') || isOrgAdmin;
   const canBuildings = isPlatformAdmin || isOrgAdmin;
@@ -75,6 +76,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/organizations', label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
     { to: '/compounds',     label: t('nav.compounds'),     icon: Boxes,     show: isPlatformAdmin || isOrgAdmin },
     { to: '/import',        label: 'Import',               icon: FileUp,    show: canBuildings || canStructure },
+    { to: '/licenses',      label: 'Billing & Licenses',   icon: KeyRound,  show: isPlatformAdmin || isScopeAdmin },
   ].filter(l => l.show);
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');

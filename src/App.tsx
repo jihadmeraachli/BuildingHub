@@ -7,9 +7,10 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
-const Login       = lazy(() => import('@/pages/Login'));
-const Register    = lazy(() => import('@/pages/Register'));
-const SetPassword = lazy(() => import('@/pages/SetPassword'));
+const Login           = lazy(() => import('@/pages/Login'));
+const Register        = lazy(() => import('@/pages/Register'));
+const NoLicense       = lazy(() => import('@/pages/NoLicense'));
+const SetPassword     = lazy(() => import('@/pages/SetPassword'));
 const Dashboard  = lazy(() => import('@/pages/Dashboard'));
 const Meetings   = lazy(() => import('@/pages/Meetings'));
 const Billing    = lazy(() => import('@/pages/Billing'));
@@ -24,6 +25,7 @@ const Buildings      = lazy(() => import('@/pages/Buildings'));
 const Organizations  = lazy(() => import('@/pages/Organizations'));
 const Compounds      = lazy(() => import('@/pages/Compounds'));
 const Import         = lazy(() => import('@/pages/Import'));
+const Licenses       = lazy(() => import('@/pages/Licenses'));
 const Settings       = lazy(() => import('@/pages/Settings'));
 
 function PageFallback() {
@@ -40,6 +42,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/no-license" element={<NoLicense />} />
             <Route path="/set-password" element={<SetPassword />} />
             <Route
               element={
@@ -62,6 +65,7 @@ export default function App() {
               <Route path="/organizations" element={<Organizations />} />
               <Route path="/compounds"     element={<Compounds />} />
               <Route path="/import"        element={<Import />} />
+              <Route path="/licenses"      element={<Licenses />} />
               {/* your own account — no capability gate, everyone has one */}
               <Route path="/settings" element={<Settings />} />
             </Route>

@@ -302,3 +302,60 @@ export interface ServiceContract {
   created_by: string | null;
   created_at: string;
 }
+
+// ── Licensing (migration 0031) ───────────────────────────────
+
+export type SubscriptionPlan = 'monthly' | 'annual';
+export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'cancelled';
+export type InvoiceStatus = 'open' | 'paid' | 'void';
+
+export interface Subscription {
+  id: string;
+  scope_type: GrantScope;
+  building_id: string | null;
+  compound_id: string | null;
+  org_id: string | null;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  trial_ends_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  license_count: number;
+  price_per_unit_cents: number;
+  billing_email: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface LicenseAssignment {
+  id: string;
+  subscription_id: string;
+  unit_id: string;
+  assigned_at: string;
+  assigned_by: string | null;
+  unassigned_at: string | null;
+  unassigned_by: string | null;
+}
+
+export interface Invoice {
+  id: string;
+  subscription_id: string;
+  amount_cents: number;
+  status: InvoiceStatus;
+  period_start: string;
+  period_end: string;
+  paid_at: string | null;
+  paid_by: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionEvent {
+  id: string;
+  subscription_id: string;
+  event_type: string;
+  actor_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}

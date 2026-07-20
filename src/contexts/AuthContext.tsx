@@ -30,6 +30,8 @@ interface AuthContextValue {
   myOwnerUnitIds: string[];
   /** unit ids where the user is specifically a tenant */
   myTenantUnitIds: string[];
+  /** true when the user is a resident-only account and NONE of their units holds an active license (0031) */
+  needsLicense: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [buildingRoles, setBuildingRoles] = useState<Record<string, GrantRole[]>>({});
   const [loading, setLoading] = useState(true);
+  // null = not applicable (managers, no residency); false = resident with no licensed unit
+  const [residentLicensed, setResidentLicensed] = useState<boolean | null>(null);
 
   async function fetchProfile(userId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -71,6 +75,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const m = (memberData as Membership[]) ?? [];
     setGrants(g);
     setMemberships(m);
+
+    // License gate (0031): resident-only accounts need at least one unit with an
+    // active license. Managers and mixed accounts are never blocked client-side —
+    // the DB (RLS) remains the real enforcement; this only drives the /no-license UX.
+    if (g.length === 0 && m.length > 0) {
+      try {
+        const checks = await Promise.all(
+          m.map((mem) => supabase.rpc('unit_has_active_license', { p_unit_id: mem.unit_id })),
+        );
+        // Fail open on RPC errors (e.g. migration not yet applied) — DB is the source of truth.
+        const anyLicensed = checks.some((r) => r.error || r.data === true);
+        setResidentLicensed(anyLicensed);
+      } catch {
+        setResidentLicensed(null);
+      }
+    } else {
+      setResidentLicensed(null);
+    }
 
     // Resolve building -> roles (cascade org grants through org_buildings).
     const roles: Record<string, GrantRole[]> = {};
@@ -139,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setGrants([]);
         setMemberships([]);
         setBuildingRoles({});
+        setResidentLicensed(null);
       }
     });
 
@@ -169,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const manageableBuildingIds = Object.keys(buildingRoles);
+  const needsLicense = !isPlatformAdmin && residentLicensed === false;
   const myUnitIds = memberships.map((m) => m.unit_id);
   const myOwnerUnitIds = memberships.filter((m) => m.tenure === 'owner').map((m) => m.unit_id);
   const myTenantUnitIds = memberships.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id);
@@ -178,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user, profile, session, loading, signOut, refreshProfile,
         grants, memberships, isPlatformAdmin, buildingRoles, can, canAny,
-        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds,
+        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense,
       }}
     >
       {children}

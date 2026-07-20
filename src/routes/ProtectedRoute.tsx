@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, needsLicense } = useAuth();
 
   if (loading) {
     return (
@@ -13,6 +13,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/" replace />;
+
+  // Resident-only account with no licensed unit (0031). Client-side UX gate only —
+  // RLS in the database remains the real enforcement.
+  if (needsLicense) return <Navigate to="/no-license" replace />;
 
   if (profile?.status === 'pending') {
     return (
