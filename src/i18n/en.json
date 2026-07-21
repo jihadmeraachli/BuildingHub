@@ -395,7 +395,13 @@
     "noUnitsToAdd": "No units to add.",
     "noAccess": "You don't have access to manage this building's structure.",
     "noBuildings": "No buildings available.",
-    "unit": "Unit"
+    "unit": "Unit",
+    "openingBalance": "Opening balance (optional)",
+    "openingAmount": "Amount",
+    "openingAsOf": "As of date",
+    "openingHint": "What this unit already owed or had in credit when it joined. Kept out of income/expenses.",
+    "openingOwes": "Unit starts owing ${{amt}}. Enter a negative number for arrears.",
+    "openingCredit": "Unit starts with ${{amt}} credit."
   },
   "finance": {
     "title": "Finance",
@@ -498,7 +504,9 @@
       "both": "All members",
       "owner": "Owner only",
       "tenant": "Tenant only"
-    }
+    },
+    "balanceAsOf": "Balance as of",
+    "backToLive": "back to live"
   },
   "inspections": {
     "title": "Inspections",

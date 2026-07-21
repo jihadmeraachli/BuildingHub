@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
+import { computeBalance } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
 import type { Unit, Charge, Payment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -93,9 +94,11 @@ export default function Dues() {
   const balanceOf = useMemo(() => {
     const m: Record<string, number> = {};
     units.forEach((u) => {
-      const ch = charges.filter((c) => c.unit_id === u.id).reduce((s, c) => s + Number(c.amount_usd), 0);
-      const pa = payments.filter((p) => p.unit_id === u.id).reduce((s, p) => s + Number(p.amount_usd), 0);
-      m[u.id] = round2(pa - ch);
+      // include opening balance so the dues true-up (base − balance) accounts
+      // for arrears/credit a unit carried in (0033)
+      const uCharges = charges.filter((c) => c.unit_id === u.id);
+      const uPayments = payments.filter((p) => p.unit_id === u.id);
+      m[u.id] = computeBalance(u, uCharges, uPayments);
     });
     return m;
   }, [units, charges, payments]);

@@ -9,6 +9,7 @@ import { uploadFile } from '@/lib/upload';
 import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
+import { computeBalance } from '@/lib/balance';
 import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, BilledTo } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -93,6 +94,9 @@ export default function Finance() {
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
 
   const [tab, setTab] = useState<'book' | 'expenses' | 'payments'>('book');
+  // Book "as of" date — empty = today/live. Lets you pull a statement position
+  // at a past date (e.g. year-end). Only affects the Book tab. (0033)
+  const [asOf, setAsOf] = useState<string>('');
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
@@ -196,12 +200,16 @@ export default function Finance() {
   const billedP = round2(pCharges.reduce((s, c) => s + Number(c.amount_usd), 0));
   const netP = round2(collectedP - billedP);
 
-  // per-unit book (all-time balances within the block view)
+  // per-unit book. Balance folds in the opening balance and, when an "as of"
+  // date is set, only counts transactions up to that date (see computeBalance).
   const book = useMemo(() => vUnits.map((u) => {
-    const charged = vCharges.filter((c) => c.unit_id === u.id).reduce((s, c) => s + Number(c.amount_usd), 0);
-    const paid = vPayments.filter((p) => p.unit_id === u.id).reduce((s, p) => s + Number(p.amount_usd), 0);
-    return { unit: u, charged, paid, balance: round2(paid - charged) };
-  }), [vUnits, vCharges, vPayments]);
+    const uCharges = vCharges.filter((c) => c.unit_id === u.id);
+    const uPayments = vPayments.filter((p) => p.unit_id === u.id);
+    const within = (d: string) => !asOf || new Date(d) <= new Date(asOf);
+    const charged = uCharges.reduce((s, c) => (within(c.charge_date) ? s + Number(c.amount_usd) : s), 0);
+    const paid = uPayments.reduce((s, p) => (within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
+    return { unit: u, charged, paid, balance: computeBalance(u, uCharges, uPayments, asOf || null) };
+  }), [vUnits, vCharges, vPayments, asOf]);
   const outstanding = round2(book.reduce((s, r) => s + (r.balance < 0 ? -r.balance : 0), 0));
 
   // category breakdown (charges → block-sliceable)
@@ -366,9 +374,11 @@ export default function Finance() {
     };
     const rBook = units.map((u) => {
       const unitCharges = myChargesForUnit(u.id);
+      const uPayments = payments.filter((p) => p.unit_id === u.id);
       const charged = unitCharges.reduce((s, c) => s + Number(c.amount_usd), 0);
-      const paid = payments.filter((p) => p.unit_id === u.id).reduce((s, p) => s + Number(p.amount_usd), 0);
-      return { unit: u, charged, paid, balance: round2(paid - charged), unitCharges };
+      const paid = uPayments.reduce((s, p) => s + Number(p.amount_usd), 0);
+      // include the unit's opening balance so the resident sees the true figure
+      return { unit: u, charged, paid, balance: computeBalance(u, unitCharges, uPayments), unitCharges };
     });
     return (
       <div>
@@ -499,6 +509,21 @@ export default function Finance() {
           ) : loading ? <SkeletonTable rows={6} cols={5} /> : (
             <>
               {tab === 'book' && (
+                <>
+                <div className="flex items-center justify-end gap-2 mb-3">
+                  <label className="text-xs text-slate-500">{t('finance.balanceAsOf')}</label>
+                  <input
+                    type="date"
+                    value={asOf}
+                    onChange={(e) => setAsOf(e.target.value)}
+                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50"
+                  />
+                  {asOf && (
+                    <button onClick={() => setAsOf('')} className="text-xs text-[#7fe3ec] hover:underline cursor-pointer">
+                      {t('finance.backToLive')}
+                    </button>
+                  )}
+                </div>
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
@@ -528,6 +553,7 @@ export default function Finance() {
                     })}
                   </tbody>
                 </table></div></Card>
+                </>
               )}
 
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (

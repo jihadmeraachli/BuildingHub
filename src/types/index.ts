@@ -168,6 +168,10 @@ export interface Unit {
   label: string;
   share_weight: number;
   occupancy: Occupancy;
+  /** Balance carried in when the unit joined. Signed: + = credit, − = owes. Excluded from P&L. (0033) */
+  opening_balance: number;
+  /** The date opening_balance is stated as-of. (0033) */
+  opening_balance_date: string | null;
   created_at: string;
 }
 

@@ -39,7 +39,7 @@ export default function Structure() {
 
   // modals
   const [unitModal, setUnitModal] = useState<{ open: boolean; edit?: Unit }>({ open: false });
-  const [unitForm, setUnitForm] = useState({ label: '', share_weight: '1', occupancy: 'occupied' as Occupancy });
+  const [unitForm, setUnitForm] = useState({ label: '', share_weight: '1', occupancy: 'occupied' as Occupancy, opening_balance: '', opening_balance_date: '' });
   const [ownerModal, setOwnerModal] = useState<Unit | null>(null);
   const [ownerPick, setOwnerPick] = useState('');
   const [ownerTenure, setOwnerTenure] = useState<Tenure>('owner');
@@ -95,16 +95,23 @@ export default function Structure() {
   // ---- unit CRUD ----
   function openUnit(edit?: Unit) {
     setUnitForm(edit
-      ? { label: edit.label, share_weight: String(edit.share_weight), occupancy: edit.occupancy }
-      : { label: '', share_weight: '1', occupancy: 'occupied' });
+      ? { label: edit.label, share_weight: String(edit.share_weight), occupancy: edit.occupancy,
+          opening_balance: edit.opening_balance ? String(edit.opening_balance) : '',
+          opening_balance_date: edit.opening_balance_date ?? '' }
+      : { label: '', share_weight: '1', occupancy: 'occupied', opening_balance: '', opening_balance_date: '' });
     setUnitModal({ open: true, edit });
   }
   async function saveUnit() {
+    // Opening balance is signed: + = credit, − = owes. Only send a date when a
+    // balance is set, so an empty field means "no carried-in balance".
+    const ob = unitForm.opening_balance.trim() === '' ? 0 : Number(unitForm.opening_balance);
     const payload = {
       building_id: buildingId,
       label: unitForm.label.trim(),
       share_weight: Number(unitForm.share_weight) || 1,
       occupancy: unitForm.occupancy,
+      opening_balance: Number.isFinite(ob) ? ob : 0,
+      opening_balance_date: ob !== 0 ? (unitForm.opening_balance_date || new Date().toISOString().slice(0, 10)) : null,
     };
     if (!payload.label) return;
     if (unitModal.edit) await supabase.from('units').update(payload).eq('id', unitModal.edit.id);
@@ -323,6 +330,35 @@ export default function Structure() {
               <SelectItem value="abroad">{t('structure.abroad')}</SelectItem>
             </SelectField>
           </div>
+
+          {/* Opening balance — what the unit already owed/had in credit when it
+              joined. Kept out of the P&L; folds into the running balance. */}
+          <div className="rounded-xl border border-slate-200 dark:border-white/10 p-3 space-y-3">
+            <p className="text-xs font-medium text-slate-500">{t('structure.openingBalance')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={t('structure.openingAmount')}
+                type="number" step="0.01"
+                placeholder="0.00"
+                value={unitForm.opening_balance}
+                onChange={(e) => setUnitForm({ ...unitForm, opening_balance: e.target.value })}
+              />
+              <Input
+                label={t('structure.openingAsOf')}
+                type="date"
+                value={unitForm.opening_balance_date}
+                onChange={(e) => setUnitForm({ ...unitForm, opening_balance_date: e.target.value })}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {Number(unitForm.opening_balance) < 0
+                ? t('structure.openingOwes', { amt: Math.abs(Number(unitForm.opening_balance)).toLocaleString() })
+                : Number(unitForm.opening_balance) > 0
+                  ? t('structure.openingCredit', { amt: Number(unitForm.opening_balance).toLocaleString() })
+                  : t('structure.openingHint')}
+            </p>
+          </div>
+
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setUnitModal({ open: false })}>{t('common.cancel')}</Button>
             <Button onClick={saveUnit}>{t('common.save')}</Button>

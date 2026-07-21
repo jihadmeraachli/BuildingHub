@@ -34,7 +34,7 @@ export default function Dashboard() {
 
   const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
-  const [resident, setResident] = useState({ charged: 0, paid: 0 });
+  const [resident, setResident] = useState({ charged: 0, paid: 0, opening: 0 });
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
   const [entityKey, setEntityKey] = useState('');
@@ -119,13 +119,15 @@ export default function Dashboard() {
 
   async function loadResident() {
     const inIds = myUnitIds.length ? myUnitIds : ['00000000-0000-0000-0000-000000000000'];
-    const [c, p] = await Promise.all([
+    const [c, p, u] = await Promise.all([
       supabase.from('charges').select('amount_usd').in('unit_id', inIds),
       supabase.from('payments').select('amount_usd').in('unit_id', inIds),
+      supabase.from('units').select('opening_balance').in('id', inIds),
     ]);
     setResident({
       charged: ((c.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
       paid: ((p.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
+      opening: ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0),
     });
   }
 
@@ -135,7 +137,7 @@ export default function Dashboard() {
 
   // ── Resident view ──────────────────────────────────────────────────────────
   if (!isManager) {
-    const balance = Math.round((resident.paid - resident.charged) * 100) / 100;
+    const balance = Math.round((resident.opening + resident.paid - resident.charged) * 100) / 100;
     return (
       <div className="space-y-6 max-w-2xl">
         <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
