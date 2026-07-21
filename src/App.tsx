@@ -26,6 +26,7 @@ const Organizations  = lazy(() => import('@/pages/Organizations'));
 const Compounds      = lazy(() => import('@/pages/Compounds'));
 const Import         = lazy(() => import('@/pages/Import'));
 const Licenses       = lazy(() => import('@/pages/Licenses'));
+const PlatformLicensing = lazy(() => import('@/pages/PlatformLicensing'));
 const Settings       = lazy(() => import('@/pages/Settings'));
 
 function PageFallback() {
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="/compounds"     element={<Compounds />} />
               <Route path="/import"        element={<Import />} />
               <Route path="/licenses"      element={<Licenses />} />
+              <Route path="/licensing-admin" element={<PlatformLicensing />} />
               {/* your own account — no capability gate, everyone has one */}
               <Route path="/settings" element={<Settings />} />
             </Route>
