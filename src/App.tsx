@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { BetaGate } from '@/components/BetaGate';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -35,6 +36,7 @@ function PageFallback() {
 
 export default function App() {
   return (
+    <BetaGate>
     <ThemeProvider>
     <AuthProvider>
       <Toaster position="top-right" richColors closeButton />
@@ -77,5 +79,6 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
     </ThemeProvider>
+    </BetaGate>
   );
 }
