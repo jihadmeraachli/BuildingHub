@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload, Download, Users, Building2, Home, BarChart3,
-  CheckCircle2, Loader2, X, RefreshCw,
+  CheckCircle2, Loader2, X, RefreshCw, Undo2,
 } from 'lucide-react';
 import type { Grant } from '@/types';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ interface DbUnit { id: string; label: string; share_weight: number; building_id:
 interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; block?: string | null; }
 interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; building_id?: string; }
 interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; method?: string; building_id?: string; }
+interface ImportBatch { id: string; file_name: string | null; n_expenses: number; n_charges: number; n_payments: number; created_at: string; reversed_at: string | null; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -672,16 +673,38 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [step, setStep] = useState<StepState>('upload');
   const [fileName, setFileName] = useState('');
+  const [fileHash, setFileHash] = useState<string>('');       // SHA-256 of the upload (dedup)
+  const [batches, setBatches] = useState<ImportBatch[]>([]);  // recent imports for this entity
+  const [reversingId, setReversingId] = useState<string>('');
 
   const selectedEntity = entities.find(e => e.key === entityKey) ?? null;
 
-  // Load units for all blocks when entity selected
+  async function loadBatches(entity: Entity | null) {
+    if (!entity) { setBatches([]); return; }
+    const col = entity.kind === 'compound' ? 'compound_id' : 'building_id';
+    const { data } = await supabase.from('import_batches').select('*')
+      .eq(col, entity.id).order('created_at', { ascending: false }).limit(10);
+    setBatches((data ?? []) as ImportBatch[]);
+  }
+
+  // Load units for all blocks + recent import batches when entity selected
   useEffect(() => {
-    if (!selectedEntity) { setDbUnits([]); return; }
+    if (!selectedEntity) { setDbUnits([]); setBatches([]); return; }
     supabase.from('units').select('id, label, share_weight, building_id')
       .in('building_id', selectedEntity.buildingIds)
       .then(({ data }) => setDbUnits((data ?? []) as DbUnit[]));
+    loadBatches(selectedEntity);
   }, [entityKey]);
+
+  async function undoBatch(id: string) {
+    if (!confirm('Undo this import? Every expense, charge and payment it created will be removed.')) return;
+    setReversingId(id);
+    const { error } = await supabase.rpc('reverse_import_batch', { p_batch: id });
+    setReversingId('');
+    if (error) { toast.error(error.message); return; }
+    toast.success('Import reversed');
+    loadBatches(selectedEntity);
+  }
 
   async function handleFile(file: File) {
     if (!entityKey) { toast.error('Select a building or compound first'); return; }
@@ -696,22 +719,20 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     setAnalyzing(true);
     try {
       let content: string, format: string;
+      const buf = await file.arrayBuffer();
+      // SHA-256 of the raw bytes → lets us detect a re-upload of the same file
+      // and warn before double-posting (0035).
+      const digest = await crypto.subtle.digest('SHA-256', buf);
+      setFileHash([...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join(''));
 
       if (ext === 'pdf') {
-        const buf = await file.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        content = b64; format = 'pdf';
+        content = btoa(String.fromCharCode(...new Uint8Array(buf))); format = 'pdf';
       } else if (['jpg', 'jpeg'].includes(ext)) {
-        const buf = await file.arrayBuffer();
-        content = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        format = 'jpeg';
+        content = btoa(String.fromCharCode(...new Uint8Array(buf))); format = 'jpeg';
       } else if (ext === 'png') {
-        const buf = await file.arrayBuffer();
-        content = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        format = 'png';
+        content = btoa(String.fromCharCode(...new Uint8Array(buf))); format = 'png';
       } else {
         // Excel / CSV — convert to CSV text
-        const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         content = XLSX.utils.sheet_to_csv(ws);
@@ -751,11 +772,42 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
   async function runImport() {
     if (!aiResult || !selectedEntity) return;
     const { expenses, unit_charges, unit_payments } = aiResult;
+    const matchedCharges = unit_charges.filter(c => c.unit_id);
+    const matchedPayments = unit_payments.filter(p => p.unit_id);
+
+    // ── Idempotency guard: has this exact file already been imported here? ──
+    if (fileHash) {
+      const { data: dup } = await supabase.from('import_batches')
+        .select('id, created_at, file_name')
+        .eq(selectedEntity.kind === 'compound' ? 'compound_id' : 'building_id', selectedEntity.id)
+        .eq('content_hash', fileHash)
+        .is('reversed_at', null)
+        .limit(1);
+      if (dup && dup.length) {
+        const when = new Date((dup[0] as { created_at: string }).created_at).toLocaleDateString();
+        if (!confirm(`This exact file was already imported here on ${when}. Importing again will DOUBLE those amounts.\n\nContinue anyway?`)) return;
+      }
+    }
+
+    // ── Open a batch and tag every row with it, so it can be undone in one shot ──
+    const { data: batch, error: bErr } = await supabase.from('import_batches').insert({
+      scope_type: selectedEntity.kind,
+      building_id: selectedEntity.kind === 'building' ? selectedEntity.id : null,
+      compound_id: selectedEntity.kind === 'compound' ? selectedEntity.id : null,
+      file_name: fileName || null,
+      content_hash: fileHash || null,
+      n_expenses: expenses.length,
+      n_charges: matchedCharges.length,
+      n_payments: matchedPayments.length,
+      created_by: user?.id,
+    }).select('id').single();
+    if (bErr || !batch) { toast.error(`Could not start import: ${bErr?.message ?? 'unknown error'}`); return; }
+    const batchId = (batch as { id: string }).id;
 
     const allRows: ProgressRow[] = [
       ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toFixed(2)} · expense${e.block ? ` · Block ${e.block}` : ''}`, status: 'pending' as RowStatus })),
-      ...unit_charges.filter(c => c.unit_id).map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toFixed(2)} charge`, status: 'pending' as RowStatus })),
-      ...unit_payments.filter(p => p.unit_id).map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toFixed(2)} payment`, status: 'pending' as RowStatus })),
+      ...matchedCharges.map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toFixed(2)} charge`, status: 'pending' as RowStatus })),
+      ...matchedPayments.map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toFixed(2)} payment`, status: 'pending' as RowStatus })),
     ];
     setProgress(allRows);
     setStep('running');
@@ -788,6 +840,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           scope_type:   'block',
           method:       'by_shares',
           created_by:   user?.id,
+          import_batch_id: batchId,
         }).select('id').single();
         if (eErr) throw new Error(eErr.message);
 
@@ -802,6 +855,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
             charge_date: exp.expense_date ?? todayStr(),
             billed_to:   'both',
             created_by:  user?.id,
+            import_batch_id: batchId,
           })).filter(c => c.amount_usd > 0);
           if (chargeRows.length) await supabase.from('charges').insert(chargeRows);
         }
@@ -815,7 +869,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     }
 
     // Unit charges — building_id comes from the matched unit
-    for (const charge of unit_charges.filter(c => c.unit_id)) {
+    for (const charge of matchedCharges) {
       setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
       try {
         const { error } = await supabase.from('charges').insert({
@@ -827,6 +881,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           charge_date: charge.charge_date ?? todayStr(),
           billed_to:   'both',
           created_by:  user?.id,
+          import_batch_id: batchId,
         });
         if (error) throw new Error(error.message);
         setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
@@ -838,7 +893,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     }
 
     // Unit payments — building_id comes from the matched unit
-    for (const pmt of unit_payments.filter(p => p.unit_id)) {
+    for (const pmt of matchedPayments) {
       setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
       try {
         const { error } = await supabase.from('payments').insert({
@@ -849,6 +904,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           paid_on:     pmt.paid_on ?? todayStr(),
           note:        'Imported',
           recorded_by: user?.id,
+          import_batch_id: batchId,
         });
         if (error) throw new Error(error.message);
         setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
@@ -860,9 +916,10 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     }
 
     setStep('done');
+    loadBatches(selectedEntity); // refresh the undo list
   }
 
-  function reset() { setStep('upload'); setAiResult(null); setProgress([]); setFileName(''); }
+  function reset() { setStep('upload'); setAiResult(null); setProgress([]); setFileName(''); setFileHash(''); }
 
   function downloadExpensesTemplate() {
     const wb = XLSX.utils.book_new();
@@ -950,6 +1007,31 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
               accept=".csv,.xlsx,.xls,.pdf,.jpg,.jpeg,.png"
               hint="Excel, CSV, PDF, JPEG, or PNG"
             />
+          )}
+
+          {/* Recent imports — undo a batch (removes exactly what it created) */}
+          {batches.length > 0 && (
+            <div className="pt-2">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Recent imports</p>
+              <div className="space-y-1.5">
+                {batches.map(b => (
+                  <div key={b.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{b.file_name ?? 'Import'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(b.created_at).toLocaleString()} · {b.n_expenses} exp · {b.n_charges} charges · {b.n_payments} payments
+                        {b.reversed_at && <span className="ms-1.5 text-muted-foreground/70">· reversed</span>}
+                      </p>
+                    </div>
+                    {b.reversed_at
+                      ? <span className="text-[10px] uppercase tracking-wide bg-muted text-muted-foreground rounded px-1.5 py-0.5 shrink-0">Reversed</span>
+                      : <Button variant="ghost" size="sm" className="shrink-0 text-destructive hover:text-destructive" disabled={reversingId === b.id} onClick={() => undoBatch(b.id)}>
+                          {reversingId === b.id ? <Loader2 size={13} className="animate-spin" /> : <Undo2 size={13} />} Undo
+                        </Button>}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
