@@ -65,7 +65,7 @@ export function BetaGate({ children }: { children: ReactNode }) {
             value={code}
             onChange={e => { setCode(e.target.value); setError(false); }}
             placeholder="Access code"
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-center font-semibold tracking-widest uppercase text-foreground placeholder:normal-case placeholder:font-normal placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-center font-semibold tracking-wide text-foreground placeholder:font-normal placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-primary"
           />
           {error && (
             <p className="text-sm text-destructive">That code isn't valid — check with the Abniyah team.</p>
