@@ -332,7 +332,7 @@ export default function Finance() {
     if (error) { toast.error(error.message); return; }
     toast.success(t('finance.voided'));
     setVoidTarget(null); setVoidReason('');
-    isManager ? loadScope() : loadResident();
+    if (isManager) loadScope(); else loadResident();
   }
 
   async function saveAdjustment() {
@@ -555,15 +555,15 @@ export default function Finance() {
               {tab === 'book' && (
                 <>
                 <div className="flex items-center justify-end gap-2 mb-3">
-                  <label className="text-xs text-slate-500">{t('finance.balanceAsOf')}</label>
+                  <label className="text-xs text-muted-foreground">{t('finance.balanceAsOf')}</label>
                   <input
                     type="date"
                     value={asOf}
                     onChange={(e) => setAsOf(e.target.value)}
-                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#57D6E2]/50"
+                    className="rounded-lg border border-border bg-background text-foreground px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                   />
                   {asOf && (
-                    <button onClick={() => setAsOf('')} className="text-xs text-[#7fe3ec] hover:underline cursor-pointer">
+                    <button onClick={() => setAsOf('')} className="text-xs text-primary hover:underline cursor-pointer">
                       {t('finance.backToLive')}
                     </button>
                   )}

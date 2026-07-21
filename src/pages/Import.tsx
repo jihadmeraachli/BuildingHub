@@ -706,6 +706,26 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     loadBatches(selectedEntity);
   }
 
+  // ── Editable preview: fix AI misreads inline before committing ──
+  function patchExpense(i: number, patch: Partial<AiExpenseRow>) {
+    setAiResult(r => r ? { ...r, expenses: r.expenses.map((e, j) => j === i ? { ...e, ...patch } : e) } : r);
+  }
+  function patchCharge(i: number, patch: Partial<AiUnitCharge>) {
+    setAiResult(r => r ? { ...r, unit_charges: r.unit_charges.map((c, j) => j === i ? { ...c, ...patch } : c) } : r);
+  }
+  function patchPayment(i: number, patch: Partial<AiUnitPayment>) {
+    setAiResult(r => r ? { ...r, unit_payments: r.unit_payments.map((p, j) => j === i ? { ...p, ...patch } : p) } : r);
+  }
+  // Re-point a row to a chosen DB unit ('' = leave unmatched/skip).
+  function reassignUnit(kind: 'charge' | 'payment', i: number, unitId: string) {
+    const u = dbUnits.find(x => x.id === unitId);
+    const patch = { unit_id: u?.id, building_id: u?.building_id, unit_label: u?.label ?? (kind === 'charge' ? '' : '') };
+    if (kind === 'charge') patchCharge(i, u ? patch : { unit_id: undefined, building_id: undefined });
+    else patchPayment(i, u ? patch : { unit_id: undefined, building_id: undefined });
+  }
+
+  const cellInput = 'w-full bg-transparent border border-border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring';
+
   async function handleFile(file: File) {
     if (!entityKey) { toast.error('Select a building or compound first'); return; }
     setAiResult(null);
@@ -1061,12 +1081,21 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
               <tbody className="divide-y divide-border">
                 {expenses.map((e, i) => (
                   <tr key={i}>
-                    <td className="px-4 py-2 capitalize text-xs text-muted-foreground">{e.category.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-2">{e.description}</td>
-                    <td className="px-4 py-2 tnum font-medium">${e.amount_usd.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-muted-foreground text-xs">{e.expense_date ?? 'Today'}</td>
+                    <td className="px-4 py-2">
+                      <select value={e.category} onChange={ev => patchExpense(i, { category: ev.target.value })} className={cellInput + ' capitalize'}>
+                        {['water','electricity','common_expenses','projects','contracts','fines','other'].map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2"><input value={e.description} onChange={ev => patchExpense(i, { description: ev.target.value })} className={cellInput} /></td>
+                    <td className="px-4 py-2"><input type="number" step="0.01" value={e.amount_usd} onChange={ev => patchExpense(i, { amount_usd: Number(ev.target.value) })} className={cellInput + ' tnum w-28'} /></td>
+                    <td className="px-4 py-2"><input type="date" value={e.expense_date ?? ''} onChange={ev => patchExpense(i, { expense_date: ev.target.value || null })} className={cellInput + ' w-36'} /></td>
                     {selectedEntity?.kind === 'compound' && (
-                      <td className="px-4 py-2 text-xs font-medium text-primary">{e.block ?? <span className="text-muted-foreground">auto</span>}</td>
+                      <td className="px-4 py-2">
+                        <select value={e.block ?? ''} onChange={ev => patchExpense(i, { block: ev.target.value || null })} className={cellInput + ' w-28'}>
+                          <option value="">auto</option>
+                          {selectedEntity.blocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        </select>
+                      </td>
                     )}
                   </tr>
                 ))}
@@ -1076,24 +1105,23 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         )}
 
         {unit_charges.length > 0 && (
-          <PreviewSection title={`Unit Balances (${unit_charges.filter(c => c.unit_id).length} matched, ${unmatched_charges} skipped)`}>
+          <PreviewSection title={`Unit Balances (${unit_charges.filter(c => c.unit_id).length} matched, ${unmatched_charges} skipped)`} hint="Pick a unit to fix an unmatched row — everything here is editable before you import.">
             <table className="w-full text-sm">
               <thead className="bg-muted/40"><tr>
-                {['Unit', 'Description', 'Amount (USD)', 'Match'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
+                {['Unit', 'Description', 'Amount (USD)', 'Date'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
               </tr></thead>
               <tbody className="divide-y divide-border">
                 {unit_charges.map((c, i) => (
-                  <tr key={i} className={!c.unit_id ? 'opacity-40' : ''}>
-                    <td className="px-4 py-2 font-medium">{c.unit_label}</td>
-                    <td className="px-4 py-2 text-muted-foreground text-xs">{c.description}</td>
-                    <td className={`px-4 py-2 tnum ${c.amount_usd < 0 ? 'text-emerald-400' : ''}`}>
-                      {c.amount_usd < 0 ? `−$${Math.abs(c.amount_usd).toFixed(2)} CR` : `$${c.amount_usd.toFixed(2)}`}
-                    </td>
+                  <tr key={i} className={!c.unit_id ? 'bg-amber-500/5' : ''}>
                     <td className="px-4 py-2">
-                      {c.unit_id
-                        ? <CheckCircle2 size={14} className="text-emerald-400" />
-                        : <span className="text-xs text-amber-300">No match</span>}
+                      <select value={c.unit_id ?? ''} onChange={ev => reassignUnit('charge', i, ev.target.value)} className={`${cellInput} w-36 ${!c.unit_id ? 'border-amber-500/60 text-amber-300' : ''}`}>
+                        <option value="">{c.unit_label ? `${c.unit_label} — no match` : '— skip —'}</option>
+                        {dbUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                      </select>
                     </td>
+                    <td className="px-4 py-2"><input value={c.description} onChange={ev => patchCharge(i, { description: ev.target.value })} className={cellInput} /></td>
+                    <td className="px-4 py-2"><input type="number" step="0.01" value={c.amount_usd} onChange={ev => patchCharge(i, { amount_usd: Number(ev.target.value) })} className={cellInput + ' tnum w-28'} /></td>
+                    <td className="px-4 py-2"><input type="date" value={c.charge_date ?? ''} onChange={ev => patchCharge(i, { charge_date: ev.target.value || null })} className={cellInput + ' w-36'} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -1102,21 +1130,26 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         )}
 
         {unit_payments.length > 0 && (
-          <PreviewSection title={`Unit Payments (${unit_payments.filter(p => p.unit_id).length} matched, ${unmatched_payments} skipped)`}>
+          <PreviewSection title={`Unit Payments (${unit_payments.filter(p => p.unit_id).length} matched, ${unmatched_payments} skipped)`} hint="Pick a unit to fix an unmatched row.">
             <table className="w-full text-sm">
               <thead className="bg-muted/40"><tr>
-                {['Unit', 'Amount (USD)', 'Date', 'Match'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
+                {['Unit', 'Amount (USD)', 'Date', 'Method'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
               </tr></thead>
               <tbody className="divide-y divide-border">
                 {unit_payments.map((p, i) => (
-                  <tr key={i} className={!p.unit_id ? 'opacity-40' : ''}>
-                    <td className="px-4 py-2 font-medium">{p.unit_label}</td>
-                    <td className="px-4 py-2 tnum">${p.amount_usd.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-muted-foreground text-xs">{p.paid_on ?? 'Today'}</td>
+                  <tr key={i} className={!p.unit_id ? 'bg-amber-500/5' : ''}>
                     <td className="px-4 py-2">
-                      {p.unit_id
-                        ? <CheckCircle2 size={14} className="text-emerald-400" />
-                        : <span className="text-xs text-amber-300">No match</span>}
+                      <select value={p.unit_id ?? ''} onChange={ev => reassignUnit('payment', i, ev.target.value)} className={`${cellInput} w-36 ${!p.unit_id ? 'border-amber-500/60 text-amber-300' : ''}`}>
+                        <option value="">{p.unit_label ? `${p.unit_label} — no match` : '— skip —'}</option>
+                        {dbUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2"><input type="number" step="0.01" value={p.amount_usd} onChange={ev => patchPayment(i, { amount_usd: Number(ev.target.value) })} className={cellInput + ' tnum w-28'} /></td>
+                    <td className="px-4 py-2"><input type="date" value={p.paid_on ?? ''} onChange={ev => patchPayment(i, { paid_on: ev.target.value || null })} className={cellInput + ' w-36'} /></td>
+                    <td className="px-4 py-2">
+                      <select value={p.method ?? 'other'} onChange={ev => patchPayment(i, { method: ev.target.value })} className={cellInput + ' w-32'}>
+                        {['cash','cheque','bank_transfer','other'].map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+                      </select>
                     </td>
                   </tr>
                 ))}
