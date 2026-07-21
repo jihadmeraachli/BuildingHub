@@ -87,7 +87,11 @@
     "confirmPassword": "Confirm password",
     "setPasswordBtn": "Set password & sign in",
     "passwordMismatch": "Passwords do not match.",
-    "passwordTooShort": "Password must be at least 8 characters."
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "mfaChallengeTitle": "Two-factor code",
+    "mfaChallengeSubtitle": "Enter the 6-digit code from your authenticator app.",
+    "mfaVerifyBtn": "Verify",
+    "mfaInvalidCode": "That code didn't work — try again."
   },
   "dashboard": {
     "welcome": "Welcome back",
@@ -684,6 +688,21 @@
     "cropTitle": "Adjust your photo",
     "zoom": "Zoom",
     "cropHint": "Drag to reposition, pinch or use the slider to zoom.",
-    "usePhoto": "Use photo"
+    "usePhoto": "Use photo",
+    "mfaTitle": "Two-factor authentication",
+    "mfaNote": "Add a second step at sign-in: a 6-digit code from an authenticator app (Google Authenticator, Authy, …). Optional but strongly recommended for admins.",
+    "mfaStatusOn": "Two-factor authentication is on",
+    "mfaStatusOff": "Two-factor authentication is off",
+    "mfaEnable": "Enable 2FA",
+    "mfaDisable": "Disable",
+    "mfaScanTitle": "Scan this QR code",
+    "mfaScanHint": "Scan it with your authenticator app, then enter the 6-digit code the app shows.",
+    "mfaManualKey": "Can't scan? Enter this key manually:",
+    "mfaCode": "6-digit code",
+    "mfaVerify": "Verify & enable",
+    "mfaEnabledToast": "Two-factor authentication enabled",
+    "mfaDisabledToast": "Two-factor authentication disabled",
+    "mfaInvalidCode": "That code didn't work — try again",
+    "mfaDisableConfirm": "Turn off two-factor authentication? Your account will then be protected by your password only."
   }
 }

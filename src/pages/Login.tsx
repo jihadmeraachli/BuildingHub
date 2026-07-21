@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { setLanguage } from '@/i18n';
-import { Globe, ArrowLeft, Mail } from 'lucide-react';
+import { Globe, ArrowLeft, Mail, Smartphone } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -17,25 +18,59 @@ const loginSchema = z.object({
 });
 
 type LoginData = z.infer<typeof loginSchema>;
-type Mode = 'login' | 'forgot' | 'forgot-sent';
+type Mode = 'login' | 'forgot' | 'forgot-sent' | 'mfa';
 
 export default function Login() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { mfaPending } = useAuth();
   const [error, setError] = useState('');
   const [mode, setMode] = useState<Mode>('login');
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
   });
 
+  // A password-only session on a 2FA account gets bounced here by ProtectedRoute —
+  // jump straight to the code screen.
+  useEffect(() => {
+    if (mfaPending) setMode('mfa');
+  }, [mfaPending]);
+
   async function onSubmit(data: LoginData) {
     setError('');
     const { error } = await supabase.auth.signInWithPassword(data);
-    if (error) setError(t('auth.invalidCredentials'));
-    else navigate('/dashboard');
+    if (error) { setError(t('auth.invalidCredentials')); return; }
+    // 2FA enrolled? Then the password only gets us to aal1 — ask for the code.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      setMfaCode('');
+      setMode('mfa');
+    } else {
+      navigate('/dashboard');
+    }
+  }
+
+  async function onMfaSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (mfaCode.length !== 6) return;
+    setError('');
+    setMfaLoading(true);
+    const { data: factorData } = await supabase.auth.mfa.listFactors();
+    const factor = factorData?.totp?.find(f => f.status === 'verified');
+    if (!factor) {
+      setMfaLoading(false);
+      setError(t('auth.mfaInvalidCode'));
+      return;
+    }
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: mfaCode });
+    setMfaLoading(false);
+    if (error) { setError(t('auth.mfaInvalidCode')); return; }
+    navigate('/dashboard');
   }
 
   async function onResetSubmit(e: React.FormEvent) {
@@ -159,6 +194,44 @@ export default function Login() {
                   {t('auth.sendResetLink')}
                 </Button>
               </form>
+            </>
+          )}
+
+          {mode === 'mfa' && (
+            <>
+              <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mb-4">
+                <Smartphone size={26} className="text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">{t('auth.mfaChallengeTitle')}</h2>
+              <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.mfaChallengeSubtitle')}</p>
+
+              {error && (
+                <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={onMfaSubmit} className="space-y-4">
+                <Input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  autoFocus
+                  value={mfaCode}
+                  onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  className="text-center text-lg tracking-[0.4em] font-semibold"
+                />
+                <Button type="submit" loading={mfaLoading} className="w-full" disabled={mfaCode.length !== 6}>
+                  {t('auth.mfaVerifyBtn')}
+                </Button>
+              </form>
+
+              <button
+                onClick={async () => { await supabase.auth.signOut(); setMode('login'); setError(''); }}
+                className="mt-6 text-sm text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                {t('auth.backToLogin')}
+              </button>
             </>
           )}
 

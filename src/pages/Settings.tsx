@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Camera, Loader2, Mail, ShieldCheck, User as UserIcon } from 'lucide-react';
+import { Camera, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
+import type { Factor } from '@supabase/supabase-js';
 import Cropper from 'react-easy-crop';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,6 +47,13 @@ export default function Settings() {
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
   const [savingPw, setSavingPw] = useState(false);
+
+  // ---- 2FA (TOTP via Supabase MFA — optional, per user) ----
+  const [mfaFactors, setMfaFactors] = useState<Factor[]>([]);
+  const [enrollment, setEnrollment] = useState<{ id: string; qr: string; secret: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [mfaDisableOpen, setMfaDisableOpen] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -138,6 +146,64 @@ export default function Settings() {
     setSavingEmail(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('settings.emailConfirmSent', { email: email.trim() }), { duration: 8000 });
+  }
+
+  // ---- 2FA handlers ----
+
+  async function loadMfaFactors() {
+    const { data } = await supabase.auth.mfa.listFactors();
+    setMfaFactors(data?.totp?.filter(f => f.status === 'verified') ?? []);
+  }
+
+  useEffect(() => { loadMfaFactors(); }, []);
+
+  async function startEnroll() {
+    setMfaBusy(true);
+    // Clean up abandoned unverified factors from earlier cancelled attempts —
+    // Supabase keeps them and a second enroll with the same name would fail.
+    const { data: existing } = await supabase.auth.mfa.listFactors();
+    for (const f of existing?.all ?? []) {
+      if (f.factor_type === 'totp' && f.status === 'unverified') {
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
+      }
+    }
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Authenticator app' });
+    setMfaBusy(false);
+    if (error) { toast.error(error.message); return; }
+    setMfaCode('');
+    setEnrollment({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+  }
+
+  async function verifyEnroll() {
+    if (!enrollment || mfaCode.length !== 6) return;
+    setMfaBusy(true);
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: enrollment.id, code: mfaCode });
+    setMfaBusy(false);
+    if (error) { toast.error(t('settings.mfaInvalidCode')); return; }
+    setEnrollment(null);
+    setMfaCode('');
+    toast.success(t('settings.mfaEnabledToast'));
+    loadMfaFactors();
+  }
+
+  async function cancelEnroll() {
+    if (enrollment) await supabase.auth.mfa.unenroll({ factorId: enrollment.id });
+    setEnrollment(null);
+    setMfaCode('');
+  }
+
+  async function disableMfa() {
+    setMfaBusy(true);
+    let lastError: string | null = null;
+    for (const f of mfaFactors) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+      if (error) lastError = error.message;
+    }
+    setMfaBusy(false);
+    setMfaDisableOpen(false);
+    if (lastError) { toast.error(lastError); return; }
+    toast.success(t('settings.mfaDisabledToast'));
+    loadMfaFactors();
   }
 
   async function savePassword() {
@@ -305,7 +371,7 @@ export default function Settings() {
       </Card>
 
       {/* ---------- password ---------- */}
-      <Card>
+      <Card className="mb-5">
         <CardBody>
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={16} className="text-[#7fe3ec]" />
@@ -322,6 +388,76 @@ export default function Settings() {
           </div>
         </CardBody>
       </Card>
+
+      {/* ---------- two-factor authentication ---------- */}
+      <Card>
+        <CardBody>
+          <div className="flex items-center gap-2 mb-1">
+            <Smartphone size={16} className="text-[#7fe3ec]" />
+            <p className="text-sm font-semibold text-foreground">{t('settings.mfaTitle')}</p>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">{t('settings.mfaNote')}</p>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className={mfaFactors.length ? 'w-2 h-2 rounded-full bg-emerald-500' : 'w-2 h-2 rounded-full bg-muted-foreground/40'} />
+              <p className="text-sm text-foreground">
+                {mfaFactors.length ? t('settings.mfaStatusOn') : t('settings.mfaStatusOff')}
+              </p>
+            </div>
+            {mfaFactors.length ? (
+              <Button variant="outline" onClick={() => setMfaDisableOpen(true)}>
+                {t('settings.mfaDisable')}
+              </Button>
+            ) : (
+              <Button onClick={startEnroll} loading={mfaBusy && !enrollment}>
+                {t('settings.mfaEnable')}
+              </Button>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* enroll: QR + verify code */}
+      <Modal open={!!enrollment} onClose={cancelEnroll} title={t('settings.mfaScanTitle')} size="sm">
+        {enrollment && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">{t('settings.mfaScanHint')}</p>
+            <div className="flex justify-center">
+              <img src={enrollment.qr} alt="TOTP QR code" className="w-44 h-44 rounded-lg bg-white p-2" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">{t('settings.mfaManualKey')}</p>
+              <code className="block text-xs bg-muted rounded-lg px-3 py-2 break-all select-all">{enrollment.secret}</code>
+            </div>
+            <Input
+              label={t('settings.mfaCode')}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={mfaCode}
+              onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={cancelEnroll}>{t('common.cancel')}</Button>
+              <Button onClick={verifyEnroll} loading={mfaBusy} disabled={mfaCode.length !== 6}>
+                {t('settings.mfaVerify')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* disable confirm */}
+      <Modal open={mfaDisableOpen} onClose={() => setMfaDisableOpen(false)} title={t('settings.mfaTitle')} size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('settings.mfaDisableConfirm')}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setMfaDisableOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="danger" onClick={disableMfa} loading={mfaBusy}>{t('settings.mfaDisable')}</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, needsLicense } = useAuth();
+  const { user, profile, loading, needsLicense, mfaPending } = useAuth();
 
   if (loading) {
     return (
@@ -13,6 +13,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/" replace />;
+
+  // 2FA enrolled but this session hasn't passed the code yet — back to Login,
+  // which detects the pending challenge and shows the code screen.
+  if (mfaPending) return <Navigate to="/" replace />;
 
   // Resident-only account with no licensed unit (0031). Client-side UX gate only —
   // RLS in the database remains the real enforcement.

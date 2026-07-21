@@ -32,6 +32,8 @@ interface AuthContextValue {
   myTenantUnitIds: string[];
   /** true when the user is a resident-only account and NONE of their units holds an active license (0031) */
   needsLicense: boolean;
+  /** true when the user has 2FA enrolled but this session hasn't passed the code check yet */
+  mfaPending: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -46,6 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   // null = not applicable (managers, no residency); false = resident with no licensed unit
   const [residentLicensed, setResidentLicensed] = useState<boolean | null>(null);
+  const [mfaPending, setMfaPending] = useState(false);
+
+  // 2FA gate: a password-only session (aal1) on an account with a verified TOTP
+  // factor must not reach the app until the code is entered (aal2).
+  async function checkMfaLevel() {
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    setMfaPending(data?.nextLevel === 'aal2' && data.currentLevel !== 'aal2');
+  }
 
   async function fetchProfile(userId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -145,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        checkMfaLevel();
         loadAll(session.user.id).finally(() => setLoading(false));
       } else {
         setLoading(false);
@@ -155,8 +166,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        // setTimeout: auth calls inside this callback can deadlock on the client's
+        // internal lock — defer to the next tick.
+        setTimeout(checkMfaLevel, 0);
         loadAll(session.user.id);
       } else {
+        setMfaPending(false);
         setProfile(null);
         setGrants([]);
         setMemberships([]);
@@ -202,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user, profile, session, loading, signOut, refreshProfile,
         grants, memberships, isPlatformAdmin, buildingRoles, can, canAny,
-        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense,
+        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense, mfaPending,
       }}
     >
       {children}
