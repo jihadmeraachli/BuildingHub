@@ -52,7 +52,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
     <div>
       <div className="relative" style={{ height }} onMouseMove={onMove} onMouseLeave={() => setIdx(null)}>
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-          {/* stroke via style (not the attribute) so hsl(var(--token)) colors resolve */}
+          {/* stroke via style (not the SVG attribute) so var(--token) colors resolve */}
           {series.map((s) => (
             <path key={s.name} d={path(s.data)} fill="none" style={{ stroke: s.color }} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
           ))}

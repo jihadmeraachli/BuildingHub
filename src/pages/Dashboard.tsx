@@ -222,8 +222,8 @@ export default function Dashboard() {
             <span className="text-xs text-muted-foreground">{t('dashboard.last12Hover')}</span>
           </div>
           <TrendChart labels={monthly.labels} series={[
-            { name: t('dashboard.collected'), color: 'hsl(var(--primary))', data: monthly.collected },
-            { name: t('dashboard.spent'),     color: 'hsl(var(--destructive))', data: monthly.spent },
+            { name: t('dashboard.collected'), color: 'var(--primary)', data: monthly.collected },
+            { name: t('dashboard.spent'),     color: 'var(--destructive)', data: monthly.spent },
           ]} />
         </CardContent>
       </Card>
