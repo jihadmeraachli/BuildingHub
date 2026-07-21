@@ -506,7 +506,34 @@
       "tenant": "المستأجر فقط"
     },
     "balanceAsOf": "الرصيد بتاريخ",
-    "backToLive": "العودة إلى المباشر"
+    "backToLive": "العودة إلى المباشر",
+    "adjustment": "تسوية",
+    "adjustments": "التسويات",
+    "newAdjustment": "تسوية جديدة",
+    "adjKind": "النوع",
+    "effect": "الأثر",
+    "noAdjustments": "لا توجد تسويات بعد",
+    "adjSaved": "تم حفظ التسوية",
+    "adjNeedsAmount": "أدخل الوحدة ومبلغًا موجبًا",
+    "adjNotePlaceholder": "السبب / المرجع (اختياري)",
+    "adjEffectHint": "هذا {{dir}} بمقدار {{amt}}.",
+    "adjIncreasesOwed": "يزيد ما على الوحدة",
+    "adjReducesOwed": "يخفّض ما على الوحدة",
+    "adjKinds": {
+      "discount": "خصم",
+      "credit_note": "إشعار دائن",
+      "waiver": "إعفاء",
+      "write_off": "شطب",
+      "penalty": "غرامة / تأخير",
+      "refund": "استرداد"
+    },
+    "void": "إلغاء",
+    "voided": "ملغى",
+    "voidedBadge": "ملغى",
+    "voidTitle": "إلغاء هذا السجل؟",
+    "voidExplain": "سيتم إلغاء {{item}} واستبعاده من الرصيد، مع الاحتفاظ به في سجل التدقيق. لا يمكن التراجع من التطبيق.",
+    "voidReason": "السبب (اختياري)",
+    "voidReasonPlaceholder": "مثال: أُدخل خطأً، وحدة خاطئة…"
   },
   "inspections": {
     "title": "الفحوصات",

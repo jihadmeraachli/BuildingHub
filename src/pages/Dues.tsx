@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
-import type { Unit, Charge, Payment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType } from '@/types';
+import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -40,6 +40,7 @@ export default function Dues() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [plan, setPlan] = useState<DuesPlan | null>(null);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const [items, setItems] = useState<DuesItem[]>([]);
@@ -68,15 +69,17 @@ export default function Dues() {
     const planQ = entity.kind === 'compound'
       ? supabase.from('dues_plans').select('*').eq('compound_id', entity.id).maybeSingle()
       : supabase.from('dues_plans').select('*').eq('building_id', entity.id).maybeSingle();
-    const [{ data: u }, { data: c }, { data: p }, { data: pl }] = await Promise.all([
+    const [{ data: u }, { data: c }, { data: p }, { data: pl }, { data: a }] = await Promise.all([
       supabase.from('units').select('*').in('building_id', blocks).order('label'),
       supabase.from('charges').select('*').in('building_id', blocks),
       supabase.from('payments').select('*').in('building_id', blocks),
       planQ,
+      supabase.from('adjustments').select('*').in('building_id', blocks),
     ]);
     setUnits((u as Unit[]) ?? []);
     setCharges((c as Charge[]) ?? []);
     setPayments((p as Payment[]) ?? []);
+    setAdjustments((a as Adjustment[]) ?? []);
     const planRow = (pl as DuesPlan) ?? null;
     setPlan(planRow);
     const ids = ((u as Unit[]) ?? []).map((x) => x.id);
@@ -94,14 +97,15 @@ export default function Dues() {
   const balanceOf = useMemo(() => {
     const m: Record<string, number> = {};
     units.forEach((u) => {
-      // include opening balance so the dues true-up (base − balance) accounts
-      // for arrears/credit a unit carried in (0033)
+      // opening balance + adjustments, ignoring voided — same math as Finance so
+      // the dues true-up (base − balance) is correct (0033/0034)
       const uCharges = charges.filter((c) => c.unit_id === u.id);
       const uPayments = payments.filter((p) => p.unit_id === u.id);
-      m[u.id] = computeBalance(u, uCharges, uPayments);
+      const uAdj = adjustments.filter((a) => a.unit_id === u.id);
+      m[u.id] = computeBalance(u, uCharges, uPayments, null, uAdj);
     });
     return m;
-  }, [units, charges, payments]);
+  }, [units, charges, payments, adjustments]);
 
   function baseFor(u: Unit, method: DuesMethod, pool: number, custom: Record<string, string>): number {
     if (method === 'custom') return round2(Number(custom[u.id]) || 0);

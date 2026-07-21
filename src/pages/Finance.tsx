@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Trash2, Download } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -9,8 +9,8 @@ import { uploadFile } from '@/lib/upload';
 import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
-import { computeBalance } from '@/lib/balance';
-import type { Unit, Expense, Charge, Payment, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, BilledTo } from '@/types';
+import { computeBalance, adjustmentEffect } from '@/lib/balance';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, BilledTo } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -93,10 +93,16 @@ export default function Finance() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
 
-  const [tab, setTab] = useState<'book' | 'expenses' | 'payments'>('book');
+  const [tab, setTab] = useState<'book' | 'expenses' | 'payments' | 'adjustments'>('book');
   // Book "as of" date — empty = today/live. Lets you pull a statement position
   // at a past date (e.g. year-end). Only affects the Book tab. (0033)
   const [asOf, setAsOf] = useState<string>('');
+  // void (soft-cancel) + adjustments (0034)
+  const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments'; id: string; label: string } | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voiding, setVoiding] = useState(false);
+  const [adjOpen, setAdjOpen] = useState(false);
+  const [adjForm, setAdjForm] = useState({ unit_id: '', kind: 'discount' as AdjustmentKind, amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' });
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
@@ -105,6 +111,7 @@ export default function Finance() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -132,7 +139,7 @@ export default function Finance() {
     if (!entity) return;
     setLoading(true);
     const blocks = entity.buildingIds;
-    const [{ data: u }, { data: g }, { data: c }, { data: p }, { data: e }] = await Promise.all([
+    const [{ data: u }, { data: g }, { data: c }, { data: p }, { data: e }, { data: a }] = await Promise.all([
       supabase.from('units').select('*').in('building_id', blocks).order('label'),
       supabase.from('groups').select('*').in('building_id', blocks).order('name'),
       supabase.from('charges').select('*').in('building_id', blocks),
@@ -140,6 +147,7 @@ export default function Finance() {
       entity.kind === 'compound'
         ? supabase.from('expenses').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`).order('expense_date', { ascending: false })
         : supabase.from('expenses').select('*').eq('building_id', entity.id).order('expense_date', { ascending: false }),
+      supabase.from('adjustments').select('*').in('building_id', blocks).order('effective_date', { ascending: false }),
     ]);
     const unitList = (u as Unit[]) ?? [];
     setUnits(unitList);
@@ -147,6 +155,7 @@ export default function Finance() {
     setCharges((c as Charge[]) ?? []);
     setPayments((p as Payment[]) ?? []);
     setExpenses((e as Expense[]) ?? []);
+    setAdjustments((a as Adjustment[]) ?? []);
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
       const { data: ug } = await supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids);
@@ -157,14 +166,16 @@ export default function Finance() {
 
   async function loadResident() {
     setLoading(true);
-    const [{ data: u }, { data: c }, { data: p }] = await Promise.all([
+    const [{ data: u }, { data: c }, { data: p }, { data: a }] = await Promise.all([
       supabase.from('units').select('*').in('id', myUnitIds),
       supabase.from('charges').select('*').in('unit_id', myUnitIds).order('charge_date', { ascending: false }),
       supabase.from('payments').select('*').in('unit_id', myUnitIds).order('paid_on', { ascending: false }),
+      supabase.from('adjustments').select('*').in('unit_id', myUnitIds).order('effective_date', { ascending: false }),
     ]);
     setUnits((u as Unit[]) ?? []);
     setCharges((c as Charge[]) ?? []);
     setPayments((p as Payment[]) ?? []);
+    setAdjustments((a as Adjustment[]) ?? []);
     setLoading(false);
   }
 
@@ -192,8 +203,9 @@ export default function Finance() {
   const inRange = (d: string) => !range || (new Date(d) >= range.from && new Date(d) <= range.to);
   const periodLabel = period === 'month' ? new Date(`${monthValue}-01`).toLocaleString(undefined, { month: 'long', year: 'numeric' }) : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
 
-  const pCharges = vCharges.filter((c) => inRange(c.charge_date));
-  const pPayments = vPayments.filter((p) => inRange(p.paid_on));
+  // voided charges/payments never count toward cash or the book
+  const pCharges = vCharges.filter((c) => !c.voided_at && inRange(c.charge_date));
+  const pPayments = vPayments.filter((p) => !p.voided_at && inRange(p.paid_on));
   const pExpenses = vExpenses.filter((e) => inRange(e.expense_date));
 
   const collectedP = round2(pPayments.reduce((s, p) => s + Number(p.amount_usd), 0));
@@ -205,11 +217,12 @@ export default function Finance() {
   const book = useMemo(() => vUnits.map((u) => {
     const uCharges = vCharges.filter((c) => c.unit_id === u.id);
     const uPayments = vPayments.filter((p) => p.unit_id === u.id);
+    const uAdj = adjustments.filter((a) => a.unit_id === u.id);
     const within = (d: string) => !asOf || new Date(d) <= new Date(asOf);
-    const charged = uCharges.reduce((s, c) => (within(c.charge_date) ? s + Number(c.amount_usd) : s), 0);
-    const paid = uPayments.reduce((s, p) => (within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
-    return { unit: u, charged, paid, balance: computeBalance(u, uCharges, uPayments, asOf || null) };
-  }), [vUnits, vCharges, vPayments, asOf]);
+    const charged = uCharges.reduce((s, c) => (!c.voided_at && within(c.charge_date) ? s + Number(c.amount_usd) : s), 0);
+    const paid = uPayments.reduce((s, p) => (!p.voided_at && within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
+    return { unit: u, charged, paid, balance: computeBalance(u, uCharges, uPayments, asOf || null, uAdj) };
+  }), [vUnits, vCharges, vPayments, adjustments, asOf]);
   const outstanding = round2(book.reduce((s, r) => s + (r.balance < 0 ? -r.balance : 0), 0));
 
   // category breakdown (charges → block-sliceable)
@@ -252,6 +265,7 @@ export default function Finance() {
 
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: entity?.kind === 'compound' ? 'all' : 'all' }); setCustom({}); setExpFile(null); setExpOpen(true); }
   function openPayment() { setEditingPaymentId(null); setPayForm(newPayForm()); setPayFile(null); setPayOpen(true); }
+  function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' }); setAdjOpen(true); }
   function openExpenseEdit(e: Expense) {
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
@@ -308,6 +322,38 @@ export default function Finance() {
     setDetailExpense(null); loadScope();
   }
 
+  // Void = soft-cancel that keeps the record for audit (replaces hard delete).
+  async function confirmVoid() {
+    if (!voidTarget) return;
+    setVoiding(true);
+    const patch = { voided_at: new Date().toISOString(), voided_by: profile?.id ?? null, void_reason: voidReason.trim() || null };
+    const { error } = await supabase.from(voidTarget.table).update(patch).eq('id', voidTarget.id);
+    setVoiding(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('finance.voided'));
+    setVoidTarget(null); setVoidReason('');
+    isManager ? loadScope() : loadResident();
+  }
+
+  async function saveAdjustment() {
+    const amount = Number(adjForm.amount);
+    if (!adjForm.unit_id || !amount || amount <= 0) { toast.error(t('finance.adjNeedsAmount')); return; }
+    setSaving(true);
+    const { error } = await supabase.from('adjustments').insert({
+      unit_id: adjForm.unit_id,
+      building_id: unitById[adjForm.unit_id]?.building_id,
+      kind: adjForm.kind,
+      amount_usd: amount,
+      effective_date: adjForm.effective_date,
+      note: adjForm.note.trim() || null,
+      created_by: profile?.id,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('finance.adjSaved'));
+    setAdjOpen(false); loadScope();
+  }
+
   async function savePayment() {
     const amount = Number(payForm.amount);
     if (!payForm.unit_id || !amount || amount <= 0) return;
@@ -324,11 +370,7 @@ export default function Finance() {
     setPayOpen(false); loadScope();
   }
 
-  async function deletePayment(id: string) {
-    if (!confirm('Delete this payment?')) return;
-    await supabase.from('payments').delete().eq('id', id);
-    loadScope();
-  }
+  // (payments are voided, not deleted — see confirmVoid)
 
   // ─── PDF export ───────────────────────────────────────────────────────────
 
@@ -373,12 +415,13 @@ export default function Finance() {
       ));
     };
     const rBook = units.map((u) => {
-      const unitCharges = myChargesForUnit(u.id);
-      const uPayments = payments.filter((p) => p.unit_id === u.id);
+      const unitCharges = myChargesForUnit(u.id).filter((c) => !c.voided_at);
+      const uPayments = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
+      const uAdj = adjustments.filter((a) => a.unit_id === u.id);
       const charged = unitCharges.reduce((s, c) => s + Number(c.amount_usd), 0);
       const paid = uPayments.reduce((s, p) => s + Number(p.amount_usd), 0);
-      // include the unit's opening balance so the resident sees the true figure
-      return { unit: u, charged, paid, balance: computeBalance(u, unitCharges, uPayments), unitCharges };
+      // include opening balance + adjustments so the resident sees the true figure
+      return { unit: u, charged, paid, balance: computeBalance(u, unitCharges, uPayments, null, uAdj), unitCharges };
     });
     return (
       <div>
@@ -483,7 +526,7 @@ export default function Finance() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="inline-flex p-1 bg-slate-100 rounded-xl">
-              {([['book', t('finance.book'), BookOpen], ['expenses', t('finance.expenses'), Receipt], ['payments', t('finance.payments'), HandCoins]] as ['book' | 'expenses' | 'payments', string, typeof BookOpen][]).map(([key, label, Icon]) => (
+              {([['book', t('finance.book'), BookOpen], ['expenses', t('finance.expenses'), Receipt], ['payments', t('finance.payments'), HandCoins], ['adjustments', t('finance.adjustments'), Scale]] as ['book' | 'expenses' | 'payments' | 'adjustments', string, typeof BookOpen][]).map(([key, label, Icon]) => (
                 <button key={key} onClick={() => setTab(key)} className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-white text-slate-900 shadow-sm dark:bg-primary/20 dark:text-primary dark:shadow-none' : 'text-slate-500 hover:text-slate-700 dark:text-white dark:hover:text-primary'}`}>
                   <Icon size={15} /> {label}
                 </button>
@@ -493,6 +536,7 @@ export default function Finance() {
               <Button variant="secondary" onClick={exportBuildingReport} disabled={!entity || units.length === 0}><Download size={16} /> {t('finance.exportReport')}</Button>
               {canManageFinance && (
                 <>
+                  <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.adjustment')}</Button>
                   <Button variant="secondary" onClick={openPayment} disabled={units.length === 0}><HandCoins size={16} /> {t('finance.recordPayment')}</Button>
                   <Button onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
                 </>
@@ -590,21 +634,63 @@ export default function Finance() {
                     {canManageFinance && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
-                    {pPayments.map((p) => (
-                      <tr key={p.id} onClick={() => setDetailPayment(p)} className="hover:bg-primary/5 cursor-pointer">
-                        <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(p.unit_id)}</td>
+                    {vPayments.filter((p) => inRange(p.paid_on)).map((p) => (
+                      <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
+                        <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
+                          {unitDisplay(p.unit_id)}
+                          {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
+                        </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
-                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(p.amount_usd))}</td>
+                        <td className={`px-5 py-3 text-end font-semibold tnum ${p.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
                           <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
-                            <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-primary hover:text-primary/70 hover:bg-primary/10 cursor-pointer"><Pencil size={15} /></button>
-                            <button onClick={(ev) => { ev.stopPropagation(); deletePayment(p.id); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer"><Trash2 size={15} /></button>
+                            {!p.voided_at && <>
+                              <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-primary hover:text-primary/70 hover:bg-primary/10 cursor-pointer"><Pencil size={15} /></button>
+                              <button onClick={(ev) => { ev.stopPropagation(); setVoidReason(''); setVoidTarget({ table: 'payments', id: p.id, label: `${unitDisplay(p.unit_id)} · ${money(Number(p.amount_usd))}` }); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
+                            </>}
                           </div></td>
                         )}
                       </tr>
                     ))}
+                  </tbody>
+                </table></div></Card>
+              ))}
+
+              {tab === 'adjustments' && (adjustments.length === 0 ? <Empty body={t('finance.noAdjustments')} /> : (
+                <Card><div className="overflow-x-auto"><table className="w-full text-sm">
+                  <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.adjKind')}</th>
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.note')}</th>
+                    <th className="px-5 py-3 text-end font-medium">{t('finance.effect')}</th>
+                    {canManageFinance && <th className="px-5 py-3 w-8" />}
+                  </tr></thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {adjustments.map((a) => {
+                      const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
+                      return (
+                        <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
+                          <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
+                            {unitDisplay(a.unit_id)}
+                            {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
+                          </td>
+                          <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
+                          <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
+                          <td className="px-5 py-3 text-muted-foreground text-xs">{a.note ?? '—'}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${a.voided_at ? 'line-through text-slate-400' : eff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(eff)}</td>
+                          {canManageFinance && (
+                            <td className="px-3 py-3 text-end">
+                              {!a.voided_at && (
+                                <button onClick={() => { setVoidReason(''); setVoidTarget({ table: 'adjustments', id: a.id, label: `${t(`finance.adjKinds.${a.kind}`)} · ${money(eff)}` }); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table></div></Card>
               ))}
@@ -790,12 +876,55 @@ export default function Finance() {
             {detailPayment.receipt_url && <AttachmentLink url={detailPayment.receipt_url} label={t('finance.viewReceipt')} className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline" />}
             {canManageFinance && (
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <Button variant="danger" onClick={() => { const id = detailPayment.id; setDetailPayment(null); deletePayment(id); }}>{t('common.delete')}</Button>
+                <Button variant="danger" onClick={() => { const p = detailPayment; setDetailPayment(null); setVoidReason(''); setVoidTarget({ table: 'payments', id: p.id, label: `${unitDisplay(p.unit_id)} · ${money(Number(p.amount_usd))}` }); }}><Ban size={15} /> {t('finance.void')}</Button>
                 <Button variant="secondary" onClick={() => { openPaymentEdit(detailPayment); setDetailPayment(null); }}>{t('common.edit')}</Button>
               </div>
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Adjustment — non-cash change (credit note / discount / write-off / penalty / refund) */}
+      <Modal open={adjOpen} onClose={() => setAdjOpen(false)} title={t('finance.newAdjustment')}>
+        <div className="space-y-4">
+          <SelectField label={t('finance.unit')} value={adjForm.unit_id} onValueChange={(v) => setAdjForm({ ...adjForm, unit_id: v })}>
+            {book.map((r) => <SelectItem key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</SelectItem>)}
+          </SelectField>
+          <SelectField label={t('finance.adjKind')} value={adjForm.kind} onValueChange={(v) => setAdjForm({ ...adjForm, kind: v as AdjustmentKind })}>
+            {(['discount', 'credit_note', 'waiver', 'write_off', 'penalty', 'refund'] as AdjustmentKind[]).map((k) => (
+              <SelectItem key={k} value={k}>{t(`finance.adjKinds.${k}`)}</SelectItem>
+            ))}
+          </SelectField>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={adjForm.amount} onChange={(e) => setAdjForm({ ...adjForm, amount: e.target.value })} />
+            <Input label={t('finance.date')} type="date" value={adjForm.effective_date} onChange={(e) => setAdjForm({ ...adjForm, effective_date: e.target.value })} />
+          </div>
+          {adjForm.amount && Number(adjForm.amount) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t('finance.adjEffectHint', {
+                dir: adjustmentEffect(adjForm.kind, Number(adjForm.amount)) < 0 ? t('finance.adjIncreasesOwed') : t('finance.adjReducesOwed'),
+                amt: money(Math.abs(adjustmentEffect(adjForm.kind, Number(adjForm.amount)))),
+              })}
+            </p>
+          )}
+          <Input label={t('finance.note')} value={adjForm.note} onChange={(e) => setAdjForm({ ...adjForm, note: e.target.value })} placeholder={t('finance.adjNotePlaceholder')} />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setAdjOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={saveAdjustment} loading={saving} disabled={!adjForm.unit_id || !adjForm.amount}>{t('common.save')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Void confirmation — soft-cancel, keeps the record */}
+      <Modal open={!!voidTarget} onClose={() => setVoidTarget(null)} title={t('finance.voidTitle')} size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('finance.voidExplain', { item: voidTarget?.label ?? '' })}</p>
+          <Input label={t('finance.voidReason')} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder={t('finance.voidReasonPlaceholder')} />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setVoidTarget(null)}>{t('common.cancel')}</Button>
+            <Button variant="danger" loading={voiding} onClick={confirmVoid}>{t('finance.void')}</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

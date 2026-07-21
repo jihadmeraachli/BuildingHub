@@ -506,7 +506,34 @@
       "tenant": "Tenant only"
     },
     "balanceAsOf": "Balance as of",
-    "backToLive": "back to live"
+    "backToLive": "back to live",
+    "adjustment": "Adjustment",
+    "adjustments": "Adjustments",
+    "newAdjustment": "New adjustment",
+    "adjKind": "Type",
+    "effect": "Effect",
+    "noAdjustments": "No adjustments yet",
+    "adjSaved": "Adjustment saved",
+    "adjNeedsAmount": "Enter a unit and a positive amount",
+    "adjNotePlaceholder": "Reason / reference (optional)",
+    "adjEffectHint": "This {{dir}} by {{amt}}.",
+    "adjIncreasesOwed": "increases what the unit owes",
+    "adjReducesOwed": "reduces what the unit owes",
+    "adjKinds": {
+      "discount": "Discount",
+      "credit_note": "Credit note",
+      "waiver": "Waiver",
+      "write_off": "Write-off",
+      "penalty": "Penalty / late fee",
+      "refund": "Refund"
+    },
+    "void": "Void",
+    "voided": "Voided",
+    "voidedBadge": "Voided",
+    "voidTitle": "Void this record?",
+    "voidExplain": "{{item}} will be cancelled and excluded from the balance, but kept for the audit trail. This can't be undone from the app.",
+    "voidReason": "Reason (optional)",
+    "voidReasonPlaceholder": "e.g. entered by mistake, wrong unit…"
   },
   "inspections": {
     "title": "Inspections",

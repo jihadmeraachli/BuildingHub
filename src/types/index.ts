@@ -220,6 +220,29 @@ export interface Charge {
   billed_to: BilledTo;
   created_by: string | null;
   created_at: string;
+  voided_at?: string | null;
+  voided_by?: string | null;
+  void_reason?: string | null;
+  unit?: Unit;
+}
+
+export type AdjustmentKind = 'credit_note' | 'discount' | 'waiver' | 'write_off' | 'penalty' | 'refund';
+
+// Non-cash change to a unit's balance (0034). Sign of its balance effect is
+// derived from `kind` — see adjustmentEffect() in src/lib/balance.ts.
+export interface Adjustment {
+  id: string;
+  unit_id: string;
+  building_id: string;
+  kind: AdjustmentKind;
+  amount_usd: number;      // positive magnitude
+  effective_date: string;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  voided_at?: string | null;
+  voided_by?: string | null;
+  void_reason?: string | null;
   unit?: Unit;
 }
 
@@ -234,6 +257,9 @@ export interface Payment {
   receipt_url: string | null;
   recorded_by: string | null;
   created_at: string;
+  voided_at?: string | null;
+  voided_by?: string | null;
+  void_reason?: string | null;
   unit?: Unit;
 }
 

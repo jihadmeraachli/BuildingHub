@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
 import { supabase } from '@/lib/supabase';
-import type { Meeting } from '@/types';
+import type { Meeting, AdjustmentKind } from '@/types';
+import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
 import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { MultiSelect } from '@/components/ui/MultiSelect';
@@ -67,8 +68,8 @@ export default function Dashboard() {
     const scope = entityKey ? (blockFilters.length > 0 ? blockFilters : (ent?.buildingIds ?? buildingIds)) : buildingIds;
     const inIds = scope.length ? scope : ['00000000-0000-0000-0000-000000000000'];
     const [chargesRes, paymentsRes, unitsRes, issuesRes, duesRes] = await Promise.all([
-      supabase.from('charges').select('amount_usd, unit_id, charge_date').in('building_id', inIds),
-      supabase.from('payments').select('amount_usd, unit_id, paid_on').in('building_id', inIds),
+      supabase.from('charges').select('amount_usd, unit_id, charge_date').in('building_id', inIds).is('voided_at', null),
+      supabase.from('payments').select('amount_usd, unit_id, paid_on').in('building_id', inIds).is('voided_at', null),
       supabase.from('units').select('id', { count: 'exact', head: true }).in('building_id', inIds),
       supabase.from('issues').select('id', { count: 'exact', head: true }).eq('status', 'open').in('building_id', inIds),
       supabase.from('dues').select('amount_due, period_label, created_at').in('building_id', inIds),
@@ -119,15 +120,18 @@ export default function Dashboard() {
 
   async function loadResident() {
     const inIds = myUnitIds.length ? myUnitIds : ['00000000-0000-0000-0000-000000000000'];
-    const [c, p, u] = await Promise.all([
-      supabase.from('charges').select('amount_usd').in('unit_id', inIds),
-      supabase.from('payments').select('amount_usd').in('unit_id', inIds),
+    const [c, p, u, a] = await Promise.all([
+      supabase.from('charges').select('amount_usd').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('payments').select('amount_usd').in('unit_id', inIds).is('voided_at', null),
       supabase.from('units').select('opening_balance').in('id', inIds),
+      supabase.from('adjustments').select('kind, amount_usd').in('unit_id', inIds).is('voided_at', null),
     ]);
+    const adj = ((a.data ?? []) as { kind: AdjustmentKind; amount_usd: number }[])
+      .reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
     setResident({
       charged: ((c.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
       paid: ((p.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
-      opening: ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0),
+      opening: ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0) + adj,
     });
   }
 
