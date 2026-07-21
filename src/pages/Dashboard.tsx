@@ -12,7 +12,7 @@ import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
 import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { MultiSelect } from '@/components/ui/MultiSelect';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle, Home, TrendingUp, AlertCircle, Wallet,
