@@ -290,6 +290,7 @@
       "org": "Organization-level"
     },
     "inviteBuilding": "Building",
+    "inviteResidentBuilding": "Which building is this resident in?",
     "inviteOrg": "Organization",
     "sendInvite": "Send invite",
     "inviteSent": "Invite sent to {{email}}.",

@@ -12,6 +12,11 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Roles a building admin may hand out (strictly below building_admin).
+const BELOW_BUILDING_ADMIN = ['building_finance', 'building_super', 'viewer'];
+// Roles a compound admin may hand out at building level (below compound_admin).
+const BELOW_COMPOUND_ADMIN = ['building_admin', ...BELOW_BUILDING_ADMIN];
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -24,7 +29,7 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify the caller is a platform admin
+    // ── Caller identity & scope ─────────────────────────────────────────────
     const jwt = req.headers.get('Authorization')?.replace('Bearer ', '');
     if (!jwt) return json({ error: 'Unauthorized' }, 401);
 
@@ -39,51 +44,78 @@ Deno.serve(async (req) => {
 
     const { data: callerGrants } = await admin
       .from('grants')
-      .select('scope_type, role, org_id, building_id')
+      .select('scope_type, role, org_id, building_id, compound_id')
       .eq('user_id', caller.id);
 
-    const callerOrgIds = (callerGrants ?? [])
-      .filter((g: { scope_type: string; role: string }) => g.scope_type === 'org' && g.role === 'org_admin')
-      .map((g: { org_id: string }) => g.org_id)
-      .filter(Boolean);
+    const isPlatform = !!callerProfile?.is_platform_admin;
+    const grantsList = (callerGrants ?? []) as { scope_type: string; role: string; org_id: string | null; building_id: string | null; compound_id: string | null }[];
+    const callerOrgIds = grantsList.filter(g => g.scope_type === 'org' && g.role === 'org_admin').map(g => g.org_id).filter(Boolean) as string[];
+    const callerCompoundIds = grantsList.filter(g => g.scope_type === 'compound' && g.role === 'compound_admin').map(g => g.compound_id).filter(Boolean) as string[];
+    const callerBuildingIds = grantsList.filter(g => g.scope_type === 'building' && g.role === 'building_admin').map(g => g.building_id).filter(Boolean) as string[];
 
-    const isCallerOrgAdmin = callerOrgIds.length > 0;
+    const isOrgAdmin = callerOrgIds.length > 0;
+    const isCompoundAdmin = callerCompoundIds.length > 0;
+    const isBuildingAdmin = callerBuildingIds.length > 0;
 
-    if (!callerProfile?.is_platform_admin && !isCallerOrgAdmin) {
+    if (!isPlatform && !isOrgAdmin && !isCompoundAdmin && !isBuildingAdmin) {
       return json({ error: 'Forbidden' }, 403);
     }
 
-    const { email, full_name, phone, grant, mode } = await req.json();
+    const { email, full_name, phone, grant, building_id, mode } = await req.json();
     if (!email?.trim() || !full_name?.trim()) {
       return json({ error: 'email and full_name are required' }, 400);
     }
 
-    // Org admins cannot grant org-level access; compound/building must belong to their org
-    if (!callerProfile?.is_platform_admin && isCallerOrgAdmin) {
-      if (grant?.org_id) {
-        return json({ error: 'Forbidden — org admins cannot grant org-level roles' }, 403);
+    // "Is this building inside the caller's territory?"
+    async function buildingInScope(bid: string): Promise<boolean> {
+      if (isPlatform) return true;
+      if (callerBuildingIds.includes(bid)) return true;
+      if (callerCompoundIds.length) {
+        const { data } = await admin.from('buildings').select('id')
+          .eq('id', bid).in('compound_id', callerCompoundIds).maybeSingle();
+        if (data) return true;
       }
-      if (grant?.building_id) {
-        const { data: ob } = await admin
-          .from('org_buildings')
-          .select('building_id')
-          .in('org_id', callerOrgIds)
-          .eq('building_id', grant.building_id)
-          .maybeSingle();
-        if (!ob) return json({ error: 'Forbidden — building not in your org' }, 403);
+      if (callerOrgIds.length) {
+        const { data } = await admin.from('org_buildings').select('building_id')
+          .in('org_id', callerOrgIds).eq('building_id', bid).maybeSingle();
+        if (data) return true;
       }
-      if (grant?.compound_id) {
-        const { data: oc } = await admin
-          .from('compounds')
-          .select('id')
-          .in('org_id', callerOrgIds)
-          .eq('id', grant.compound_id)
-          .maybeSingle();
+      return false;
+    }
+
+    // ── Authorization of the requested grant ────────────────────────────────
+    if (!isPlatform && grant?.role) {
+      if (grant.org_id) {
+        return json({ error: 'Forbidden — only the platform operator can grant org-level roles' }, 403);
+      }
+      if (grant.compound_id) {
+        // Compound-level roles: org admins only, within their org.
+        if (!isOrgAdmin) return json({ error: 'Forbidden — you cannot grant compound-level roles' }, 403);
+        const { data: oc } = await admin.from('compounds').select('id')
+          .in('org_id', callerOrgIds).eq('id', grant.compound_id).maybeSingle();
         if (!oc) return json({ error: 'Forbidden — compound not in your org' }, 403);
+      }
+      if (grant.building_id) {
+        if (!(await buildingInScope(grant.building_id))) {
+          return json({ error: 'Forbidden — building not in your scope' }, 403);
+        }
+        // The grants ladder (0026) is bypassed by the service role, so enforce it here:
+        // callers may only hand out roles BELOW their own level.
+        if (!isOrgAdmin) {
+          const allowed = isCompoundAdmin ? BELOW_COMPOUND_ADMIN : BELOW_BUILDING_ADMIN;
+          if (!allowed.includes(grant.role)) {
+            return json({ error: `Forbidden — you cannot grant the "${grant.role}" role` }, 403);
+          }
+        }
       }
     }
 
-    // Invite the user — Supabase sends a magic-link email; user clicks it to activate
+    // ── Authorization of the resident's home building ───────────────────────
+    if (building_id && !(await buildingInScope(building_id))) {
+      return json({ error: 'Forbidden — building not in your scope' }, 403);
+    }
+
+    // ── Invite ──────────────────────────────────────────────────────────────
     const { data: invite, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
       email.trim().toLowerCase(),
       {
@@ -111,12 +143,15 @@ Deno.serve(async (req) => {
 
     const userId = invite.user.id;
 
-    // Upsert profile (a DB trigger may already have created the row on invite)
+    // Upsert profile (a DB trigger may already have created the row on invite).
+    // building_id makes the person visible in the admin's People list — for a
+    // plain resident it comes from the body; for building roles, from the grant.
     await admin.from('profiles').upsert(
       {
         id: userId,
         full_name: full_name.trim(),
         phone: phone?.trim() || null,
+        building_id: building_id ?? grant?.building_id ?? null,
         status: 'active',
         role: 'resident',
         notify_email: true,

@@ -8,7 +8,8 @@ import { KeyRound, LogOut } from 'lucide-react';
  * Enforcement itself is in the database — this is just the friendly wall.
  */
 export default function NoLicense() {
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, memberships } = useAuth();
+  const noUnit = memberships.length === 0;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -22,11 +23,23 @@ export default function NoLicense() {
           <KeyRound size={26} className="text-amber-600" />
         </div>
 
-        <h2 className="text-xl font-bold text-foreground mb-2">No active license</h2>
+        <h2 className="text-xl font-bold text-foreground mb-2">
+          {noUnit ? 'Almost there' : 'No active license'}
+        </h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-          {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]} — your` : 'Your'} unit
-          doesn't currently have an active Abniyah license. Please contact your building
-          admin to renew the subscription or assign a license to your unit.
+          {noUnit ? (
+            <>
+              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]} — your` : 'Your'} account
+              isn't linked to a unit yet. Ask your building admin to assign you to your
+              apartment, then sign in again.
+            </>
+          ) : (
+            <>
+              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]} — your` : 'Your'} unit
+              doesn't currently have an active Abniyah license. Please contact your building
+              admin to renew the subscription or assign a license to your unit.
+            </>
+          )}
         </p>
 
         <button

@@ -18,8 +18,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // which detects the pending challenge and shows the code screen.
   if (mfaPending) return <Navigate to="/" replace />;
 
-  // Resident-only account with no licensed unit (0031). Client-side UX gate only —
-  // RLS in the database remains the real enforcement.
+  // Admin who confirmed their email but never finished onboarding — /register
+  // detects the stored wizard answers and completes setup.
+  if (user.user_metadata?.pending_onboarding) return <Navigate to="/register" replace />;
+
+  // Resident-only account with no licensed unit — or no unit at all (0031).
+  // Client-side UX gate only — RLS in the database remains the real enforcement.
   if (needsLicense) return <Navigate to="/no-license" replace />;
 
   if (profile?.status === 'pending') {

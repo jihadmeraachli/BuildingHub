@@ -430,6 +430,9 @@ export default function Users() {
         full_name: inviteFullName.trim(),
         phone: invitePhone.trim() || null,
         grant,
+        // Home building for the profile — required for plain residents so they
+        // show up in the People list; derived from the grant for building roles.
+        building_id: inviteScopeType === 'none' || inviteScopeType === 'building' ? (inviteBuildingId || null) : null,
       },
     });
 
@@ -967,6 +970,19 @@ export default function Users() {
               ))}
             </div>
 
+            {/* Plain resident: no management grant, but they must belong to a
+                building — it drives People-list visibility and unit assignment. */}
+            {inviteScopeType === 'none' && (
+              <SelectField
+                label={t('users.inviteResidentBuilding')}
+                value={inviteBuildingId || '__none__'}
+                onValueChange={v => setInviteBuildingId(v === '__none__' ? '' : v)}
+              >
+                <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
+                {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>)}
+              </SelectField>
+            )}
+
             {inviteScopeType === 'building' && (
               <div className="space-y-3">
                 <SelectField
@@ -1033,7 +1049,7 @@ export default function Users() {
             <Button
               onClick={sendInvite}
               loading={inviteLoading}
-              disabled={!inviteEmail.trim() || !inviteFullName.trim()}
+              disabled={!inviteEmail.trim() || !inviteFullName.trim() || (inviteScopeType === 'none' && !inviteBuildingId)}
             >
               <Mail size={15} /> {t('users.sendInvite')}
             </Button>

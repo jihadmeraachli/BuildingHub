@@ -87,9 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMemberships(m);
 
     // License gate (0031): resident-only accounts need at least one unit with an
-    // active license. Managers and mixed accounts are never blocked client-side —
-    // the DB (RLS) remains the real enforcement; this only drives the /no-license UX.
-    if (g.length === 0 && m.length > 0) {
+    // active license. No unit at all counts as blocked too — an account nobody
+    // has linked to a unit has nothing to see (mid-onboarding admins are
+    // exempted in the provider via pending_onboarding metadata). Managers and
+    // mixed accounts are never blocked client-side — the DB (RLS) remains the
+    // real enforcement; this only drives the /no-license UX.
+    if (g.length === 0 && m.length === 0) {
+      setResidentLicensed(false);
+    } else if (g.length === 0) {
       try {
         const checks = await Promise.all(
           m.map((mem) => supabase.rpc('unit_has_active_license', { p_unit_id: mem.unit_id })),
@@ -207,7 +212,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const manageableBuildingIds = Object.keys(buildingRoles);
-  const needsLicense = !isPlatformAdmin && residentLicensed === false;
+  // Admins mid-registration (email confirmed, entity not yet created) have no
+  // grants/units yet — they belong on /register, not behind the license wall.
+  const pendingOnboarding = !!user?.user_metadata?.pending_onboarding;
+  const needsLicense = !isPlatformAdmin && !pendingOnboarding && residentLicensed === false;
   const myUnitIds = memberships.map((m) => m.unit_id);
   const myOwnerUnitIds = memberships.filter((m) => m.tenure === 'owner').map((m) => m.unit_id);
   const myTenantUnitIds = memberships.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id);

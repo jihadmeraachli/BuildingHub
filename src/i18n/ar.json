@@ -290,6 +290,7 @@
       "org": "على مستوى المؤسسة"
     },
     "inviteBuilding": "المبنى",
+    "inviteResidentBuilding": "في أي مبنى يقيم هذا الساكن؟",
     "inviteOrg": "المؤسسة",
     "sendInvite": "إرسال الدعوة",
     "inviteSent": "تم إرسال الدعوة إلى {{email}}.",
