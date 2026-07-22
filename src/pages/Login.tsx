@@ -43,13 +43,19 @@ export default function Login() {
 
   async function onSubmit(data: LoginData) {
     setError('');
-    const { error } = await supabase.auth.signInWithPassword(data);
+    const { data: signInData, error } = await supabase.auth.signInWithPassword(data);
     if (error) { setError(t('auth.invalidCredentials')); return; }
     // 2FA enrolled? Then the password only gets us to aal1 — ask for the code.
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
       setMfaCode('');
       setMode('mfa');
+      return;
+    }
+    // Confirmed email but never finished onboarding (e.g. closed the tab) —
+    // send them to Register, which detects the stored answers and completes setup.
+    if (signInData.user?.user_metadata?.pending_onboarding) {
+      navigate('/register');
     } else {
       navigate('/dashboard');
     }
@@ -70,7 +76,8 @@ export default function Login() {
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: mfaCode });
     setMfaLoading(false);
     if (error) { setError(t('auth.mfaInvalidCode')); return; }
-    navigate('/dashboard');
+    const { data: userData } = await supabase.auth.getUser();
+    navigate(userData.user?.user_metadata?.pending_onboarding ? '/register' : '/dashboard');
   }
 
   async function onResetSubmit(e: React.FormEvent) {

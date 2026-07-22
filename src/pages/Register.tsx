@@ -1,15 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { cn } from '@/lib/utils';
-import { Building2, Layers, Network, Check, ChevronLeft } from 'lucide-react';
+import { Building2, Layers, Network, Check, ChevronLeft, MailCheck, Loader2 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type AdminRole = 'building_admin' | 'compound_admin' | 'org_admin';
+
+/** Wizard answers stashed in auth user metadata at signUp; the entity + trial
+ *  are only created AFTER the email is confirmed (see the finalize effect). */
+interface PendingOnboarding {
+  scope_type: 'building' | 'compound' | 'org';
+  entity_name: string;
+  city: string;
+  unit_count: number;
+  plan: 'monthly' | 'annual';
+  billing_email: string;
+}
 
 interface WizardState {
   type: AdminRole | null;
@@ -116,9 +128,13 @@ function Steps({ current, labels }: { current: number; labels: string[] }) {
 
 export default function Register() {
   const navigate = useNavigate();
+  const { user, refreshProfile } = useAuth();
   const [step, setStep] = useState(0); // 0=role, 1=account, 2=entity, 3=pricing
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [awaitConfirm, setAwaitConfirm] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const finalizeOnce = useRef(false);
 
   const [state, setState] = useState<WizardState>({
     type: null,
@@ -315,30 +331,80 @@ export default function Register() {
 
   // ── Submission ────────────────────────────────────────────────────────────
 
+  async function runOnboarding(p: PendingOnboarding) {
+    const { error: rpcErr } = await supabase.rpc('complete_admin_onboarding', {
+      p_scope_type:    p.scope_type,
+      p_entity_name:   p.entity_name,
+      p_city:          p.city,
+      p_unit_count:    p.unit_count,
+      p_plan:          p.plan,
+      p_billing_email: p.billing_email,
+    });
+    return rpcErr;
+  }
+
+  // The user clicked the confirmation email and landed back here with a real
+  // session. Their wizard answers are in user metadata — finish the setup now:
+  // create the entity, start the trial, clear the metadata, go to dashboard.
+  useEffect(() => {
+    const pending = user?.user_metadata?.pending_onboarding as PendingOnboarding | undefined;
+    if (!pending || finalizeOnce.current) return;
+    finalizeOnce.current = true;
+    (async () => {
+      setFinalizing(true);
+      const rpcErr = await runOnboarding(pending);
+      if (rpcErr) {
+        setFinalizing(false);
+        finalizeOnce.current = false;
+        setError(rpcErr.message);
+        return;
+      }
+      await supabase.auth.updateUser({ data: { pending_onboarding: null } });
+      await refreshProfile();
+      navigate('/dashboard');
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   async function submit() {
     setLoading(true);
     setError('');
 
-    // 1. Create auth account
-    const { error: signUpErr } = await supabase.auth.signUp({
+    const payload: PendingOnboarding = {
+      scope_type:    scopeType(state.type as AdminRole),
+      entity_name:   state.entityName,
+      city:          state.city || '',
+      unit_count:    state.unitCount,
+      plan:          state.plan,
+      billing_email: state.email,
+    };
+
+    // Create the auth account. The wizard answers ride along in metadata so the
+    // entity + trial can be created after the email is confirmed — even if the
+    // link is opened on a different device.
+    const { data, error: signUpErr } = await supabase.auth.signUp({
       email: state.email,
       password: state.password,
-      options: { data: { full_name: state.fullName } },
+      options: {
+        data: { full_name: state.fullName, pending_onboarding: payload },
+        emailRedirectTo: window.location.origin + '/register',
+      },
     });
     if (signUpErr) { setError(signUpErr.message); setLoading(false); return; }
 
-    // 2. Complete onboarding atomically via RPC
-    const { error: rpcErr } = await supabase.rpc('complete_admin_onboarding', {
-      p_scope_type:    scopeType(state.type as AdminRole),
-      p_entity_name:   state.entityName,
-      p_city:          state.city || '',
-      p_unit_count:    state.unitCount,
-      p_plan:          state.plan,
-      p_billing_email: state.email,
-    });
+    // Email confirmation ON → no session yet. Entity creation is deferred;
+    // show the "check your inbox" screen.
+    if (!data.session) {
+      setLoading(false);
+      setAwaitConfirm(true);
+      return;
+    }
 
+    // Confirmation OFF → we're signed in already, complete immediately.
+    const rpcErr = await runOnboarding(payload);
     setLoading(false);
     if (rpcErr) { setError(rpcErr.message); return; }
+    await supabase.auth.updateUser({ data: { pending_onboarding: null } });
     navigate('/dashboard');
   }
 
@@ -371,6 +437,44 @@ export default function Register() {
     step === 2 ? 'Continue' :
     step === 3 ? 'Start free trial' :
     null;
+
+  // Post-confirmation finalize in progress — full-screen spinner.
+  if (finalizing) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background px-4">
+        <Loader2 size={32} className="animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Setting up your {entityNoun(state.type)} and starting your free trial…</p>
+      </div>
+    );
+  }
+
+  // Account created, waiting for the email link to be clicked.
+  if (awaitConfirm) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-background">
+        <div className="w-full max-w-md">
+          <div className="flex items-center gap-2.5 mb-8">
+            <Logo size={32} />
+            <span className="text-base font-bold text-foreground">Abniyah</span>
+          </div>
+          <div className="bg-card rounded-2xl border border-border p-8 shadow-sm text-center">
+            <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
+              <MailCheck size={26} className="text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Confirm your email</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              We sent a confirmation link to <span className="font-medium text-foreground">{state.email}</span>.
+              Click it to activate your account — your {entityNoun(state.type)} and 30-day free trial
+              will be created the moment you do.
+            </p>
+            <p className="text-xs text-muted-foreground mt-4">
+              Nothing in your inbox? Check spam, or contact the Abniyah team.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-background">
