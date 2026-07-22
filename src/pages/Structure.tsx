@@ -47,6 +47,8 @@ export default function Structure() {
   const [assignLicense, setAssignLicense] = useState(true);
   // License pool for this building's subscription (resolves building → compound → org).
   const [subInfo, setSubInfo] = useState<{ id: string; available_count: number } | null>(null);
+  // unit_id → active license_assignment id (drives the checkbox state in edit mode)
+  const [licensedMap, setLicensedMap] = useState<Record<string, string>>({});
   const [ownerModal, setOwnerModal] = useState<Unit | null>(null);
   const [ownerPick, setOwnerPick] = useState('');
   const [ownerTenure, setOwnerTenure] = useState<Tenure>('owner');
@@ -71,6 +73,19 @@ export default function Structure() {
       setSubInfo(row ? { id: row.id, available_count: Number(row.available_count) } : null);
     });
   }, [buildingId]);
+
+  // Which of this building's units hold an active license (for the edit toggle).
+  useEffect(() => {
+    if (!subInfo || !units.length) { setLicensedMap({}); return; }
+    supabase.from('license_assignments').select('id, unit_id')
+      .eq('subscription_id', subInfo.id).is('unassigned_at', null)
+      .in('unit_id', units.map((u) => u.id))
+      .then(({ data }) => {
+        const m: Record<string, string> = {};
+        for (const r of ((data ?? []) as { id: string; unit_id: string }[])) m[r.unit_id] = r.id;
+        setLicensedMap(m);
+      });
+  }, [subInfo, units]);
 
   async function loadAll() {
     setLoading(true);
@@ -115,7 +130,8 @@ export default function Structure() {
           opening_balance: edit.opening_balance ? String(edit.opening_balance) : '',
           opening_balance_date: edit.opening_balance_date ?? '' }
       : { label: '', share_weight: '1', occupancy: 'occupied', opening_balance: '', opening_balance_date: '' });
-    setAssignLicense(true);
+    // Edit: reflect the unit's current license; create: default to assigning one.
+    setAssignLicense(edit ? !!licensedMap[edit.id] : true);
     setUnitModal({ open: true, edit });
   }
   async function saveUnit() {
@@ -133,6 +149,34 @@ export default function Structure() {
     if (!payload.label) return;
     if (unitModal.edit) {
       await supabase.from('units').update(payload).eq('id', unitModal.edit.id);
+      // License toggle: apply the delta between current state and checkbox.
+      const uid = unitModal.edit.id;
+      const currentAssignment = licensedMap[uid];
+      if (subInfo && assignLicense && !currentAssignment && subInfo.available_count > 0) {
+        const { error: licErr } = await supabase.from('license_assignments').insert({
+          subscription_id: subInfo.id, unit_id: uid, assigned_by: user?.id ?? null,
+        });
+        if (licErr) {
+          toast.warning(t('structure.licenseAssignFailed'));
+        } else {
+          await supabase.from('subscription_events').insert({
+            subscription_id: subInfo.id, event_type: 'license_assigned', actor_id: user?.id ?? null,
+            metadata: { unit_id: uid, unit_label: payload.label, via: 'unit_edit' },
+          });
+          setSubInfo({ ...subInfo, available_count: subInfo.available_count - 1 });
+        }
+      } else if (subInfo && !assignLicense && currentAssignment) {
+        const { error: licErr } = await supabase.from('license_assignments')
+          .update({ unassigned_at: new Date().toISOString(), unassigned_by: user?.id ?? null })
+          .eq('id', currentAssignment);
+        if (!licErr) {
+          await supabase.from('subscription_events').insert({
+            subscription_id: subInfo.id, event_type: 'license_unassigned', actor_id: user?.id ?? null,
+            metadata: { unit_id: uid, unit_label: payload.label, via: 'unit_edit' },
+          });
+          setSubInfo({ ...subInfo, available_count: subInfo.available_count + 1 });
+        }
+      }
     } else {
       const { data: created, error } = await supabase.from('units').insert(payload).select('id').single();
       if (error) { toast.error(error.message); return; }
@@ -410,9 +454,10 @@ export default function Structure() {
             </p>
           </div>
 
-          {/* Assign-on-create: only for new units, only when a subscription exists. */}
-          {!unitModal.edit && subInfo && (
-            subInfo.available_count > 0 ? (
+          {/* License toggle — create: assign on the go; edit: reflects the unit's
+              current license, untick to unassign. Only when a subscription exists. */}
+          {subInfo && (
+            (subInfo.available_count > 0 || assignLicense) ? (
               <label className="flex items-center gap-2.5 text-sm text-foreground cursor-pointer rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
                 <input
                   type="checkbox"
