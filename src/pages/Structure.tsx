@@ -24,7 +24,7 @@ const occupancyColor: Record<Occupancy, 'green' | 'slate' | 'blue'> = {
 
 export default function Structure() {
   const { t } = useTranslation();
-  const { can, isPlatformAdmin, grants } = useAuth();
+  const { can, isPlatformAdmin, grants, user } = useAuth();
   const { buildings } = useManagedBuildings();
   // Fresh org/compound admins land here with zero buildings — point them to
   // the Buildings page instead of a dead-end empty state.
@@ -44,6 +44,9 @@ export default function Structure() {
   // modals
   const [unitModal, setUnitModal] = useState<{ open: boolean; edit?: Unit }>({ open: false });
   const [unitForm, setUnitForm] = useState({ label: '', share_weight: '1', occupancy: 'occupied' as Occupancy, opening_balance: '', opening_balance_date: '' });
+  const [assignLicense, setAssignLicense] = useState(true);
+  // License pool for this building's subscription (resolves building → compound → org).
+  const [subInfo, setSubInfo] = useState<{ id: string; available_count: number } | null>(null);
   const [ownerModal, setOwnerModal] = useState<Unit | null>(null);
   const [ownerPick, setOwnerPick] = useState('');
   const [ownerTenure, setOwnerTenure] = useState<Tenure>('owner');
@@ -59,6 +62,15 @@ export default function Structure() {
   const canManage = isPlatformAdmin || can('unit.manage', buildingId);
 
   useEffect(() => { if (buildingId) loadAll(); }, [buildingId]);
+
+  // License pool — used by the "assign a license" checkbox in the unit form.
+  useEffect(() => {
+    if (!buildingId) { setSubInfo(null); return; }
+    supabase.rpc('get_building_subscription', { p_building_id: buildingId }).then(({ data }) => {
+      const row = Array.isArray(data) ? data[0] : data;
+      setSubInfo(row ? { id: row.id, available_count: Number(row.available_count) } : null);
+    });
+  }, [buildingId]);
 
   async function loadAll() {
     setLoading(true);
@@ -103,6 +115,7 @@ export default function Structure() {
           opening_balance: edit.opening_balance ? String(edit.opening_balance) : '',
           opening_balance_date: edit.opening_balance_date ?? '' }
       : { label: '', share_weight: '1', occupancy: 'occupied', opening_balance: '', opening_balance_date: '' });
+    setAssignLicense(true);
     setUnitModal({ open: true, edit });
   }
   async function saveUnit() {
@@ -118,8 +131,27 @@ export default function Structure() {
       opening_balance_date: ob !== 0 ? (unitForm.opening_balance_date || new Date().toISOString().slice(0, 10)) : null,
     };
     if (!payload.label) return;
-    if (unitModal.edit) await supabase.from('units').update(payload).eq('id', unitModal.edit.id);
-    else await supabase.from('units').insert(payload);
+    if (unitModal.edit) {
+      await supabase.from('units').update(payload).eq('id', unitModal.edit.id);
+    } else {
+      const { data: created, error } = await supabase.from('units').insert(payload).select('id').single();
+      if (error) { toast.error(error.message); return; }
+      // Assign-on-create: consume one license from the pool for the new unit.
+      if (assignLicense && subInfo && subInfo.available_count > 0 && created) {
+        const { error: licErr } = await supabase.from('license_assignments').insert({
+          subscription_id: subInfo.id, unit_id: created.id, assigned_by: user?.id ?? null,
+        });
+        if (licErr) {
+          toast.warning(t('structure.licenseAssignFailed'));
+        } else {
+          await supabase.from('subscription_events').insert({
+            subscription_id: subInfo.id, event_type: 'license_assigned', actor_id: user?.id ?? null,
+            metadata: { unit_id: created.id, unit_label: payload.label, via: 'unit_create' },
+          });
+          setSubInfo({ ...subInfo, available_count: subInfo.available_count - 1 });
+        }
+      }
+    }
     toast.success(t('common.saved'));
     setUnitModal({ open: false });
     loadAll();
@@ -377,6 +409,31 @@ export default function Structure() {
                   : t('structure.openingHint')}
             </p>
           </div>
+
+          {/* Assign-on-create: only for new units, only when a subscription exists. */}
+          {!unitModal.edit && subInfo && (
+            subInfo.available_count > 0 ? (
+              <label className="flex items-center gap-2.5 text-sm text-foreground cursor-pointer rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={assignLicense}
+                  onChange={(e) => setAssignLicense(e.target.checked)}
+                  className="w-4 h-4 rounded cursor-pointer accent-primary"
+                />
+                <span>
+                  {t('structure.assignLicense')}
+                  <span className="text-xs text-muted-foreground ms-2">
+                    {t('structure.licensesAvailable', { count: subInfo.available_count })}
+                  </span>
+                </span>
+              </label>
+            ) : (
+              <p className="text-xs text-muted-foreground rounded-xl border border-border px-3 py-2.5">
+                {t('structure.noLicensesLeft')}{' '}
+                <Link to="/licenses" className="text-primary font-medium hover:underline">{t('nav.licenses')}</Link>
+              </p>
+            )
+          )}
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setUnitModal({ open: false })}>{t('common.cancel')}</Button>
