@@ -399,6 +399,7 @@
     "noUnitsToAdd": "لا توجد وحدات للإضافة.",
     "noAccess": "ليس لديك صلاحية لإدارة هيكل هذا المبنى.",
     "noBuildings": "لا توجد مبانٍ متاحة.",
+    "createFirstBuilding": "أنشئ مبناك الأول",
     "unit": "وحدة",
     "openingBalance": "الرصيد الافتتاحي (اختياري)",
     "openingAmount": "المبلغ",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Layers, Home, Users2, Trash2, Pencil, UserPlus, X } from 'lucide-react';
+import { Plus, Layers, Home, Users2, Trash2, Pencil, UserPlus, X, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,8 +24,11 @@ const occupancyColor: Record<Occupancy, 'green' | 'slate' | 'blue'> = {
 
 export default function Structure() {
   const { t } = useTranslation();
-  const { can, isPlatformAdmin } = useAuth();
+  const { can, isPlatformAdmin, grants } = useAuth();
   const { buildings } = useManagedBuildings();
+  // Fresh org/compound admins land here with zero buildings — point them to
+  // the Buildings page instead of a dead-end empty state.
+  const canCreateBuildings = isPlatformAdmin || grants.some(g => ['org_admin', 'compound_admin'].includes(g.role));
   const [buildingId, setBuildingId] = useState('');
   const [compoundList, setCompoundList] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => { supabase.from('compounds').select('id, name').then(({ data }) => setCompoundList((data as { id: string; name: string }[]) ?? [])); }, []);
@@ -190,7 +194,22 @@ export default function Structure() {
       </div>
 
       {!buildingId ? (
-        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{t('structure.noBuildings')}</p></CardBody></Card>
+        <Card><CardBody>
+          <div className="text-center py-10">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <Building2 size={22} className="text-primary" />
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{t('structure.noBuildings')}</p>
+            {canCreateBuildings && (
+              <Link
+                to="/buildings"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+              >
+                <Plus size={14} /> {t('structure.createFirstBuilding')}
+              </Link>
+            )}
+          </div>
+        </CardBody></Card>
       ) : !canManage ? (
         <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{t('structure.noAccess')}</p></CardBody></Card>
       ) : (
