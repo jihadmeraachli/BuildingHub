@@ -1,6 +1,8 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/ui/Logo';
-import { KeyRound, LogOut } from 'lucide-react';
+import { KeyRound, LogOut, Loader2 } from 'lucide-react';
 
 /**
  * Shown to residents whose unit has no active license (subscription expired,
@@ -9,7 +11,17 @@ import { KeyRound, LogOut } from 'lucide-react';
  */
 export default function NoLicense() {
   const { signOut, profile, memberships } = useAuth();
+  const navigate = useNavigate();
+  const [leaving, setLeaving] = useState(false);
   const noUnit = memberships.length === 0;
+
+  // This route is public (it must be — its whole audience is blocked users),
+  // so signing out doesn't redirect by itself: navigate explicitly.
+  async function handleSignOut() {
+    setLeaving(true);
+    try { await signOut(); } catch { /* session may already be gone */ }
+    navigate('/', { replace: true });
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -43,10 +55,11 @@ export default function NoLicense() {
         </p>
 
         <button
-          onClick={signOut}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer"
+          onClick={handleSignOut}
+          disabled={leaving}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
         >
-          <LogOut size={14} /> Sign out
+          {leaving ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />} Sign out
         </button>
       </div>
     </div>
