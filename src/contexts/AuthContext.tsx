@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +34,9 @@ interface AuthContextValue {
   needsLicense: boolean;
   /** true when the user has 2FA enrolled but this session hasn't passed the code check yet */
   mfaPending: boolean;
+  /** false while grants/memberships/license checks for the CURRENT user are still in flight —
+   *  gate rendering on it to avoid flashing the app before a redirect (e.g. /no-license) */
+  accessReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -49,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // null = not applicable (managers, no residency); false = resident with no licensed unit
   const [residentLicensed, setResidentLicensed] = useState<boolean | null>(null);
   const [mfaPending, setMfaPending] = useState(false);
+  const [accessReady, setAccessReady] = useState(false);
+  // Which user the current grants/memberships state belongs to — token refreshes
+  // for the SAME user must not flash the loading gate mid-session.
+  const loadedForRef = useRef<string | null>(null);
 
   // 2FA gate: a password-only session (aal1) on an account with a verified TOTP
   // factor must not reach the app until the code is entered (aal2).
@@ -160,8 +167,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        const uid = session.user.id;
         checkMfaLevel();
-        loadAll(session.user.id).finally(() => setLoading(false));
+        loadAll(uid).finally(() => {
+          loadedForRef.current = uid;
+          setAccessReady(true);
+          setLoading(false);
+        });
       } else {
         setLoading(false);
       }
@@ -171,11 +183,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        const uid = session.user.id;
         // setTimeout: auth calls inside this callback can deadlock on the client's
         // internal lock — defer to the next tick.
         setTimeout(checkMfaLevel, 0);
-        loadAll(session.user.id);
+        // Fresh sign-in (different user than the loaded state): gate the app until
+        // grants/memberships/license checks resolve — prevents flashing the
+        // dashboard before a /no-license (or pending) redirect. Token refreshes
+        // for the same user skip the gate.
+        if (loadedForRef.current !== uid) setAccessReady(false);
+        loadAll(uid).finally(() => {
+          loadedForRef.current = uid;
+          setAccessReady(true);
+        });
       } else {
+        loadedForRef.current = null;
+        setAccessReady(false);
         setMfaPending(false);
         setProfile(null);
         setGrants([]);
@@ -225,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user, profile, session, loading, signOut, refreshProfile,
         grants, memberships, isPlatformAdmin, buildingRoles, can, canAny,
-        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense, mfaPending,
+        manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense, mfaPending, accessReady,
       }}
     >
       {children}

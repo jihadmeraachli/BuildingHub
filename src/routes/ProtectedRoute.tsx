@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, needsLicense, mfaPending } = useAuth();
+  const { user, profile, loading, needsLicense, mfaPending, accessReady } = useAuth();
 
   if (loading) {
     return (
@@ -13,6 +13,16 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/" replace />;
+
+  // Fresh sign-in: grants/memberships/license checks still in flight — hold on
+  // the spinner instead of flashing the app before a possible redirect.
+  if (!accessReady) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // 2FA enrolled but this session hasn't passed the code yet — back to Login,
   // which detects the pending challenge and shows the code screen.
