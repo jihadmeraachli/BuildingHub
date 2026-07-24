@@ -25,12 +25,12 @@ BEGIN;
 -- ------------------------------------------------------------
 -- 1. Cron helpers: service role only.
 -- ------------------------------------------------------------
-REVOKE EXECUTE ON FUNCTION get_overdue_units()     FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION get_overdue_dues()      FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION get_due_inspections()   FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION get_overdue_units()     TO service_role;
-GRANT  EXECUTE ON FUNCTION get_overdue_dues()      TO service_role;
-GRANT  EXECUTE ON FUNCTION get_due_inspections()   TO service_role;
+REVOKE EXECUTE ON FUNCTION get_overdue_units()        FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION get_overdue_dues()         FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION get_due_inspections(INT)   FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION get_overdue_units()        TO service_role;
+GRANT  EXECUTE ON FUNCTION get_overdue_dues()         TO service_role;
+GRANT  EXECUTE ON FUNCTION get_due_inspections(INT)   TO service_role;
 
 -- ------------------------------------------------------------
 -- 2. Caller checks on the balance functions.
