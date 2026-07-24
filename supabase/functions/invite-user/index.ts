@@ -12,10 +12,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Roles a building admin may hand out (strictly below building_admin).
+// Ladder whitelists — every caller may only hand out roles STRICTLY BELOW
+// their own rank (the DB trigger is bypassed by the service role, so this
+// function is the enforcement point).
 const BELOW_BUILDING_ADMIN = ['building_finance', 'building_super', 'viewer'];
-// Roles a compound admin may hand out at building level (below compound_admin).
 const BELOW_COMPOUND_ADMIN = ['building_admin', ...BELOW_BUILDING_ADMIN];
+const BELOW_ORG_ADMIN = ['compound_admin', 'compound_finance', ...BELOW_COMPOUND_ADMIN];
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -88,6 +90,11 @@ Deno.serve(async (req) => {
       if (grant.org_id) {
         return json({ error: 'Forbidden — only the platform operator can grant org-level roles' }, 403);
       }
+      // Ladder: applies to EVERY non-platform caller, on every scope.
+      const allowedRoles = isOrgAdmin ? BELOW_ORG_ADMIN : isCompoundAdmin ? BELOW_COMPOUND_ADMIN : BELOW_BUILDING_ADMIN;
+      if (!allowedRoles.includes(grant.role)) {
+        return json({ error: `Forbidden — you cannot grant the "${grant.role}" role` }, 403);
+      }
       if (grant.compound_id) {
         // Compound-level roles: org admins only, within their org.
         if (!isOrgAdmin) return json({ error: 'Forbidden — you cannot grant compound-level roles' }, 403);
@@ -98,14 +105,6 @@ Deno.serve(async (req) => {
       if (grant.building_id) {
         if (!(await buildingInScope(grant.building_id))) {
           return json({ error: 'Forbidden — building not in your scope' }, 403);
-        }
-        // The grants ladder (0026) is bypassed by the service role, so enforce it here:
-        // callers may only hand out roles BELOW their own level.
-        if (!isOrgAdmin) {
-          const allowed = isCompoundAdmin ? BELOW_COMPOUND_ADMIN : BELOW_BUILDING_ADMIN;
-          if (!allowed.includes(grant.role)) {
-            return json({ error: `Forbidden — you cannot grant the "${grant.role}" role` }, 403);
-          }
         }
       }
     }
