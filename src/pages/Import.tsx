@@ -369,7 +369,7 @@ function BuildingsTab({ isPlatformAdmin, grants }: { isPlatformAdmin: boolean; g
   // Platform admins see org picker
   useEffect(() => {
     if (!isPlatformAdmin) return;
-    supabase.from('orgs').select('id, name').order('name').then(({ data }) => setOrgs(data ?? []));
+    supabase.from('organizations').select('id, name').order('name').then(({ data }) => setOrgs(data ?? []));
   }, [isPlatformAdmin]);
 
   async function handleFile(file: File) {

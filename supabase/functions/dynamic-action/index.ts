@@ -9,6 +9,26 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // service-role client → bypasses RLS, can read grants/memberships/profiles freely
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Optional shared secret: when the WEBHOOK_SECRET env var is set, requests must
+// carry the same value in the x-webhook-secret header (configure it on every
+// Database Webhook). Unset = legacy open behavior, so enabling is a two-step
+// opt-in that can't break email delivery by accident.
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') ?? '';
+
+// Record fields are attacker-influenced text — escape before interpolating into HTML.
+const esc = (v: unknown) =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+// Only http(s) links may appear as hrefs in emails.
+const safeUrl = (v: unknown): string | null => {
+  const s = String(v ?? '');
+  return /^https?:\/\//i.test(s) ? s : null;
+};
+
 // ── Email primitives ─────────────────────────────────────────────────────────
 interface Attachment { filename: string; content: string; }
 
@@ -157,6 +177,10 @@ const METHOD_LABEL: Record<string, string> = { cash: 'Cash', bank_transfer: 'Ban
 // ── Main handler (Supabase Database Webhook payloads) ─────────────────────────
 Deno.serve(async (req) => {
   try {
+    if (WEBHOOK_SECRET && req.headers.get('x-webhook-secret') !== WEBHOOK_SECRET) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+    }
+
     const { type, table: tbl, record, old_record } = await req.json();
 
     // 1. New resident registered → admins
@@ -167,7 +191,7 @@ Deno.serve(async (req) => {
         'New resident registration awaiting approval',
         emailHtml('New resident registration',
           `<p style="color:#475569;font-size:14px;line-height:1.6;">A new resident has registered and is awaiting your approval.</p>
-           ${table(row('Name', record.full_name) + row('Apartment', record.apartment_number ?? '—') + row('Phone', record.phone ?? '—'))}`,
+           ${table(row('Name', esc(record.full_name)) + row('Apartment', esc(record.apartment_number ?? '—')) + row('Phone', esc(record.phone ?? '—')))}`,
           'Review Registration', `${APP_URL}/users`),
         b?.name ?? 'BuildingHub');
     }
@@ -176,8 +200,8 @@ Deno.serve(async (req) => {
     if (tbl === 'profiles' && type === 'UPDATE' && old_record?.status === 'pending' && record.status === 'active') {
       const b = await getBuilding(record.building_id);
       await emailToUserIds([record.id], 'Your registration has been approved',
-        emailHtml(`Welcome, ${record.full_name}!`,
-          `<p style="color:#475569;font-size:14px;line-height:1.6;">Your registration for <strong>${b?.name ?? 'your building'}</strong> has been approved. You can now log in.</p>`,
+        emailHtml(`Welcome, ${esc(record.full_name)}!`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;">Your registration for <strong>${esc(b?.name ?? 'your building')}</strong> has been approved. You can now log in.</p>`,
           'Log In to BuildingHub', `${APP_URL}/`),
         b?.name ?? 'BuildingHub');
     }
@@ -188,8 +212,8 @@ Deno.serve(async (req) => {
       const admins = (await buildingAdminIds(record.building_id)).filter((id) => id !== record.reported_by);
       await emailToUserIds(admins, `New issue reported: ${record.title}`,
         emailHtml('New issue reported',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new issue has been logged in <strong>${b?.name ?? 'your building'}</strong>.</p>
-           ${table(row('Title', record.title) + row('Priority', PRIORITY_LABEL[record.priority] ?? record.priority) + row('Location', record.location ?? '—') + (record.apartment_number ? row('Apartment', record.apartment_number) : '') + row('Description', record.description ?? '—'))}`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new issue has been logged in <strong>${esc(b?.name ?? 'your building')}</strong>.</p>
+           ${table(row('Title', esc(record.title)) + row('Priority', esc(PRIORITY_LABEL[record.priority] ?? record.priority)) + row('Location', esc(record.location ?? '—')) + (record.apartment_number ? row('Apartment', esc(record.apartment_number)) : '') + row('Description', esc(record.description ?? '—')))}`,
           'View Issue', `${APP_URL}/issues`),
         b?.name ?? 'BuildingHub');
     }
@@ -199,8 +223,8 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       await emailToUserIds([record.reported_by], `Issue resolved: ${record.title}`,
         emailHtml('Your issue has been resolved',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;">${record.title}</p>
-           ${record.resolution_notes ? table(row('Notes', record.resolution_notes)) : ''}`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;">${esc(record.title)}</p>
+           ${record.resolution_notes ? table(row('Notes', esc(record.resolution_notes))) : ''}`,
           'View Issue', `${APP_URL}/issues`),
         b?.name ?? 'BuildingHub');
     }
@@ -211,7 +235,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(await unitOwnerIds(record.unit_id), `New charge: ${record.description || 'Charge'}`,
         emailHtml('New charge added',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new charge has been added to your unit's account.</p>
-           ${table(row('Description', record.description || '—') + row('Category', CATEGORY_LABEL[record.category] ?? record.category) + row('Amount', money(record.amount_usd)))}`,
+           ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
     }
@@ -222,7 +246,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(await unitOwnerIds(record.unit_id), 'Payment received — thank you',
         emailHtml('Payment recorded',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">We've recorded your payment. Thank you.</p>
-           ${table(row('Amount', money(record.amount_usd)) + row('Method', METHOD_LABEL[record.method] ?? record.method) + row('Date', record.paid_on))}`,
+           ${table(row('Amount', money(record.amount_usd)) + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
     }
@@ -253,8 +277,8 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues for ${record.period_label}: ${money(record.amount_due)}`,
         emailHtml('Dues issued',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${record.period_label}</strong> are ready.</p>
-           ${table(row('Amount due', money(record.amount_due)) + (record.due_date ? row('Due date', record.due_date) : ''))}`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> are ready.</p>
+           ${table(row('Amount due', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
     }
@@ -264,8 +288,8 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues updated — ${record.period_label}`,
         emailHtml('Dues updated',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${record.period_label}</strong> were updated.</p>
-           ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', record.due_date) : ''))}`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> were updated.</p>
+           ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
     }
@@ -275,7 +299,7 @@ Deno.serve(async (req) => {
       const b = await getBuilding(old_record.building_id);
       await emailToUserIds(await unitOwnerIds(old_record.unit_id), `Dues removed — ${old_record.period_label}`,
         emailHtml('Dues removed',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${old_record.period_label}</strong> were removed.</p>`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(old_record.period_label)}</strong> were removed.</p>`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
     }
@@ -284,11 +308,12 @@ Deno.serve(async (req) => {
     if (tbl === 'meetings' && type === 'INSERT' && record.meeting_type === 'scheduled') {
       const b = await getBuilding(record.building_id);
       const ics = b ? generateIcs(record.id, record.title, record.meeting_date, record.meeting_time ?? null, record.summary ?? '', b) : null;
-      const joinRow = record.meeting_url ? row('Online', `<a href="${record.meeting_url}">Join link</a>`) : '';
+      const meetingHref = safeUrl(record.meeting_url);
+      const joinRow = meetingHref ? row('Online', `<a href="${esc(meetingHref)}">Join link</a>`) : '';
       await emailToUserIds(await buildingResidentIds(record.building_id), `📅 Meeting invite: ${record.title}`,
-        emailHtml(`You're invited: ${record.title}`,
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A meeting has been scheduled at <strong>${b?.name ?? 'your building'}</strong>.</p>
-           ${table(row('Date', record.meeting_date) + (record.meeting_time ? row('Time', record.meeting_time.slice(0, 5)) : '') + joinRow + (record.summary ? row('Notes', record.summary) : ''))}
+        emailHtml(`You're invited: ${esc(record.title)}`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A meeting has been scheduled at <strong>${esc(b?.name ?? 'your building')}</strong>.</p>
+           ${table(row('Date', esc(record.meeting_date)) + (record.meeting_time ? row('Time', esc(record.meeting_time.slice(0, 5))) : '') + joinRow + (record.summary ? row('Notes', esc(record.summary)) : ''))}
            <p style="color:#64748b;font-size:13px;margin-top:16px;">📎 A calendar invite (.ics) is attached.</p>`,
           'View in BuildingHub', `${APP_URL}/meetings`),
         b?.name ?? 'BuildingHub',

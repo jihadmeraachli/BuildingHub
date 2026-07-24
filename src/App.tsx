@@ -14,7 +14,6 @@ const NoLicense       = lazy(() => import('@/pages/NoLicense'));
 const SetPassword     = lazy(() => import('@/pages/SetPassword'));
 const Dashboard  = lazy(() => import('@/pages/Dashboard'));
 const Meetings   = lazy(() => import('@/pages/Meetings'));
-const Billing    = lazy(() => import('@/pages/Billing'));
 const Finance    = lazy(() => import('@/pages/Finance'));
 const Dues       = lazy(() => import('@/pages/Dues'));
 const Structure  = lazy(() => import('@/pages/Structure'));
@@ -61,7 +60,6 @@ export default function App() {
               <Route path="/structure" element={<Structure />} />
               <Route path="/inspections" element={<Inspections />} />
               <Route path="/contracts" element={<Contracts />} />
-              <Route path="/billing" element={<Billing />} />
               <Route path="/issues" element={<Issues />} />
               <Route path="/users" element={<Users />} />
               <Route path="/buildings"     element={<Buildings />} />

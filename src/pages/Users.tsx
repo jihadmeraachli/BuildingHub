@@ -41,11 +41,16 @@ const grantRoleColor: Record<string, 'blue' | 'orange' | 'slate' | 'teal'> = {
 
 export default function Users() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, can, canAny, grants: authGrants } = useAuth();
+  const { profile, isPlatformAdmin, can, canAny, grants: authGrants, manageableBuildingIds } = useAuth();
   const isSuperAdmin = isPlatformAdmin;
   const isOrgAdmin = !isPlatformAdmin && authGrants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
+  const isCompoundAdmin = !isPlatformAdmin && authGrants.some(g => g.scope_type === 'compound' && g.role === 'compound_admin');
+  const isBuildingAdmin = !isPlatformAdmin && authGrants.some(g => g.scope_type === 'building' && g.role === 'building_admin');
   const myOrgIds = authGrants.filter(g => g.scope_type === 'org' && g.role === 'org_admin').map(g => g.org_id as string).filter(Boolean);
-  const showBuildingSelector = isSuperAdmin || isOrgAdmin;
+  // v3: ANY manager gets the entity selector, driven by their grants — the
+  // legacy profile.building_id fallback starved building/compound admins.
+  const isScopeManager = !isSuperAdmin && !isOrgAdmin && manageableBuildingIds.length > 0;
+  const showBuildingSelector = isSuperAdmin || isOrgAdmin || isScopeManager;
 
   const [users, setUsers] = useState<Profile[]>([]);
   /** userId -> grant roles covering the selected blocks (the REAL access). */
@@ -126,8 +131,12 @@ export default function Users() {
           const b = ((data ?? []) as unknown as { buildings: Building }[]).map(r => r.buildings).filter(Boolean);
           setBuildings(b);
         });
+    } else if (isScopeManager) {
+      // building/compound admins: their buildings come from grants (cascaded in AuthContext)
+      supabase.from('buildings').select('*').in('id', manageableBuildingIds).order('name')
+        .then(({ data }) => setBuildings(data ?? []));
     }
-  }, [isSuperAdmin, isOrgAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin, isOrgAdmin, isScopeManager, manageableBuildingIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- compound-first scoping (matches Dashboard/Finance/Dues via useEntities) ----
   // People used to be pinned to ONE block. An entity is a compound (grouping its
@@ -175,8 +184,22 @@ export default function Users() {
   async function loadUsers() {
     if (!listBuildingIds.length) { setUsers([]); return; }
     setLoading(true);
-    // spans every block of the selected compound (or just the filtered block)
-    let q = supabase.from('profiles').select('*').in('building_id', listBuildingIds);
+    // People belong to the list two ways: legacy home building (profiles.building_id)
+    // OR an active membership on a unit in these blocks (the v3 model). Query both.
+    const { data: unitRows } = await supabase.from('units').select('id').in('building_id', listBuildingIds);
+    const scopeUnitIds = ((unitRows ?? []) as { id: string }[]).map(u => u.id);
+    let memberUserIds: string[] = [];
+    if (scopeUnitIds.length) {
+      const { data: memberRows } = await supabase.from('memberships')
+        .select('user_id').in('unit_id', scopeUnitIds).is('ended_at', null);
+      memberUserIds = [...new Set(((memberRows ?? []) as { user_id: string }[]).map(m => m.user_id))];
+    }
+    let q = supabase.from('profiles').select('*');
+    if (memberUserIds.length) {
+      q = q.or(`building_id.in.(${listBuildingIds.join(',')}),id.in.(${memberUserIds.join(',')})`);
+    } else {
+      q = q.in('building_id', listBuildingIds);
+    }
     if (tab === 'pending') q = q.eq('status', 'pending');
     q = q.order('created_at', { ascending: false });
     const { data } = await q;
@@ -482,13 +505,20 @@ export default function Users() {
   const showContent = listBuildingIds.length > 0 || isSuperAdmin;
 
   const rolesForInviteScope = inviteScopeType === 'org' ? ORG_ROLES : inviteScopeType === 'compound' ? COMPOUND_ROLES : BUILDING_ROLES;
+  // Ladder: callers may only hand out roles strictly below their own rank
+  // (mirrors the invite-user edge function's whitelists).
+  const buildingRolesForCaller = (isSuperAdmin || isOrgAdmin || isCompoundAdmin)
+    ? BUILDING_ROLES
+    : BUILDING_ROLES.filter(r => r !== 'building_admin');
+  // Server authorizes building & compound admins to invite within their scope too.
+  const canInvite = isSuperAdmin || isOrgAdmin || isCompoundAdmin || isBuildingAdmin;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <h1 className="text-xl font-semibold text-foreground">{t('users.title')}</h1>
         <div className="flex gap-2">
-          {(isSuperAdmin || isOrgAdmin) && (
+          {canInvite && (
             <Button variant="secondary" onClick={openInviteModal}>
               <Mail size={16} /> {t('users.inviteUser')}
             </Button>
@@ -803,7 +833,9 @@ export default function Users() {
               )}
             </div>
           ) : (
-            !activeBuildingId ? (
+            // All/Pending list spans every block of the selected entity — the data
+            // loads for listBuildingIds, so don't hide it behind a single-block pick.
+            !listBuildingIds.length ? (
               <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
             ) : loading ? (
               <SkeletonTable rows={5} cols={6} />
@@ -961,7 +993,7 @@ export default function Users() {
                   type="button"
                   onClick={() => {
                     setInviteScopeType(s);
-                    setInviteGrantRole(s === 'org' ? 'org_admin' : s === 'compound' ? 'compound_admin' : 'building_admin');
+                    setInviteGrantRole(s === 'org' ? 'org_admin' : s === 'compound' ? 'compound_admin' : buildingRolesForCaller[0]);
                   }}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${inviteScopeType === s ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
@@ -998,7 +1030,7 @@ export default function Users() {
                   value={inviteGrantRole}
                   onValueChange={v => setInviteGrantRole(v as GrantRole)}
                 >
-                  {BUILDING_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>)}
+                  {buildingRolesForCaller.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>)}
                 </SelectField>
               </div>
             )}

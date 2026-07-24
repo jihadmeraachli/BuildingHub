@@ -41,6 +41,14 @@ export default function Login() {
     if (mfaPending) setMode('mfa');
   }, [mfaPending]);
 
+  // After a successful code entry, mfaPending flips false a beat later than the
+  // navigate — if that beat bounced us back here, finish the trip.
+  const { user: authedUser } = useAuth();
+  useEffect(() => {
+    if (!mfaPending && mode === 'mfa' && authedUser) navigate('/dashboard');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mfaPending, authedUser]);
+
   async function onSubmit(data: LoginData) {
     setError('');
     const { data: signInData, error } = await supabase.auth.signInWithPassword(data);

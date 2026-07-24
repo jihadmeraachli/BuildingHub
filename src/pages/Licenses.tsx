@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,7 +41,10 @@ interface UnitRow extends Unit {
 }
 
 export default function Licenses() {
-  const { user, profile } = useAuth();
+  const { user, profile, isPlatformAdmin, grants } = useAuth();
+  // Billing is an admin concern — mirror the sidebar's gate (RLS would return
+  // nothing anyway; this avoids a confusing empty page for residents).
+  const isScopeAdmin = grants.some(g => ['building_admin', 'compound_admin', 'org_admin'].includes(g.role));
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [entityNames, setEntityNames] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string>('');
@@ -213,6 +217,8 @@ export default function Licenses() {
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (!isPlatformAdmin && !isScopeAdmin) return <Navigate to="/dashboard" replace />;
 
   if (loading) return <div className="p-6"><SkeletonTable rows={5} /></div>;
 
