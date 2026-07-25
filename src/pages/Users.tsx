@@ -620,20 +620,20 @@ export default function Users() {
                   {isSuperAdmin && (
                     <button
                       onClick={() => setGrantScope('org')}
-                      className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-violet-600 border-violet-600 text-white' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                      className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                     >
                       <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
                     </button>
                   )}
                   <button
                     onClick={() => setGrantScope('compound')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-[#349ECD] border-[#349ECD] text-white' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                   >
                     <span className="flex items-center gap-1.5"><Boxes size={13} /> {t('users.scopeCompound')}</span>
                   </button>
                   <button
                     onClick={() => setGrantScope('building')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                   >
                     {t('users.scopeBuilding')}
                   </button>
