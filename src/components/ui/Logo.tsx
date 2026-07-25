@@ -16,6 +16,9 @@ interface LogoProps {
  * (logo-color.png / favicon.png) so the favicon stays in sync.
  */
 const BRAND_GRADIENT = 'linear-gradient(160deg, #0F4A3F 0%, #3E7A6C 50%, #B9D2CB 100%)';
+// For dark/brand surfaces (login panel): luminous instead of white — a cyan
+// kiss at the crown flowing into near-white sage, so it glows against the teal.
+const LIGHT_GRADIENT = 'linear-gradient(160deg, #7FE8DC 0%, #C9E8E2 55%, #F2FAF8 100%)';
 
 export function Logo({ size = 32, className, variant = 'default' }: LogoProps) {
   return (
@@ -26,7 +29,7 @@ export function Logo({ size = 32, className, variant = 'default' }: LogoProps) {
       style={{
         width: size,
         height: size,
-        background: variant === 'white' ? '#ffffff' : BRAND_GRADIENT,
+        background: variant === 'white' ? LIGHT_GRADIENT : BRAND_GRADIENT,
         WebkitMaskImage: 'url(/logo-mask.png)',
         maskImage: 'url(/logo-mask.png)',
         WebkitMaskSize: 'contain',
