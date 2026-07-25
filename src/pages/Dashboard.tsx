@@ -45,6 +45,13 @@ export default function Dashboard() {
   const [entityKey, setEntityKey] = useState('');
   const [blockFilters, setBlockFilters] = useState<string[]>([]);
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
+  // Platform admin gets NO "All buildings" mode: cross-tenant totals are
+  // meaningless for the operator and the most expensive query in the app —
+  // force one entity at a time.
+  useEffect(() => {
+    if (isPlatformAdmin && !entityKey && entities.length) setEntityKey(entities[0].key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlatformAdmin, entityKey, entities]);
   const selEntity = entities.find((e) => e.key === entityKey) ?? null;
   const [coverage, setCoverage] = useState({ runwayMonths: 0, duesIssued: 0, duesPeriod: '' });
   const buildingIds = useMemo(() => buildings.map((b) => b.id), [buildings]);
@@ -54,6 +61,8 @@ export default function Dashboard() {
     // Wait for the building list — querying with an empty scope produces an
     // all-zero result that can land AFTER the real one and overwrite it.
     if (buildingsLoading) return;
+    // Platform admin: wait for the forced entity selection (no all-buildings query).
+    if (isPlatformAdmin && !entityKey) return;
     if (isManager) loadManager();
     else if (myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,6 +70,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (buildingsLoading) return;
+    if (isPlatformAdmin && !entityKey) return;
     const today = new Date().toISOString().slice(0, 10);
     let q = supabase.from('meetings').select('*').gte('meeting_date', today);
     if (isManager) {
@@ -76,58 +86,43 @@ export default function Dashboard() {
     const ent = entities.find((e) => e.key === entityKey);
     const scope = entityKey ? (blockFilters.length > 0 ? blockFilters : (ent?.buildingIds ?? buildingIds)) : buildingIds;
     const inIds = scope.length ? scope : ['00000000-0000-0000-0000-000000000000'];
-    const [chargesRes, paymentsRes, unitsRes, issuesRes, duesRes] = await Promise.all([
-      supabase.from('charges').select('amount_usd, unit_id, charge_date').in('building_id', inIds).is('voided_at', null),
-      supabase.from('payments').select('amount_usd, unit_id, paid_on').in('building_id', inIds).is('voided_at', null),
-      supabase.from('units').select('id', { count: 'exact', head: true }).in('building_id', inIds),
-      supabase.from('issues').select('id', { count: 'exact', head: true }).eq('status', 'open').in('building_id', inIds),
-      supabase.from('dues').select('amount_due, period_label, created_at').in('building_id', inIds),
+
+    // Server-side aggregation (0049): the DB answers with numbers, not rows —
+    // no payload growth, no silent 1000-row truncation as history accumulates.
+    const [statsRes, monthlyRes] = await Promise.all([
+      supabase.rpc('dashboard_stats', { p_building_ids: inIds }),
+      supabase.rpc('dashboard_monthly', { p_building_ids: inIds }),
     ]);
 
-    const charges = (chargesRes.data as { amount_usd: number; unit_id: string; charge_date: string }[]) ?? [];
-    const payments = (paymentsRes.data as { amount_usd: number; unit_id: string; paid_on: string }[]) ?? [];
+    const s = (Array.isArray(statsRes.data) ? statsRes.data[0] : statsRes.data) as {
+      billed: number; collected: number; outstanding: number; ytd: number;
+      units: number; open_issues: number; dues_period: string; dues_issued: number;
+    } | undefined;
+    const monthsRows = ((monthlyRes.data ?? []) as { month_start: string; collected: number; spent: number }[]);
 
-    const billed = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
-    const collected = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
+    const billed = Number(s?.billed ?? 0);
+    const collected = Number(s?.collected ?? 0);
     const spent = billed;
 
-    const perUnit: Record<string, number> = {};
-    charges.forEach((c) => { perUnit[c.unit_id] = (perUnit[c.unit_id] ?? 0) - Number(c.amount_usd); });
-    payments.forEach((p) => { perUnit[p.unit_id] = (perUnit[p.unit_id] ?? 0) + Number(p.amount_usd); });
-    const outstanding = Object.values(perUnit).filter((v) => v < 0).reduce((s, v) => s + Math.abs(v), 0);
+    const labels = monthsRows.map((m) => format(new Date(m.month_start), 'MMM yy'));
+    const monthlyCollected = monthsRows.map((m) => Number(m.collected));
+    const monthlySpent = monthsRows.map((m) => Number(m.spent));
 
-    const now = new Date();
-    const ytdStart = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
-    const ytd = payments.filter((p) => p.paid_on >= ytdStart).reduce((s, p) => s + Number(p.amount_usd), 0);
-
-    // Monthly breakdown (last 12 months)
-    const months: Record<string, { collected: number; spent: number }> = {};
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months[format(d, 'MMM yy')] = { collected: 0, spent: 0 };
-    }
-    payments.forEach((p) => {
-      const key = format(new Date(p.paid_on), 'MMM yy');
-      if (months[key]) months[key].collected += Number(p.amount_usd);
-    });
-    charges.forEach((c) => {
-      const key = format(new Date(c.charge_date), 'MMM yy');
-      if (months[key]) months[key].spent += Number(c.amount_usd);
-    });
-
-    const dues = (duesRes.data as { amount_due: number; period_label: string; created_at: string }[]) ?? [];
-    const latestPeriod = dues.sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.period_label ?? '';
-    const duesIssued = dues.filter((d) => d.period_label === latestPeriod).reduce((s, d) => s + Number(d.amount_due), 0);
-    const avgMonthlySpend = Object.values(months).reduce((s, m) => s + m.spent, 0) / 12;
+    const avgMonthlySpend = monthlySpent.reduce((a, b) => a + b, 0) / 12;
     const reserve = Math.round((collected - spent) * 100) / 100;
     const runwayMonths = avgMonthlySpend > 0 ? Math.floor(Math.max(0, reserve) / avgMonthlySpend) : 0;
 
     // A newer load started while this one was in flight — discard, don't overwrite.
     if (seq !== loadSeq.current) return;
-    setCoverage({ runwayMonths, duesIssued, duesPeriod: latestPeriod });
-
-    setAgg({ collected, spent, billed, outstanding, ytd, units: unitsRes.count ?? 0, openIssues: issuesRes.count ?? 0 });
-    setMonthly({ labels: Object.keys(months), collected: Object.values(months).map((m) => m.collected), spent: Object.values(months).map((m) => m.spent) });
+    setCoverage({ runwayMonths, duesIssued: Number(s?.dues_issued ?? 0), duesPeriod: s?.dues_period ?? '' });
+    setAgg({
+      collected, spent, billed,
+      outstanding: Number(s?.outstanding ?? 0),
+      ytd: Number(s?.ytd ?? 0),
+      units: Number(s?.units ?? 0),
+      openIssues: Number(s?.open_issues ?? 0),
+    });
+    setMonthly({ labels, collected: monthlyCollected, spent: monthlySpent });
   }
 
   async function loadResident() {
@@ -240,7 +235,7 @@ export default function Dashboard() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">{t('dashboard.allBuildings')}</SelectItem>
+                {!isPlatformAdmin && <SelectItem value="__all__">{t('dashboard.allBuildings')}</SelectItem>}
                 {entities.map((e) => (
                   <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>
                 ))}

@@ -5,6 +5,7 @@ import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Pa
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { fetchAll } from '@/lib/fetchAll';
 import { uploadFile } from '@/lib/upload';
 import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -143,23 +144,26 @@ export default function Finance() {
     if (!entity) return;
     setLoading(true);
     const blocks = entity.buildingIds;
-    const [{ data: u }, { data: g }, { data: c }, { data: p }, { data: e }, { data: a }] = await Promise.all([
+    // Row tables go through fetchAll: PostgREST silently caps responses at
+    // 1000 rows — unpaged, a building with real history would compute WRONG
+    // totals from truncated data. (Ordering includes id as a stable tiebreaker.)
+    const [{ data: u }, { data: g }, chargeRows, paymentRows, expenseRows, adjRows] = await Promise.all([
       supabase.from('units').select('*').in('building_id', blocks).order('label'),
       supabase.from('groups').select('*').in('building_id', blocks).order('name'),
-      supabase.from('charges').select('*').in('building_id', blocks),
-      supabase.from('payments').select('*').in('building_id', blocks).order('paid_on', { ascending: false }),
+      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('building_id', blocks).order('charge_date', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('building_id', blocks).order('paid_on', { ascending: false }).order('id').range(f, t)),
       entity.kind === 'compound'
-        ? supabase.from('expenses').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`).order('expense_date', { ascending: false })
-        : supabase.from('expenses').select('*').eq('building_id', entity.id).order('expense_date', { ascending: false }),
-      supabase.from('adjustments').select('*').in('building_id', blocks).order('effective_date', { ascending: false }),
+        ? fetchAll<Expense>((f, t) => supabase.from('expenses').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`).order('expense_date', { ascending: false }).order('id').range(f, t))
+        : fetchAll<Expense>((f, t) => supabase.from('expenses').select('*').eq('building_id', entity.id).order('expense_date', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('building_id', blocks).order('effective_date', { ascending: false }).order('id').range(f, t)),
     ]);
     const unitList = (u as Unit[]) ?? [];
     setUnits(unitList);
     setGroups((g as Group[]) ?? []);
-    setCharges((c as Charge[]) ?? []);
-    setPayments((p as Payment[]) ?? []);
-    setExpenses((e as Expense[]) ?? []);
-    setAdjustments((a as Adjustment[]) ?? []);
+    setCharges(chargeRows);
+    setPayments(paymentRows);
+    setExpenses(expenseRows);
+    setAdjustments(adjRows);
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
       const { data: ug } = await supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids);
@@ -170,16 +174,16 @@ export default function Finance() {
 
   async function loadResident() {
     setLoading(true);
-    const [{ data: u }, { data: c }, { data: p }, { data: a }] = await Promise.all([
+    const [{ data: u }, chargeRows, paymentRows, adjRows] = await Promise.all([
       supabase.from('units').select('*').in('id', myUnitIds),
-      supabase.from('charges').select('*').in('unit_id', myUnitIds).order('charge_date', { ascending: false }),
-      supabase.from('payments').select('*').in('unit_id', myUnitIds).order('paid_on', { ascending: false }),
-      supabase.from('adjustments').select('*').in('unit_id', myUnitIds).order('effective_date', { ascending: false }),
+      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('unit_id', myUnitIds).order('charge_date', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('unit_id', myUnitIds).order('paid_on', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('unit_id', myUnitIds).order('effective_date', { ascending: false }).order('id').range(f, t)),
     ]);
     setUnits((u as Unit[]) ?? []);
-    setCharges((c as Charge[]) ?? []);
-    setPayments((p as Payment[]) ?? []);
-    setAdjustments((a as Adjustment[]) ?? []);
+    setCharges(chargeRows);
+    setPayments(paymentRows);
+    setAdjustments(adjRows);
     setLoading(false);
   }
 
