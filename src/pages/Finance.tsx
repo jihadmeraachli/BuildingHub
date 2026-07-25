@@ -543,20 +543,30 @@ export default function Finance() {
                 { key: 'adjustments', label: t('finance.adjustments'), icon: Scale },
               ]}
             />
+            {/* Contextual toolbar: each tab shows ITS action. Record Payment
+                (the calm primary) also lives on Book — that's where you see a
+                balance and take the money; never hide it behind a tab switch. */}
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={exportBuildingReport} disabled={!entity || units.length === 0}><Download size={16} /> {t('finance.exportReport')}</Button>
+              {tab === 'book' && (
+                <Button variant="secondary" onClick={exportBuildingReport} disabled={!entity || units.length === 0}><Download size={16} /> {t('finance.exportReport')}</Button>
+              )}
               {canManageFinance && (
                 <>
-                  <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.adjustment')}</Button>
-                  <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
-                  {/* The page's main action — emphasized calmly: tinted, not neon. */}
-                  <Button
-                    onClick={openPayment}
-                    disabled={units.length === 0}
-                    className="bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25 hover:text-primary"
-                  >
-                    <HandCoins size={16} /> {t('finance.recordPayment')}
-                  </Button>
+                  {tab === 'adjustments' && (
+                    <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.adjustment')}</Button>
+                  )}
+                  {tab === 'expenses' && (
+                    <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
+                  )}
+                  {(tab === 'book' || tab === 'payments') && (
+                    <Button
+                      onClick={openPayment}
+                      disabled={units.length === 0}
+                      className="bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25 hover:text-primary"
+                    >
+                      <HandCoins size={16} /> {t('finance.recordPayment')}
+                    </Button>
+                  )}
                 </>
               )}
             </div>
