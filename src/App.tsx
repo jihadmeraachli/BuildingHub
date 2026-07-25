@@ -21,6 +21,7 @@ const Inspections = lazy(() => import('@/pages/Inspections'));
 const Contracts  = lazy(() => import('@/pages/Contracts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
 const Users      = lazy(() => import('@/pages/Users'));
+const Security   = lazy(() => import('@/pages/Security'));
 const Buildings      = lazy(() => import('@/pages/Buildings'));
 const Organizations  = lazy(() => import('@/pages/Organizations'));
 const Compounds      = lazy(() => import('@/pages/Compounds'));
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="/contracts" element={<Contracts />} />
               <Route path="/issues" element={<Issues />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/security" element={<Security />} />
               <Route path="/buildings"     element={<Buildings />} />
               <Route path="/organizations" element={<Organizations />} />
               <Route path="/compounds"     element={<Compounds />} />

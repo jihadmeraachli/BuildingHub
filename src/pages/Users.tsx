@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Boxes, Lock, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Lock, Mail, Trash2 } from 'lucide-react';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,14 +15,8 @@ import { Modal } from '@/components/ui/Modal';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
-type Tab = 'all' | 'pending' | 'access';
-// Hierarchy: org > compound > building (migration 0027).
-type GrantScope = 'building' | 'compound' | 'org';
+type Tab = 'all' | 'pending';
 type InviteScopeType = 'none' | 'building' | 'compound' | 'org';
-
-type GrantRow = Grant & {
-  profiles: { id: string; full_name: string; apartment_number: string | null } | null;
-};
 
 // A compound grant covers every block in the compound, incl. future ones (0027).
 const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_super', 'building_finance', 'viewer'];
@@ -42,7 +36,7 @@ const grantRoleColor: Record<string, 'blue' | 'orange' | 'slate' | 'teal'> = {
 
 export default function Users() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, can, canAny, grants: authGrants, manageableBuildingIds } = useAuth();
+  const { profile, isPlatformAdmin, can, grants: authGrants, manageableBuildingIds } = useAuth();
   const isSuperAdmin = isPlatformAdmin;
   const isOrgAdmin = !isPlatformAdmin && authGrants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
   const isCompoundAdmin = !isPlatformAdmin && authGrants.some(g => g.scope_type === 'compound' && g.role === 'compound_admin');
@@ -61,27 +55,10 @@ export default function Users() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [entityKey, setEntityKey] = useState<string>('');
   const [blockFilter, setBlockFilter] = useState<string>('');
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
-  const [grantScope, setGrantScope] = useState<GrantScope>('building');
-  // Access tab picks its own building — independent of the People-list entity
-  // selector, which is hidden on that tab.
-  const [accessBuildingId, setAccessBuildingId] = useState('');
-  // compound scope (0027) — one grant covers every block, incl. blocks added later
-  const [selectedCompoundId, setSelectedCompoundId] = useState('');
-  const [compoundGrants, setCompoundGrants] = useState<GrantRow[]>([]);
-  const [compoundGrantLoading, setCompoundGrantLoading] = useState(false);
-  const [compoundGrantModal, setCompoundGrantModal] = useState(false);
-  const [compoundGrantUserId, setCompoundGrantUserId] = useState('');
-  const [compoundGrantRole, setCompoundGrantRole] = useState<GrantRole>('compound_admin');
-  const [compoundGrantSearch, setCompoundGrantSearch] = useState('');
   const [assigned, setAssigned] = useState<Record<string, { label: string; tenure: string }[]>>({});
 
-  // Building grants
-  const [grants, setGrants] = useState<GrantRow[]>([]);
-  const [grantLoading, setGrantLoading] = useState(false);
-  const [grantModal, setGrantModal] = useState(false);
   // deactivate confirmation (real modal — window.prompt is blocked in sandboxed iframes)
   const [deactivateTarget, setDeactivateTarget] = useState<Profile | null>(null);
   const [deactivateReason, setDeactivateReason] = useState('');
@@ -98,18 +75,6 @@ export default function Users() {
   const [editSaving, setEditSaving] = useState(false);
   // Read-only identity facts (email, 2FA) from admin_user_identity() (0044)
   const [editIdentity, setEditIdentity] = useState<{ email: string; mfa_enabled: boolean } | null>(null);
-  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
-  const [grantUserId, setGrantUserId] = useState('');
-  const [grantRole, setGrantRole] = useState<GrantRole>('building_finance');
-  const [grantSearch, setGrantSearch] = useState('');
-
-  // Org grants
-  const [orgGrants, setOrgGrants] = useState<GrantRow[]>([]);
-  const [orgGrantLoading, setOrgGrantLoading] = useState(false);
-  const [orgGrantModal, setOrgGrantModal] = useState(false);
-  const [orgGrantUserId, setOrgGrantUserId] = useState('');
-  const [orgGrantRole, setOrgGrantRole] = useState<GrantRole>('org_admin');
-  const [orgGrantSearch, setOrgGrantSearch] = useState('');
 
   // Invite new user
   const [inviteModal, setInviteModal] = useState(false);
@@ -164,29 +129,9 @@ export default function Users() {
   }, [showBuildingSelector, profile?.building_id, blockFilter, selEntity]);
   const listKey = listBuildingIds.join(',');
 
-  const canManageAccess = isPlatformAdmin
-    || (listBuildingIds.length ? listBuildingIds.some(id => can('grant.manage', id)) : canAny('grant.manage'));
-
   useEffect(() => {
-    if (listBuildingIds.length && tab !== 'access') loadUsers();
+    if (listBuildingIds.length) loadUsers();
   }, [listKey, tab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (accessBuildingId && tab === 'access' && grantScope === 'building') loadGrants();
-  }, [accessBuildingId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Single-building admins shouldn't have to pick their only building.
-  useEffect(() => {
-    if (!accessBuildingId && buildings.length === 1) setAccessBuildingId(buildings[0].id);
-  }, [buildings, accessBuildingId]);
-
-  useEffect(() => {
-    if (selectedOrgId && tab === 'access' && grantScope === 'org') loadOrgGrants();
-  }, [selectedOrgId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (selectedCompoundId && tab === 'access' && grantScope === 'compound') loadCompoundGrants();
-  }, [selectedCompoundId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadUsers() {
     if (!listBuildingIds.length) { setUsers([]); return; }
@@ -245,118 +190,6 @@ export default function Users() {
       });
       setAssigned(map);
     } else setAssigned({});
-  }
-
-  async function loadGrants() {
-    if (!accessBuildingId) return;
-    setGrantLoading(true);
-    const { data } = await supabase
-      .from('grants').select('*, profiles(id, full_name, apartment_number)')
-      .eq('building_id', accessBuildingId).eq('scope_type', 'building').order('created_at');
-    setGrants((data as GrantRow[]) ?? []);
-    setGrantLoading(false);
-  }
-
-  async function loadOrgGrants() {
-    if (!selectedOrgId) return;
-    setOrgGrantLoading(true);
-    const { data } = await supabase
-      .from('grants').select('*, profiles(id, full_name, apartment_number)')
-      .eq('org_id', selectedOrgId).eq('scope_type', 'org').order('created_at');
-    setOrgGrants((data as GrantRow[]) ?? []);
-    setOrgGrantLoading(false);
-  }
-
-  async function loadCompoundGrants() {
-    if (!selectedCompoundId) return;
-    setCompoundGrantLoading(true);
-    const { data } = await supabase
-      .from('grants').select('*, profiles(id, full_name, apartment_number)')
-      .eq('compound_id', selectedCompoundId).eq('scope_type', 'compound').order('created_at');
-    setCompoundGrants((data as GrantRow[]) ?? []);
-    setCompoundGrantLoading(false);
-  }
-
-  async function openCompoundGrantModal() {
-    const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
-    setAllProfiles(data ?? []);
-    setCompoundGrantUserId(''); setCompoundGrantRole('compound_admin'); setCompoundGrantSearch('');
-    setCompoundGrantModal(true);
-  }
-
-  async function addCompoundGrant() {
-    if (!compoundGrantUserId || !selectedCompoundId) return;
-    const { error } = await supabase.from('grants').insert({
-      user_id: compoundGrantUserId, scope_type: 'compound',
-      compound_id: selectedCompoundId, building_id: null, org_id: null, role: compoundGrantRole,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantAdded'));
-    setCompoundGrantModal(false); loadCompoundGrants();
-  }
-
-  async function removeCompoundGrant(id: string) {
-    const { error } = await supabase.from('grants').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantRemoved')); loadCompoundGrants();
-  }
-
-  /**
-   * Change an existing grant's role in place — no revoke-then-re-add.
-   * The DB re-checks it: grants_hierarchy_guard_trg fires BEFORE UPDATE too, so
-   * you still can't promote anyone to at/above your own level (0027).
-   */
-  async function updateGrantRole(id: string, role: GrantRole, reload: () => void) {
-    const { error } = await supabase.from('grants').update({ role }).eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.roleUpdated'));
-    reload();
-  }
-
-  async function openGrantModal() {
-    const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
-    setAllProfiles(data ?? []);
-    setGrantUserId(''); setGrantRole('building_finance'); setGrantSearch('');
-    setGrantModal(true);
-  }
-
-  async function openOrgGrantModal() {
-    const { data } = await supabase.from('profiles').select('*').eq('status', 'active').order('full_name');
-    setAllProfiles(data ?? []);
-    setOrgGrantUserId(''); setOrgGrantRole('org_admin'); setOrgGrantSearch('');
-    setOrgGrantModal(true);
-  }
-
-  async function addGrant() {
-    if (!grantUserId || !accessBuildingId) return;
-    const { error } = await supabase.from('grants').insert({
-      user_id: grantUserId, scope_type: 'building', building_id: accessBuildingId, org_id: null, role: grantRole,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantAdded'));
-    setGrantModal(false); loadGrants();
-  }
-
-  async function addOrgGrant() {
-    if (!orgGrantUserId || !selectedOrgId) return;
-    const { error } = await supabase.from('grants').insert({
-      user_id: orgGrantUserId, scope_type: 'org', org_id: selectedOrgId, building_id: null, role: orgGrantRole,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantAdded'));
-    setOrgGrantModal(false); loadOrgGrants();
-  }
-
-  async function removeGrant(id: string) {
-    const { error } = await supabase.from('grants').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantRemoved')); loadGrants();
-  }
-
-  async function removeOrgGrant(id: string) {
-    const { error } = await supabase.from('grants').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.grantRemoved')); loadOrgGrants();
   }
 
   async function updateUser(id: string, patch: Partial<Profile>) {
@@ -490,16 +323,6 @@ export default function Users() {
   }
 
   const pendingCount = users.filter(u => u.status === 'pending').length;
-  const grantedUserIds = new Set(grants.map(g => g.user_id));
-  const orgGrantedUserIds = new Set(orgGrants.map(g => g.user_id));
-
-  const availableProfiles = allProfiles
-    .filter(p => !grantedUserIds.has(p.id))
-    .filter(p => p.full_name.toLowerCase().includes(grantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(grantSearch.toLowerCase()));
-
-  const availableProfilesForOrg = allProfiles
-    .filter(p => !orgGrantedUserIds.has(p.id))
-    .filter(p => p.full_name.toLowerCase().includes(orgGrantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(orgGrantSearch.toLowerCase()));
 
   // When the list spans several blocks, show which block each person belongs to —
   // otherwise the rows are ambiguous in a compound view.
@@ -509,18 +332,11 @@ export default function Users() {
     [buildings],
   );
 
-  const compoundGrantedUserIds = new Set(compoundGrants.map(g => g.user_id));
-  const availableProfilesForCompound = allProfiles
-    .filter(p => !compoundGrantedUserIds.has(p.id))
-    .filter(p => p.full_name.toLowerCase().includes(compoundGrantSearch.toLowerCase()) || (p.apartment_number ?? '').toLowerCase().includes(compoundGrantSearch.toLowerCase()));
-
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'all', label: t('users.allUsers'), show: true },
     { key: 'pending', label: t('users.pendingApprovals'), show: true },
-    { key: 'access', label: t('users.accessTab'), show: canManageAccess },
   ];
 
-  const onOrgScope = tab === 'access' && grantScope === 'org' && isSuperAdmin;
   const showContent = listBuildingIds.length > 0 || isSuperAdmin;
 
   const rolesForInviteScope = inviteScopeType === 'org' ? ORG_ROLES : inviteScopeType === 'compound' ? COMPOUND_ROLES : BUILDING_ROLES;
@@ -542,22 +358,12 @@ export default function Users() {
               <Mail size={16} /> {t('users.inviteUser')}
             </Button>
           )}
-          {tab === 'access' && canManageAccess && (
-            onOrgScope ? (
-              <Button onClick={openOrgGrantModal} disabled={!selectedOrgId}>
-                <UserPlus size={16} /> {t('users.addOrgAccess')}
-              </Button>
-            ) : accessBuildingId ? (
-              <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
-            ) : null
-          )}
         </div>
       </div>
 
       {/* Compound-first: pick the compound (or standalone building), then optionally
-          narrow to one block. Same selector shape as Dashboard/Finance/Dues.
-          Hidden on the Access tab — that tab has its own scope-first selectors. */}
-      {showBuildingSelector && tab !== 'access' && (
+          narrow to one block. Same selector shape as Dashboard/Finance/Dues. */}
+      {showBuildingSelector && (
         <div className="mb-4 flex items-center gap-2 flex-wrap">
           <select
             value={entityKey}
@@ -614,247 +420,7 @@ export default function Users() {
             }))}
           />
 
-          {tab === 'access' ? (
-            <div className="space-y-4">
-              {/* Scope ladder, top-down: org → compound → block. Access granted higher
-                  up cascades down (a compound grant covers every block in it). */}
-              {(isSuperAdmin || (isOrgAdmin && compoundEntities.length > 0)) && (
-                <SegmentedTabs
-                  value={grantScope}
-                  onChange={setGrantScope}
-                  tabs={[
-                    ...(isSuperAdmin ? [{ key: 'org' as GrantScope, label: t('users.scopeOrg'), icon: Network }] : []),
-                    { key: 'compound' as GrantScope, label: t('users.scopeCompound'), icon: Boxes },
-                    { key: 'building' as GrantScope, label: t('users.scopeBuilding') },
-                  ]}
-                />
-              )}
-              {/* org admins without compounds stay on building scope only — no org-level grant management */}
-
-              {grantScope === 'compound' && (isSuperAdmin || isOrgAdmin) ? (
-                <>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      value={selectedCompoundId}
-                      onChange={e => setSelectedCompoundId(e.target.value)}
-                      className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]"
-                    >
-                      <option value="">{t('users.selectCompoundHint')}</option>
-                      {compoundEntities.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.blocks.length} {t('buildings.blocks')})
-                        </option>
-                      ))}
-                    </select>
-                    {selectedCompoundId && (
-                      <Button size="sm" onClick={openCompoundGrantModal}><Shield size={14} /> {t('users.addAccess')}</Button>
-                    )}
-                  </div>
-
-                  {selectedCompoundId && (
-                    <p className="text-xs text-muted-foreground">{t('users.compoundScopeNote')}</p>
-                  )}
-
-                  {!selectedCompoundId ? (
-                    <Card><CardBody>
-                      <div className="text-center py-10">
-                        <Boxes size={32} className="mx-auto text-primary mb-2" />
-                        <p className="text-sm text-muted-foreground">{t('users.selectCompoundHint')}</p>
-                      </div>
-                    </CardBody></Card>
-                  ) : compoundGrantLoading ? (
-                    <SkeletonTable rows={3} cols={3} />
-                  ) : compoundGrants.length === 0 ? (
-                    <Card><CardBody>
-                      <div className="text-center py-10">
-                        <Shield size={32} className="mx-auto text-primary mb-2" />
-                        <p className="text-sm text-muted-foreground">{t('users.noCompoundGrants')}</p>
-                      </div>
-                    </CardBody></Card>
-                  ) : (
-                    <Card>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
-                              <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
-                              <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
-                              <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border">
-                            {compoundGrants.map(g => (
-                              <tr key={g.id} className="hover:bg-accent/30">
-                                <td className="px-4 py-3">
-                                  <p className="font-medium text-foreground">{g.profiles?.full_name ?? '—'}</p>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <select
-                                    value={g.role}
-                                    onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadCompoundGrants)}
-                                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
-                                  >
-                                    {COMPOUND_ROLES.map(r => (
-                                      <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <button onClick={() => removeCompoundGrant(g.id)} className="text-muted-foreground hover:text-rose-400 transition cursor-pointer" title={t('users.revokeAccess')}>
-                                    <Trash2 size={15} />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Card>
-                  )}
-                </>
-              ) : grantScope === 'org' && isSuperAdmin ? (
-                <>
-                  <select
-                    value={selectedOrgId}
-                    onChange={e => setSelectedOrgId(e.target.value)}
-                    className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]"
-                  >
-                    <option value="">{t('users.selectOrgHint')}</option>
-                    {organizations.map(o => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))}
-                  </select>
-
-                  {!selectedOrgId ? (
-                    <Card><CardBody>
-                      <div className="text-center py-10">
-                        <Network size={32} className="mx-auto text-primary mb-2" />
-                        <p className="text-sm text-muted-foreground">{t('users.selectOrgHint')}</p>
-                      </div>
-                    </CardBody></Card>
-                  ) : orgGrantLoading ? (
-                    <SkeletonTable rows={3} cols={3} />
-                  ) : orgGrants.length === 0 ? (
-                    <Card><CardBody>
-                      <div className="text-center py-10">
-                        <Shield size={32} className="mx-auto text-primary mb-2" />
-                        <p className="text-sm text-muted-foreground">{t('users.noOrgGrants')}</p>
-                      </div>
-                    </CardBody></Card>
-                  ) : (
-                    <Card>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
-                              <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
-                              <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
-                              <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border">
-                            {orgGrants.map(g => (
-                              <tr key={g.id} className="hover:bg-accent/30">
-                                <td className="px-4 py-3">
-                                  <p className="font-medium text-foreground">{g.profiles?.full_name ?? '—'}</p>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <select
-                                    value={g.role}
-                                    onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadOrgGrants)}
-                                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
-                                  >
-                                    {ORG_ROLES.map(r => (
-                                      <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <button onClick={() => removeOrgGrant(g.id)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
-                                    <Trash2 size={15} />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Card>
-                  )}
-                </>
-              ) : (
-                <>
-                {/* Building scope: pick the building here (scope-first, like compound/org) */}
-                {buildings.length > 1 && (
-                  <select
-                    value={accessBuildingId}
-                    onChange={e => setAccessBuildingId(e.target.value)}
-                    className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]"
-                  >
-                    <option value="">{t('common.selectBuilding')}</option>
-                    {buildings.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city})</option>)}
-                  </select>
-                )}
-                {!accessBuildingId ? (
-                  <Card><CardBody>
-                    <p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p>
-                  </CardBody></Card>
-                ) : grantLoading ? (
-                  <SkeletonTable rows={4} cols={3} />
-                ) : grants.length === 0 ? (
-                  <Card><CardBody>
-                    <div className="text-center py-10">
-                      <Shield size={32} className="mx-auto text-primary mb-2" />
-                      <p className="text-sm text-muted-foreground">{t('users.noGrants')}</p>
-                    </div>
-                  </CardBody></Card>
-                ) : (
-                  <Card>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
-                            <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
-                            <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
-                            <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {grants.map(g => (
-                            <tr key={g.id} className="hover:bg-accent/30">
-                              <td className="px-4 py-3">
-                                <p className="font-medium text-foreground">{g.profiles?.full_name ?? '—'}</p>
-                                {g.profiles?.apartment_number && (
-                                  <p className="text-xs text-muted-foreground">Apt {g.profiles.apartment_number}</p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <select
-                                  value={g.role}
-                                  onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, loadGrants)}
-                                  className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
-                                >
-                                  {BUILDING_ROLES.map(r => (
-                                    <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="px-4 py-3">
-                                <button onClick={() => removeGrant(g.id)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
-                                  <Trash2 size={15} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
-                )}
-                </>
-              )}
-            </div>
-          ) : (
+          {(
             // All/Pending list spans every block of the selected entity — the data
             // loads for listBuildingIds, so don't hide it behind a single-block pick.
             !listBuildingIds.length ? (
@@ -1172,81 +738,7 @@ export default function Users() {
         </div>
       </Modal>
 
-      <Modal open={grantModal} onClose={() => setGrantModal(false)} title={t('users.addAccess')} size="sm">
-        <div className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-muted-foreground">{t('users.name')}</label>
-            <input
-              type="text"
-              placeholder={t('common.search')}
-              value={grantSearch}
-              onChange={e => { setGrantSearch(e.target.value); setGrantUserId(''); }}
-              className="rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
-            />
-            {grantSearch.length > 0 && (
-              <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border">
-                {availableProfiles.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-3">{t('users.noUsers')}</p>
-                ) : availableProfiles.slice(0, 20).map(p => (
-                  <button
-                    key={p.id} type="button"
-                    onClick={() => { setGrantUserId(p.id); setGrantSearch(p.full_name); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${grantUserId === p.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}
-                  >
-                    <span className="font-medium">{p.full_name}</span>
-                    {p.apartment_number && <span className="text-muted-foreground text-xs">· Apt {p.apartment_number}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <SelectField label={t('users.role')} value={grantRole} onValueChange={v => setGrantRole(v as GrantRole)}>
-            {BUILDING_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
-          </SelectField>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setGrantModal(false)}>{t('common.cancel')}</Button>
-            <Button onClick={addGrant} disabled={!grantUserId}>{t('users.addAccess')}</Button>
-          </div>
-        </div>
-      </Modal>
 
-      {/* ── Grant org access modal ────────────────────────────────────────── */}
-      <Modal open={orgGrantModal} onClose={() => setOrgGrantModal(false)} title={t('users.addOrgAccess')} size="sm">
-        <div className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-muted-foreground">{t('users.name')}</label>
-            <input
-              type="text"
-              placeholder={t('common.search')}
-              value={orgGrantSearch}
-              onChange={e => { setOrgGrantSearch(e.target.value); setOrgGrantUserId(''); }}
-              className="rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
-            />
-            {orgGrantSearch.length > 0 && (
-              <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border">
-                {availableProfilesForOrg.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-3">{t('users.noUsers')}</p>
-                ) : availableProfilesForOrg.slice(0, 20).map(p => (
-                  <button
-                    key={p.id} type="button"
-                    onClick={() => { setOrgGrantUserId(p.id); setOrgGrantSearch(p.full_name); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${orgGrantUserId === p.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}
-                  >
-                    <span className="font-medium">{p.full_name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <SelectField label={t('users.role')} value={orgGrantRole} onValueChange={v => setOrgGrantRole(v as GrantRole)}>
-            {ORG_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
-          </SelectField>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
-            <Button onClick={addOrgGrant} disabled={!orgGrantUserId}>{t('users.addOrgAccess')}</Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Edit profile modal — name + phone only; identity fields are self-service */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit User" size="sm">
@@ -1299,44 +791,6 @@ export default function Users() {
         </div>
       </Modal>
 
-      {/* Compound access — one grant, every block (0027) */}
-      <Modal open={compoundGrantModal} onClose={() => setCompoundGrantModal(false)} title={t('users.addCompoundAccess')} size="sm">
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">{t('users.compoundScopeNote')}</p>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-muted-foreground">{t('users.name')}</label>
-            <input
-              type="text"
-              placeholder={t('common.search')}
-              value={compoundGrantSearch}
-              onChange={e => { setCompoundGrantSearch(e.target.value); setCompoundGrantUserId(''); }}
-              className="rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/50"
-            />
-            {compoundGrantSearch.length > 0 && (
-              <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border">
-                {availableProfilesForCompound.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-3">{t('users.noUsers')}</p>
-                ) : availableProfilesForCompound.slice(0, 20).map(p => (
-                  <button
-                    key={p.id} type="button"
-                    onClick={() => { setCompoundGrantUserId(p.id); setCompoundGrantSearch(p.full_name); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition cursor-pointer text-start ${compoundGrantUserId === p.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}
-                  >
-                    <span className="font-medium">{p.full_name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <SelectField label={t('users.role')} value={compoundGrantRole} onValueChange={v => setCompoundGrantRole(v as GrantRole)}>
-            {COMPOUND_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
-          </SelectField>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setCompoundGrantModal(false)}>{t('common.cancel')}</Button>
-            <Button onClick={addCompoundGrant} disabled={!compoundGrantUserId}>{t('users.addCompoundAccess')}</Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

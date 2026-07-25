@@ -40,6 +40,7 @@
     "meetings": "Meetings",
     "billing": "Billing",
     "licenses": "Billing & Licenses",
+    "security": "Security",
     "finance": "Finance",
     "structure": "Units",
     "inspections": "Inspections",
@@ -659,6 +660,10 @@
       "equal": "Equal",
       "custom": "Manual (per unit)"
     }
+  },
+  "security": {
+    "title": "Security",
+    "subtitle": "Who has which management role, at which scope"
   },
   "settings": {
     "title": "Settings",
