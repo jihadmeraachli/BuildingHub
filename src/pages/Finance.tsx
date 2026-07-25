@@ -16,6 +16,7 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -476,14 +477,14 @@ export default function Finance() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 1 && (
-            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
-              <SelectTrigger className="min-w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
-              </SelectContent>
-            </RadixSelect>
+            <SearchableSelect
+              className="min-w-[180px]"
+              value={entityKey}
+              onChange={setEntityKey}
+              searchPlaceholder={t('common.search')}
+              emptyText={t('common.noResults')}
+              options={entities.map((e) => ({ value: e.key, label: e.kind === 'compound' ? `▣ ${e.name}` : e.name }))}
+            />
           )}
           {entity?.kind === 'compound' && multiBlock && (
             <MultiSelect

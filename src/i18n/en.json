@@ -11,6 +11,7 @@
     "download": "Download",
     "upload": "Upload",
     "search": "Search",
+    "noResults": "No matches",
     "filter": "Filter",
     "status": "Status",
     "date": "Date",

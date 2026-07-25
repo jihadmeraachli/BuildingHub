@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import type { Meeting, AdjustmentKind } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
-import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
@@ -241,17 +241,17 @@ export default function Dashboard() {
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
         <div className="flex items-center gap-2 flex-wrap">
           {entities.length > 0 && (
-            <RadixSelect value={entityKey || '__all__'} onValueChange={(v) => setEntityKey(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="min-w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {!isPlatformAdmin && <SelectItem value="__all__">{t('dashboard.allBuildings')}</SelectItem>}
-                {entities.map((e) => (
-                  <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </RadixSelect>
+            <SearchableSelect
+              className="min-w-[160px]"
+              value={entityKey || '__all__'}
+              onChange={(v) => setEntityKey(v === '__all__' ? '' : v)}
+              searchPlaceholder={t('common.search')}
+              emptyText={t('common.noResults')}
+              options={[
+                ...(!isPlatformAdmin ? [{ value: '__all__', label: t('dashboard.allBuildings') }] : []),
+                ...entities.map((e) => ({ value: e.key, label: e.kind === 'compound' ? `▣ ${e.name}` : e.name })),
+              ]}
+            />
           )}
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
             <MultiSelect
