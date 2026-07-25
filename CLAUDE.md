@@ -5,6 +5,7 @@ Guidance for Claude Code working in this repo. **Read the two docs below before 
 ## Read first
 - **[docs/HANDOFF.md](docs/HANDOFF.md)** — what the app is, what changed, migrations list, ops, known gaps, next steps. **Start here.**
 - **[docs/WORKFLOW.md](docs/WORKFLOW.md)** — the domain model and the reasoning behind every design decision (orgs/grants, compounds/blocks, allocation, dues, permissions).
+- **[docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)** — every external service/account the app runs on (Supabase, Cloudflare, Resend, …), where each secret lives, deploy methods, billing checklist. Update it when integrations change.
 
 ## What this is
 Multi-tenant building-management app for Lebanon. **React 19 + TypeScript + Vite + Tailwind v4**, i18n (en/ar, RTL), backed by **Supabase** (Postgres + Auth + Storage + Edge Functions). Email via a Supabase Edge Function (`dynamic-action`) → Resend, triggered by Database Webhooks.
