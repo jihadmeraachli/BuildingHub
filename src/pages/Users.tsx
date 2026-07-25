@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Boxes, Mail, Network, Pencil, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Boxes, Lock, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/lib/entities';
@@ -92,6 +92,8 @@ export default function Users() {
   const [editTarget, setEditTarget] = useState<Profile | null>(null);
   const [editForm, setEditForm] = useState({ full_name: '', phone: '' });
   const [editSaving, setEditSaving] = useState(false);
+  // Read-only identity facts (email, 2FA) from admin_user_identity() (0044)
+  const [editIdentity, setEditIdentity] = useState<{ email: string; mfa_enabled: boolean } | null>(null);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
   const [grantUserId, setGrantUserId] = useState('');
   const [grantRole, setGrantRole] = useState<GrantRole>('building_finance');
@@ -407,7 +409,13 @@ export default function Users() {
 
   function openEdit(u: Profile) {
     setEditForm({ full_name: u.full_name, phone: u.phone ?? '' });
+    setEditIdentity(null);
     setEditTarget(u);
+    // Email + 2FA are display-only; tolerate the RPC missing (pre-0044 DB).
+    supabase.rpc('admin_user_identity', { p_user: u.id }).then(({ data }) => {
+      const r = Array.isArray(data) ? data[0] : data;
+      if (r) setEditIdentity({ email: r.email, mfa_enabled: !!r.mfa_enabled });
+    });
   }
 
   async function saveEdit() {
@@ -866,7 +874,11 @@ export default function Users() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {users.map(u => (
-                        <tr key={u.id} className="hover:bg-accent/30">
+                        <tr
+                          key={u.id}
+                          onClick={() => canEditProfile(u) && openEdit(u)}
+                          className={`hover:bg-accent/30 ${canEditProfile(u) ? 'cursor-pointer' : ''}`}
+                        >
                           <td className="px-4 py-3">
                             <p className="font-medium text-foreground">{u.full_name}</p>
                             <p className="text-xs text-muted-foreground">{u.phone ?? '—'}</p>
@@ -908,7 +920,8 @@ export default function Users() {
                           <td className="px-4 py-3">
                             <Badge color={statusColor[u.status]}>{t(`users.statuses.${u.status}`)}</Badge>
                           </td>
-                          <td className="px-4 py-3">
+                          {/* interactive cells must not trigger the row's open-edit click */}
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <div className="flex flex-col gap-1">
                               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
                                 <input type="checkbox" checked={u.notify_email} onChange={e => updateUser(u.id, { notify_email: e.target.checked })} className="rounded accent-primary" />
@@ -920,7 +933,7 @@ export default function Users() {
                               </label>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5">
                               {u.status === 'pending' && (
                                 <>
@@ -934,12 +947,7 @@ export default function Users() {
                               {u.status === 'inactive' && (
                                 <Button size="sm" onClick={() => reactivateUser(u.id)}>{t('common.reactivate')}</Button>
                               )}
-                              {/* Edit name/phone: admins with people-management over this user's building. */}
-                              {canEditProfile(u) && (
-                                <Button size="sm" variant="secondary" onClick={() => openEdit(u)}>
-                                  <Pencil size={14} />
-                                </Button>
-                              )}
+                              {/* Edit name/phone: click the row (see <tr> onClick). */}
                               {/* Hard delete: platform admin only, never self. Guards enforced in DB (0026). */}
                               {isPlatformAdmin && u.id !== profile?.id && (
                                 <Button size="sm" variant="danger" onClick={() => openDelete(u)} title={t('users.deleteHint')}>
@@ -1249,6 +1257,30 @@ export default function Users() {
             onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
             placeholder="+961 70 000 000"
           />
+
+          {/* Identity facts — visible, never editable here */}
+          <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">{t('users.inviteEmail')}</span>
+              <span className="text-sm text-foreground truncate flex items-center gap-1.5">
+                <Lock size={11} className="text-muted-foreground shrink-0" />
+                {editIdentity ? editIdentity.email : '…'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">{t('settings.mfaTitle')}</span>
+              <span className="flex items-center gap-1.5">
+                <Lock size={11} className="text-muted-foreground shrink-0" />
+                {editIdentity === null ? (
+                  <span className="text-sm text-muted-foreground">…</span>
+                ) : editIdentity.mfa_enabled ? (
+                  <Badge color="green">{t('settings.mfaStatusOn')}</Badge>
+                ) : (
+                  <Badge color="slate">{t('settings.mfaStatusOff')}</Badge>
+                )}
+              </span>
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground">
             {t('users.editIdentityNote')}
           </p>
