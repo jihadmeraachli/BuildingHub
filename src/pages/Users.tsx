@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Lock, Mail, Trash2 } from 'lucide-react';
+import { Lock, Mail, Search, Trash2, UserPlus } from 'lucide-react';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,6 +75,17 @@ export default function Users() {
   const [editSaving, setEditSaving] = useState(false);
   // Read-only identity facts (email, 2FA) from admin_user_identity() (0044)
   const [editIdentity, setEditIdentity] = useState<{ email: string; mfa_enabled: boolean } | null>(null);
+
+  // Add existing Abniyah user by email (one account, many units)
+  const [addUserModal, setAddUserModal] = useState(false);
+  const [addUserEmail, setAddUserEmail] = useState('');
+  const [addUserFound, setAddUserFound] = useState<{ id: string; name: string } | 'notfound' | null>(null);
+  const [addUserFinding, setAddUserFinding] = useState(false);
+  const [addUserBuildingId, setAddUserBuildingId] = useState('');
+  const [addUserUnits, setAddUserUnits] = useState<{ id: string; label: string }[]>([]);
+  const [addUserUnitId, setAddUserUnitId] = useState('');
+  const [addUserTenure, setAddUserTenure] = useState<'owner' | 'tenant'>('owner');
+  const [addUserSaving, setAddUserSaving] = useState(false);
 
   // Invite new user
   const [inviteModal, setInviteModal] = useState(false);
@@ -332,6 +343,52 @@ export default function Users() {
     setInviteModal(false);
   }
 
+  // ---- Add existing Abniyah user ----
+  function openAddUserModal() {
+    setAddUserEmail(''); setAddUserFound(null);
+    setAddUserBuildingId(buildings.length === 1 ? buildings[0].id : '');
+    setAddUserUnits([]); setAddUserUnitId(''); setAddUserTenure('owner');
+    setAddUserModal(true);
+  }
+
+  async function findAbniyahUser() {
+    if (!addUserEmail.trim()) return;
+    setAddUserFinding(true);
+    setAddUserFound(null);
+    const { data, error } = await supabase.rpc('find_user_by_email', { p_email: addUserEmail.trim() });
+    setAddUserFinding(false);
+    if (error) { toast.error(error.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    setAddUserFound(row ? { id: row.user_id, name: row.full_name } : 'notfound');
+  }
+
+  useEffect(() => {
+    if (!addUserBuildingId) { setAddUserUnits([]); setAddUserUnitId(''); return; }
+    supabase.from('units').select('id, label').eq('building_id', addUserBuildingId).order('label')
+      .then(({ data }) => setAddUserUnits((data as { id: string; label: string }[]) ?? []));
+  }, [addUserBuildingId]);
+
+  async function addAbniyahUser() {
+    if (!addUserFound || addUserFound === 'notfound' || !addUserUnitId) return;
+    setAddUserSaving(true);
+    // Don't double-link the same person to the same unit.
+    const { data: existing } = await supabase.from('memberships')
+      .select('id').eq('user_id', addUserFound.id).eq('unit_id', addUserUnitId).is('ended_at', null).limit(1);
+    if (existing?.length) {
+      setAddUserSaving(false);
+      toast.error(t('users.addExistingAlready'));
+      return;
+    }
+    const { error } = await supabase.from('memberships').insert({
+      user_id: addUserFound.id, unit_id: addUserUnitId, tenure: addUserTenure,
+    });
+    setAddUserSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.addExistingDone', { name: addUserFound.name }));
+    setAddUserModal(false);
+    loadUsers();
+  }
+
   const pendingCount = users.filter(u => u.status === 'pending').length;
 
   // When the list spans several blocks, show which block each person belongs to —
@@ -364,9 +421,14 @@ export default function Users() {
         <h1 className="text-xl font-semibold text-foreground">{t('users.title')}</h1>
         <div className="flex gap-2">
           {canInvite && (
-            <Button variant="secondary" onClick={openInviteModal}>
-              <Mail size={16} /> {t('users.inviteUser')}
-            </Button>
+            <>
+              <Button variant="secondary" onClick={openAddUserModal}>
+                <UserPlus size={16} /> {t('users.addExisting')}
+              </Button>
+              <Button variant="secondary" onClick={openInviteModal}>
+                <Mail size={16} /> {t('users.inviteUser')}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -751,6 +813,90 @@ export default function Users() {
       </Modal>
 
 
+
+      {/* ── Add existing Abniyah user (by email) ────────────────────────────
+          One account, many units: someone provisioned elsewhere gives their
+          email; we link them to a unit here. No new account, no invite email. */}
+      <Modal open={addUserModal} onClose={() => setAddUserModal(false)} title={t('users.addExisting')} size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('users.addExistingHint')}</p>
+
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input
+                label={t('users.inviteEmail')}
+                type="email"
+                value={addUserEmail}
+                onChange={e => { setAddUserEmail(e.target.value); setAddUserFound(null); }}
+                placeholder="name@example.com"
+              />
+            </div>
+            <Button variant="secondary" onClick={findAbniyahUser} loading={addUserFinding} disabled={!addUserEmail.trim()}>
+              <Search size={15} /> {t('users.findUser')}
+            </Button>
+          </div>
+
+          {addUserFound === 'notfound' && (
+            <p className="text-sm text-destructive">{t('users.addExistingNotFound')}</p>
+          )}
+
+          {addUserFound && addUserFound !== 'notfound' && (
+            <>
+              <p className="text-sm">
+                <span className="text-muted-foreground">{t('users.addExistingFound')}</span>{' '}
+                <span className="font-semibold text-foreground">{addUserFound.name}</span>
+              </p>
+
+              {buildings.length > 1 && (
+                <SelectField
+                  label={t('users.inviteResidentBuilding')}
+                  value={addUserBuildingId || '__none__'}
+                  onValueChange={v => setAddUserBuildingId(v === '__none__' ? '' : v)}
+                >
+                  <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
+                  {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>)}
+                </SelectField>
+              )}
+
+              {addUserBuildingId && (
+                addUserUnits.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('users.addExistingNoUnits')}</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <SelectField
+                      label={t('users.addExistingUnit')}
+                      value={addUserUnitId || '__none__'}
+                      onValueChange={v => setAddUserUnitId(v === '__none__' ? '' : v)}
+                    >
+                      <SelectItem value="__none__">—</SelectItem>
+                      {addUserUnits.map(u => <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>)}
+                    </SelectField>
+                    <SelectField
+                      label={t('users.addExistingTenure')}
+                      value={addUserTenure}
+                      onValueChange={v => setAddUserTenure(v as 'owner' | 'tenant')}
+                    >
+                      <SelectItem value="owner">{t('users.tenureOwner')}</SelectItem>
+                      <SelectItem value="tenant">{t('users.tenureTenant')}</SelectItem>
+                    </SelectField>
+                  </div>
+                )
+              )}
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setAddUserModal(false)}>{t('common.cancel')}</Button>
+            <Button
+              onClick={addAbniyahUser}
+              loading={addUserSaving}
+              disabled={!addUserFound || addUserFound === 'notfound' || !addUserUnitId}
+            >
+              <UserPlus size={15} /> {t('users.addExistingConfirm')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Edit profile modal — name + phone only; identity fields are self-service */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit User" size="sm">
