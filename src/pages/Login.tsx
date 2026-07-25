@@ -142,7 +142,10 @@ export default function Login() {
     <div className="min-h-screen flex">
       {brandPanel}
 
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-background">
+      {/* Form side: quiet, deep gradient in dark mode so it reads as one
+          composition with the brand panel — deliberately far subtler than the
+          left, keeping the form as the focal point. Light mode stays clean. */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-background dark:bg-[linear-gradient(160deg,oklch(0.21_0.045_185)_0%,oklch(0.15_0.03_187)_55%,oklch(0.12_0.025_190)_100%)]">
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5 lg:hidden">
