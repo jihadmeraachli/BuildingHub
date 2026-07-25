@@ -86,7 +86,9 @@ export default function Users() {
   const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
   const [deleteBlockers, setDeleteBlockers] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // edit profile (platform admin only)
+  // edit profile (name + phone): platform admin, or resident.manage over the
+  // user's building. Email/password/2FA stay strictly self-service (Settings) —
+  // email is the account identity and an admin-changeable email = takeover vector.
   const [editTarget, setEditTarget] = useState<Profile | null>(null);
   const [editForm, setEditForm] = useState({ full_name: '', phone: '' });
   const [editSaving, setEditSaving] = useState(false);
@@ -396,6 +398,12 @@ export default function Users() {
     if (error) { toast.error(error.message); setDeleteTarget(null); return; }
     setDeleteBlockers((data as string[]) ?? []);
   }
+
+  const canEditProfile = (u: Profile) =>
+    isPlatformAdmin
+    || (u.building_id
+      ? can('resident.manage', u.building_id)
+      : listBuildingIds.some(id => can('resident.manage', id)));
 
   function openEdit(u: Profile) {
     setEditForm({ full_name: u.full_name, phone: u.phone ?? '' });
@@ -926,8 +934,8 @@ export default function Users() {
                               {u.status === 'inactive' && (
                                 <Button size="sm" onClick={() => reactivateUser(u.id)}>{t('common.reactivate')}</Button>
                               )}
-                              {/* Edit profile: platform admin only. */}
-                              {isPlatformAdmin && (
+                              {/* Edit name/phone: admins with people-management over this user's building. */}
+                              {canEditProfile(u) && (
                                 <Button size="sm" variant="secondary" onClick={() => openEdit(u)}>
                                   <Pencil size={14} />
                                 </Button>
@@ -1226,7 +1234,7 @@ export default function Users() {
         </div>
       </Modal>
 
-      {/* Edit profile modal — platform admin only */}
+      {/* Edit profile modal — name + phone only; identity fields are self-service */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit User" size="sm">
         <div className="space-y-4">
           <Input
@@ -1241,6 +1249,9 @@ export default function Users() {
             onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
             placeholder="+961 70 000 000"
           />
+          <p className="text-xs text-muted-foreground">
+            {t('users.editIdentityNote')}
+          </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setEditTarget(null)}>{t('common.cancel')}</Button>
             <Button onClick={saveEdit} loading={editSaving} disabled={!editForm.full_name.trim()}>

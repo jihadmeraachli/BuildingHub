@@ -291,6 +291,7 @@
     },
     "inviteBuilding": "Building",
     "inviteResidentBuilding": "Which building is this resident in?",
+    "editIdentityNote": "Email, password and two-factor settings can only be changed by the user themselves, in their own Settings.",
     "inviteOrg": "Organization",
     "sendInvite": "Send invite",
     "inviteSent": "Invite sent to {{email}}.",
