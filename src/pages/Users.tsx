@@ -64,6 +64,9 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
   const [grantScope, setGrantScope] = useState<GrantScope>('building');
+  // Access tab picks its own building — independent of the People-list entity
+  // selector, which is hidden on that tab.
+  const [accessBuildingId, setAccessBuildingId] = useState('');
   // compound scope (0027) — one grant covers every block, incl. blocks added later
   const [selectedCompoundId, setSelectedCompoundId] = useState('');
   const [compoundGrants, setCompoundGrants] = useState<GrantRow[]>([]);
@@ -160,12 +163,6 @@ export default function Users() {
   }, [showBuildingSelector, profile?.building_id, blockFilter, selEntity]);
   const listKey = listBuildingIds.join(',');
 
-  // Block-scoped actions (grants on a single block) still need ONE building:
-  // the filtered block, or the entity's only block if it has just one.
-  const activeBuildingId = showBuildingSelector
-    ? (blockFilter || (selEntity?.blocks.length === 1 ? selEntity.blocks[0].id : ''))
-    : profile?.building_id ?? '';
-
   const canManageAccess = isPlatformAdmin
     || (listBuildingIds.length ? listBuildingIds.some(id => can('grant.manage', id)) : canAny('grant.manage'));
 
@@ -174,8 +171,13 @@ export default function Users() {
   }, [listKey, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeBuildingId && tab === 'access' && grantScope === 'building') loadGrants();
-  }, [activeBuildingId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (accessBuildingId && tab === 'access' && grantScope === 'building') loadGrants();
+  }, [accessBuildingId, tab, grantScope]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Single-building admins shouldn't have to pick their only building.
+  useEffect(() => {
+    if (!accessBuildingId && buildings.length === 1) setAccessBuildingId(buildings[0].id);
+  }, [buildings, accessBuildingId]);
 
   useEffect(() => {
     if (selectedOrgId && tab === 'access' && grantScope === 'org') loadOrgGrants();
@@ -245,11 +247,11 @@ export default function Users() {
   }
 
   async function loadGrants() {
-    if (!activeBuildingId) return;
+    if (!accessBuildingId) return;
     setGrantLoading(true);
     const { data } = await supabase
       .from('grants').select('*, profiles(id, full_name, apartment_number)')
-      .eq('building_id', activeBuildingId).eq('scope_type', 'building').order('created_at');
+      .eq('building_id', accessBuildingId).eq('scope_type', 'building').order('created_at');
     setGrants((data as GrantRow[]) ?? []);
     setGrantLoading(false);
   }
@@ -325,9 +327,9 @@ export default function Users() {
   }
 
   async function addGrant() {
-    if (!grantUserId || !activeBuildingId) return;
+    if (!grantUserId || !accessBuildingId) return;
     const { error } = await supabase.from('grants').insert({
-      user_id: grantUserId, scope_type: 'building', building_id: activeBuildingId, org_id: null, role: grantRole,
+      user_id: grantUserId, scope_type: 'building', building_id: accessBuildingId, org_id: null, role: grantRole,
     });
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.grantAdded'));
@@ -544,7 +546,7 @@ export default function Users() {
               <Button onClick={openOrgGrantModal} disabled={!selectedOrgId}>
                 <UserPlus size={16} /> {t('users.addOrgAccess')}
               </Button>
-            ) : activeBuildingId ? (
+            ) : accessBuildingId ? (
               <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
             ) : null
           )}
@@ -552,8 +554,9 @@ export default function Users() {
       </div>
 
       {/* Compound-first: pick the compound (or standalone building), then optionally
-          narrow to one block. Same selector shape as Dashboard/Finance/Dues. */}
-      {showBuildingSelector && (
+          narrow to one block. Same selector shape as Dashboard/Finance/Dues.
+          Hidden on the Access tab — that tab has its own scope-first selectors. */}
+      {showBuildingSelector && tab !== 'access' && (
         <div className="mb-4 flex items-center gap-2 flex-wrap">
           <select
             value={entityKey}
@@ -790,7 +793,19 @@ export default function Users() {
                   )}
                 </>
               ) : (
-                !activeBuildingId ? (
+                <>
+                {/* Building scope: pick the building here (scope-first, like compound/org) */}
+                {buildings.length > 1 && (
+                  <select
+                    value={accessBuildingId}
+                    onChange={e => setAccessBuildingId(e.target.value)}
+                    className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]"
+                  >
+                    <option value="">{t('common.selectBuilding')}</option>
+                    {buildings.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city})</option>)}
+                  </select>
+                )}
+                {!accessBuildingId ? (
                   <Card><CardBody>
                     <p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p>
                   </CardBody></Card>
@@ -845,7 +860,8 @@ export default function Users() {
                       </table>
                     </div>
                   </Card>
-                )
+                )}
+                </>
               )}
             </div>
           ) : (
