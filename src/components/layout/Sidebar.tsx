@@ -57,10 +57,14 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   }, [residentLens, memberships]);
 
   const isOrgAdmin = grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
+  const isCompoundAdmin = grants.some(g => g.scope_type === 'compound' && g.role === 'compound_admin');
   const isScopeAdmin = grants.some(g => ['building_admin', 'compound_admin', 'org_admin'].includes(g.role));
   const canStructure = canAny('unit.manage') || isOrgAdmin;
   const canPeople = canAny('resident.manage') || canAny('resident.approve') || isOrgAdmin;
-  const canBuildings = isPlatformAdmin || isOrgAdmin;
+  // Compound admins need Buildings even with ZERO blocks — it's where they
+  // create their first block (their other powers cascade from blocks, so a
+  // fresh compound would otherwise show an empty config menu).
+  const canBuildings = isPlatformAdmin || isOrgAdmin || isCompoundAdmin;
 
   const top = topRole(grants.map(g => g.role));
   const displayRole = isPlatformAdmin

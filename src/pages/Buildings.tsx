@@ -161,6 +161,13 @@ export default function Buildings() {
     .map(g => g.org_id as string)
     .filter(Boolean);
   const isOrgAdmin = !isPlatformAdmin && myOrgIds.length > 0;
+  // Compound admins manage this page too: their blocks live here, and a fresh
+  // compound has none yet — this page is where they create the first one.
+  const myCompoundIds = grants
+    .filter(g => g.scope_type === 'compound' && g.role === 'compound_admin')
+    .map(g => g.compound_id as string)
+    .filter(Boolean);
+  const isCompoundAdmin = !isPlatformAdmin && !isOrgAdmin && myCompoundIds.length > 0;
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -214,11 +221,15 @@ export default function Buildings() {
 
   const visibleBuildings = isOrgAdmin
     ? buildings.filter(b => orgBuildings.some(ob => ob.building_id === b.id))
-    : buildings;
+    : isCompoundAdmin
+      ? buildings.filter(b => myCompoundIds.includes(b.compound_id ?? ''))
+      : buildings;
 
   const visibleCompounds = isOrgAdmin
     ? compounds.filter(c => myOrgIds.includes(c.org_id ?? ''))
-    : compounds;
+    : isCompoundAdmin
+      ? compounds.filter(c => myCompoundIds.includes(c.id))
+      : compounds;
 
   const effMode = (b: Building) =>
     b.compound_id
@@ -317,10 +328,16 @@ export default function Buildings() {
   };
 
   async function onSubmit(data: FormData) {
+    // A compound admin's new block always lands in THEIR compound — never
+    // standalone, never someone else's.
+    let compoundId = data.compound_id || null;
+    if (isCompoundAdmin) {
+      compoundId = compoundId && myCompoundIds.includes(compoundId) ? compoundId : myCompoundIds[0];
+    }
     const { data: inserted, error } = await supabase.from('buildings').insert({
       name: data.name, address: data.address, city: data.city, country: data.country,
       contact_email: data.contact_email || null, contact_phone: data.contact_phone || null,
-      maps_url: data.maps_url || null, compound_id: data.compound_id || null, is_active: true,
+      maps_url: data.maps_url || null, compound_id: compoundId, is_active: true,
     }).select('id').single();
 
     if (error) { toast.error(error.message); return; }
@@ -594,10 +611,10 @@ export default function Buildings() {
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
           <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
-          {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
+          {(isPlatformAdmin || isOrgAdmin || isCompoundAdmin) && visibleCompounds.length > 0 && (
             <Controller name="compound_id" control={control} render={({ field }) => (
-              <SelectField label={t('buildings.compound')} value={field.value || '__none__'} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}>
-                <SelectItem value="__none__">{t('buildings.noCompoundOption')}</SelectItem>
+              <SelectField label={t('buildings.compound')} value={field.value || (isCompoundAdmin ? myCompoundIds[0] : '__none__')} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}>
+                {!isCompoundAdmin && <SelectItem value="__none__">{t('buildings.noCompoundOption')}</SelectItem>}
                 {visibleCompounds.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectField>
             )} />
@@ -633,9 +650,9 @@ export default function Buildings() {
               {organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
             </SelectField>
           )}
-          {(isPlatformAdmin || isOrgAdmin) && visibleCompounds.length > 0 && (
+          {(isPlatformAdmin || isOrgAdmin || isCompoundAdmin) && visibleCompounds.length > 0 && (
             <SelectField label={t('buildings.compound')} value={ebForm.compound_id || '__none__'} onValueChange={v => setEbForm({ ...ebForm, compound_id: v === '__none__' ? '' : v })}>
-              <SelectItem value="__none__">{t('buildings.noCompoundOption')}</SelectItem>
+              {!isCompoundAdmin && <SelectItem value="__none__">{t('buildings.noCompoundOption')}</SelectItem>}
               {visibleCompounds.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectField>
           )}
