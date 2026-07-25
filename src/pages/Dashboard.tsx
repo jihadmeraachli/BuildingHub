@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ElementType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ElementType } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -30,8 +30,10 @@ interface Agg {
 export default function Dashboard() {
   const { t } = useTranslation();
   const { profile, isPlatformAdmin, canAny, myUnitIds } = useAuth();
-  const { buildings } = useManagedBuildings();
+  const { buildings, loading: buildingsLoading } = useManagedBuildings();
   const isManager = isPlatformAdmin || canAny('finance.view');
+  // Monotonic request id: a slow, stale response must never overwrite a newer one.
+  const loadSeq = useRef(0);
 
   const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
@@ -47,12 +49,16 @@ export default function Dashboard() {
   const idsKey = buildingIds.join(',');
 
   useEffect(() => {
+    // Wait for the building list — querying with an empty scope produces an
+    // all-zero result that can land AFTER the real one and overwrite it.
+    if (buildingsLoading) return;
     if (isManager) loadManager();
     else if (myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, isManager, entityKey, blockFilters]);
+  }, [buildingsLoading, idsKey, isManager, entityKey, blockFilters]);
 
   useEffect(() => {
+    if (buildingsLoading) return;
     const today = new Date().toISOString().slice(0, 10);
     let q = supabase.from('meetings').select('*').gte('meeting_date', today);
     if (isManager) {
@@ -61,9 +67,10 @@ export default function Dashboard() {
     }
     q.order('meeting_date', { ascending: true }).limit(5).then(({ data }) => setUpcoming((data as Meeting[]) ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, entityKey, blockFilters, isManager]);
+  }, [buildingsLoading, idsKey, entityKey, blockFilters, isManager]);
 
   async function loadManager() {
+    const seq = ++loadSeq.current;
     const ent = entities.find((e) => e.key === entityKey);
     const scope = entityKey ? (blockFilters.length > 0 ? blockFilters : (ent?.buildingIds ?? buildingIds)) : buildingIds;
     const inIds = scope.length ? scope : ['00000000-0000-0000-0000-000000000000'];
@@ -112,6 +119,9 @@ export default function Dashboard() {
     const avgMonthlySpend = Object.values(months).reduce((s, m) => s + m.spent, 0) / 12;
     const reserve = Math.round((collected - spent) * 100) / 100;
     const runwayMonths = avgMonthlySpend > 0 ? Math.floor(Math.max(0, reserve) / avgMonthlySpend) : 0;
+
+    // A newer load started while this one was in flight — discard, don't overwrite.
+    if (seq !== loadSeq.current) return;
     setCoverage({ runwayMonths, duesIssued, duesPeriod: latestPeriod });
 
     setAgg({ collected, spent, billed, outstanding, ytd, units: unitsRes.count ?? 0, openIssues: issuesRes.count ?? 0 });
