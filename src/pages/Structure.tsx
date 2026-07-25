@@ -9,6 +9,7 @@ import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import type { Unit, Group, Occupancy, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
@@ -291,17 +292,15 @@ export default function Structure() {
       ) : (
         <>
           {/* tabs */}
-          <div className="inline-flex p-1 bg-accent/30 rounded-xl mb-5">
-            {([['units', t('structure.units'), Home], ['groups', t('structure.groups'), Users2]] as [('units'|'groups'), string, typeof Home][]).map(([key, label, Icon]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg transition cursor-pointer ${tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <Icon size={15} /> {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedTabs
+            className="mb-5"
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { key: 'units', label: t('structure.units'), icon: Home },
+              { key: 'groups', label: t('structure.groups'), icon: Users2 },
+            ]}
+          />
 
           {tab === 'units' && (
             <>

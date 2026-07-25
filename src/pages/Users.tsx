@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Boxes, Lock, Mail, Network, Shield, Trash2, UserPlus } from 'lucide-react';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/lib/entities';
@@ -596,48 +597,37 @@ export default function Users() {
         </CardBody></Card>
       ) : (
         <>
-          <div className="flex gap-2 mb-4">
-            {tabs.filter(t3 => t3.show).map(t3 => (
-              <button
-                key={t3.key}
-                onClick={() => setTab(t3.key)}
-                className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t3.key ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-              >
-                {t3.label}
-                {t3.key === 'pending' && pendingCount > 0 && (
-                  <span className="ms-1.5 bg-yellow-400 text-yellow-900 text-xs rounded-full px-1.5">{pendingCount}</span>
-                )}
-              </button>
-            ))}
-          </div>
+          <SegmentedTabs
+            className="mb-4"
+            value={tab}
+            onChange={setTab}
+            tabs={tabs.filter(t3 => t3.show).map(t3 => ({
+              key: t3.key,
+              label: (
+                <>
+                  {t3.label}
+                  {t3.key === 'pending' && pendingCount > 0 && (
+                    <span className="ms-1 bg-yellow-400 text-yellow-900 text-xs rounded-full px-1.5">{pendingCount}</span>
+                  )}
+                </>
+              ),
+            }))}
+          />
 
           {tab === 'access' ? (
             <div className="space-y-4">
               {/* Scope ladder, top-down: org → compound → block. Access granted higher
                   up cascades down (a compound grant covers every block in it). */}
               {(isSuperAdmin || (isOrgAdmin && compoundEntities.length > 0)) && (
-                <div className="flex gap-1 flex-wrap">
-                  {isSuperAdmin && (
-                    <button
-                      onClick={() => setGrantScope('org')}
-                      className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'org' ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    >
-                      <span className="flex items-center gap-1.5"><Network size={13} /> {t('users.scopeOrg')}</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setGrantScope('compound')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'compound' ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                  >
-                    <span className="flex items-center gap-1.5"><Boxes size={13} /> {t('users.scopeCompound')}</span>
-                  </button>
-                  <button
-                    onClick={() => setGrantScope('building')}
-                    className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${grantScope === 'building' ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                  >
-                    {t('users.scopeBuilding')}
-                  </button>
-                </div>
+                <SegmentedTabs
+                  value={grantScope}
+                  onChange={setGrantScope}
+                  tabs={[
+                    ...(isSuperAdmin ? [{ key: 'org' as GrantScope, label: t('users.scopeOrg'), icon: Network }] : []),
+                    { key: 'compound' as GrantScope, label: t('users.scopeCompound'), icon: Boxes },
+                    { key: 'building' as GrantScope, label: t('users.scopeBuilding') },
+                  ]}
+                />
               )}
               {/* org admins without compounds stay on building scope only — no org-level grant management */}
 

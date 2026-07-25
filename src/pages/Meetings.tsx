@@ -13,6 +13,7 @@ import { useEntities } from '@/lib/entities';
 import type { Meeting, Profile } from '@/types';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
@@ -187,17 +188,15 @@ export default function Meetings() {
       ) : (<>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-5">
-        {(['scheduled', 'past'] as Tab[]).map(t2 => (
-          <button
-            key={t2}
-            onClick={() => setTab(t2)}
-            className={`text-sm px-4 py-1.5 rounded-lg border transition cursor-pointer ${tab === t2 ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-          >
-            {t2 === 'scheduled' ? t('meetings.scheduled') : t('meetings.pastMeetings')}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        className="mb-5"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { key: 'scheduled', label: t('meetings.scheduled') },
+          { key: 'past', label: t('meetings.pastMeetings') },
+        ]}
+      />
 
       {loading ? (
         <SkeletonCards count={3} />
