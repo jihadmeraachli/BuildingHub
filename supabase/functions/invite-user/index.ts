@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
           }
         }
         return json({
-          error: 'A user with this email already exists. Use the Access tab to assign them a role.',
+          error: 'A user with this email already exists — no new invite needed. To give them a role, use the Security page; to link them to a unit, use Structure.',
           code: 'already_exists',
         }, 409);
       }

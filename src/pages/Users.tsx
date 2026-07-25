@@ -314,7 +314,17 @@ export default function Users() {
     setInviteLoading(false);
 
     if (error) {
-      toast.error(error.message ?? t('users.inviteError'));
+      // supabase-js wraps non-2xx responses in a generic FunctionsHttpError —
+      // the server's actual message (e.g. "user already exists") is in context.
+      let msg = t('users.inviteError');
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === 'function') {
+        try {
+          const body = await ctx.json();
+          if (body?.error) msg = body.error;
+        } catch { /* keep fallback */ }
+      }
+      toast.error(msg, { duration: 8000 });
       return;
     }
 
