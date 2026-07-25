@@ -66,9 +66,10 @@ const newPayForm = (): PayForm => ({ unit_id: '', amount: '', method: 'cash', pa
 
 export default function Finance() {
   const { t } = useTranslation();
-  const { can, canAny, isPlatformAdmin, profile, myUnitIds, myOwnerUnitIds, myTenantUnitIds } = useAuth();
+  const { can, canAny, isPlatformAdmin, profile, myUnitIds, myOwnerUnitIds, myTenantUnitIds, residentLens } = useAuth();
   const { buildings } = useManagedBuildings();
-  const isManager = isPlatformAdmin || canAny('finance.view');
+  // Dual-persona lens: an admin browsing "My home" gets their own statement.
+  const isManager = (isPlatformAdmin || canAny('finance.view')) && !residentLens;
 
   const [compounds, setCompounds] = useState<Compound[]>([]);
   useEffect(() => { supabase.from('compounds').select('*').then(({ data }) => setCompounds((data as Compound[]) ?? [])); }, []);

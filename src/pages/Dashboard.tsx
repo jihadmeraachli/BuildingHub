@@ -29,15 +29,17 @@ interface Agg {
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, canAny, myUnitIds } = useAuth();
+  const { profile, isPlatformAdmin, canAny, myUnitIds, residentLens } = useAuth();
   const { buildings, loading: buildingsLoading } = useManagedBuildings();
-  const isManager = isPlatformAdmin || canAny('finance.view');
+  // Dual-persona lens: an admin browsing "My home" gets the resident dashboard.
+  const isManager = (isPlatformAdmin || canAny('finance.view')) && !residentLens;
   // Monotonic request id: a slow, stale response must never overwrite a newer one.
   const loadSeq = useRef(0);
 
   const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
   const [resident, setResident] = useState({ charged: 0, paid: 0, opening: 0 });
+  const [myUnits, setMyUnits] = useState<{ id: string; label: string; buildingName: string; balance: number }[]>([]);
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
   const [entityKey, setEntityKey] = useState('');
@@ -131,10 +133,10 @@ export default function Dashboard() {
   async function loadResident() {
     const inIds = myUnitIds.length ? myUnitIds : ['00000000-0000-0000-0000-000000000000'];
     const [c, p, u, a] = await Promise.all([
-      supabase.from('charges').select('amount_usd').in('unit_id', inIds).is('voided_at', null),
-      supabase.from('payments').select('amount_usd').in('unit_id', inIds).is('voided_at', null),
-      supabase.from('units').select('opening_balance').in('id', inIds),
-      supabase.from('adjustments').select('kind, amount_usd').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('charges').select('amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('payments').select('amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('units').select('id, label, opening_balance, building_id, buildings(name)').in('id', inIds),
+      supabase.from('adjustments').select('kind, amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
     ]);
     const adj = ((a.data ?? []) as { kind: AdjustmentKind; amount_usd: number }[])
       .reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
@@ -143,6 +145,31 @@ export default function Dashboard() {
       paid: ((p.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
       opening: ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0) + adj,
     });
+
+    // Portfolio: per-unit balances, so an investor with units in several
+    // buildings sees each one — not just an opaque combined total.
+    const perUnit: Record<string, number> = {};
+    for (const id of inIds) perUnit[id] = 0;
+    ((u.data ?? []) as { id: string; opening_balance: number }[]).forEach((r) => {
+      perUnit[r.id] = (perUnit[r.id] ?? 0) + Number(r.opening_balance ?? 0);
+    });
+    ((p.data ?? []) as { amount_usd: number; unit_id: string }[]).forEach((r) => {
+      perUnit[r.unit_id] = (perUnit[r.unit_id] ?? 0) + Number(r.amount_usd);
+    });
+    ((c.data ?? []) as { amount_usd: number; unit_id: string }[]).forEach((r) => {
+      perUnit[r.unit_id] = (perUnit[r.unit_id] ?? 0) - Number(r.amount_usd);
+    });
+    ((a.data ?? []) as { kind: AdjustmentKind; amount_usd: number; unit_id: string }[]).forEach((r) => {
+      perUnit[r.unit_id] = (perUnit[r.unit_id] ?? 0) + adjustmentEffect(r.kind, Number(r.amount_usd));
+    });
+    setMyUnits(
+      (((u.data ?? []) as unknown) as { id: string; label: string; buildings: { name: string } | null }[]).map((r) => ({
+        id: r.id,
+        label: r.label,
+        buildingName: r.buildings?.name ?? '—',
+        balance: Math.round((perUnit[r.id] ?? 0) * 100) / 100,
+      })),
+    );
   }
 
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
@@ -164,6 +191,32 @@ export default function Dashboard() {
             { label: t('dashboard.totalPaid'),    value: money(resident.paid) },
           ]}
         />
+        {/* Portfolio: one card per unit when the account spans several (investor case) */}
+        {myUnits.length > 1 && (
+          <div>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{t('dashboard.myUnits')}</h2>
+            <div className="space-y-2">
+              {myUnits.map((u) => (
+                <Card key={u.id} className="gap-0 py-0">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <Home size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{u.label}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.buildingName}</p>
+                      </div>
+                      <p className={cn('text-lg font-semibold tnum shrink-0', u.balance < 0 ? 'text-red-500 dark:text-red-300' : 'text-foreground')}>
+                        {money(u.balance)}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
         <Link to="/finance">
           <QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} />
         </Link>

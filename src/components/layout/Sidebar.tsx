@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/ui/Logo';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { topRole } from '@/lib/permissions';
@@ -10,7 +11,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
-  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck,
+  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -38,7 +39,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
 function SidebarContent({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const { profile, signOut, canAny, isPlatformAdmin, grants } = useAuth();
+  const { profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens } = useAuth();
   const location = useLocation();
 
   const isOrgAdmin = grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
@@ -59,17 +60,19 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     .map(w => w[0].toUpperCase())
     .join('') ?? '?';
 
+  // Resident lens (dual-persona accounts browsing as "My home"): only the links
+  // a plain resident would have. UI preference only — permissions unchanged.
   const primaryLinks = [
     { to: '/dashboard',   label: t('nav.dashboard'),   icon: LayoutDashboard },
     { to: '/finance',     label: t('nav.finance'),      icon: Wallet },
-    { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: canStructure || canAny('finance.view') },
+    { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: !residentLens && (canStructure || canAny('finance.view')) },
     { to: '/issues',      label: t('nav.issues'),        icon: AlertTriangle },
     { to: '/meetings',    label: t('nav.meetings'),      icon: CalendarDays },
-    { to: '/inspections', label: t('nav.inspections'),   icon: ClipboardCheck },
-    { to: '/contracts',   label: t('nav.contracts'),     icon: FileSignature },
+    { to: '/inspections', label: t('nav.inspections'),   icon: ClipboardCheck, show: !residentLens },
+    { to: '/contracts',   label: t('nav.contracts'),     icon: FileSignature,  show: !residentLens },
   ].filter(l => l.show !== false);
 
-  const manageLinks = [
+  const manageLinks = (residentLens ? [] : [
     { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings },
     { to: '/structure',     label: t('nav.structure'),     icon: Layers,    show: canStructure },
     { to: '/users',         label: t('nav.people'),        icon: Users,     show: canPeople },
@@ -79,7 +82,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/import',        label: 'Import',               icon: FileUp,    show: canBuildings || canStructure },
     { to: '/licenses',      label: 'Billing & Licenses',   icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
     { to: '/licensing-admin', label: 'Platform Licensing', icon: KeyRound,  show: isPlatformAdmin },
-  ].filter(l => l.show);
+  ]).filter(l => l.show);
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');
 
@@ -112,6 +115,22 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
           <X size={16} />
         </button>
       </div>
+
+      {/* Dual-persona lens: admin who is also a resident/investor switches between
+          the building they manage and their own unit(s). */}
+      {hasBothPersonas && (
+        <div className="px-2 pt-3">
+          <SegmentedTabs
+            className="w-full [&>button]:flex-1 [&>button]:justify-center [&>button]:px-2"
+            value={viewMode}
+            onChange={setViewMode}
+            tabs={[
+              { key: 'manager', label: t('nav.lensManaging'), icon: Building2 },
+              { key: 'resident', label: t('nav.lensMyHome'), icon: Home },
+            ]}
+          />
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">

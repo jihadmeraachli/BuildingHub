@@ -37,6 +37,13 @@ interface AuthContextValue {
   /** false while grants/memberships/license checks for the CURRENT user are still in flight —
    *  gate rendering on it to avoid flashing the app before a redirect (e.g. /no-license) */
   accessReady: boolean;
+  /** user holds BOTH a management grant and a residency — the view switcher appears */
+  hasBothPersonas: boolean;
+  /** current lens for dual-persona accounts: 'manager' (default) or 'resident' */
+  viewMode: 'manager' | 'resident';
+  setViewMode: (mode: 'manager' | 'resident') => void;
+  /** true when a dual-persona account is browsing as a resident — pages render their resident variant */
+  residentLens: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -53,6 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [residentLicensed, setResidentLicensed] = useState<boolean | null>(null);
   const [mfaPending, setMfaPending] = useState(false);
   const [accessReady, setAccessReady] = useState(false);
+  // Dual-persona lens (admin who is also a tenant / investor): pure UI preference,
+  // never a security boundary — permissions are unchanged by the lens.
+  const [viewMode, setViewModeState] = useState<'manager' | 'resident'>(
+    () => (localStorage.getItem('abniyah_view_mode') === 'resident' ? 'resident' : 'manager'),
+  );
+  const setViewMode = useCallback((mode: 'manager' | 'resident') => {
+    localStorage.setItem('abniyah_view_mode', mode);
+    setViewModeState(mode);
+  }, []);
   // Which user the current grants/memberships state belongs to — token refreshes
   // for the SAME user must not flash the loading gate mid-session.
   const loadedForRef = useRef<string | null>(null);
@@ -239,6 +255,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // grants/units yet — they belong on /register, not behind the license wall.
   const pendingOnboarding = !!user?.user_metadata?.pending_onboarding;
   const needsLicense = !isPlatformAdmin && !pendingOnboarding && residentLicensed === false;
+  const hasBothPersonas = grants.length > 0 && memberships.length > 0;
+  const residentLens = hasBothPersonas && viewMode === 'resident';
   const myUnitIds = memberships.map((m) => m.unit_id);
   const myOwnerUnitIds = memberships.filter((m) => m.tenure === 'owner').map((m) => m.unit_id);
   const myTenantUnitIds = memberships.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id);
@@ -249,6 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user, profile, session, loading, signOut, refreshProfile,
         grants, memberships, isPlatformAdmin, buildingRoles, can, canAny,
         manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense, mfaPending, accessReady,
+        hasBothPersonas, viewMode, setViewMode, residentLens,
       }}
     >
       {children}

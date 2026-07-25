@@ -22,11 +22,12 @@ const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = { open: 'o
 
 export default function Issues() {
   const { t } = useTranslation();
-  const { profile, canAny, isPlatformAdmin } = useAuth();
+  const { profile, canAny, isPlatformAdmin, residentLens } = useAuth();
   const { buildings } = useViewableBuildings();
   const entities = useEntities(buildings);
 
-  const isManager = isPlatformAdmin || canAny('issue.view_all');
+  // Dual-persona lens: an admin browsing "My home" sees only their own issues.
+  const isManager = (isPlatformAdmin || canAny('issue.view_all')) && !residentLens;
 
   const [entityKey, setEntityKey] = useState('');
   const [blockFilter, setBlockFilter] = useState('');
