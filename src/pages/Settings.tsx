@@ -75,6 +75,8 @@ export default function Settings() {
   async function saveProfile() {
     if (!user) return;
     if (!fullName.trim()) { toast.error(t('settings.nameRequired')); return; }
+    // Catches the "ticked WhatsApp, then cleared the phone" path too.
+    if (notifyWhatsapp && !phone.trim()) { toast.error(t('settings.whatsappNeedsPhone')); return; }
     setSavingProfile(true);
     const { error } = await supabase.from('profiles').update({
       full_name: fullName.trim(),
@@ -336,7 +338,19 @@ export default function Settings() {
                 {t('settings.notifyEmail')}
               </label>
               <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
-                <input type="checkbox" checked={notifyWhatsapp} onChange={e => setNotifyWhatsapp(e.target.checked)} className="w-4 h-4 rounded cursor-pointer accent-primary" />
+                <input
+                  type="checkbox"
+                  checked={notifyWhatsapp}
+                  onChange={e => {
+                    // WhatsApp needs somewhere to send — require a phone first.
+                    if (e.target.checked && !phone.trim()) {
+                      toast.error(t('settings.whatsappNeedsPhone'));
+                      return;
+                    }
+                    setNotifyWhatsapp(e.target.checked);
+                  }}
+                  className="w-4 h-4 rounded cursor-pointer accent-primary"
+                />
                 {t('settings.notifyWhatsapp')}
                 <span className="text-xs text-foreground dark:text-white">({t('settings.comingSoon')})</span>
               </label>

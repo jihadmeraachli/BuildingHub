@@ -574,7 +574,18 @@ export default function Users() {
                                 {t('users.notifyEmail')}
                               </label>
                               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                                <input type="checkbox" checked={u.notify_whatsapp} onChange={e => updateUser(u.id, { notify_whatsapp: e.target.checked })} className="rounded accent-primary" />
+                                <input
+                                  type="checkbox"
+                                  checked={u.notify_whatsapp}
+                                  onChange={e => {
+                                    if (e.target.checked && !u.phone?.trim()) {
+                                      toast.error(t('users.whatsappNeedsPhone', { name: u.full_name }));
+                                      return;
+                                    }
+                                    updateUser(u.id, { notify_whatsapp: e.target.checked });
+                                  }}
+                                  className="rounded accent-primary"
+                                />
                                 {t('users.notifyWhatsapp')}
                               </label>
                             </div>
