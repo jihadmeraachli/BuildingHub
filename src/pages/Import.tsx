@@ -453,14 +453,15 @@ function BuildingsTab({ isPlatformAdmin, grants }: { isPlatformAdmin: boolean; g
       {isPlatformAdmin && orgs.length > 0 && (
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Assign to org (optional)</label>
-          <select
-            value={orgId}
-            onChange={e => setOrgId(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">— No org —</option>
-            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
+          <RadixSelect value={orgId || '__none__'} onValueChange={v => setOrgId(v === '__none__' ? '' : v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">— No org —</SelectItem>
+              {orgs.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+            </SelectContent>
+          </RadixSelect>
         </div>
       )}
       <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('buildings-template.csv', TEMPLATE)}>

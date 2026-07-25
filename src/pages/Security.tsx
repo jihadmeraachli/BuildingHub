@@ -10,7 +10,7 @@ import type { Profile, Building, Grant, GrantRole, Organization } from '@/types'
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { SelectField, SelectItem } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
@@ -241,15 +241,16 @@ export default function Security() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      value={g.role}
-                      onChange={e => updateGrantRole(g.id, e.target.value as GrantRole, reload)}
-                      className="rounded-lg border border-border bg-background text-foreground px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
-                    >
-                      {roles.map(r => (
-                        <option key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</option>
-                      ))}
-                    </select>
+                    <RadixSelect value={g.role} onValueChange={v => updateGrantRole(g.id, v as GrantRole, reload)}>
+                      <SelectTrigger size="sm" className="h-7 px-2 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map(r => (
+                          <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </RadixSelect>
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => removeGrantRow(g.id, reload)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
@@ -309,8 +310,6 @@ export default function Security() {
     </div>
   );
 
-  const selectCls = 'rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[280px]';
-
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
@@ -347,12 +346,15 @@ export default function Security() {
 
         {grantScope === 'compound' && (isSuperAdmin || isOrgAdmin) ? (
           <>
-            <select value={selectedCompoundId} onChange={e => setSelectedCompoundId(e.target.value)} className={selectCls}>
-              <option value="">{t('users.selectCompoundHint')}</option>
-              {compoundEntities.map(c => (
-                <option key={c.id} value={c.id}>{c.name} ({c.blocks.length} {t('buildings.blocks')})</option>
-              ))}
-            </select>
+            <RadixSelect value={selectedCompoundId || '__none__'} onValueChange={v => setSelectedCompoundId(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="min-w-[280px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t('users.selectCompoundHint')}</SelectItem>
+                {compoundEntities.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name} ({c.blocks.length} {t('buildings.blocks')})</SelectItem>
+                ))}
+              </SelectContent>
+            </RadixSelect>
             {selectedCompoundId && <p className="text-xs text-muted-foreground">{t('users.compoundScopeNote')}</p>}
             {!selectedCompoundId
               ? emptyHint(<Boxes size={32} className="mx-auto text-primary mb-2" />, t('users.selectCompoundHint'))
@@ -363,10 +365,13 @@ export default function Security() {
           </>
         ) : grantScope === 'org' && isSuperAdmin ? (
           <>
-            <select value={selectedOrgId} onChange={e => setSelectedOrgId(e.target.value)} className={selectCls}>
-              <option value="">{t('users.selectOrgHint')}</option>
-              {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <RadixSelect value={selectedOrgId || '__none__'} onValueChange={v => setSelectedOrgId(v === '__none__' ? '' : v)}>
+              <SelectTrigger className="min-w-[280px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t('users.selectOrgHint')}</SelectItem>
+                {organizations.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
             {!selectedOrgId
               ? emptyHint(<Network size={32} className="mx-auto text-primary mb-2" />, t('users.selectOrgHint'))
               : orgGrantLoading ? <SkeletonTable rows={3} cols={3} />
@@ -377,10 +382,13 @@ export default function Security() {
         ) : (
           <>
             {buildings.length > 1 && (
-              <select value={accessBuildingId} onChange={e => setAccessBuildingId(e.target.value)} className={selectCls}>
-                <option value="">{t('common.selectBuilding')}</option>
-                {buildings.map(b => <option key={b.id} value={b.id}>{b.name} ({b.city})</option>)}
-              </select>
+              <RadixSelect value={accessBuildingId || '__none__'} onValueChange={v => setAccessBuildingId(v === '__none__' ? '' : v)}>
+                <SelectTrigger className="min-w-[280px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
+                  {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>)}
+                </SelectContent>
+              </RadixSelect>
             )}
             {!accessBuildingId
               ? emptyHint(<Shield size={32} className="mx-auto text-primary mb-2" />, t('users.selectBuildingHint'))

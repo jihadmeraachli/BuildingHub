@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { SelectField, SelectItem } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 type Tab = 'all' | 'pending';
@@ -365,28 +365,30 @@ export default function Users() {
           narrow to one block. Same selector shape as Dashboard/Finance/Dues. */}
       {showBuildingSelector && (
         <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <select
-            value={entityKey}
-            onChange={e => setEntityKey(e.target.value)}
-            className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-w-[240px]"
-          >
-            {entities.length === 0 && <option value="">{t('common.selectBuilding')}</option>}
-            {entities.map(e => (
-              <option key={e.key} value={e.key}>
-                {e.kind === 'compound' ? `▣ ${e.name}` : e.name}
-              </option>
-            ))}
-          </select>
+          <RadixSelect value={entityKey || '__none__'} onValueChange={v => setEntityKey(v === '__none__' ? '' : v)}>
+            <SelectTrigger className="min-w-[240px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {entities.length === 0 && <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>}
+              {entities.map(e => (
+                <SelectItem key={e.key} value={e.key}>
+                  {e.kind === 'compound' ? `▣ ${e.name}` : e.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RadixSelect>
 
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
-            <select
-              value={blockFilter}
-              onChange={e => setBlockFilter(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-            >
-              <option value="">{t('finance.allBlocks')}</option>
-              {selEntity.blocks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <RadixSelect value={blockFilter || '__all__'} onValueChange={v => setBlockFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
+                {selEntity.blocks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </RadixSelect>
           )}
 
           {selEntity?.kind === 'compound' && !blockFilter && selEntity.blocks.length > 1 && (

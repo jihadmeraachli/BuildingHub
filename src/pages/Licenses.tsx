@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { KeyRound, Plus, CalendarClock, Wallet, Boxes } from 'lucide-react';
@@ -249,17 +250,18 @@ export default function Licenses() {
           <p className="text-sm text-muted-foreground">Manage your subscription and per-unit licenses.</p>
         </div>
         {subs.length > 1 && (
-          <select
-            value={selectedId}
-            onChange={e => setSelectedId(e.target.value)}
-            className="ms-auto rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {subs.map(s => (
-              <option key={s.id} value={s.id}>
-                {entityNames[entityKey(s)] ?? s.id.slice(0, 8)} ({s.scope_type})
-              </option>
-            ))}
-          </select>
+          <RadixSelect value={selectedId} onValueChange={setSelectedId}>
+            <SelectTrigger className="ms-auto min-w-[220px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {subs.map(s => (
+                <SelectItem key={s.id} value={s.id}>
+                  {entityNames[entityKey(s)] ?? s.id.slice(0, 8)} ({s.scope_type})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RadixSelect>
         )}
       </div>
 

@@ -9,6 +9,7 @@ import type { Compound, Organization } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, SelectInput } from '@/components/ui/Input';
+import { SelectField, SelectItem } from '@/components/ui/Select';
 import { LEBANON_CITIES, COUNTRIES } from '@/lib/locationData';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -406,17 +407,14 @@ export default function Compounds() {
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
             </SelectInput>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Billing mode</label>
-            <select
-              value={editForm.billing_mode}
-              onChange={e => setEditForm({ ...editForm, billing_mode: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer"
-            >
-              <option value="arrears">{t('buildings.modeArrears')}</option>
-              <option value="dues">{t('buildings.modeDues')}</option>
-            </select>
-          </div>
+          <SelectField
+            label="Billing mode"
+            value={editForm.billing_mode}
+            onValueChange={v => setEditForm({ ...editForm, billing_mode: v })}
+          >
+            <SelectItem value="arrears">{t('buildings.modeArrears')}</SelectItem>
+            <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
+          </SelectField>
           <div className="flex justify-between gap-2 pt-1">
             <Button variant="danger" onClick={() => editC && remove(editC.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
             <div className="flex gap-2">
