@@ -548,8 +548,15 @@ export default function Finance() {
               {canManageFinance && (
                 <>
                   <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.adjustment')}</Button>
-                  <Button variant="secondary" onClick={openPayment} disabled={units.length === 0}><HandCoins size={16} /> {t('finance.recordPayment')}</Button>
-                  <Button onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
+                  <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
+                  {/* The page's main action — emphasized calmly: tinted, not neon. */}
+                  <Button
+                    onClick={openPayment}
+                    disabled={units.length === 0}
+                    className="bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25 hover:text-primary"
+                  >
+                    <HandCoins size={16} /> {t('finance.recordPayment')}
+                  </Button>
                 </>
               )}
             </div>
