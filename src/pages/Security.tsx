@@ -318,15 +318,15 @@ export default function Security() {
           <p className="text-sm text-muted-foreground mt-0.5">{t('security.subtitle')}</p>
         </div>
         {grantScope === 'org' && isSuperAdmin ? (
-          <Button onClick={openOrgGrantModal} disabled={!selectedOrgId}>
+          <Button variant="tinted" onClick={openOrgGrantModal} disabled={!selectedOrgId}>
             <UserPlus size={16} /> {t('users.addOrgAccess')}
           </Button>
         ) : grantScope === 'compound' ? (
           selectedCompoundId ? (
-            <Button onClick={openCompoundGrantModal}><Shield size={16} /> {t('users.addAccess')}</Button>
+            <Button variant="tinted" onClick={openCompoundGrantModal}><Shield size={16} /> {t('users.addAccess')}</Button>
           ) : null
         ) : accessBuildingId ? (
-          <Button onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
+          <Button variant="tinted" onClick={openGrantModal}><UserPlus size={16} /> {t('users.addAccess')}</Button>
         ) : null}
       </div>
 

@@ -560,11 +560,7 @@ export default function Finance() {
                     <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
                   )}
                   {(tab === 'book' || tab === 'payments') && (
-                    <Button
-                      onClick={openPayment}
-                      disabled={units.length === 0}
-                      className="bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25 hover:text-primary"
-                    >
+                    <Button variant="tinted" onClick={openPayment} disabled={units.length === 0}>
                       <HandCoins size={16} /> {t('finance.recordPayment')}
                     </Button>
                   )}
