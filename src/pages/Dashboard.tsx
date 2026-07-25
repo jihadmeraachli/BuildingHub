@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ElementType } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -93,6 +94,16 @@ export default function Dashboard() {
       supabase.rpc('dashboard_stats', { p_building_ids: inIds }),
       supabase.rpc('dashboard_monthly', { p_building_ids: inIds }),
     ]);
+
+    // Never render silent zeros on failure (e.g. migration 0049 not applied) —
+    // say so, and keep whatever was on screen.
+    if (statsRes.error || monthlyRes.error) {
+      if (seq !== loadSeq.current) return;
+      const msg = statsRes.error?.message ?? monthlyRes.error?.message ?? '';
+      console.error('dashboard load failed:', msg);
+      toast.error(`Dashboard data failed to load: ${msg}`);
+      return;
+    }
 
     const s = (Array.isArray(statsRes.data) ? statsRes.data[0] : statsRes.data) as {
       billed: number; collected: number; outstanding: number; ytd: number;
