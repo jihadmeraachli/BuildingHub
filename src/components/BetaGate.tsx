@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { Button } from '@/components/ui/Button';
 import { Lock } from 'lucide-react';
 
@@ -47,7 +48,7 @@ export function BetaGate({ children }: { children: ReactNode }) {
       <div className="w-full max-w-sm bg-card rounded-2xl shadow-2xl border border-border p-8 text-center">
         <div className="flex items-center justify-center gap-2.5 mb-8">
           <Logo size={32} />
-          <span className="text-base font-bold text-foreground">Abniyah</span>
+          <Wordmark className="text-sm text-foreground" />
         </div>
 
         <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">

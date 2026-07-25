@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { cn } from '@/lib/utils';
 import { Building2, Layers, Network, Check, ChevronLeft, MailCheck, Loader2 } from 'lucide-react';
 
@@ -455,7 +456,7 @@ export default function Register() {
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2.5 mb-8">
             <Logo size={32} />
-            <span className="text-base font-bold text-foreground">Abniyah</span>
+            <Wordmark className="text-sm text-foreground" />
           </div>
           <div className="bg-card rounded-2xl border border-border p-8 shadow-sm text-center">
             <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
@@ -483,7 +484,7 @@ export default function Register() {
         {/* Header */}
         <div className="flex items-center gap-2.5 mb-8">
           <Logo size={32} />
-          <span className="text-base font-bold text-foreground">Abniyah</span>
+          <Wordmark className="text-sm text-foreground" />
           <Link to="/" className="ms-auto text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
         </div>
 

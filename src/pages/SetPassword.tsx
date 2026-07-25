@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { ShieldCheck } from 'lucide-react';
 
 export default function SetPassword() {
@@ -74,7 +75,7 @@ export default function SetPassword() {
       <div className="w-full max-w-sm bg-card rounded-2xl shadow-sm border border-border p-8">
         <div className="flex items-center gap-2.5 mb-8">
           <Logo size={36} />
-          <span className="text-lg font-bold text-foreground">Abniyah</span>
+          <Wordmark className="text-base text-foreground" />
         </div>
 
         <div className="flex items-center gap-3 mb-6">

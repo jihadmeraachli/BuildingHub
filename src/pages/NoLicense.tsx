@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { KeyRound, LogOut, Loader2 } from 'lucide-react';
 
 /**
@@ -28,7 +29,7 @@ export default function NoLicense() {
       <div className="w-full max-w-sm bg-card rounded-2xl shadow-sm border border-border p-8 text-center">
         <div className="flex items-center justify-center gap-2.5 mb-8">
           <Logo size={32} />
-          <span className="text-base font-bold text-foreground">Abniyah</span>
+          <Wordmark className="text-sm text-foreground" />
         </div>
 
         <div className="w-14 h-14 rounded-full bg-amber-500/15 flex items-center justify-center mx-auto mb-4">

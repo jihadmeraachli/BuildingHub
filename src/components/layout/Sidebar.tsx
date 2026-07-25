@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { useTranslation } from 'react-i18next';
@@ -125,7 +126,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       {/* Logo */}
       <div className="flex items-center gap-3 h-14 px-4 border-b border-sidebar-border shrink-0">
         <Logo size={26} className="shrink-0" />
-        <span className="font-semibold text-sm text-sidebar-foreground tracking-tight">Abniyah</span>
+        <Wordmark className="text-xs text-sidebar-foreground" />
         <button
           onClick={onClose}
           className="ms-auto lg:hidden text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors cursor-pointer"

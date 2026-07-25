@@ -74,7 +74,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.brand}>Abniyah</Text>
+            <Text style={s.brand}>ABNIYAH</Text>
             <Text style={s.brandSub}>{buildingName}</Text>
           </View>
           <View style={s.metaRight}>
@@ -183,7 +183,7 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.brand}>Abniyah</Text>
+            <Text style={s.brand}>ABNIYAH</Text>
             <Text style={s.brandSub}>{entityName}</Text>
           </View>
           <View style={s.metaRight}>

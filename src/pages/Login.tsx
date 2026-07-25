@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { setLanguage } from '@/i18n';
 import { Globe, ArrowLeft, Mail, Smartphone } from 'lucide-react';
 
@@ -109,7 +110,7 @@ export default function Login() {
       <div className="relative z-10 flex flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-2.5">
           <Logo size={40} variant="white" />
-          <span className="text-lg font-bold">Abniyah</span>
+          <Wordmark className="text-base" />
         </div>
         <div>
           <h1
@@ -150,7 +151,7 @@ export default function Login() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5 lg:hidden">
               <Logo size={36} />
-              <span className="text-lg font-bold text-foreground">Abniyah</span>
+              <Wordmark className="text-base text-foreground" />
             </div>
             {langToggle}
           </div>
