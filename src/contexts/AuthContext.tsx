@@ -44,6 +44,9 @@ interface AuthContextValue {
   setViewMode: (mode: 'manager' | 'resident') => void;
   /** true when a dual-persona account is browsing as a resident — pages render their resident variant */
   residentLens: boolean;
+  /** '' = all my units; otherwise one unit id — filters the resident views (portfolio drill-down) */
+  residentUnitId: string;
+  setResidentUnitId: (unitId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('abniyah_view_mode', mode);
     setViewModeState(mode);
   }, []);
+  const [residentUnitId, setResidentUnitId] = useState('');
   // Which user the current grants/memberships state belongs to — token refreshes
   // for the SAME user must not flash the loading gate mid-session.
   const loadedForRef = useRef<string | null>(null);
@@ -257,6 +261,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const needsLicense = !isPlatformAdmin && !pendingOnboarding && residentLicensed === false;
   const hasBothPersonas = grants.length > 0 && memberships.length > 0;
   const residentLens = hasBothPersonas && viewMode === 'resident';
+  // Never let a stale selection (moved-out unit) leak into filters.
+  const safeResidentUnitId = residentUnitId && memberships.some((m) => m.unit_id === residentUnitId)
+    ? residentUnitId : '';
   const myUnitIds = memberships.map((m) => m.unit_id);
   const myOwnerUnitIds = memberships.filter((m) => m.tenure === 'owner').map((m) => m.unit_id);
   const myTenantUnitIds = memberships.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id);
@@ -268,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         grants, memberships, isPlatformAdmin, buildingRoles, can, canAny,
         manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense, mfaPending, accessReady,
         hasBothPersonas, viewMode, setViewMode, residentLens,
+        residentUnitId: safeResidentUnitId, setResidentUnitId,
       }}
     >
       {children}

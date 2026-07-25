@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/ui/Logo';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { topRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
@@ -39,8 +42,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
 function SidebarContent({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const { profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens } = useAuth();
+  const { profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId } = useAuth();
   const location = useLocation();
+
+  // Building names for the unit picker (investor case: units across buildings).
+  const [unitBuildingNames, setUnitBuildingNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!residentLens || memberships.length < 2) return;
+    const bids = [...new Set(memberships.map(m => m.unit?.building_id).filter(Boolean))] as string[];
+    if (!bids.length) return;
+    supabase.from('buildings').select('id, name').in('id', bids).then(({ data }) => {
+      setUnitBuildingNames(Object.fromEntries(((data ?? []) as { id: string; name: string }[]).map(b => [b.id, b.name])));
+    });
+  }, [residentLens, memberships]);
 
   const isOrgAdmin = grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
   const isScopeAdmin = grants.some(g => ['building_admin', 'compound_admin', 'org_admin'].includes(g.role));
@@ -129,6 +143,25 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
               { key: 'resident', label: t('nav.lensMyHome'), icon: Home },
             ]}
           />
+        </div>
+      )}
+
+      {/* My-home unit picker: investors drill into one unit or view all. */}
+      {residentLens && memberships.length > 1 && (
+        <div className="px-2 pt-2">
+          <RadixSelect value={residentUnitId || '__all__'} onValueChange={v => setResidentUnitId(v === '__all__' ? '' : v)}>
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t('nav.allMyUnits')}</SelectItem>
+              {memberships.map(m => m.unit && (
+                <SelectItem key={m.unit_id} value={m.unit_id}>
+                  {m.unit.label}{unitBuildingNames[m.unit.building_id] ? ` — ${unitBuildingNames[m.unit.building_id]}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </RadixSelect>
         </div>
       )}
 

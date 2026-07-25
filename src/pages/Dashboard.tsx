@@ -29,7 +29,7 @@ interface Agg {
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, canAny, myUnitIds, residentLens } = useAuth();
+  const { profile, isPlatformAdmin, canAny, myUnitIds, residentLens, residentUnitId } = useAuth();
   const { buildings, loading: buildingsLoading } = useManagedBuildings();
   // Dual-persona lens: an admin browsing "My home" gets the resident dashboard.
   const isManager = (isPlatformAdmin || canAny('finance.view')) && !residentLens;
@@ -57,7 +57,7 @@ export default function Dashboard() {
     if (isManager) loadManager();
     else if (myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildingsLoading, idsKey, isManager, entityKey, blockFilters]);
+  }, [buildingsLoading, idsKey, isManager, entityKey, blockFilters, residentUnitId]);
 
   useEffect(() => {
     if (buildingsLoading) return;
@@ -131,7 +131,9 @@ export default function Dashboard() {
   }
 
   async function loadResident() {
-    const inIds = myUnitIds.length ? myUnitIds : ['00000000-0000-0000-0000-000000000000'];
+    // Unit picker: '' = all my units, otherwise drill into one.
+    const pickedIds = residentUnitId ? [residentUnitId] : myUnitIds;
+    const inIds = pickedIds.length ? pickedIds : ['00000000-0000-0000-0000-000000000000'];
     const [c, p, u, a] = await Promise.all([
       supabase.from('charges').select('amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
       supabase.from('payments').select('amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
