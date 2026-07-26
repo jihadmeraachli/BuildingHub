@@ -24,7 +24,7 @@ _Last reviewed: 2026-07-26_
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env vars + local `.env.local` (gitignored) | Frontend (anon key is public-safe) |
 | `VITE_BETA_GATE=1` | Cloudflare Pages env vars | Beta gate — **delete this var + redeploy = public launch** |
 | Supabase **service role key** | Supabase → Edge Functions secrets (auto-injected) | Edge functions. ⚠️ Never in client code or git |
-| `RESEND_API_KEY`, `FROM_EMAIL`, `APP_URL` | Supabase → Edge Functions → secrets | `dynamic-action` (notification emails) |
+| `RESEND_API_KEY`, `FROM_EMAIL`, `APP_URL` | Supabase → Edge Functions → secrets | `dynamic-action` (notification emails). ⚠️ `FROM_EMAIL` must be on a domain VERIFIED in the same Resend account as the key — mismatch = silent 403, no emails (happened 2026-07-26 with the legacy `tatawwor.com` sender). Use `notifications@abniyah.com` |
 | Resend SMTP (host `smtp.resend.com`, user `resend`, password = sending-scope API key) | Supabase → Project Settings → Auth → SMTP | Auth emails (confirm/reset/invite) |
 | `ANTHROPIC_API_KEY` | Supabase → Edge Functions → secrets | AI import functions |
 | `CRON_SECRET` | Supabase → Edge Functions → secrets | `send-reminders` (cron auth) |
