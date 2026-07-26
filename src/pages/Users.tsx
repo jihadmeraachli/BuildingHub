@@ -58,6 +58,8 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
   const [assigned, setAssigned] = useState<Record<string, { label: string; tenure: string }[]>>({});
+  /** userId -> pending unit invitations (consent flow, 0053) awaiting their answer */
+  const [pendingInvites, setPendingInvites] = useState<Record<string, { id: string; label: string }[]>>({});
 
   // deactivate confirmation (real modal — window.prompt is blocked in sandboxed iframes)
   const [deactivateTarget, setDeactivateTarget] = useState<Profile | null>(null);
@@ -194,13 +196,29 @@ export default function Users() {
     const unitList = (us as { id: string; label: string }[]) ?? [];
     const unitLabel = Object.fromEntries(unitList.map((u) => [u.id, u.label]));
     if (unitList.length) {
-      const { data: ms } = await supabase.from('memberships').select('user_id, unit_id, tenure').in('unit_id', unitList.map((u) => u.id)).is('ended_at', null);
+      const unitIds = unitList.map((u) => u.id);
+      const [{ data: ms }, { data: inv }] = await Promise.all([
+        supabase.from('memberships').select('user_id, unit_id, tenure').in('unit_id', unitIds).is('ended_at', null),
+        supabase.from('membership_invites').select('id, user_id, unit_id').in('unit_id', unitIds).eq('status', 'pending'),
+      ]);
       const map: Record<string, { label: string; tenure: string }[]> = {};
       (ms as { user_id: string; unit_id: string; tenure: string }[] ?? []).forEach((m) => {
         (map[m.user_id] ??= []).push({ label: unitLabel[m.unit_id], tenure: m.tenure ?? 'owner' });
       });
       setAssigned(map);
-    } else setAssigned({});
+      const invMap: Record<string, { id: string; label: string }[]> = {};
+      ((inv as { id: string; user_id: string; unit_id: string }[]) ?? []).forEach((i) => {
+        (invMap[i.user_id] ??= []).push({ id: i.id, label: unitLabel[i.unit_id] ?? '—' });
+      });
+      setPendingInvites(invMap);
+    } else { setAssigned({}); setPendingInvites({}); }
+  }
+
+  async function withdrawInvite(inviteId: string) {
+    const { error } = await supabase.from('membership_invites').delete().eq('id', inviteId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('users.inviteWithdrawn'));
+    loadUsers();
   }
 
   async function updateUser(id: string, patch: Partial<Profile>) {
@@ -541,10 +559,29 @@ export default function Users() {
                             </td>
                           )}
                           <td className="px-4 py-3">
-                            {assigned[u.id]?.length ? (
+                            {(assigned[u.id]?.length || pendingInvites[u.id]?.length) ? (
                               <div className="flex flex-wrap gap-1">
-                                {assigned[u.id].map((m) => (
+                                {assigned[u.id]?.map((m) => (
                                   <span key={m.label} className={`text-xs rounded-full px-2 py-0.5 ${m.tenure === 'tenant' ? 'bg-amber-50 text-amber-700' : 'bg-primary/10 text-primary'}`}>{m.label}</span>
+                                ))}
+                                {/* Consent flow (0053): invitation sent, awaiting their answer.
+                                    ✕ withdraws it (e.g. to re-send after fixing email). */}
+                                {pendingInvites[u.id]?.map((inv) => (
+                                  <span
+                                    key={inv.id}
+                                    onClick={e => e.stopPropagation()}
+                                    title={t('users.invitePendingTitle')}
+                                    className="inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30"
+                                  >
+                                    ⏳ {inv.label}
+                                    <button
+                                      onClick={() => withdrawInvite(inv.id)}
+                                      title={t('users.inviteWithdraw')}
+                                      className="hover:text-red-500 cursor-pointer leading-none"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
                                 ))}
                               </div>
                             ) : (
