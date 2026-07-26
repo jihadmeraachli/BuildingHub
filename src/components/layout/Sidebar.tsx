@@ -63,9 +63,9 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const canStructure = canAny('unit.manage') || isOrgAdmin;
   const canPeople = canAny('resident.manage') || canAny('resident.approve') || isOrgAdmin;
   // Compound admins need Buildings even with ZERO blocks — it's where they
-  // create their first block (their other powers cascade from blocks, so a
-  // fresh compound would otherwise show an empty config menu).
-  const canBuildings = isPlatformAdmin || isOrgAdmin || isCompoundAdmin;
+  // create their first block. Building admins need it too: it's the only
+  // place to edit their building's details (address, contacts, maps link).
+  const canBuildings = isPlatformAdmin || isScopeAdmin;
 
   const top = topRole(grants.map(g => g.role));
   const displayRole = isPlatformAdmin

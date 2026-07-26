@@ -168,6 +168,13 @@ export default function Buildings() {
     .map(g => g.compound_id as string)
     .filter(Boolean);
   const isCompoundAdmin = !isPlatformAdmin && !isOrgAdmin && myCompoundIds.length > 0;
+  // Standalone building admin: sees and edits ONLY their own building(s);
+  // can't create more (new entities come through registration or a higher scope).
+  const myBuildingIds = grants
+    .filter(g => g.scope_type === 'building' && g.role === 'building_admin')
+    .map(g => g.building_id as string)
+    .filter(Boolean);
+  const isBuildingAdminOnly = !isPlatformAdmin && !isOrgAdmin && !isCompoundAdmin && myBuildingIds.length > 0;
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -223,7 +230,9 @@ export default function Buildings() {
     ? buildings.filter(b => orgBuildings.some(ob => ob.building_id === b.id))
     : isCompoundAdmin
       ? buildings.filter(b => myCompoundIds.includes(b.compound_id ?? ''))
-      : buildings;
+      : isBuildingAdminOnly
+        ? buildings.filter(b => myBuildingIds.includes(b.id))
+        : buildings;
 
   const visibleCompounds = isOrgAdmin
     ? compounds.filter(c => myOrgIds.includes(c.org_id ?? ''))
@@ -422,7 +431,9 @@ export default function Buildings() {
               className="h-9 pl-8 pr-3 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 w-52"
             />
           </div>
-          <Button onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
+          {!isBuildingAdminOnly && (
+            <Button variant="tinted" onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
+          )}
         </div>
       </div>
 
