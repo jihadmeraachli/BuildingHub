@@ -221,7 +221,7 @@ export default function Organizations() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('nav.organizations')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t('buildings.orgHint')}</p>
         </div>
-        <Button onClick={() => { setAddForm({ name: '', contact_email: '', contact_phone: '' }); setAddModal(true); }}>
+        <Button variant="tinted" onClick={() => { setAddForm({ name: '', contact_email: '', contact_phone: '' }); setAddModal(true); }}>
           <Plus size={16} /> {t('buildings.addOrganization')}
         </Button>
       </div>
