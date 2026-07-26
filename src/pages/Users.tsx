@@ -149,19 +149,26 @@ export default function Users() {
   async function loadUsers() {
     if (!listBuildingIds.length) { setUsers([]); return; }
     setLoading(true);
-    // People belong to the list two ways: legacy home building (profiles.building_id)
-    // OR an active membership on a unit in these blocks (the v3 model). Query both.
+    // People belong to the list three ways: legacy home building
+    // (profiles.building_id), an active membership on a unit here (v3), or a
+    // PENDING unit invitation here (0053 — they show with the amber chip
+    // before accepting, so admins can track and withdraw).
     const { data: unitRows } = await supabase.from('units').select('id').in('building_id', listBuildingIds);
     const scopeUnitIds = ((unitRows ?? []) as { id: string }[]).map(u => u.id);
-    let memberUserIds: string[] = [];
+    let linkedUserIds: string[] = [];
     if (scopeUnitIds.length) {
-      const { data: memberRows } = await supabase.from('memberships')
-        .select('user_id').in('unit_id', scopeUnitIds).is('ended_at', null);
-      memberUserIds = [...new Set(((memberRows ?? []) as { user_id: string }[]).map(m => m.user_id))];
+      const [{ data: memberRows }, { data: inviteRows }] = await Promise.all([
+        supabase.from('memberships').select('user_id').in('unit_id', scopeUnitIds).is('ended_at', null),
+        supabase.from('membership_invites').select('user_id').in('unit_id', scopeUnitIds).eq('status', 'pending'),
+      ]);
+      linkedUserIds = [...new Set([
+        ...(((memberRows ?? []) as { user_id: string }[]).map(m => m.user_id)),
+        ...(((inviteRows ?? []) as { user_id: string }[]).map(i => i.user_id)),
+      ])];
     }
     let q = supabase.from('profiles').select('*');
-    if (memberUserIds.length) {
-      q = q.or(`building_id.in.(${listBuildingIds.join(',')}),id.in.(${memberUserIds.join(',')})`);
+    if (linkedUserIds.length) {
+      q = q.or(`building_id.in.(${listBuildingIds.join(',')}),id.in.(${linkedUserIds.join(',')})`);
     } else {
       q = q.in('building_id', listBuildingIds);
     }
