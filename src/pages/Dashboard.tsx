@@ -12,6 +12,7 @@ import type { Meeting, AdjustmentKind } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { PendingInvites } from '@/components/PendingInvites';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
@@ -189,6 +190,7 @@ export default function Dashboard() {
     const balance = Math.round((resident.opening + resident.paid - resident.charged) * 100) / 100;
     return (
       <div className="space-y-6 max-w-2xl">
+        <PendingInvites />
         <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
         <HeroCard
           label={balance < 0 ? t('dashboard.youOwe') : t('dashboard.creditBalance')}
@@ -236,6 +238,7 @@ export default function Dashboard() {
   // ── Manager view ───────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      <PendingInvites />
       {/* Page header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />

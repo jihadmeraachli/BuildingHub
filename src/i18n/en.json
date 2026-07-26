@@ -299,7 +299,7 @@
     "inviteResidentBuilding": "Which building is this resident in?",
     "editIdentityNote": "Email, password and two-factor settings can only be changed by the user themselves, in their own Settings.",
     "addExisting": "Add Abniyah user",
-    "addExistingHint": "Already has an Abniyah account (e.g. from another building)? Enter their email to link them to a unit here — one account covers all their units.",
+    "addExistingHint": "Already has an Abniyah account (e.g. from another building)? Enter their email and pick a unit — they'll receive an invitation and the link takes effect once they accept.",
     "findUser": "Find",
     "addExistingFound": "Found:",
     "addExistingNotFound": "No Abniyah account with this email — use Invite User instead.",
@@ -310,7 +310,9 @@
     "addExistingNoUnits": "This building has no units yet — create them in Structure first.",
     "addExistingAlready": "They are already linked to that unit.",
     "addExistingDone": "{{name}} linked to the unit.",
-    "addExistingConfirm": "Link to unit",
+    "addExistingConfirm": "Send invitation",
+    "addExistingInviteSent": "Invitation sent — {{name}} will be linked once they accept.",
+    "addExistingInvitePending": "An invitation for this unit is already awaiting their response.",
     "whatsappNeedsPhone": "{{name}} has no mobile number saved — add their phone before enabling WhatsApp.",
     "inviteOrg": "Organization",
     "sendInvite": "Send invite",
@@ -679,6 +681,14 @@
       "equal": "Equal",
       "custom": "Manual (per unit)"
     }
+  },
+  "invites": {
+    "title": "Invitation: unit {{unit}} — {{building}}",
+    "byAs": "Invited by {{inviter}} · as {{tenure}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "accepted": "Invitation accepted — the unit is now on your account.",
+    "declined": "Invitation declined."
   },
   "security": {
     "title": "Security",

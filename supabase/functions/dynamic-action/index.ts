@@ -304,6 +304,23 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
     }
 
+    // 5g. Unit invitation (consent flow, 0053) → the invited person.
+    //     Membership is only created when they accept in the app.
+    if (tbl === 'membership_invites' && type === 'INSERT' && record.status === 'pending') {
+      const { data: unit } = await supabase.from('units').select('label, building_id').eq('id', record.unit_id).single();
+      const b = unit ? await getBuilding(unit.building_id) : null;
+      const { data: inviter } = record.invited_by
+        ? await supabase.from('profiles').select('full_name').eq('id', record.invited_by).single()
+        : { data: null };
+      await emailToUserIds([record.user_id], `Unit invitation — ${unit?.label ?? ''} at ${b?.name ?? 'a building'}`,
+        emailHtml('You have been invited to a unit',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${esc(inviter?.full_name ?? 'A building admin')} wants to link your account to a unit. Nothing happens until you accept.</p>
+           ${table(row('Unit', esc(unit?.label ?? '—')) + row('Building', esc(b?.name ?? '—')) + row('As', esc(record.tenure)))}
+           <p style="color:#64748b;font-size:13px;margin-top:16px;">Sign in and accept or decline the invitation on your dashboard.</p>`,
+          'Review Invitation', `${APP_URL}/dashboard`),
+        b?.name ?? 'BuildingHub');
+    }
+
     // 6. Scheduled meeting → all building residents (+ .ics)
     if (tbl === 'meetings' && type === 'INSERT' && record.meeting_type === 'scheduled') {
       const b = await getBuilding(record.building_id);

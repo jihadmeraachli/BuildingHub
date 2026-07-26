@@ -371,7 +371,7 @@ export default function Users() {
   async function addAbniyahUser() {
     if (!addUserFound || addUserFound === 'notfound' || !addUserUnitId) return;
     setAddUserSaving(true);
-    // Don't double-link the same person to the same unit.
+    // Already an active member of this unit?
     const { data: existing } = await supabase.from('memberships')
       .select('id').eq('user_id', addUserFound.id).eq('unit_id', addUserUnitId).is('ended_at', null).limit(1);
     if (existing?.length) {
@@ -379,14 +379,20 @@ export default function Users() {
       toast.error(t('users.addExistingAlready'));
       return;
     }
-    const { error } = await supabase.from('memberships').insert({
+    // Consent flow (0053): this creates an INVITATION — the person is notified
+    // and the membership only exists once they accept.
+    const { error } = await supabase.from('membership_invites').insert({
       user_id: addUserFound.id, unit_id: addUserUnitId, tenure: addUserTenure,
+      invited_by: profile?.id ?? null,
     });
     setAddUserSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('users.addExistingDone', { name: addUserFound.name }));
+    if (error) {
+      // 23505 = a pending invitation already exists for this unit × person
+      toast.error(error.code === '23505' ? t('users.addExistingInvitePending') : error.message);
+      return;
+    }
+    toast.success(t('users.addExistingInviteSent', { name: addUserFound.name }), { duration: 8000 });
     setAddUserModal(false);
-    loadUsers();
   }
 
   const pendingCount = users.filter(u => u.status === 'pending').length;
