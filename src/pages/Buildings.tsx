@@ -234,6 +234,18 @@ export default function Buildings() {
         ? buildings.filter(b => myBuildingIds.includes(b.id))
         : buildings;
 
+  // Single-building admin: skip the one-row table — open their building's
+  // details directly (once; closing the modal shows the row, not a reopen loop).
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || !isBuildingAdminOnly || loading) return;
+    if (visibleBuildings.length === 1) {
+      autoOpened.current = true;
+      openEditB(visibleBuildings[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBuildingAdminOnly, loading, visibleBuildings.length]);
+
   const visibleCompounds = isOrgAdmin
     ? compounds.filter(c => myOrgIds.includes(c.org_id ?? ''))
     : isCompoundAdmin
@@ -406,35 +418,38 @@ export default function Buildings() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('buildings.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {(search || activeFilterCount > 0)
-              ? t('buildings.searchResults', { count: filtered.length, total: visibleBuildings.length })
-              : t('buildings.subtitle')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {activeFilterCount > 0 && (
-            <button
-              onClick={() => setFilters(EMPTY_FILTERS)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            >
-              <X size={12} /> Clear filters ({activeFilterCount})
-            </button>
-          )}
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <input
-              type="search"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={t('buildings.searchPlaceholder')}
-              className="h-9 pl-8 pr-3 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 w-52"
-            />
-          </div>
+          {/* A single-building admin needs no compound talk, search, or filters. */}
           {!isBuildingAdminOnly && (
-            <Button variant="tinted" onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {(search || activeFilterCount > 0)
+                ? t('buildings.searchResults', { count: filtered.length, total: visibleBuildings.length })
+                : t('buildings.subtitle')}
+            </p>
           )}
         </div>
+        {!isBuildingAdminOnly && (
+          <div className="flex items-center gap-2">
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => setFilters(EMPTY_FILTERS)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X size={12} /> Clear filters ({activeFilterCount})
+              </button>
+            )}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t('buildings.searchPlaceholder')}
+                className="h-9 pl-8 pr-3 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 w-52"
+              />
+            </div>
+            <Button variant="tinted" onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
