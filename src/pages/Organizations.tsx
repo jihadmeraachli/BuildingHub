@@ -262,7 +262,7 @@ export default function Organizations() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3">
-                    {t('buildings.name')}
+                    {t('buildings.orgName')}
                   </th>
                   <th className="text-start text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
                     Contact
