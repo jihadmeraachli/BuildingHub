@@ -121,7 +121,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Logo */}
       <div className="flex items-center gap-3 h-14 px-4 border-b border-sidebar-border shrink-0">
         <Logo size={26} className="shrink-0" />

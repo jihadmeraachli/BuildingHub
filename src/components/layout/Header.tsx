@@ -47,7 +47,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   function toggleLang() { setLanguage(i18n.language === 'ar' ? 'en' : 'ar'); }
 
   return (
-    <header className="h-14 shrink-0 flex items-center justify-between gap-2 px-4 lg:px-6 border-b border-border bg-background">
+    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] shrink-0 flex items-center justify-between gap-2 px-4 lg:px-6 border-b border-border bg-background">
       {/* Mobile menu trigger */}
       <Button
         variant="ghost"
