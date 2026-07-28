@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * Kill the iOS rubber-band overscroll: the app shell manages its own scroll
+ * areas, so the document itself must never bounce (native-app feel in the
+ * Capacitor shell and installed PWA). Pages that DO scroll the document
+ * (Register wizard) still scroll normally — only the edge bounce is blocked.
+ */
+html, body {
+  overscroll-behavior-y: none;
+}
+
 /* shadcn dark-class variant for Tailwind v4 */
 @custom-variant dark (&:is(.dark *));
 
