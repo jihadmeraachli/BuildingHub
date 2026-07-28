@@ -75,6 +75,66 @@ const row = (label: string, value: string) =>
 const table = (rows: string) => `<table style="width:100%;border-collapse:collapse;">${rows}</table>`;
 const money = (n: number) => `$${Number(n).toFixed(2)}`;
 
+// ── WhatsApp primitives (Meta Cloud API) ─────────────────────────────────────
+// Disabled until both secrets are set — same two-step opt-in as WEBHOOK_SECRET,
+// so deploying this code changes nothing until the Meta account is ready.
+// Template names below must match the pre-approved templates in Meta Business
+// Manager EXACTLY (name + variable count/order) — see docs/WHATSAPP_SETUP.md.
+const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') ?? '';
+const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
+const WHATSAPP_LANG = Deno.env.get('WHATSAPP_LANG') || 'en';
+const whatsappEnabled = () => Boolean(WHATSAPP_TOKEN && WHATSAPP_PHONE_ID);
+
+/** Lebanon-first phone normalization → international digits (no '+').
+ *  "+961 3 123 456" → 9613123456 · "03 123 456" → 9613123456 · "70123456" → 96170123456 */
+function waPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let d = String(raw).replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('961')) return d.length >= 10 ? d : null;
+  if (d.startsWith('0')) d = d.slice(1);
+  if (d.length === 7 || d.length === 8) return '961' + d; // local mobile without country code
+  return d.length >= 10 ? d : null; // already international (non-Lebanese)
+}
+
+/** Template params may not be empty or contain newlines/tabs (Meta rejects the send). */
+const waParam = (v: unknown) => (String(v ?? '').replace(/\s+/g, ' ').trim() || '—');
+
+async function sendWhatsApp(toPhone: string, templateName: string, params: string[]) {
+  const res = await fetch(`https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_ID}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: toPhone,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: WHATSAPP_LANG },
+        components: params.length
+          ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: waParam(p) })) }]
+          : [],
+      },
+    }),
+  });
+  if (!res.ok) console.error(`WhatsApp error (${templateName}):`, await res.text());
+}
+
+/** Send one template to a set of users, honoring notify_whatsapp + saved phone.
+ *  buildParams receives the recipient's name so templates can greet personally. */
+async function whatsappToUserIds(ids: string[], templateName: string, buildParams: (name: string) => string[]) {
+  if (!whatsappEnabled()) return;
+  const uniq = [...new Set(ids)];
+  if (!uniq.length) return;
+  const { data: profs } = await supabase.from('profiles')
+    .select('id, full_name, phone, notify_whatsapp').in('id', uniq);
+  for (const p of (profs ?? []) as { id: string; full_name: string; phone: string | null; notify_whatsapp: boolean }[]) {
+    if (!p.notify_whatsapp) continue;
+    const phone = waPhone(p.phone);
+    if (phone) await sendWhatsApp(phone, templateName, buildParams(p.full_name || 'there'));
+  }
+}
+
 // ── Recipient resolution (v3 model: memberships, with legacy fallback) ────────
 async function getBuilding(buildingId: string) {
   const { data } = await supabase.from('buildings').select('name, address, city, country').eq('id', buildingId).single();
@@ -238,6 +298,9 @@ Deno.serve(async (req) => {
            ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
+      const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
+      await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_new_charge',
+        (name) => [name, money(record.amount_usd), chargeUnit?.label ?? '—', b?.name ?? '—']);
     }
 
     // 5. Payment recorded (v3 finance) → the unit's owner(s) (receipt)
@@ -249,6 +312,9 @@ Deno.serve(async (req) => {
            ${table(row('Amount', money(record.amount_usd)) + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
+      const { data: payUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
+      await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_payment_received',
+        (name) => [name, money(record.amount_usd), payUnit?.label ?? '—', b?.name ?? '—']);
     }
 
     // 5b. Payment edited (amount changed) → owner(s)
@@ -281,6 +347,9 @@ Deno.serve(async (req) => {
            ${table(row('Amount due', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
+      const { data: duesUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
+      await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_dues_issued',
+        (name) => [name, record.period_label, money(record.amount_due), duesUnit?.label ?? '—', b?.name ?? '—']);
     }
 
     // 5e. Dues edited (amount changed) → owner(s)
@@ -319,6 +388,8 @@ Deno.serve(async (req) => {
            <p style="color:#64748b;font-size:13px;margin-top:16px;">Sign in and accept or decline the invitation on your dashboard.</p>`,
           'Review Invitation', `${APP_URL}/dashboard`),
         b?.name ?? 'BuildingHub');
+      await whatsappToUserIds([record.user_id], 'abniyah_unit_invite',
+        (name) => [name, inviter?.full_name ?? 'A building admin', unit?.label ?? '—', b?.name ?? '—']);
     }
 
     // 6. Scheduled meeting → all building residents (+ .ics)

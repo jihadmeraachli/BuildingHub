@@ -14,6 +14,7 @@ _Last reviewed: 2026-07-26_
 | **GitHub** | Source of truth for code (private repo), roadmap board, deploy trigger for Cloudflare Pages | `jihadmeraachli/BuildingHub` · collaborator: AhmadYamoutTat | 🟠 High — no deploys without it | Site keeps running; no updates possible |
 | **Resend** | ALL outbound email, two channels: (1) Supabase Auth SMTP (confirmation/reset/invite emails), (2) app notifications via `dynamic-action` function | resend.com — domain verified for sending | 🟠 High | Nobody can register/reset password; notifications stop. App itself keeps working |
 | **Anthropic** | AI document import (Claude API) — `ai-expense-import`, `ai-pdf-import`, `ai-import-mapping` functions | console.anthropic.com API key | 🟡 Medium | AI import fails; everything else unaffected |
+| **Meta (WhatsApp Cloud API)** | WhatsApp notifications (charges, payments, dues, unit invitations) via `dynamic-action`; pre-approved templates; per-message billing (~$0.014 utility/Lebanon) | business.facebook.com portfolio + developers.facebook.com app + dedicated sender number (SIM — can never be reused in the WhatsApp app) | 🟡 Medium | WhatsApp channel stops; email unaffected. Setup: docs/WHATSAPP_SETUP.md |
 | **Domain registrar** | Ownership of `abniyah.com` (DNS is delegated to Cloudflare) | *(fill in: where the domain is registered + renewal date)* | 🔴 Total if it lapses | Domain expiry = site + all email dead |
 | **Google Fonts** | Sora / Inter / Poppins webfonts at runtime | fonts.googleapis.com (no account) | 🟢 Low | Fonts fall back to system; cosmetic only |
 
@@ -27,6 +28,7 @@ _Last reviewed: 2026-07-26_
 | `RESEND_API_KEY`, `FROM_EMAIL`, `APP_URL` | Supabase → Edge Functions → secrets | `dynamic-action` (notification emails). ⚠️ `FROM_EMAIL` must be on a domain VERIFIED in the same Resend account as the key — mismatch = silent 403, no emails (happened 2026-07-26 with the legacy `tatawwor.com` sender). Use `notifications@abniyah.com` |
 | Resend SMTP (host `smtp.resend.com`, user `resend`, password = sending-scope API key) | Supabase → Project Settings → Auth → SMTP | Auth emails (confirm/reset/invite) |
 | `ANTHROPIC_API_KEY` | Supabase → Edge Functions → secrets | AI import functions |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_LANG` (optional) | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** (WhatsApp dormant until both set) | `dynamic-action` WhatsApp sends. Token = permanent System User token (24h temp token dies silently). See docs/WHATSAPP_SETUP.md |
 | `CRON_SECRET` | Supabase → Edge Functions → secrets | `send-reminders` (cron auth) |
 | `WEBHOOK_SECRET` | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** | `dynamic-action` forgery check (armed only once set; also add `x-webhook-secret` header on every Database Webhook) |
 | Beta access code(s) | DB table `beta_access_codes` (SQL editor to manage) | Beta gate screen |
@@ -46,6 +48,7 @@ _Last reviewed: 2026-07-26_
 - [ ] Supabase plan — free tier limits (DB size, MAU) will bite as customers grow
 - [ ] Resend plan — free tier is 100 emails/day; watch as buildings onboard
 - [ ] Anthropic API — pay-as-you-go credit balance (AI import stops silently at $0)
+- [ ] Meta WhatsApp — per-message billing on the Business account card; sender SIM must stay alive (number re-verification)
 - [ ] Cloudflare Pages — free tier fine for now
 - [ ] GitHub — private repo on free plan, fine
 
