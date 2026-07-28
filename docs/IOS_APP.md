@@ -1,0 +1,111 @@
+# iOS App — Capacitor + TestFlight
+
+The iOS app is the existing web app bundled into a native shell with
+**Capacitor**. Everything repo-side is committed (config, icons, splash);
+building and shipping happens **on the Mac** with Xcode.
+
+_Written 2026-07-28._
+
+## One-time setup (Mac)
+
+### 1. Apple Developer account — $99/year
+Enroll at **developer.apple.com/programs/enroll** with an Apple ID you keep
+long-term.
+
+- **Individual** (recommended to start): approved in ~24–48h. App Store seller
+  name shows your personal name.
+- **Organization**: seller shows "Abniyah" but needs a D-U-N-S number and legal
+  entity — takes weeks. You can start Individual and migrate later.
+
+### 2. Install tools
+1. **Xcode** from the Mac App Store (big download, ~1h). Open it once and accept
+   the license / let it install components.
+2. **Node.js**: install from nodejs.org (LTS), or `brew install node`.
+3. **CocoaPods** (Capacitor's iOS dependency manager):
+   `sudo gem install cocoapods` (or `brew install cocoapods`).
+
+### 3. Get the project
+```bash
+git clone https://github.com/jihadmeraachli/BuildingHub.git
+cd BuildingHub
+npm install
+```
+Create `.env.local` in the project root (same two values as on Windows — copy
+them from Cloudflare Pages env or your Windows `.env.local`):
+```
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+### 4. Create the iOS project (once)
+```bash
+npm run build
+npx cap add ios
+npx @capacitor/assets generate --ios   # app icon + splash from assets/
+```
+`npx cap add ios` generates the `ios/` folder (the native Xcode project).
+It is **not** committed to git — each machine generates its own.
+
+### 5. Open in Xcode, sign, run
+```bash
+npx cap open ios
+```
+In Xcode:
+1. Click the **App** project (left sidebar) → target **App** → tab
+   **Signing & Capabilities** → tick **Automatically manage signing** →
+   **Team**: select your Apple Developer team.
+2. Bundle identifier should read `com.abniyah.app` (from capacitor.config.ts).
+3. Pick a simulator (e.g. iPhone 15) in the toolbar → **▶ Run**. The app should
+   boot to the beta-gate/login screen.
+4. To run on your real iPhone: plug it in, select it as the target, Run —
+   first time, approve the developer cert on the phone
+   (Settings → General → VPN & Device Management).
+
+## Shipping to TestFlight (every release)
+
+```bash
+git pull
+npm install        # only when dependencies changed
+npm run build
+npx cap sync ios
+npx cap open ios
+```
+Then in Xcode:
+1. Toolbar target → **Any iOS Device (arm64)**.
+2. Menu **Product → Archive**.
+3. When the Organizer window opens → **Distribute App → App Store Connect →
+   Upload** (defaults are fine).
+4. **appstoreconnect.apple.com** → Apps → Abniyah (first time: create the app
+   record — name `Abniyah`, bundle id `com.abniyah.app`, SKU `abniyah`) →
+   **TestFlight** tab.
+5. The build appears after ~10 min of processing. Answer the export-compliance
+   question (uses standard HTTPS encryption only → **exempt**).
+6. **Internal testers** (you + Ahmad, up to 100): instant, no review.
+   **External testers** (your beta users, up to 10,000): needs a light
+   TestFlight review, usually ~1 day the first time.
+7. Testers install the **TestFlight** app from the App Store and accept your
+   invite (email or public link).
+
+⚠️ Remember: the web app is **bundled** into the binary. A web change deployed
+to Cloudflare does NOT update the iOS app — repeat the steps above and push a
+new TestFlight build. (Fine at beta pace; if it gets tedious we can add a
+live-update service later.)
+
+## The full App Store (after beta)
+
+Same archive/upload flow, but on the **App Store** tab instead of TestFlight:
+screenshots, description, privacy policy URL (roadmap: legal pages), and a full
+review (2–4 days). Apple's reviewers dislike apps that are "just a website" —
+before submitting we should add a native touch or two (e.g. push notifications
+via Capacitor, biometric unlock for the session). TestFlight has no such bar —
+ship the beta now, polish for App Store later.
+
+## Repo pieces (already done, Windows-side)
+
+- `capacitor.config.ts` — appId `com.abniyah.app`, webDir `dist`
+- `assets/icon.png`, `assets/splash*.png` — sources for
+  `npx @capacitor/assets generate` (brand gradient + light logo)
+- `@capacitor/core` / `@capacitor/cli` / `@capacitor/ios` in package.json
+- PWA manifest + service worker (vite-plugin-pwa) — also makes the web app
+  installable from the browser on Android/iPhone (Add to Home Screen), which
+  keeps working independently of the native app

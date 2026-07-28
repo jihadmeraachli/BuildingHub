@@ -29,3 +29,7 @@ supabase/.temp
 # Claude Code local settings
 .claude/settings.local.json
 .claude/
+
+# Capacitor native projects (generated per-machine via npx cap add)
+ios/
+android/
