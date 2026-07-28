@@ -8,7 +8,9 @@ const config: CapacitorConfig = {
   appName: 'Abniyah',
   webDir: 'dist',
   ios: {
-    contentInset: 'automatic',
+    // Safe areas are handled in CSS (env(safe-area-inset-*)); a native content
+    // inset on top of that adds a phantom scrollable band above the page.
+    contentInset: 'never',
   },
 };
 
