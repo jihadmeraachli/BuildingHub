@@ -45,8 +45,12 @@ and in Meta's console must match.
 ## Part 2 — Create the message templates
 
 WhatsApp Manager → **Message templates → Create template**. Category **Utility**
-for all four. Language **English** (code `en`). Create each with EXACTLY this name
-and body — the code sends variables by position, so `{{1}}`, `{{2}}`… order matters.
+for all four. Language **English** (code `en`) — ⚠️ if the editor only offers
+**English (US)**, that's code `en_US`: then set the `WHATSAPP_LANG` secret to
+`en_US`, or sends fail with error 132001 "template name does not exist in en"
+(the code's language must equal the template's exact language code). Create each
+with EXACTLY this name and body — the code sends variables by position, so
+`{{1}}`, `{{2}}`… order matters.
 
 ### 1. `abniyah_new_charge`
 ```
