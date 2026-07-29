@@ -145,9 +145,11 @@ async function getUserEmail(userId: string): Promise<string | null> {
   return user?.email ?? null;
 }
 
-/** owner/occupant user ids of a unit (new model) */
+/** owner/occupant user ids of a unit (new model). ended_at IS NULL is load-bearing:
+ *  removing an owner CLOSES the membership (kept for financial history) — closed
+ *  rows must never receive notifications. */
 async function unitOwnerIds(unitId: string): Promise<string[]> {
-  const { data } = await supabase.from('memberships').select('user_id').eq('unit_id', unitId);
+  const { data } = await supabase.from('memberships').select('user_id').eq('unit_id', unitId).is('ended_at', null);
   return (data ?? []).map((m: { user_id: string }) => m.user_id);
 }
 
@@ -157,7 +159,7 @@ async function buildingResidentIds(buildingId: string): Promise<string[]> {
   const { data: us } = await supabase.from('units').select('id').eq('building_id', buildingId);
   const unitIds = (us ?? []).map((u: { id: string }) => u.id);
   if (unitIds.length) {
-    const { data: ms } = await supabase.from('memberships').select('user_id').in('unit_id', unitIds);
+    const { data: ms } = await supabase.from('memberships').select('user_id').in('unit_id', unitIds).is('ended_at', null);
     (ms ?? []).forEach((m: { user_id: string }) => ids.add(m.user_id));
   }
   const { data: legacy } = await supabase.from('profiles').select('id').eq('building_id', buildingId).eq('status', 'active');
