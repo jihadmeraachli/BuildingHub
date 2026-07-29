@@ -15,8 +15,28 @@ import { Modal } from '@/components/ui/Modal';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
-type Tab = 'all' | 'pending';
+type Tab = 'all' | 'pending' | 'invites';
 type InviteScopeType = 'none' | 'building' | 'compound' | 'org';
+
+/** Row from admin_membership_invites() (0055) — names resolved server-side. */
+interface InviteRow {
+  id: string;
+  unit_id: string;
+  unit_label: string;
+  building_id: string;
+  building_name: string;
+  user_id: string;
+  user_name: string;
+  tenure: string;
+  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled';
+  invited_by_name: string;
+  created_at: string;
+  expires_at: string;
+  responded_at: string | null;
+}
+const inviteStatusColor: Record<InviteRow['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
+  pending: 'yellow', accepted: 'green', declined: 'red', expired: 'slate', cancelled: 'slate',
+};
 
 // A compound grant covers every block in the compound, incl. future ones (0027).
 const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_super', 'building_finance', 'viewer'];
@@ -60,6 +80,10 @@ export default function Users() {
   const [assigned, setAssigned] = useState<Record<string, { label: string; tenure: string }[]>>({});
   /** userId -> pending unit invitations (consent flow, 0053) awaiting their answer */
   const [pendingInvites, setPendingInvites] = useState<Record<string, { id: string; label: string }[]>>({});
+  /** Invitations tab: every invite in scope, any status (admin_membership_invites, 0055) */
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   // deactivate confirmation (real modal — window.prompt is blocked in sandboxed iframes)
   const [deactivateTarget, setDeactivateTarget] = useState<Profile | null>(null);
@@ -143,8 +167,22 @@ export default function Users() {
   const listKey = listBuildingIds.join(',');
 
   useEffect(() => {
-    if (listBuildingIds.length) loadUsers();
+    if (!listBuildingIds.length) return;
+    if (tab === 'invites') loadInvites();
+    else loadUsers();
   }, [listKey, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function loadInvites() {
+    if (!listBuildingIds.length) { setInvites([]); return; }
+    setInvitesLoading(true);
+    const { data, error } = await supabase.rpc('admin_membership_invites', {
+      p_building_ids: listBuildingIds,
+    });
+    setInvitesLoading(false);
+    // Tolerate the RPC missing (pre-0055 DB) — surface it instead of silent empty.
+    if (error) { toast.error(error.message); setInvites([]); return; }
+    setInvites((data as InviteRow[]) ?? []);
+  }
 
   async function loadUsers() {
     if (!listBuildingIds.length) { setUsers([]); return; }
@@ -225,7 +263,30 @@ export default function Users() {
     const { error } = await supabase.from('membership_invites').delete().eq('id', inviteId);
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.inviteWithdrawn'));
-    loadUsers();
+    if (tab === 'invites') loadInvites(); else loadUsers();
+  }
+
+  /** Re-send an invitation: a fresh INSERT re-fires the in-app notification
+   *  trigger + the email webhook and restarts the 14-day expiry. Pending or
+   *  expired rows (both status='pending' in the table) are withdrawn first —
+   *  the unique pending index forbids two live invites per unit × person. */
+  async function resendInvite(inv: InviteRow) {
+    setResendingId(inv.id);
+    if (inv.status === 'pending' || inv.status === 'expired') {
+      const { error } = await supabase.from('membership_invites').delete().eq('id', inv.id);
+      if (error) { setResendingId(null); toast.error(error.message); return; }
+    }
+    const { error } = await supabase.from('membership_invites').insert({
+      user_id: inv.user_id, unit_id: inv.unit_id, tenure: inv.tenure,
+      invited_by: profile?.id ?? null,
+    });
+    setResendingId(null);
+    if (error) {
+      toast.error(error.code === '23505' ? t('users.addExistingInvitePending') : error.message);
+      return;
+    }
+    toast.success(t('users.inviteResent', { name: inv.user_name }));
+    loadInvites();
   }
 
   async function updateUser(id: string, patch: Partial<Profile>) {
@@ -433,6 +494,7 @@ export default function Users() {
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'all', label: t('users.allUsers'), show: true },
     { key: 'pending', label: t('users.pendingApprovals'), show: true },
+    { key: 'invites', label: t('users.invitationsTab'), show: true },
   ];
 
   const showContent = listBuildingIds.length > 0 || isSuperAdmin;
@@ -525,7 +587,82 @@ export default function Users() {
             }))}
           />
 
-          {(
+          {tab === 'invites' ? (
+            // Invitations tab: every unit invitation in scope, any status —
+            // the tracking view for the consent flow (0053/0055).
+            !listBuildingIds.length ? (
+              <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
+            ) : invitesLoading ? (
+              <SkeletonTable rows={4} cols={6} />
+            ) : invites.length === 0 ? (
+              <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.noInvites')}</p></CardBody></Card>
+            ) : (
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
+                        <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
+                        <th className="px-4 py-3 text-start font-medium">{t('users.apartment')}</th>
+                        {showBlockColumn && <th className="px-4 py-3 text-start font-medium">{t('users.block')}</th>}
+                        <th className="px-4 py-3 text-start font-medium">{t('users.invitedBy')}</th>
+                        <th className="px-4 py-3 text-start font-medium">{t('users.inviteSentOn')}</th>
+                        <th className="px-4 py-3 text-start font-medium">{t('users.status')}</th>
+                        <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {invites.map(inv => {
+                        const days = Math.max(0, Math.ceil((new Date(inv.expires_at).getTime() - Date.now()) / 86400000));
+                        return (
+                          <tr key={inv.id} className="hover:bg-accent/30">
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-foreground">{inv.user_name}</p>
+                              <p className="text-xs text-muted-foreground">{t(`structure.tenure.${inv.tenure}`, { defaultValue: inv.tenure })}</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs rounded-full px-2 py-0.5 bg-primary/10 text-primary">{inv.unit_label}</span>
+                            </td>
+                            {showBlockColumn && (
+                              <td className="px-4 py-3"><span className="text-xs text-muted-foreground">{inv.building_name}</span></td>
+                            )}
+                            <td className="px-4 py-3 text-muted-foreground">{inv.invited_by_name}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{new Date(inv.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-0.5 items-start">
+                                <Badge color={inviteStatusColor[inv.status]}>
+                                  {t(`users.inviteStatuses.${inv.status}`, { defaultValue: inv.status })}
+                                </Badge>
+                                {inv.status === 'pending' && (
+                                  <span className="text-[11px] text-muted-foreground">{t('users.inviteExpiresIn', { days })}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                {/* Accepted = membership exists, nothing to re-send.
+                                    Resend restarts the notification + email + 14d clock. */}
+                                {inv.status !== 'accepted' && (
+                                  <Button size="sm" variant="secondary" disabled={resendingId === inv.id} onClick={() => resendInvite(inv)}>
+                                    {t('users.inviteResend')}
+                                  </Button>
+                                )}
+                                {(inv.status === 'pending' || inv.status === 'expired') && (
+                                  <Button size="sm" variant="danger" onClick={() => withdrawInvite(inv.id)}>
+                                    {t('users.inviteWithdraw')}
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )
+          ) : (
             // All/Pending list spans every block of the selected entity — the data
             // loads for listBuildingIds, so don't hide it behind a single-block pick.
             !listBuildingIds.length ? (
