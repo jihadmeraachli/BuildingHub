@@ -101,6 +101,10 @@ function waPhone(raw: string | null | undefined): string | null {
 const waParam = (v: unknown) => (String(v ?? '').replace(/\s+/g, ' ').trim() || '—');
 
 async function sendWhatsApp(toPhone: string, templateName: string, params: string[]) {
+  // Templates are BILINGUAL: an Arabic section ({{1}}..{{n}}) then an English
+  // section ({{n+1}}..{{2n}}) — Meta requires strictly sequential variables,
+  // so the same values are sent twice. Bodies live in docs/WHATSAPP_SETUP.md.
+  const bilingual = [...params, ...params];
   const res = await fetch(`https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_ID}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -111,8 +115,8 @@ async function sendWhatsApp(toPhone: string, templateName: string, params: strin
       template: {
         name: templateName,
         language: { code: WHATSAPP_LANG },
-        components: params.length
-          ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: waParam(p) })) }]
+        components: bilingual.length
+          ? [{ type: 'body', parameters: bilingual.map((p) => ({ type: 'text', text: waParam(p) })) }]
           : [],
       },
     }),

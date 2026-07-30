@@ -52,36 +52,55 @@ for all four. Language **English** (code `en`) — ⚠️ if the editor only off
 with EXACTLY this name and body — the code sends variables by position, so
 `{{1}}`, `{{2}}`… order matters.
 
-### 1. `abniyah_new_charge`
-```
-Hello {{1}}, a new charge of {{2}} was added to unit {{3}} at {{4}}. Open Abniyah to view your account and balance.
-```
-Sample values (Meta asks for them): `Rana` · `$120.00` · `A-3` · `El Woroud`
+**Bilingual format (since 2026-07-29):** every message carries an Arabic section
+first, a divider, then the same message in English. Meta requires strictly
+sequential variables, so the English section REUSES the same values under new
+numbers — the code sends every value twice automatically (`sendWhatsApp`
+duplicates the param list). When Meta asks for sample values, fill each pair
+with the same text (e.g. {{1}} and {{5}} both `Rana`).
 
-### 2. `abniyah_payment_received`
+### 1. `abniyah_new_charge` — 8 variables
 ```
-Hello {{1}}, we received your payment of {{2}} for unit {{3}} at {{4}}. Thank you!
+مرحباً {{1}}، تمت إضافة رسم جديد بقيمة {{2}} على الوحدة {{3}} في {{4}}. افتح أبنية للاطلاع على حسابك ورصيدك.
+———
+Hello {{5}}, a new charge of {{6}} was added to unit {{7}} at {{8}}. Open Abniyah to view your account and balance.
 ```
-Samples: `Rana` · `$250.00` · `A-3` · `El Woroud`
+Samples: `Rana` · `$120.00` · `A-3` · `El Woroud` (twice)
 
-### 3. `abniyah_dues_issued`
+### 2. `abniyah_payment_received` — 8 variables
 ```
-Hello {{1}}, your dues for {{2}} are {{3}} (unit {{4}}, {{5}}). Open Abniyah for details and payment options.
+مرحباً {{1}}، استلمنا دفعتك بقيمة {{2}} للوحدة {{3}} في {{4}}. شكراً لك!
+———
+Hello {{5}}, we received your payment of {{6}} for unit {{7}} at {{8}}. Thank you!
 ```
-Samples: `Rana` · `July 2026` · `$100.00` · `A-3` · `El Woroud`
+Samples: `Rana` · `$250.00` · `A-3` · `El Woroud` (twice)
 
-### 4. `abniyah_unit_invite`
+### 3. `abniyah_dues_issued` — 10 variables
 ```
-Hello {{1}}, {{2}} invited you to link your Abniyah account to unit {{3}} at {{4}}. Sign in to accept or decline — nothing is linked without your approval.
+مرحباً {{1}}، مستحقاتك عن {{2}} هي {{3}} (الوحدة {{4}}، {{5}}). افتح أبنية للتفاصيل وخيارات الدفع.
+———
+Hello {{6}}, your dues for {{7}} are {{8}} (unit {{9}}, {{10}}). Open Abniyah for details and payment options.
 ```
-Samples: `Rana` · `Jihad Meraachli` · `A-3` · `El Woroud`
+Samples: `Rana` · `July 2026` · `$100.00` · `A-3` · `El Woroud` (twice)
+
+### 4. `abniyah_unit_invite` — 8 variables
+```
+مرحباً {{1}}، دعاك {{2}} لربط حسابك في أبنية بالوحدة {{3}} في {{4}}. سجّل الدخول للقبول أو الرفض — لن يُربط أي شيء دون موافقتك.
+———
+Hello {{5}}, {{6}} invited you to link your Abniyah account to unit {{7}} at {{8}}. Sign in to accept or decline — nothing is linked without your approval.
+```
+Samples: `Rana` · `Jihad Meraachli` · `A-3` · `El Woroud` (twice)
+
+⚠️ Templates belong to the WhatsApp ACCOUNT (WABA), not the phone number — create
+them under the account that holds the PRODUCTION number. A number in a different
+account can't see them (error 132001 "template name does not exist").
 
 Approval is usually minutes to ~1 day for Utility templates. Status shows in
 WhatsApp Manager; you'll also get an email.
 
-**Arabic later (optional):** create the SAME template names in language `ar` with
-translated bodies, then set the `WHATSAPP_LANG` secret to `ar` (it's one global
-language for now; per-user language is a future enhancement).
+**Language code stays `en`** even though the body is bilingual — the code matches
+the template's registered language, and the Arabic lives inside the body. Don't
+set `WHATSAPP_LANG` unless the template's language column says something else.
 
 ## Part 3 — Wire the secrets into Supabase
 
