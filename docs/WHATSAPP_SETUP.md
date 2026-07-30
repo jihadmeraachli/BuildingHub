@@ -77,7 +77,10 @@ Unit: {{7}}
 Building: {{8}}
 Open Abniyah to view your balance.
 ```
-Samples: `Rana` · `$120.00` · `A-3` · `El Woroud` (twice)
+Samples — the editor asks for one value per variable, 8 fields total; the English
+half repeats the Arabic half's values:
+`{{1}}` Rana · `{{2}}` $120.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
+`{{5}}` Rana · `{{6}}` $120.00 · `{{7}}` A-3 · `{{8}}` El Woroud
 
 ### 2. `abniyah_payment_received` — 8 variables
 ```
@@ -97,7 +100,9 @@ Unit: {{7}}
 Building: {{8}}
 Thank you!
 ```
-Samples: `Rana` · `$250.00` · `A-3` · `El Woroud` (twice)
+Samples (8 fields):
+`{{1}}` Rana · `{{2}}` $250.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
+`{{5}}` Rana · `{{6}}` $250.00 · `{{7}}` A-3 · `{{8}}` El Woroud
 
 ### 3. `abniyah_dues_issued` — 10 variables
 ```
@@ -117,7 +122,9 @@ Unit: {{9}}
 Building: {{10}}
 Open Abniyah for details and payment options.
 ```
-Samples: `Rana` · `July 2026` · `$100.00` · `A-3` · `El Woroud` (twice)
+Samples (10 fields):
+`{{1}}` Rana · `{{2}}` July 2026 · `{{3}}` $100.00 · `{{4}}` A-3 · `{{5}}` El Woroud ·
+`{{6}}` Rana · `{{7}}` July 2026 · `{{8}}` $100.00 · `{{9}}` A-3 · `{{10}}` El Woroud
 
 ### 4. `abniyah_unit_invite` — 8 variables
 ```
@@ -135,7 +142,9 @@ Unit: {{7}}
 Building: {{8}}
 Sign in to accept or decline — nothing is linked without your approval.
 ```
-Samples: `Rana` · `Jihad Meraachli` · `A-3` · `El Woroud` (twice)
+Samples (8 fields):
+`{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Woroud ·
+`{{5}}` Rana · `{{6}}` Jihad Meraachli · `{{7}}` A-3 · `{{8}}` El Woroud
 
 ⚠️ Templates belong to the WhatsApp ACCOUNT (WABA), not the phone number — create
 them under the account that holds the PRODUCTION number. A number in a different
