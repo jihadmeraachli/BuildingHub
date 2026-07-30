@@ -10,6 +10,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registration lives in main.tsx (controllerchange reload + periodic
+      // update checks) — don't also inject the bare registerSW.js script.
+      injectRegister: false,
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'logo-color.png', 'logo-mask.png'],
       manifest: {
         name: 'Abniyah',
