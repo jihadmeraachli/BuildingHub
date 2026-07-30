@@ -84,11 +84,11 @@ export default function Landing() {
           Run your building like a pro.
         </h1>
         <p className="text-lg text-white/80 max-w-2xl mx-auto">
-          Expenses, collections, and the building book — all in one place.
-          Built for Lebanon&rsquo;s buildings &amp; compounds.
+          Expenses, collections, and the building book. All in one place.
+          Built to manage buildings with privacy in mind.
         </p>
         <p className="text-lg text-white/70 max-w-2xl mx-auto mt-2" dir="rtl" lang="ar">
-          المصاريف والتحصيل ودفتر المبنى — كلّها في مكان واحد. مصمَّم لمباني لبنان ومجمّعاته.
+          المصاريف والتحصيل ودفتر المبنى. كلّها في مكان واحد. مصمَّم لإدارة المباني مع الحفاظ على الخصوصية.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <a
@@ -132,9 +132,6 @@ export default function Landing() {
               © {new Date().getFullYear()} Abniyah — a product of <strong className="text-white/80">Tatawwor</strong>. All rights reserved.
             </span>
           </div>
-          <a href="https://app.abniyah.com" className="text-xs text-white/60 hover:text-white transition-colors">
-            app.abniyah.com
-          </a>
         </div>
       </footer>
     </div>
