@@ -61,33 +61,79 @@ with the same text (e.g. {{1}} and {{5}} both `Rana`).
 
 ### 1. `abniyah_new_charge` — 8 variables
 ```
-مرحباً {{1}}، تمت إضافة رسم جديد بقيمة {{2}} على الوحدة {{3}} في {{4}}. افتح أبنية للاطلاع على حسابك ورصيدك.
+مرحباً {{1}}،
+تمت إضافة رسم جديد على حسابك بالتفاصيل التالية:
+المبلغ: {{2}}
+الوحدة: {{3}}
+المبنى: {{4}}
+افتح أبنية للاطلاع على رصيدك.
+
 ———
-Hello {{5}}, a new charge of {{6}} was added to unit {{7}} at {{8}}. Open Abniyah to view your account and balance.
+
+Hello {{5}},
+A new charge was added to your account:
+Amount: {{6}}
+Unit: {{7}}
+Building: {{8}}
+Open Abniyah to view your balance.
 ```
 Samples: `Rana` · `$120.00` · `A-3` · `El Woroud` (twice)
 
 ### 2. `abniyah_payment_received` — 8 variables
 ```
-مرحباً {{1}}، استلمنا دفعتك بقيمة {{2}} للوحدة {{3}} في {{4}}. شكراً لك!
+مرحباً {{1}}،
+استلمنا دفعتك بالتفاصيل التالية:
+المبلغ: {{2}}
+الوحدة: {{3}}
+المبنى: {{4}}
+شكراً لك!
+
 ———
-Hello {{5}}, we received your payment of {{6}} for unit {{7}} at {{8}}. Thank you!
+
+Hello {{5}},
+We received your payment with the details below:
+Amount: {{6}}
+Unit: {{7}}
+Building: {{8}}
+Thank you!
 ```
 Samples: `Rana` · `$250.00` · `A-3` · `El Woroud` (twice)
 
 ### 3. `abniyah_dues_issued` — 10 variables
 ```
-مرحباً {{1}}، مستحقاتك عن {{2}} هي {{3}} (الوحدة {{4}}، {{5}}). افتح أبنية للتفاصيل وخيارات الدفع.
+مرحباً {{1}}،
+صدرت مستحقاتك عن {{2}}:
+المبلغ: {{3}}
+الوحدة: {{4}}
+المبنى: {{5}}
+افتح أبنية للتفاصيل وخيارات الدفع.
+
 ———
-Hello {{6}}, your dues for {{7}} are {{8}} (unit {{9}}, {{10}}). Open Abniyah for details and payment options.
+
+Hello {{6}},
+Your dues for {{7}} have been issued:
+Amount: {{8}}
+Unit: {{9}}
+Building: {{10}}
+Open Abniyah for details and payment options.
 ```
 Samples: `Rana` · `July 2026` · `$100.00` · `A-3` · `El Woroud` (twice)
 
 ### 4. `abniyah_unit_invite` — 8 variables
 ```
-مرحباً {{1}}، دعاك {{2}} لربط حسابك في أبنية بالوحدة {{3}} في {{4}}. سجّل الدخول للقبول أو الرفض — لن يُربط أي شيء دون موافقتك.
+مرحباً {{1}}،
+دعاك {{2}} لربط حسابك في أبنية بوحدة:
+الوحدة: {{3}}
+المبنى: {{4}}
+سجّل الدخول للقبول أو الرفض — لن يُربط أي شيء دون موافقتك.
+
 ———
-Hello {{5}}, {{6}} invited you to link your Abniyah account to unit {{7}} at {{8}}. Sign in to accept or decline — nothing is linked without your approval.
+
+Hello {{5}},
+{{6}} invited you to link your Abniyah account to a unit:
+Unit: {{7}}
+Building: {{8}}
+Sign in to accept or decline — nothing is linked without your approval.
 ```
 Samples: `Rana` · `Jihad Meraachli` · `A-3` · `El Woroud` (twice)
 
