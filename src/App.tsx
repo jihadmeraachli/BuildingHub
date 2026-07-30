@@ -7,6 +7,12 @@ import { BetaGate } from '@/components/BetaGate';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
+import Landing from '@/pages/Landing';
+
+// The ROOT domain serves the public landing page (no beta gate, no auth) —
+// the app lives on app.abniyah.com. Same build, same deploy; the hostname
+// decides. Add abniyah.com + www as custom domains on the Pages project.
+const ROOT_HOSTS = new Set(['abniyah.com', 'www.abniyah.com']);
 
 const Login           = lazy(() => import('@/pages/Login'));
 const Register        = lazy(() => import('@/pages/Register'));
@@ -35,6 +41,7 @@ function PageFallback() {
 }
 
 export default function App() {
+  if (ROOT_HOSTS.has(window.location.hostname)) return <Landing />;
   return (
     <BetaGate>
     <ThemeProvider>
