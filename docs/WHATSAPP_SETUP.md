@@ -66,7 +66,7 @@ with the same text (e.g. {{1}} and {{5}} both `Rana`).
 المبلغ: {{2}}
 الوحدة: {{3}}
 المبنى: {{4}}
-افتح أبنية للاطلاع على رصيدك.
+يمكنك مراجعة التفاصيل والرصيد من حسابك.
 
 ———
 
@@ -75,7 +75,7 @@ A new charge was added to your account:
 Amount: {{6}}
 Unit: {{7}}
 Building: {{8}}
-Open Abniyah to view your balance.
+You can review the details and your balance in your account.
 ```
 Samples — the editor asks for one value per variable, 8 fields total; the English
 half repeats the Arabic half's values:
@@ -111,7 +111,7 @@ Samples (8 fields):
 المبلغ: {{3}}
 الوحدة: {{4}}
 المبنى: {{5}}
-افتح أبنية للتفاصيل وخيارات الدفع.
+تجد التفاصيل وخيارات الدفع في حسابك.
 
 ———
 
@@ -120,7 +120,7 @@ Your dues for {{7}} have been issued:
 Amount: {{8}}
 Unit: {{9}}
 Building: {{10}}
-Open Abniyah for details and payment options.
+Details and payment options are in your account.
 ```
 Samples (10 fields):
 `{{1}}` Rana · `{{2}}` July 2026 · `{{3}}` $100.00 · `{{4}}` A-3 · `{{5}}` El Woroud ·
