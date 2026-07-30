@@ -48,7 +48,7 @@ export function BetaGate({ children }: { children: ReactNode }) {
       <div className="w-full max-w-sm bg-card rounded-2xl shadow-2xl border border-border p-8 text-center">
         <div className="flex items-center justify-center gap-2.5 mb-8">
           <Logo size={32} />
-          <Wordmark className="text-sm text-foreground" />
+          <Wordmark className="text-sm text-foreground" byline />
         </div>
 
         <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
@@ -75,13 +75,6 @@ export function BetaGate({ children }: { children: ReactNode }) {
             Enter
           </Button>
         </form>
-
-        {/* Brand↔legal-entity link. The gate is the ONLY page unauthenticated
-            visitors (incl. Meta's display-name reviewers) can see — the same
-            line on the login page sits behind this gate. */}
-        <p className="mt-6 text-[11px] text-muted-foreground/60">
-          Abniyah is a product of Tatawwor
-        </p>
       </div>
     </div>
   );
