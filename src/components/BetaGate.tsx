@@ -75,6 +75,13 @@ export function BetaGate({ children }: { children: ReactNode }) {
             Enter
           </Button>
         </form>
+
+        {/* Brand↔legal-entity link. The gate is the ONLY page unauthenticated
+            visitors (incl. Meta's display-name reviewers) can see — the same
+            line on the login page sits behind this gate. */}
+        <p className="mt-6 text-[11px] text-muted-foreground/60">
+          Abniyah is a product of Tatawwor
+        </p>
       </div>
     </div>
   );
