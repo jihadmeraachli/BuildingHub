@@ -110,7 +110,7 @@ export default function Login() {
       <div className="relative z-10 flex flex-col justify-between p-12 text-white">
         <div className="flex items-center gap-2.5">
           <Logo size={40} variant="white" />
-          <Wordmark className="text-base" byline />
+          <Wordmark className="text-base" />
         </div>
         <div>
           <h1
@@ -146,12 +146,17 @@ export default function Login() {
       {/* Form side: quiet, deep gradient in dark mode so it reads as one
           composition with the brand panel — deliberately far subtler than the
           left, keeping the form as the focal point. Light mode stays clean. */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-background dark:bg-[linear-gradient(160deg,oklch(0.21_0.045_185)_0%,oklch(0.15_0.03_187)_55%,oklch(0.12_0.025_190)_100%)]">
+      <div className="relative flex-1 flex flex-col justify-center items-center px-6 py-12 bg-background dark:bg-[linear-gradient(160deg,oklch(0.21_0.045_185)_0%,oklch(0.15_0.03_187)_55%,oklch(0.12_0.025_190)_100%)]">
+        {/* Brand↔legal-entity link: also serves as verifiable evidence for
+            reviewers (e.g. Meta's WhatsApp display-name check). */}
+        <p className="absolute bottom-4 text-[11px] text-muted-foreground/60">
+          Abniyah is a product of Tatawwor
+        </p>
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5 lg:hidden">
               <Logo size={36} />
-              <Wordmark className="text-base text-foreground" byline />
+              <Wordmark className="text-base text-foreground" />
             </div>
             {langToggle}
           </div>
