@@ -169,7 +169,7 @@ export default function PlatformLicensing() {
     setBusy('');
     if (subErr) { toast.error(subErr.message); return; }
     await logEvent(inv.subscription_id, 'invoice_paid', { invoice_id: inv.id, amount_cents: inv.amount_cents });
-    toast.success('Invoice marked paid — subscription activated for the period');
+    toast.success('Invoice marked paid. Subscription activated for the period');
     loadAll();
   }
 
@@ -227,7 +227,7 @@ export default function PlatformLicensing() {
     <div className="p-6 space-y-5">
       <div>
         <h1 className="text-xl font-bold text-foreground">Platform Licensing</h1>
-        <p className="text-sm text-muted-foreground">All subscriptions across the platform — billing is confirmed manually here.</p>
+        <p className="text-sm text-muted-foreground">All subscriptions across the platform. Billing is confirmed manually here.</p>
       </div>
 
       {/* Stats */}
@@ -322,7 +322,7 @@ export default function PlatformLicensing() {
           <Card>
             <CardHeader>
               <CardTitle>All invoices</CardTitle>
-              <CardDescription>Mark an invoice paid once the money arrives — this activates the subscription for the invoiced period.</CardDescription>
+              <CardDescription>Mark an invoice paid once the money arrives. This activates the subscription for the invoiced period.</CardDescription>
             </CardHeader>
             <CardContent>
               {!invoices.length ? (

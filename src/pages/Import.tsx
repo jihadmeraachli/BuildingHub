@@ -334,7 +334,7 @@ function UsersTab() {
       </div>
       <ProgressTable rows={progress} />
       {step === 'done' && (
-        <p className="text-xs text-muted-foreground">Users who already have an account show as "Already exists" — no duplicate invite was sent.</p>
+        <p className="text-xs text-muted-foreground">Users who already have an account show as "Already exists". No duplicate invite was sent.</p>
       )}
     </div>
   );
@@ -449,7 +449,7 @@ function BuildingsTab({ isPlatformAdmin, grants }: { isPlatformAdmin: boolean; g
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
-      <p className="text-sm text-muted-foreground">Import buildings and compounds. Use the Compound Name column to group blocks under a compound — leave it blank for standalone buildings.</p>
+      <p className="text-sm text-muted-foreground">Import buildings and compounds. Use the Compound Name column to group blocks under a compound. Leave it blank for standalone buildings.</p>
       {isPlatformAdmin && orgs.length > 0 && (
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Assign to org (optional)</label>
@@ -604,7 +604,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
-      <p className="text-sm text-muted-foreground">Import units and automatically link them to owners or tenants by email. Users who haven't accepted their invitation yet are still linked — their status (active/inactive) reflects acceptance only.</p>
+      <p className="text-sm text-muted-foreground">Import units and automatically link them to owners or tenants by email. Users who haven't accepted their invitation yet are still linked. Their status (active/inactive) reflects acceptance only.</p>
       <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('units-template.csv', TEMPLATE)}>
         <Download size={14} /> Download template
       </Button>
@@ -639,7 +639,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
         </table>
       </div>
       {entities.length === 0 && (
-        <p className="text-xs text-amber-300">⚠ No buildings found — import buildings first or ensure you have access to at least one building.</p>
+        <p className="text-xs text-amber-300">⚠ No buildings found. Import buildings first or ensure you have access to at least one building.</p>
       )}
       <div className="flex gap-2">
         <Button onClick={runImport} disabled={entities.length === 0}>Import {rows.length} unit{rows.length !== 1 ? 's' : ''}</Button>
@@ -973,7 +973,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
-      <p className="text-sm text-muted-foreground">Upload any financial document — Trial Balance, payments spreadsheet, or scanned statement. The AI will extract expenses and per-unit balances automatically.</p>
+      <p className="text-sm text-muted-foreground">Upload any financial document: Trial Balance, payments spreadsheet, or scanned statement. The AI will extract expenses and per-unit balances automatically.</p>
       <Button variant="outline" size="sm" className="gap-2" onClick={downloadExpensesTemplate}>
         <Download size={14} /> Download template
       </Button>
@@ -1067,7 +1067,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           <div>
             <p className="text-sm font-semibold">AI extracted from: <span className="text-primary">{fileName}</span></p>
             {(unmatched_charges > 0 || unmatched_payments > 0) && (
-              <p className="text-xs text-amber-300 mt-1">⚠ {unmatched_charges + unmatched_payments} unit(s) could not be matched — they will be skipped. Check unit labels match exactly.</p>
+              <p className="text-xs text-amber-300 mt-1">⚠ {unmatched_charges + unmatched_payments} unit(s) could not be matched. They will be skipped. Check unit labels match exactly.</p>
             )}
           </div>
           <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
@@ -1106,7 +1106,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         )}
 
         {unit_charges.length > 0 && (
-          <PreviewSection title={`Unit Balances (${unit_charges.filter(c => c.unit_id).length} matched, ${unmatched_charges} skipped)`} hint="Pick a unit to fix an unmatched row — everything here is editable before you import.">
+          <PreviewSection title={`Unit Balances (${unit_charges.filter(c => c.unit_id).length} matched, ${unmatched_charges} skipped)`} hint="Pick a unit to fix an unmatched row. Everything here is editable before you import.">
             <table className="w-full text-sm">
               <thead className="bg-muted/40"><tr>
                 {['Unit', 'Description', 'Amount (USD)', 'Date'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
@@ -1116,7 +1116,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
                   <tr key={i} className={!c.unit_id ? 'bg-amber-500/5' : ''}>
                     <td className="px-4 py-2">
                       <select value={c.unit_id ?? ''} onChange={ev => reassignUnit('charge', i, ev.target.value)} className={`${cellInput} w-36 ${!c.unit_id ? 'border-amber-500/60 text-amber-300' : ''}`}>
-                        <option value="">{c.unit_label ? `${c.unit_label} — no match` : '— skip —'}</option>
+                        <option value="">{c.unit_label ? `${c.unit_label} (no match)` : '(skip)'}</option>
                         {dbUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
                       </select>
                     </td>
@@ -1141,7 +1141,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
                   <tr key={i} className={!p.unit_id ? 'bg-amber-500/5' : ''}>
                     <td className="px-4 py-2">
                       <select value={p.unit_id ?? ''} onChange={ev => reassignUnit('payment', i, ev.target.value)} className={`${cellInput} w-36 ${!p.unit_id ? 'border-amber-500/60 text-amber-300' : ''}`}>
-                        <option value="">{p.unit_label ? `${p.unit_label} — no match` : '— skip —'}</option>
+                        <option value="">{p.unit_label ? `${p.unit_label} (no match)` : '(skip)'}</option>
                         {dbUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
                       </select>
                     </td>

@@ -101,7 +101,7 @@ export default function Meetings() {
     if (scheduleOnline && scheduleUrl.trim()) payload.meeting_url = scheduleUrl.trim();
     const { error } = await supabase.from('meetings').insert(payload);
     if (error) { toast.error(`Could not schedule meeting: ${error.message}`); return; }
-    toast.success('Meeting scheduled — invite sent to residents.');
+    toast.success('Meeting scheduled. Invite sent to residents.');
     setScheduleOpen(false); scheduleForm.reset(); setScheduleFiles([]); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); loadMeetings();
   }
 
@@ -495,7 +495,7 @@ function AttendeePicker({ users, selected, setSelected }: { users: Profile[]; se
         ) : filtered.map(u => (
           <button key={u.id} type="button" onClick={() => toggle(u.id)}
             className={`w-full flex items-center justify-between px-3 py-2 text-sm transition cursor-pointer ${selected.includes(u.id) ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-accent'}`}>
-            <span>{u.full_name}{u.apartment_number ? ` — Apt ${u.apartment_number}` : ''}</span>
+            <span>{u.full_name}{u.apartment_number ? ` (Apt ${u.apartment_number})` : ''}</span>
             {selected.includes(u.id) && <span className="text-xs text-primary">&#10003;</span>}
           </button>
         ))}

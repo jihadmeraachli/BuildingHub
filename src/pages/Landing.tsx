@@ -27,7 +27,7 @@ const FEATURES = [
   {
     icon: MessageSquareText,
     title: 'WhatsApp & email updates',
-    body: 'Receipts, new charges and dues reach residents on WhatsApp and email — in Arabic and English.',
+    body: 'Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic and English.',
   },
   {
     icon: Wrench,
@@ -48,7 +48,7 @@ const FEATURES = [
 
 export default function Landing() {
   useEffect(() => {
-    document.title = 'Abniyah — building management for Lebanon · a product of Tatawwor';
+    document.title = 'Abniyah | Building management for Lebanon · a product of Tatawwor';
   }, []);
 
   return (
@@ -118,7 +118,7 @@ export default function Landing() {
       <section className="max-w-5xl mx-auto px-6 pb-24 text-center">
         <p className="text-white/70 max-w-2xl mx-auto text-sm leading-relaxed">
           Abniyah serves owners&rsquo; committees, building supervisors, and property-management
-          companies — from a single block to a portfolio of compounds. One login per person:
+          companies, from a single block to a portfolio of compounds. One login per person:
           manage your buildings, or simply follow your own home.
         </p>
       </section>
@@ -129,7 +129,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <Logo size={20} variant="white" />
             <span className="text-xs text-white/60">
-              © {new Date().getFullYear()} Abniyah — a product of <strong className="text-white/80">Tatawwor</strong>. All rights reserved.
+              © {new Date().getFullYear()} Abniyah, a product of <strong className="text-white/80">Tatawwor</strong>. All rights reserved.
             </span>
           </div>
         </div>

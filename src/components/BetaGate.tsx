@@ -69,7 +69,7 @@ export function BetaGate({ children }: { children: ReactNode }) {
             className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-center font-semibold tracking-wide text-foreground placeholder:font-normal placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-primary"
           />
           {error && (
-            <p className="text-sm text-destructive">That code isn't valid — check with the Abniyah team.</p>
+            <p className="text-sm text-destructive">That code isn't valid. Check with the Abniyah team.</p>
           )}
           <Button type="submit" loading={checking} disabled={!code.trim()} className="w-full">
             Enter

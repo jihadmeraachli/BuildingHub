@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
         return;
       }
       const amount = `$${owed.toFixed(2)}`;
-      const subject = `Payment reminder — ${buildingName}, unit ${unitLabel}`;
+      const subject = `Payment reminder: ${buildingName}, unit ${unitLabel}`;
       const html = emailHtml(
         'Outstanding balance',
         `<p style="color:#475569;font-size:14px;line-height:1.6;">
@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
         await deliverWhatsApp(uid, 'abniyah_payment_reminder',
           (name) => [name, amount, unitLabel, buildingName]);
         await deliverInApp(uid, buildingId, 'Payment reminder',
-          `Unit ${unitLabel} — ${buildingName}: outstanding balance of ${amount}. Details in Finance.`);
+          `Unit ${unitLabel}, ${buildingName}: outstanding balance of ${amount}. Details in Finance.`);
       }
     }
 
@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
       dueInspections = (data as unknown[]) ?? [];
       for (const row of (data as DueInspection[] ?? [])) {
         const isOverdue = new Date(row.next_due_date) < new Date();
-        const subject = `Inspection ${isOverdue ? 'overdue' : 'due soon'} — ${row.category.replace(/_/g, ' ')} — ${row.location_name}`;
+        const subject = `Inspection ${isOverdue ? 'overdue' : 'due soon'}: ${row.category.replace(/_/g, ' ')}, ${row.location_name}`;
         const html = emailHtml(
           isOverdue ? '⚠️ Inspection overdue' : 'Inspection due soon',
           `<p style="color:#475569;font-size:14px;line-height:1.6;">

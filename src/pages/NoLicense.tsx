@@ -42,13 +42,13 @@ export default function NoLicense() {
         <p className="text-sm text-muted-foreground leading-relaxed mb-6">
           {noUnit ? (
             <>
-              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]} — your` : 'Your'} account
+              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]}, your` : 'Your'} account
               isn't linked to a unit yet. Ask your building admin to assign you to your
               apartment, then sign in again.
             </>
           ) : (
             <>
-              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]} — your` : 'Your'} unit
+              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]}, your` : 'Your'} unit
               doesn't currently have an active Abniyah license. Please contact your building
               admin to renew the subscription or assign a license to your unit.
             </>

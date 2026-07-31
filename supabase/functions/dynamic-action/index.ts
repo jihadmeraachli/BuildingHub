@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
     // 5. Payment recorded (v3 finance) → the unit's owner(s) (receipt)
     if (tbl === 'payments' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), 'Payment received — thank you',
+      await emailToUserIds(await unitOwnerIds(record.unit_id), 'Payment received, thank you',
         emailHtml('Payment recorded',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">We've recorded your payment. Thank you.</p>
            ${table(row('Amount', money(record.amount_usd)) + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
@@ -361,7 +361,7 @@ Deno.serve(async (req) => {
     // 5e. Dues edited (amount changed) → owner(s)
     if (tbl === 'dues' && type === 'UPDATE' && record.amount_due !== old_record?.amount_due) {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues updated — ${record.period_label}`,
+      await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues updated: ${record.period_label}`,
         emailHtml('Dues updated',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> were updated.</p>
            ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
@@ -372,7 +372,7 @@ Deno.serve(async (req) => {
     // 5f. Dues removed → owner(s)
     if (tbl === 'dues' && type === 'DELETE' && old_record) {
       const b = await getBuilding(old_record.building_id);
-      await emailToUserIds(await unitOwnerIds(old_record.unit_id), `Dues removed — ${old_record.period_label}`,
+      await emailToUserIds(await unitOwnerIds(old_record.unit_id), `Dues removed: ${old_record.period_label}`,
         emailHtml('Dues removed',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(old_record.period_label)}</strong> were removed.</p>`,
           'View My Account', `${APP_URL}/finance`),
@@ -387,7 +387,7 @@ Deno.serve(async (req) => {
       const { data: inviter } = record.invited_by
         ? await supabase.from('profiles').select('full_name').eq('id', record.invited_by).single()
         : { data: null };
-      await emailToUserIds([record.user_id], `Unit invitation — ${unit?.label ?? ''} at ${b?.name ?? 'a building'}`,
+      await emailToUserIds([record.user_id], `Unit invitation: ${unit?.label ?? ''} at ${b?.name ?? 'a building'}`,
         emailHtml('You have been invited to a unit',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${esc(inviter?.full_name ?? 'A building admin')} wants to link your account to a unit. Nothing happens until you accept.</p>
            ${table(row('Unit', esc(unit?.label ?? '—')) + row('Building', esc(b?.name ?? '—')) + row('As', esc(record.tenure)))}

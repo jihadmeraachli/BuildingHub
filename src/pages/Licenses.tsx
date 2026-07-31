@@ -163,7 +163,7 @@ export default function Licenses() {
   async function assignUnit(u: UnitRow) {
     if (!sub) return;
     if (availableCount < 1) {
-      toast.error('No licenses available — add more licenses first.');
+      toast.error('No licenses available. Add more licenses first.');
       return;
     }
     setBusyUnit(u.id);
@@ -201,7 +201,7 @@ export default function Licenses() {
     await logEvent('licenses_added', { added: addCount, new_total: newCount });
     setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, license_count: newCount } : s));
     setAddOpen(false);
-    toast.success(`${addCount} licenses added — you'll be invoiced on your next billing cycle.`);
+    toast.success(`${addCount} licenses added. You'll be invoiced on your next billing cycle.`);
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────

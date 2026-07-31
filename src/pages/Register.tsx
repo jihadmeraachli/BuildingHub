@@ -45,14 +45,14 @@ const ROLE_CARDS = [
     type: 'building_admin' as AdminRole,
     icon: Building2,
     label: 'Building Admin',
-    description: 'You manage one building — one block, one set of units. Ideal for a standalone residential tower.',
+    description: 'You manage one building: one block, one set of units. Ideal for a standalone residential tower.',
     example: 'e.g. a 12-floor apartment building with 48 units',
   },
   {
     type: 'compound_admin' as AdminRole,
     icon: Layers,
     label: 'Compound Admin',
-    description: 'You manage multiple blocks that share a compound. One subscription covers all blocks — add new blocks any time.',
+    description: 'You manage multiple blocks that share a compound. One subscription covers all blocks. Add new blocks any time.',
     example: 'e.g. a gated community with Blocks A, B, C',
   },
   {
@@ -190,7 +190,7 @@ export default function Register() {
     return (
       <>
         <h2 className="text-xl font-bold text-foreground mb-1">Create your account</h2>
-        <p className="text-muted-foreground text-sm mb-6">30-day free trial — no payment required.</p>
+        <p className="text-muted-foreground text-sm mb-6">30-day free trial, no payment required.</p>
         <div className="space-y-4">
           <Input
             label="Full name"
@@ -465,7 +465,7 @@ export default function Register() {
             <h2 className="text-xl font-bold text-foreground mb-2">Confirm your email</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               We sent a confirmation link to <span className="font-medium text-foreground">{state.email}</span>.
-              Click it to activate your account — your {entityNoun(state.type)} and 30-day free trial
+              Click it to activate your account. Your {entityNoun(state.type)} and 30-day free trial
               will be created the moment you do.
             </p>
             <p className="text-xs text-muted-foreground mt-4">
