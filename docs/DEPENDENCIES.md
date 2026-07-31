@@ -55,7 +55,9 @@ _Last reviewed: 2026-07-26_
 ## Single points of failure worth knowing
 
 1. **One Supabase project = production.** There is no staging; migrations run
-   against live. (Backup strategy is an open roadmap item.)
+   against live. Mitigation: nightly database backups via GitHub Actions,
+   90-day retention — see [BACKUPS.md](BACKUPS.md) (requires the
+   `SUPABASE_DB_URL` repo secret; storage FILES not yet covered).
 2. **Auth emails and notification emails both ride Resend** — one suspended
    Resend account kills registration *and* notifications.
 3. **Domain lapse kills everything at once** (site + email sending domain).

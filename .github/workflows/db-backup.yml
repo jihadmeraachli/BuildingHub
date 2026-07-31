@@ -1,0 +1,52 @@
+# Nightly logical backup of the production Supabase database.
+# - Runs at 01:30 UTC (~4:30am Beirut), and on demand via "Run workflow".
+# - Dumps schema + data for the app (public), auth (users), and storage
+#   (file metadata) schemas with pg_dump, gzipped, kept 90 days as artifacts.
+# - Requires the SUPABASE_DB_URL repository secret: the SESSION POOLER
+#   connection string (GitHub runners have no IPv6; the direct host won't work).
+#   Supabase Dashboard → Connect → Session pooler → copy URI, insert password.
+name: Database backup
+
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then echo "SUPABASE_DB_URL secret is not set"; exit 1; fi
+          STAMP=$(date -u +%Y-%m-%d_%H%M)
+          pg_dump "$DB_URL" \
+            --no-owner --no-privileges \
+            --schema=public --schema=auth --schema=storage \
+            --exclude-table-data='auth.audit_log_entries' \
+            --exclude-table-data='auth.refresh_tokens' \
+            --exclude-table-data='auth.sessions' \
+            > "abniyah-db-$STAMP.sql"
+          gzip -9 "abniyah-db-$STAMP.sql"
+          ls -lh abniyah-db-*.sql.gz
+          # Sanity check: a healthy dump is never tiny.
+          SIZE=$(stat -c%s abniyah-db-*.sql.gz)
+          if [ "$SIZE" -lt 10000 ]; then echo "Dump suspiciously small ($SIZE bytes) - failing"; exit 1; fi
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: abniyah-db-*.sql.gz
+          retention-days: 90
+          if-no-files-found: error
