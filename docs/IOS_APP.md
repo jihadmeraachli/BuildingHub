@@ -61,6 +61,23 @@ In Xcode:
    first time, approve the developer cert on the phone
    (Settings → General → VPN & Device Management).
 
+## Face ID app lock (one-time native step)
+
+The app-lock feature (Settings → "Security on this device") uses the
+`@aparajita/capacitor-biometric-auth` plugin. After pulling code that includes
+it, run `npm install` and `npx cap sync ios` as usual — plus ONE manual step,
+because the `ios/` project isn't committed:
+
+1. Xcode → blue **App** project → target **App** → **Info** tab.
+2. Add a new row: key **"Privacy - Face ID Usage Description"**
+   (`NSFaceIDUsageDescription`), value: `Abniyah uses Face ID to protect your building data.`
+3. Build & run. Toggle the lock in the app's Settings, background the app,
+   reopen — Face ID prompt should appear.
+
+⚠️ Re-add this row any time you delete and regenerate the `ios/` folder
+(`npx cap add ios` starts fresh). Without it, iOS kills the app when Face ID
+is invoked.
+
 ## Shipping to TestFlight (every release)
 
 ```bash

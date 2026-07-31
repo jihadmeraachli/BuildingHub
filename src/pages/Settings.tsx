@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Camera, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
+import { Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
 import type { Factor } from '@supabase/supabase-js';
 import Cropper from 'react-easy-crop';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { uploadFile } from '@/lib/upload';
 import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
+import { isNativeApp, bioLockEnabled, setBioLockEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -28,6 +29,24 @@ export default function Settings() {
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyWhatsapp, setNotifyWhatsapp] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // ---- device app lock (native app only) ----
+  const [bioAvail, setBioAvail] = useState(false);
+  const [bioOn, setBioOn] = useState(() => bioLockEnabled());
+  const [bioBusy, setBioBusy] = useState(false);
+  useEffect(() => { if (isNativeApp) bioAvailable().then(setBioAvail); }, []);
+
+  async function toggleBioLock(on: boolean) {
+    setBioBusy(true);
+    // Both directions require passing the biometric check first — enabling
+    // proves it works on this device; disabling proves it's really the owner.
+    const ok = await bioAuthenticate(t('bio.reason'));
+    setBioBusy(false);
+    if (!ok) { toast.error(t('settings.bioFailed')); return; }
+    setBioLockEnabled(on);
+    setBioOn(on);
+    toast.success(on ? t('settings.bioEnabled') : t('settings.bioDisabled'));
+  }
 
   // ---- avatar ----
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -366,6 +385,33 @@ export default function Settings() {
           </div>
         </CardBody>
       </Card>
+
+      {/* ---------- device app lock (native app only) ---------- */}
+      {isNativeApp && (
+        <Card className="mb-5">
+          <CardBody>
+            <div className="flex items-center gap-2 mb-1">
+              <Fingerprint size={16} className="text-[#7fe3ec]" />
+              <p className="text-sm font-semibold text-foreground">{t('settings.deviceSecurity')}</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">{t('settings.bioLockHint')}</p>
+            {bioAvail ? (
+              <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bioOn}
+                  disabled={bioBusy}
+                  onChange={e => toggleBioLock(e.target.checked)}
+                  className="w-4 h-4 rounded cursor-pointer accent-primary"
+                />
+                {t('settings.bioLockLabel')}
+              </label>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('settings.bioUnavailable')}</p>
+            )}
+          </CardBody>
+        </Card>
+      )}
 
       {/* ---------- email ---------- */}
       <Card className="mb-5">

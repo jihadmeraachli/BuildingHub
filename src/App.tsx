@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { BetaGate } from '@/components/BetaGate';
+import { BioLock } from '@/components/BioLock';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -49,6 +50,7 @@ export default function App() {
     return <Landing />;
   }
   return (
+    <BioLock>
     <BetaGate>
     <ThemeProvider>
     <AuthProvider>
@@ -93,5 +95,6 @@ export default function App() {
     </AuthProvider>
     </ThemeProvider>
     </BetaGate>
+    </BioLock>
   );
 }

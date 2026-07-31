@@ -176,6 +176,11 @@
     "confirmPost": "Click it to activate your account. Your {{noun}} and 30-day free trial will be created the moment you do.",
     "noEmailHint": "Nothing in your inbox? Check spam, or contact the Abniyah team."
   },
+  "bio": {
+    "reason": "Unlock Abniyah",
+    "lockedTitle": "Abniyah is locked",
+    "unlock": "Unlock"
+  },
   "landing": {
     "docTitle": "Abniyah | Building management for Lebanon · a product of Tatawwor",
     "openApp": "Open the app",
@@ -882,6 +887,13 @@
     "notifyEmail": "Email me about my building",
     "notifyWhatsapp": "WhatsApp me",
     "whatsappNeedsPhone": "Save your mobile number first. WhatsApp needs somewhere to reach you.",
+    "deviceSecurity": "Security on this device",
+    "bioLockLabel": "Require Face ID / biometrics to open Abniyah",
+    "bioLockHint": "Locks the app whenever you leave it. Uses this device's Face ID, Touch ID or passcode; your account and other devices are unaffected.",
+    "bioUnavailable": "Face ID / biometrics aren't set up on this device.",
+    "bioEnabled": "App lock enabled.",
+    "bioDisabled": "App lock disabled.",
+    "bioFailed": "Authentication didn't complete. Nothing changed.",
     "channelRequired": "Keep at least one notification channel on (email or WhatsApp), otherwise building notices can't reach you.",
     "changePhoto": "Change photo",
     "removePhoto": "Remove photo",
