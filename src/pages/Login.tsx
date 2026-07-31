@@ -124,7 +124,6 @@ export default function Login() {
           >Run your building<br />like a pro.</h1>
           <p className="text-lg text-white/80 max-w-md">Expenses, collections, and the building book. All in one place. Built to manage buildings with privacy in mind.</p>
         </div>
-        <p className="text-sm text-white/50">  Abniyah, a product of Tatawwor</p>
       </div>
     </div>
   );
