@@ -132,6 +132,10 @@ export default function Landing() {
               © {new Date().getFullYear()} Abniyah, a product of <strong className="text-white/80">Tatawwor</strong>. All rights reserved.
             </span>
           </div>
+          <span className="flex gap-4 text-xs text-white/60">
+            <a className="hover:text-white transition-colors" href="/privacy">Privacy</a>
+            <a className="hover:text-white transition-colors" href="/terms">Terms</a>
+          </span>
         </div>
       </footer>
     </div>

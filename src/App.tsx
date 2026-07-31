@@ -8,10 +8,11 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import Landing from '@/pages/Landing';
+import { Privacy, Terms } from '@/pages/Legal';
 
-// The ROOT domain serves the public landing page (no beta gate, no auth) —
-// the app lives on app.abniyah.com. Same build, same deploy; the hostname
-// decides. Add abniyah.com + www as custom domains on the Pages project.
+// The ROOT domain serves the public pages (no beta gate, no auth) — the app
+// lives on app.abniyah.com. Same build, same deploy; the hostname decides.
+// Plain pathname switch, no router needed for three static pages.
 const ROOT_HOSTS = new Set(['abniyah.com', 'www.abniyah.com']);
 
 const Login           = lazy(() => import('@/pages/Login'));
@@ -41,7 +42,12 @@ function PageFallback() {
 }
 
 export default function App() {
-  if (ROOT_HOSTS.has(window.location.hostname)) return <Landing />;
+  if (ROOT_HOSTS.has(window.location.hostname)) {
+    const path = window.location.pathname;
+    if (path.startsWith('/privacy')) return <Privacy />;
+    if (path.startsWith('/terms')) return <Terms />;
+    return <Landing />;
+  }
   return (
     <BetaGate>
     <ThemeProvider>
