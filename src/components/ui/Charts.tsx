@@ -14,8 +14,10 @@ const DONUT_GRADIENTS = [
   { from: '#64748b', to: '#94a3b8' }, // slate
 ];
 
-const fmtMoney = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-const fmtMoney2 = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Defensive (n ?? 0): a hover over a chart whose data hasn't arrived yet must
+// never crash the page (undefined.toLocaleString unmounted the whole app once).
+const fmtMoney = (n?: number) => `$${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const fmtMoney2 = (n?: number) => `$${(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface TrendSeries { name: string; color: string; data: number[]; }
 
@@ -30,6 +32,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
   const path = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPct(i).toFixed(2)} ${yPct(v).toFixed(2)}`).join(' ');
 
   function onMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (n === 0) return; // no data yet — clamping would produce an index into an empty array
     const r = e.currentTarget.getBoundingClientRect();
     const rel = (e.clientX - r.left) / r.width;
     setIdx(Math.max(0, Math.min(n - 1, Math.round(rel * (n - 1)))));
