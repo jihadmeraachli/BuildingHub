@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { setLanguage } from '@/i18n';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { cn } from '@/lib/utils';
-import { Building2, Layers, Network, Check, ChevronLeft, MailCheck, Loader2 } from 'lucide-react';
+import { Building2, Layers, Network, Check, ChevronLeft, MailCheck, Loader2, Globe } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,39 +42,14 @@ interface WizardState {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ROLE_CARDS = [
-  {
-    type: 'building_admin' as AdminRole,
-    icon: Building2,
-    label: 'Building Admin',
-    description: 'You manage one building: one block, one set of units. Ideal for a standalone residential tower.',
-    example: 'e.g. a 12-floor apartment building with 48 units',
-  },
-  {
-    type: 'compound_admin' as AdminRole,
-    icon: Layers,
-    label: 'Compound Admin',
-    description: 'You manage multiple blocks that share a compound. One subscription covers all blocks. Add new blocks any time.',
-    example: 'e.g. a gated community with Blocks A, B, C',
-  },
-  {
-    type: 'org_admin' as AdminRole,
-    icon: Network,
-    label: 'Organisation Admin',
-    description: 'You manage multiple properties under one company or management firm. Full visibility across all buildings and compounds.',
-    example: 'e.g. a property management company overseeing 5 buildings',
-  },
+// Copy lives in i18n under register.roles.<type>.{label,description,example}
+const ROLE_CARDS: { type: AdminRole; icon: typeof Building2 }[] = [
+  { type: 'building_admin', icon: Building2 },
+  { type: 'compound_admin', icon: Layers },
+  { type: 'org_admin', icon: Network },
 ];
 
-const PLAN_FEATURES = [
-  'Unit & resident management',
-  'Full finance module (expenses, charges, payments)',
-  'Dues & prepayment schedules',
-  'Contract management (lifts, cleaning, etc.)',
-  'Inspections & issue tracking',
-  'Meetings & minutes',
-  'PDF reports',
-];
+const FEATURE_KEYS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -82,15 +59,10 @@ function scopeType(role: AdminRole): 'building' | 'compound' | 'org' {
   return 'org';
 }
 
-function entityNoun(role: AdminRole | null) {
+function nounKey(role: AdminRole | null): 'building' | 'compound' | 'org' {
   if (role === 'compound_admin') return 'compound';
-  if (role === 'org_admin') return 'organisation';
+  if (role === 'org_admin') return 'org';
   return 'building';
-}
-
-function stepLabels(role: AdminRole | null): string[] {
-  const noun = entityNoun(role);
-  return ['Your role', 'Account', noun.charAt(0).toUpperCase() + noun.slice(1), 'Plan'];
 }
 
 function monthlyEquivalent(plan: 'monthly' | 'annual', units: number) {
@@ -128,6 +100,7 @@ function Steps({ current, labels }: { current: number; labels: string[] }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function Register() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
   const [step, setStep] = useState(0); // 0=role, 1=account, 2=entity, 3=pricing
@@ -146,21 +119,30 @@ export default function Register() {
 
   const set = (patch: Partial<WizardState>) => setState(s => ({ ...s, ...patch }));
 
+  /** lowercase noun for sentences ("About your building") */
+  const noun = (role: AdminRole | null) => t(`register.nouns.${nounKey(role)}`);
+  /** title-case noun for labels and step names */
+  const nounTitle = (role: AdminRole | null) => t(`register.nounsTitle.${nounKey(role)}`);
+
+  const stepLabels = [
+    t('register.stepRole'), t('register.stepAccount'), nounTitle(state.type), t('register.stepPlan'),
+  ];
+
   // ── Step content (render functions, NOT components — keeps input focus) ──
 
   function renderRole() {
     return (
       <>
-        <h2 className="text-2xl font-bold text-foreground mb-1">Get started</h2>
-        <p className="text-muted-foreground text-sm mb-6">Tell us what you manage so we set you up correctly.</p>
+        <h2 className="text-2xl font-bold text-foreground mb-1">{t('register.getStarted')}</h2>
+        <p className="text-muted-foreground text-sm mb-6">{t('register.roleSubtitle')}</p>
         <div className="space-y-3">
-          {ROLE_CARDS.map(({ type, icon: Icon, label, description, example }) => (
+          {ROLE_CARDS.map(({ type, icon: Icon }) => (
             <button
               key={type}
               type="button"
               onClick={() => { set({ type }); setStep(1); }}
               className={cn(
-                'w-full text-left rounded-xl border p-4 transition-all cursor-pointer',
+                'w-full text-start rounded-xl border p-4 transition-all cursor-pointer',
                 'hover:border-primary/50 hover:bg-primary/5',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                 state.type === type ? 'border-primary bg-primary/5' : 'border-border bg-card',
@@ -171,16 +153,16 @@ export default function Register() {
                   <Icon size={16} className="text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground text-sm">{label}</p>
-                  <p className="text-muted-foreground text-xs mt-0.5 leading-relaxed">{description}</p>
-                  <p className="text-muted-foreground/60 text-xs mt-1 italic">{example}</p>
+                  <p className="font-semibold text-foreground text-sm">{t(`register.roles.${type}.label`)}</p>
+                  <p className="text-muted-foreground text-xs mt-0.5 leading-relaxed">{t(`register.roles.${type}.description`)}</p>
+                  <p className="text-muted-foreground/60 text-xs mt-1 italic">{t(`register.roles.${type}.example`)}</p>
                 </div>
               </div>
             </button>
           ))}
         </div>
         <p className="mt-5 text-xs text-muted-foreground text-center">
-          A resident? Your building admin will create your account and send you an invite.
+          {t('register.residentNote')}
         </p>
       </>
     );
@@ -189,24 +171,24 @@ export default function Register() {
   function renderAccount() {
     return (
       <>
-        <h2 className="text-xl font-bold text-foreground mb-1">Create your account</h2>
-        <p className="text-muted-foreground text-sm mb-6">30-day free trial, no payment required.</p>
+        <h2 className="text-xl font-bold text-foreground mb-1">{t('register.createAccount')}</h2>
+        <p className="text-muted-foreground text-sm mb-6">{t('register.trialNote')}</p>
         <div className="space-y-4">
           <Input
-            label="Full name"
+            label={t('auth.fullName')}
             value={state.fullName}
             onChange={e => set({ fullName: e.target.value })}
             autoComplete="name"
           />
           <Input
-            label="Email"
+            label={t('auth.email')}
             type="email"
             value={state.email}
             onChange={e => set({ email: e.target.value })}
             autoComplete="email"
           />
           <Input
-            label="Password"
+            label={t('auth.password')}
             type="password"
             value={state.password}
             onChange={e => set({ password: e.target.value })}
@@ -219,25 +201,24 @@ export default function Register() {
 
   function renderEntity() {
     const role = state.type as AdminRole;
-    const noun = entityNoun(role);
     const needsCity = role !== 'org_admin';
     return (
       <>
-        <h2 className="text-xl font-bold text-foreground mb-1">About your {noun}</h2>
-        <p className="text-muted-foreground text-sm mb-6">This is what your team and residents will see.</p>
+        <h2 className="text-xl font-bold text-foreground mb-1">{t('register.aboutEntity', { noun: noun(role) })}</h2>
+        <p className="text-muted-foreground text-sm mb-6">{t('register.entitySubtitle')}</p>
         <div className="space-y-4">
           <Input
-            label={`${noun.charAt(0).toUpperCase() + noun.slice(1)} name`}
+            label={t('register.entityNameLabel', { noun: nounTitle(role) })}
             value={state.entityName}
             onChange={e => set({ entityName: e.target.value })}
-            placeholder={role === 'building_admin' ? 'e.g. Résidence Les Pins' : role === 'compound_admin' ? 'e.g. Garden City Compound' : 'e.g. Meraachli Properties'}
+            placeholder={t(`register.entityPlaceholder.${nounKey(role)}`)}
           />
           {needsCity && (
             <Input
-              label="City"
+              label={t('register.city')}
               value={state.city}
               onChange={e => set({ city: e.target.value })}
-              placeholder="e.g. Beirut"
+              placeholder={t('register.cityPlaceholder')}
             />
           )}
         </div>
@@ -248,13 +229,13 @@ export default function Register() {
   function renderPricing() {
     return (
       <>
-        <h2 className="text-xl font-bold text-foreground mb-1">Choose your plan</h2>
-        <p className="text-muted-foreground text-sm mb-5">First 30 days are free. Cancel any time.</p>
+        <h2 className="text-xl font-bold text-foreground mb-1">{t('register.choosePlan')}</h2>
+        <p className="text-muted-foreground text-sm mb-5">{t('register.planSubtitle')}</p>
 
         {/* Unit count */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-foreground mb-1.5">
-            How many units do you manage?
+            {t('register.unitCountLabel')}
           </label>
           <div className="flex items-center gap-3">
             <input
@@ -265,7 +246,7 @@ export default function Register() {
               onChange={e => set({ unitCount: Math.max(1, Number(e.target.value)) })}
               className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <span className="text-sm text-muted-foreground">units</span>
+            <span className="text-sm text-muted-foreground">{t('register.unitsWord')}</span>
           </div>
         </div>
 
@@ -274,28 +255,28 @@ export default function Register() {
           {(['monthly', 'annual'] as const).map(plan => {
             const selected = state.plan === plan;
             const ppu = plan === 'monthly' ? 5 : 50;
-            const period = plan === 'monthly' ? '/unit/month' : '/unit/year';
-            const saving = plan === 'annual' ? 'Save 17%' : null;
+            const period = plan === 'monthly' ? t('register.perUnitMonth') : t('register.perUnitYear');
+            const saving = plan === 'annual' ? t('register.save17') : null;
             return (
               <button
                 key={plan}
                 type="button"
                 onClick={() => set({ plan })}
                 className={cn(
-                  'relative rounded-xl border p-4 text-left transition-all cursor-pointer',
+                  'relative rounded-xl border p-4 text-start transition-all cursor-pointer',
                   selected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card hover:border-primary/40',
                 )}
               >
                 {saving && (
-                  <span className="absolute -top-2.5 right-3 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <span className="absolute -top-2.5 end-3 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
                     {saving}
                   </span>
                 )}
                 {selected && (
-                  <Check size={14} className="absolute top-3 right-3 text-primary" />
+                  <Check size={14} className="absolute top-3 end-3 text-primary" />
                 )}
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  {plan === 'monthly' ? 'Monthly' : 'Annual'}
+                  {plan === 'monthly' ? t('register.monthly') : t('register.annual')}
                 </p>
                 <p className="text-2xl font-bold text-foreground">${ppu}</p>
                 <p className="text-xs text-muted-foreground">{period}</p>
@@ -306,10 +287,10 @@ export default function Register() {
 
         {/* Features */}
         <div className="rounded-xl bg-muted/40 p-4 space-y-1.5 mb-5">
-          {PLAN_FEATURES.map(f => (
+          {FEATURE_KEYS.map(f => (
             <div key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
               <Check size={13} className="mt-0.5 shrink-0 text-primary" />
-              {f}
+              {t(`register.features.${f}`)}
             </div>
           ))}
         </div>
@@ -317,13 +298,16 @@ export default function Register() {
         {/* Live price summary */}
         <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">After trial ends</span>
+            <span className="text-muted-foreground">{t('register.afterTrial')}</span>
             <span className="font-semibold text-foreground">
-              ${monthlyEquivalent(state.plan, state.unitCount)}/mo
+              ${monthlyEquivalent(state.plan, state.unitCount)}{t('register.perMonthShort')}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {state.unitCount} units × ${state.plan === 'monthly' ? 5 : '50/12'}{state.plan === 'annual' ? ' ≈ $4.17' : ''}/unit/month
+            {t('register.priceBreakdown', {
+              count: state.unitCount,
+              rate: state.plan === 'monthly' ? '$5' : '$50/12 ≈ $4.17',
+            })}
           </p>
         </div>
       </>
@@ -413,15 +397,15 @@ export default function Register() {
     setError('');
 
     if (step === 1) {
-      if (!state.fullName.trim()) { setError('Full name is required.'); return; }
-      if (!state.email.trim()) { setError('Email is required.'); return; }
-      if (state.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+      if (!state.fullName.trim()) { setError(t('register.fullNameRequired')); return; }
+      if (!state.email.trim()) { setError(t('register.emailRequired')); return; }
+      if (state.password.length < 8) { setError(t('auth.passwordTooShort')); return; }
       setStep(2);
       return;
     }
 
     if (step === 2) {
-      if (!state.entityName.trim()) { setError(`Please enter a name for your ${entityNoun(state.type)}.`); return; }
+      if (!state.entityName.trim()) { setError(t('register.entityNameRequired', { noun: noun(state.type) })); return; }
       setStep(3);
       return;
     }
@@ -434,17 +418,28 @@ export default function Register() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const nextLabel =
-    step === 1 ? 'Continue' :
-    step === 2 ? 'Continue' :
-    step === 3 ? 'Start free trial' :
+    step === 1 ? t('register.continue') :
+    step === 2 ? t('register.continue') :
+    step === 3 ? t('register.startTrial') :
     null;
+
+  const langToggle = (
+    <button
+      type="button"
+      onClick={() => setLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
+      className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+    >
+      <Globe size={14} />
+      {i18n.language === 'ar' ? 'EN' : 'عر'}
+    </button>
+  );
 
   // Post-confirmation finalize in progress — full-screen spinner.
   if (finalizing) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background px-4">
         <Loader2 size={32} className="animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Setting up your {entityNoun(state.type)} and starting your free trial…</p>
+        <p className="text-sm text-muted-foreground">{t('register.finalizing', { noun: noun(state.type) })}</p>
       </div>
     );
   }
@@ -462,14 +457,13 @@ export default function Register() {
             <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-4">
               <MailCheck size={26} className="text-primary" />
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Confirm your email</h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">{t('register.confirmTitle')}</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              We sent a confirmation link to <span className="font-medium text-foreground">{state.email}</span>.
-              Click it to activate your account. Your {entityNoun(state.type)} and 30-day free trial
-              will be created the moment you do.
+              {t('register.confirmPre')} <span className="font-medium text-foreground">{state.email}</span>.{' '}
+              {t('register.confirmPost', { noun: noun(state.type) })}
             </p>
             <p className="text-xs text-muted-foreground mt-4">
-              Nothing in your inbox? Check spam, or contact the Abniyah team.
+              {t('register.noEmailHint')}
             </p>
           </div>
         </div>
@@ -485,11 +479,14 @@ export default function Register() {
         <div className="flex items-center gap-2.5 mb-8">
           <Logo size={32} />
           <Wordmark className="text-sm text-foreground" />
-          <Link to="/" className="ms-auto text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
+          <div className="ms-auto flex items-center gap-4">
+            {langToggle}
+            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">{t('auth.loginHere')}</Link>
+          </div>
         </div>
 
         {/* Named phase progress */}
-        {step > 0 && <Steps current={step} labels={stepLabels(state.type)} />}
+        {step > 0 && <Steps current={step} labels={stepLabels} />}
 
         {/* Card */}
         <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
@@ -512,7 +509,7 @@ export default function Register() {
                 onClick={() => { setError(''); setStep(s => s - 1); }}
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer"
               >
-                <ChevronLeft size={14} /> Back
+                <ChevronLeft size={14} className="rtl:rotate-180" /> {t('common.back')}
               </button>
               <Button
                 type="button"
@@ -527,8 +524,8 @@ export default function Register() {
         </div>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          Already have an account?{' '}
-          <Link to="/" className="text-primary font-semibold hover:underline">Sign in</Link>
+          {t('auth.hasAccount')}{' '}
+          <Link to="/" className="text-primary font-semibold hover:underline">{t('auth.loginHere')}</Link>
         </p>
       </div>
     </div>

@@ -122,8 +122,8 @@ export default function Login() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}
-          >Run your building<br />like a pro.</h1>
-          <p className="text-lg text-white/80 max-w-md">Expenses, collections, and the building book. All in one place. Built to manage buildings with privacy in mind.</p>
+          >{t('auth.heroTitle1')}<br />{t('auth.heroTitle2')}</h1>
+          <p className="text-lg text-white/80 max-w-md">{t('auth.heroTagline')}</p>
         </div>
       </div>
     </div>
@@ -163,8 +163,8 @@ export default function Login() {
 
           {mode === 'login' && (
             <>
-              <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
-              <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.login')} to continue</p>
+              <h2 className="text-2xl font-bold text-foreground">{t('auth.welcomeBack')}</h2>
+              <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.signInToContinue')}</p>
 
               {error && (
                 <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">

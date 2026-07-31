@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
 import { format } from 'date-fns';
@@ -80,7 +80,7 @@ export default function Issues() {
 
   async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList }) {
     const buildingId = createBuildingId;
-    if (!buildingId) { toast.error('Pick a building/block'); return; }
+    if (!buildingId) { toast.error(t('issues.pickBuilding')); return; }
     const photoUrls: string[] = [];
     if (data.photos?.length) {
       for (const file of Array.from(data.photos)) {
@@ -176,13 +176,13 @@ export default function Issues() {
                     <p className="text-sm text-muted-foreground mb-2">{issue.description}</p>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{issue.location}</span>
-                      {multiBlock && <><span>â€¢</span><span>{blockName[issue.building_id]}</span></>}
-                      {issue.apartment_number && <><span>â€¢</span><span>Apt {issue.apartment_number}</span></>}
-                      <span>â€¢</span>
+                      {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}
+                      {issue.apartment_number && <><span>•</span><span>Apt {issue.apartment_number}</span></>}
+                      <span>•</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
-                      <span>â€¢</span>
+                      <span>•</span>
                       <span>{format(new Date(issue.created_at), 'MMM d, yyyy')}</span>
-                      {issue.photo_urls?.length > 0 && <><span>â€¢</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
+                      {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
                     </div>
                     {issue.resolution_notes && <p className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>}
                   </div>

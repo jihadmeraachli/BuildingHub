@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Wallet, Settings2, Trash2, Info } from 'lucide-react';
@@ -171,8 +171,8 @@ export default function Dues() {
 
   const vItems = items.filter((d) => !blockFilter || d.building_id === blockFilter);
   const unitLabel = (uid: string) => {
-    const u = units.find((x) => x.id === uid); if (!u) return 'â€”';
-    return multiBlock ? `${blockName[u.building_id] ?? ''} Â· ${u.label}` : u.label;
+    const u = units.find((x) => x.id === uid); if (!u) return '—';
+    return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
   };
 
   return (
@@ -255,7 +255,7 @@ export default function Dues() {
                         <td className="px-5 py-3 text-end text-slate-600 tnum">{money(Number(d.base_amount))}</td>
                         {!isB2 && <td className={`px-5 py-3 text-end tnum ${Number(d.carry_in) < 0 ? 'text-emerald-600' : Number(d.carry_in) > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{money(Number(d.carry_in))}</td>}
                         <td className="px-5 py-3 text-end font-semibold text-slate-900 tnum">{money(Number(d.amount_due))}</td>
-                        <td className="px-5 py-3 text-slate-500">{d.due_date ? format(new Date(d.due_date), 'MMM d, yyyy') : 'â€”'}</td>
+                        <td className="px-5 py-3 text-slate-500">{d.due_date ? format(new Date(d.due_date), 'MMM d, yyyy') : '—'}</td>
                         {canManage && <td className="px-5 py-3 text-end"><button onClick={() => removeItem(d.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button></td>}
                       </tr>
                     ))}
@@ -312,7 +312,7 @@ export default function Dues() {
           </div>
           <p className="text-xs text-muted-foreground">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
           <div className="rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-3 py-2 bg-slate-50 text-xs font-medium text-slate-500">{t('dues.amountDue')} â€” {preview.length} units</div>
+            <div className="px-3 py-2 bg-slate-50 text-xs font-medium text-slate-500">{t('dues.amountDue')}: {preview.length} units</div>
             <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
               {preview.map((r) => (
                 <div key={r.unit.id} className="flex items-center justify-between px-3 py-1.5 text-sm">

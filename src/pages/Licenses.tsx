@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,17 +15,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { KeyRound, Plus, CalendarClock, Wallet, Boxes } from 'lucide-react';
 
-const STATUS_BADGE: Record<Subscription['status'], { color: 'green' | 'yellow' | 'red' | 'slate'; label: string }> = {
-  trial:     { color: 'yellow', label: 'Trial' },
-  active:    { color: 'green',  label: 'Active' },
-  past_due:  { color: 'red',    label: 'Past due' },
-  cancelled: { color: 'slate',  label: 'Cancelled' },
+const STATUS_COLOR: Record<Subscription['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
+  trial: 'yellow', active: 'green', past_due: 'red', cancelled: 'slate',
 };
 
-const INVOICE_BADGE: Record<Invoice['status'], { color: 'green' | 'yellow' | 'slate'; label: string }> = {
-  open: { color: 'yellow', label: 'Open' },
-  paid: { color: 'green',  label: 'Paid' },
-  void: { color: 'slate',  label: 'Void' },
+const INVOICE_COLOR: Record<Invoice['status'], 'green' | 'yellow' | 'slate'> = {
+  open: 'yellow', paid: 'green', void: 'slate',
 };
 
 function usd(cents: number) {
@@ -42,6 +38,7 @@ interface UnitRow extends Unit {
 }
 
 export default function Licenses() {
+  const { t } = useTranslation();
   const { user, profile, isPlatformAdmin, grants } = useAuth();
   // Billing is an admin concern — mirror the sidebar's gate (RLS would return
   // nothing anyway; this avoids a confusing empty page for residents).
@@ -67,6 +64,8 @@ export default function Licenses() {
   const availableCount = sub ? Math.max(0, sub.license_count - assignedCount) : 0;
 
   const entityKey = (s: Subscription) => s.building_id ?? s.compound_id ?? s.org_id ?? '';
+  const periodWord = (plan: 'monthly' | 'annual') =>
+    plan === 'monthly' ? t('licensesPage.periodMonth') : t('licensesPage.periodYear');
 
   // ── Load subscriptions (RLS limits to what the user may see) ──────────────
   useEffect(() => {
@@ -163,7 +162,7 @@ export default function Licenses() {
   async function assignUnit(u: UnitRow) {
     if (!sub) return;
     if (availableCount < 1) {
-      toast.error('No licenses available. Add more licenses first.');
+      toast.error(t('licensesPage.noAvailable'));
       return;
     }
     setBusyUnit(u.id);
@@ -173,7 +172,7 @@ export default function Licenses() {
     setBusyUnit('');
     if (error) { toast.error(error.message); return; }
     await logEvent('license_assigned', { unit_id: u.id, unit_label: u.label });
-    toast.success(`License assigned to ${u.label}`);
+    toast.success(t('licensesPage.assignedTo', { label: u.label }));
     loadDetail();
   }
 
@@ -186,7 +185,7 @@ export default function Licenses() {
     setBusyUnit('');
     if (error) { toast.error(error.message); return; }
     await logEvent('license_unassigned', { unit_id: u.id, unit_label: u.label });
-    toast.success(`License removed from ${u.label}`);
+    toast.success(t('licensesPage.removedFrom', { label: u.label }));
     loadDetail();
   }
 
@@ -201,14 +200,14 @@ export default function Licenses() {
     await logEvent('licenses_added', { added: addCount, new_total: newCount });
     setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, license_count: newCount } : s));
     setAddOpen(false);
-    toast.success(`${addCount} licenses added. You'll be invoiced on your next billing cycle.`);
+    toast.success(t('licensesPage.addedToast', { count: addCount }));
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const trialDays = daysLeft(sub?.trial_ends_at ?? null);
   const perUnitLabel = sub
-    ? `${usd(sub.price_per_unit_cents)}/unit/${sub.plan === 'monthly' ? 'month' : 'year'}`
+    ? t('licensesPage.perUnit', { price: usd(sub.price_per_unit_cents), period: periodWord(sub.plan) })
     : '';
   const projectedCents = sub ? sub.license_count * sub.price_per_unit_cents : 0;
 
@@ -230,11 +229,9 @@ export default function Licenses() {
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <KeyRound size={26} className="text-primary" />
           </div>
-          <h2 className="text-lg font-bold text-foreground mb-2">No subscription found</h2>
+          <h2 className="text-lg font-bold text-foreground mb-2">{t('licensesPage.noSub')}</h2>
           <p className="text-sm text-muted-foreground">
-            {profile?.is_platform_admin
-              ? 'No entity has an active subscription yet.'
-              : "Your entity doesn't have a subscription. Contact support to set one up."}
+            {profile?.is_platform_admin ? t('licensesPage.noSubPlatform') : t('licensesPage.noSubUser')}
           </p>
         </div>
       </div>
@@ -246,8 +243,8 @@ export default function Licenses() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Billing & Licenses</h1>
-          <p className="text-sm text-muted-foreground">Manage your subscription and per-unit licenses.</p>
+          <h1 className="text-xl font-bold text-foreground">{t('nav.licenses')}</h1>
+          <p className="text-sm text-muted-foreground">{t('licensesPage.subtitle')}</p>
         </div>
         {subs.length > 1 && (
           <RadixSelect value={selectedId} onValueChange={setSelectedId}>
@@ -268,9 +265,9 @@ export default function Licenses() {
       {sub && (
         <Tabs defaultValue="overview">
           <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+            <TabsTrigger value="overview">{t('licensesPage.tabOverview')}</TabsTrigger>
+            <TabsTrigger value="assignments">{t('licensesPage.tabAssignments')}</TabsTrigger>
+            <TabsTrigger value="invoices">{t('licensesPage.tabInvoices')}</TabsTrigger>
           </TabsList>
 
           {/* ── Overview ── */}
@@ -279,12 +276,14 @@ export default function Licenses() {
               <Card className="py-4">
                 <CardContent className="px-4">
                   <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">
-                    <Boxes size={13} /> Subscription
+                    <Boxes size={13} /> {t('licensesPage.cardSubscription')}
                   </div>
                   <p className="font-semibold text-foreground truncate">{entityName}</p>
                   <div className="mt-1.5 flex items-center gap-2">
-                    <Badge color={STATUS_BADGE[sub.status].color}>{STATUS_BADGE[sub.status].label}</Badge>
-                    <span className="text-xs text-muted-foreground capitalize">{sub.plan}</span>
+                    <Badge color={STATUS_COLOR[sub.status]}>{t(`licensesPage.statuses.${sub.status}`)}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {sub.plan === 'monthly' ? t('register.monthly') : t('register.annual')}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -292,12 +291,12 @@ export default function Licenses() {
               <Card className="py-4">
                 <CardContent className="px-4">
                   <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">
-                    <CalendarClock size={13} /> {sub.status === 'trial' ? 'Trial ends' : 'Current period'}
+                    <CalendarClock size={13} /> {sub.status === 'trial' ? t('licensesPage.trialEnds') : t('licensesPage.currentPeriod')}
                   </div>
                   {sub.status === 'trial' ? (
                     <>
                       <p className="font-semibold text-foreground">
-                        {trialDays !== null ? `${trialDays} day${trialDays === 1 ? '' : 's'} left` : '—'}
+                        {trialDays !== null ? t('licensesPage.daysLeft', { count: trialDays }) : '—'}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1.5">
                         {sub.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : ''}
@@ -314,23 +313,25 @@ export default function Licenses() {
               <Card className="py-4">
                 <CardContent className="px-4">
                   <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">
-                    <KeyRound size={13} /> License pool
+                    <KeyRound size={13} /> {t('licensesPage.licensePool')}
                   </div>
                   <p className="font-semibold text-foreground">
-                    {assignedCount} / {sub.license_count} assigned
+                    {t('licensesPage.assignedOf', { assigned: assignedCount, total: sub.license_count })}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1.5">{availableCount} available</p>
+                  <p className="text-xs text-muted-foreground mt-1.5">{t('licensesPage.availableCount', { count: availableCount })}</p>
                 </CardContent>
               </Card>
 
               <Card className="py-4">
                 <CardContent className="px-4">
                   <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">
-                    <Wallet size={13} /> Price
+                    <Wallet size={13} /> {t('licensesPage.price')}
                   </div>
                   <p className="font-semibold text-foreground">{perUnitLabel}</p>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    {usd(projectedCents)}/{sub.plan === 'monthly' ? 'month' : 'year'} for {sub.license_count} licenses
+                    {t('licensesPage.projected', {
+                      total: usd(projectedCents), period: periodWord(sub.plan), count: sub.license_count,
+                    })}
                   </p>
                 </CardContent>
               </Card>
@@ -338,15 +339,12 @@ export default function Licenses() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Need more licenses?</CardTitle>
-                <CardDescription>
-                  Licenses are billed per unit. Add licenses now and assign them to units —
-                  billing is handled manually by the Abniyah team; you'll receive an invoice.
-                </CardDescription>
+                <CardTitle>{t('licensesPage.needMore')}</CardTitle>
+                <CardDescription>{t('licensesPage.needMoreDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button onClick={() => setAddOpen(true)}>
-                  <Plus size={15} /> Add licenses
+                  <Plus size={15} /> {t('licensesPage.addLicenses')}
                 </Button>
               </CardContent>
             </Card>
@@ -356,9 +354,9 @@ export default function Licenses() {
           <TabsContent value="assignments">
             <Card>
               <CardHeader>
-                <CardTitle>Unit licenses</CardTitle>
+                <CardTitle>{t('licensesPage.unitLicenses')}</CardTitle>
                 <CardDescription>
-                  Residents of unlicensed units can't access Abniyah. {availableCount} license{availableCount === 1 ? '' : 's'} available.
+                  {t('licensesPage.assignmentsDesc', { count: availableCount })}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -366,17 +364,17 @@ export default function Licenses() {
                   <SkeletonTable rows={5} />
                 ) : !units.length ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">
-                    No units found in this subscription's scope. Add units in the Structure page first.
+                    {t('licensesPage.noUnits')}
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Unit</TableHead>
-                          <TableHead>Building</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-end">Action</TableHead>
+                          <TableHead>{t('licensesPage.unit')}</TableHead>
+                          <TableHead>{t('auth.building')}</TableHead>
+                          <TableHead>{t('common.status')}</TableHead>
+                          <TableHead className="text-end">{t('common.actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -386,8 +384,8 @@ export default function Licenses() {
                             <TableCell className="text-muted-foreground">{u.buildingName}</TableCell>
                             <TableCell>
                               {u.assignment
-                                ? <Badge color="green">Licensed</Badge>
-                                : <Badge color="slate">Unlicensed</Badge>}
+                                ? <Badge color="green">{t('licensesPage.licensed')}</Badge>
+                                : <Badge color="slate">{t('licensesPage.unlicensed')}</Badge>}
                             </TableCell>
                             <TableCell className="text-end">
                               {u.assignment ? (
@@ -396,7 +394,7 @@ export default function Licenses() {
                                   loading={busyUnit === u.id}
                                   onClick={() => unassignUnit(u)}
                                 >
-                                  Unassign
+                                  {t('licensesPage.unassign')}
                                 </Button>
                               ) : (
                                 <Button
@@ -405,7 +403,7 @@ export default function Licenses() {
                                   disabled={availableCount < 1}
                                   onClick={() => assignUnit(u)}
                                 >
-                                  Assign
+                                  {t('licensesPage.assign')}
                                 </Button>
                               )}
                             </TableCell>
@@ -423,21 +421,21 @@ export default function Licenses() {
           <TabsContent value="invoices">
             <Card>
               <CardHeader>
-                <CardTitle>Invoices</CardTitle>
-                <CardDescription>Billing history for this subscription. Invoices are issued and confirmed manually.</CardDescription>
+                <CardTitle>{t('licensesPage.tabInvoices')}</CardTitle>
+                <CardDescription>{t('licensesPage.invoicesDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {!invoices.length ? (
-                  <p className="text-sm text-muted-foreground py-6 text-center">No invoices yet.</p>
+                  <p className="text-sm text-muted-foreground py-6 text-center">{t('licensesPage.noInvoices')}</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Period</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Paid</TableHead>
+                          <TableHead>{t('licensesPage.period')}</TableHead>
+                          <TableHead>{t('licensesPage.amount')}</TableHead>
+                          <TableHead>{t('common.status')}</TableHead>
+                          <TableHead>{t('licensesPage.paid')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -446,7 +444,7 @@ export default function Licenses() {
                             <TableCell>{inv.period_start} → {inv.period_end}</TableCell>
                             <TableCell className="font-medium">{usd(inv.amount_cents)}</TableCell>
                             <TableCell>
-                              <Badge color={INVOICE_BADGE[inv.status].color}>{INVOICE_BADGE[inv.status].label}</Badge>
+                              <Badge color={INVOICE_COLOR[inv.status]}>{t(`licensesPage.invoiceStatuses.${inv.status}`)}</Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '—'}
@@ -464,11 +462,12 @@ export default function Licenses() {
       )}
 
       {/* Add-licenses modal */}
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add licenses" size="sm">
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title={t('licensesPage.addLicenses')} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            How many licenses do you want to add? Each covers one unit
-            {sub ? ` at ${usd(sub.price_per_unit_cents)}/unit/${sub.plan === 'monthly' ? 'month' : 'year'}` : ''}.
+            {sub
+              ? t('licensesPage.howMany', { price: usd(sub.price_per_unit_cents), period: periodWord(sub.plan) })
+              : ''}
           </p>
           <input
             type="number"
@@ -480,13 +479,16 @@ export default function Licenses() {
           />
           {sub && (
             <p className="text-xs text-muted-foreground">
-              New total: {sub.license_count + addCount} licenses — {usd((sub.license_count + addCount) * sub.price_per_unit_cents)}
-              /{sub.plan === 'monthly' ? 'month' : 'year'}
+              {t('licensesPage.newTotal', {
+                count: sub.license_count + addCount,
+                total: usd((sub.license_count + addCount) * sub.price_per_unit_cents),
+                period: periodWord(sub.plan),
+              })}
             </p>
           )}
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button loading={addSaving} onClick={addLicenses}>Add licenses</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>{t('common.cancel')}</Button>
+            <Button loading={addSaving} onClick={addLicenses}>{t('licensesPage.addLicenses')}</Button>
           </div>
         </div>
       </Modal>

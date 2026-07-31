@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
@@ -11,10 +12,12 @@ import { KeyRound, LogOut, Loader2 } from 'lucide-react';
  * Enforcement itself is in the database — this is just the friendly wall.
  */
 export default function NoLicense() {
+  const { t } = useTranslation();
   const { signOut, profile, memberships } = useAuth();
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
   const noUnit = memberships.length === 0;
+  const firstName = profile?.full_name?.split(' ')[0] ?? '';
 
   // This route is public (it must be — its whole audience is blocked users),
   // so signing out doesn't redirect by itself: navigate explicitly.
@@ -37,22 +40,12 @@ export default function NoLicense() {
         </div>
 
         <h2 className="text-xl font-bold text-foreground mb-2">
-          {noUnit ? 'Almost there' : 'No active license'}
+          {noUnit ? t('noLicense.almostThere') : t('noLicense.noLicense')}
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-          {noUnit ? (
-            <>
-              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]}, your` : 'Your'} account
-              isn't linked to a unit yet. Ask your building admin to assign you to your
-              apartment, then sign in again.
-            </>
-          ) : (
-            <>
-              {profile?.full_name ? `Hi ${profile.full_name.split(' ')[0]}, your` : 'Your'} unit
-              doesn't currently have an active Abniyah license. Please contact your building
-              admin to renew the subscription or assign a license to your unit.
-            </>
-          )}
+          {noUnit
+            ? (firstName ? t('noLicense.noUnitBodyNamed', { name: firstName }) : t('noLicense.noUnitBody'))
+            : (firstName ? t('noLicense.noLicenseBodyNamed', { name: firstName }) : t('noLicense.noLicenseBody'))}
         </p>
 
         <button
@@ -60,7 +53,7 @@ export default function NoLicense() {
           disabled={leaving}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
         >
-          {leaving ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />} Sign out
+          {leaving ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />} {t('nav.logout')}
         </button>
       </div>
     </div>

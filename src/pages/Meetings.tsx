@@ -101,7 +101,7 @@ export default function Meetings() {
     if (scheduleOnline && scheduleUrl.trim()) payload.meeting_url = scheduleUrl.trim();
     const { error } = await supabase.from('meetings').insert(payload);
     if (error) { toast.error(`Could not schedule meeting: ${error.message}`); return; }
-    toast.success('Meeting scheduled. Invite sent to residents.');
+    toast.success(t('meetings.scheduledToast'));
     setScheduleOpen(false); scheduleForm.reset(); setScheduleFiles([]); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); loadMeetings();
   }
 
@@ -126,7 +126,7 @@ export default function Meetings() {
       meeting_type: 'past',
       created_by: profile?.id,
     });
-    if (!error) { toast.success('Meeting record saved.'); setAddOpen(false); addForm.reset(); setSelectedAttendees([]); setAddFiles([]); loadMeetings(); }
+    if (!error) { toast.success(t('meetings.recordSaved')); setAddOpen(false); addForm.reset(); setSelectedAttendees([]); setAddFiles([]); loadMeetings(); }
   }
 
   async function deleteMeeting(id: string) {

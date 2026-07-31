@@ -360,7 +360,7 @@ export default function Users() {
     }).eq('id', editTarget.id);
     setEditSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success('Profile updated');
+    toast.success(t('users.profileUpdated'));
     setEditTarget(null);
     loadUsers();
   }
