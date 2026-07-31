@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2,
+  BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Globe,
 } from 'lucide-react';
+import { setLanguage } from '@/i18n';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 
@@ -11,45 +13,25 @@ import { Wordmark } from '@/components/ui/Wordmark';
  * this page is the public face of the product and the verifiable link between
  * the Abniyah brand and Tatawwor (the registered business) — evidence pages
  * like Meta's WhatsApp display-name review land here.
+ * Bilingual: the language toggle drives i18n, and the global languageChanged
+ * handler flips document direction for RTL.
  */
 
 const FEATURES = [
-  {
-    icon: BookOpenCheck,
-    title: 'The building book',
-    body: 'Every expense, charge and payment in one ledger. The compound view and each block reconcile to the cent.',
-  },
-  {
-    icon: Wallet,
-    title: 'Dues & collections',
-    body: 'Issue monthly dues or bill actual expenses. Owners see their balance; managers see who has paid.',
-  },
-  {
-    icon: MessageSquareText,
-    title: 'WhatsApp & email updates',
-    body: 'Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic and English.',
-  },
-  {
-    icon: Wrench,
-    title: 'Issues & maintenance',
-    body: 'Residents report problems with photos; managers track them from reported to resolved.',
-  },
-  {
-    icon: CalendarCheck2,
-    title: 'Meetings & decisions',
-    body: 'Schedule building meetings with calendar invites, keep minutes and decisions where everyone finds them.',
-  },
-  {
-    icon: Building2,
-    title: 'Compounds & portfolios',
-    body: 'One account for a single building, a compound of blocks, or a whole management company.',
-  },
+  { key: 'f1', icon: BookOpenCheck },
+  { key: 'f2', icon: Wallet },
+  { key: 'f3', icon: MessageSquareText },
+  { key: 'f4', icon: Wrench },
+  { key: 'f5', icon: CalendarCheck2 },
+  { key: 'f6', icon: Building2 },
 ];
 
 export default function Landing() {
+  const { t, i18n } = useTranslation();
+
   useEffect(() => {
-    document.title = 'Abniyah | Building management for Lebanon · a product of Tatawwor';
-  }, []);
+    document.title = t('landing.docTitle');
+  }, [t, i18n.language]);
 
   return (
     <div
@@ -62,12 +44,22 @@ export default function Landing() {
           <Logo size={34} variant="white" />
           <Wordmark className="text-sm" />
         </div>
-        <a
-          href="https://app.abniyah.com"
-          className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-sm font-semibold transition-colors"
-        >
-          Open the app
-        </a>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
+            className="flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white cursor-pointer"
+          >
+            <Globe size={15} />
+            {i18n.language === 'ar' ? 'EN' : 'عر'}
+          </button>
+          <a
+            href="https://app.abniyah.com"
+            className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-sm font-semibold transition-colors"
+          >
+            {t('landing.openApp')}
+          </a>
+        </div>
       </header>
 
       {/* Hero */}
@@ -81,23 +73,19 @@ export default function Landing() {
             backgroundClip: 'text',
           }}
         >
-          Run your building like a pro.
+          {t('auth.heroTitle1')} {t('auth.heroTitle2')}
         </h1>
         <p className="text-lg text-white/80 max-w-2xl mx-auto">
-          Expenses, collections, and the building book. All in one place.
-          Built to manage buildings with privacy in mind.
-        </p>
-        <p className="text-lg text-white/70 max-w-2xl mx-auto mt-2" dir="rtl" lang="ar">
-          المصاريف والتحصيل ودفتر المبنى. كلّها في مكان واحد. مصمَّم لإدارة المباني مع الحفاظ على الخصوصية.
+          {t('auth.heroTagline')}
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <a
             href="https://app.abniyah.com"
             className="rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-6 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
           >
-            Open the app
+            {t('landing.openApp')}
           </a>
-          <span className="text-sm text-white/50">Currently in private beta</span>
+          <span className="text-sm text-white/50">{t('landing.privateBeta')}</span>
         </div>
       </section>
 
@@ -105,10 +93,10 @@ export default function Landing() {
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map(f => (
-            <div key={f.title} className="rounded-2xl bg-white/5 border border-white/10 p-6">
+            <div key={f.key} className="rounded-2xl bg-white/5 border border-white/10 p-6">
               <f.icon size={22} className="text-[oklch(0.85_0.09_180)] mb-3" />
-              <h3 className="font-semibold mb-1.5">{f.title}</h3>
-              <p className="text-sm text-white/65 leading-relaxed">{f.body}</p>
+              <h3 className="font-semibold mb-1.5">{t(`landing.features.${f.key}.title`)}</h3>
+              <p className="text-sm text-white/65 leading-relaxed">{t(`landing.features.${f.key}.body`)}</p>
             </div>
           ))}
         </div>
@@ -117,9 +105,7 @@ export default function Landing() {
       {/* Who it's for */}
       <section className="max-w-5xl mx-auto px-6 pb-24 text-center">
         <p className="text-white/70 max-w-2xl mx-auto text-sm leading-relaxed">
-          Abniyah serves owners&rsquo; committees, building supervisors, and property-management
-          companies, from a single block to a portfolio of compounds. One login per person:
-          manage your buildings, or simply follow your own home.
+          {t('landing.whoFor')}
         </p>
       </section>
 
@@ -129,12 +115,12 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <Logo size={20} variant="white" />
             <span className="text-xs text-white/60">
-              © {new Date().getFullYear()} Abniyah, a product of <strong className="text-white/80">Tatawwor</strong>. All rights reserved.
+              © {new Date().getFullYear()} Abniyah, {t('landing.productOf')} <strong className="text-white/80">Tatawwor</strong>. {t('landing.rights')}
             </span>
           </div>
           <span className="flex gap-4 text-xs text-white/60">
-            <a className="hover:text-white transition-colors" href="/privacy">Privacy</a>
-            <a className="hover:text-white transition-colors" href="/terms">Terms</a>
+            <a className="hover:text-white transition-colors" href="/privacy">{t('landing.privacy')}</a>
+            <a className="hover:text-white transition-colors" href="/terms">{t('landing.terms')}</a>
           </span>
         </div>
       </footer>

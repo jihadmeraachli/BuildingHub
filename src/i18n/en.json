@@ -174,6 +174,24 @@
     "confirmPost": "Click it to activate your account. Your {{noun}} and 30-day free trial will be created the moment you do.",
     "noEmailHint": "Nothing in your inbox? Check spam, or contact the Abniyah team."
   },
+  "landing": {
+    "docTitle": "Abniyah | Building management for Lebanon · a product of Tatawwor",
+    "openApp": "Open the app",
+    "privateBeta": "Currently in private beta",
+    "features": {
+      "f1": { "title": "The building book", "body": "Every expense, charge and payment in one ledger. The compound view and each block reconcile to the cent." },
+      "f2": { "title": "Dues & collections", "body": "Issue monthly dues or bill actual expenses. Owners see their balance; managers see who has paid." },
+      "f3": { "title": "WhatsApp & email updates", "body": "Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic and English." },
+      "f4": { "title": "Issues & maintenance", "body": "Residents report problems with photos; managers track them from reported to resolved." },
+      "f5": { "title": "Meetings & decisions", "body": "Schedule building meetings with calendar invites, keep minutes and decisions where everyone finds them." },
+      "f6": { "title": "Compounds & portfolios", "body": "One account for a single building, a compound of blocks, or a whole management company." }
+    },
+    "whoFor": "Abniyah serves owners' committees, building supervisors, and property-management companies, from a single block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.",
+    "rights": "All rights reserved.",
+    "productOf": "a product of",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  },
   "noLicense": {
     "almostThere": "Almost there",
     "noLicense": "No active license",
