@@ -97,8 +97,8 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/security',      label: t('nav.security'),      icon: ShieldCheck, show: isPlatformAdmin || canAny('grant.manage') },
     { to: '/organizations', label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
     { to: '/compounds',     label: t('nav.compounds'),     icon: Boxes,     show: isPlatformAdmin || isOrgAdmin },
-    { to: '/import',        label: 'Import',               icon: FileUp,    show: canBuildings || canStructure },
-    { to: '/licenses',      label: 'Billing & Licenses',   icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
+    { to: '/import',        label: t('nav.import'),        icon: FileUp,    show: canBuildings || canStructure },
+    { to: '/licenses',      label: t('nav.licenses'),      icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
     { to: '/licensing-admin', label: 'Platform Licensing', icon: KeyRound,  show: isPlatformAdmin },
   ]).filter(l => l.show);
 

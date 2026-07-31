@@ -1,5 +1,6 @@
 // Hand-rolled, dependency-free SVG charts. Small and styleable.
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#0ea5e9', '#64748b'];
 
@@ -101,6 +102,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
 interface DonutDatum { label: string; value: number; color?: string; }
 
 export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data: DonutDatum[]; size?: number; thickness?: number; centerLabel?: string }) {
+  const { t } = useTranslation();
   const total = data.reduce((s, d) => s + d.value, 0);
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
@@ -154,7 +156,7 @@ export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data:
             </div>
           );
         })}
-        {total === 0 && <p className="text-sm text-muted-foreground">No data for this period.</p>}
+        {total === 0 && <p className="text-sm text-muted-foreground">{t('common.noDataPeriod')}</p>}
       </div>
     </div>
   );

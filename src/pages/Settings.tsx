@@ -355,7 +355,6 @@ export default function Settings() {
                   className="w-4 h-4 rounded cursor-pointer accent-primary"
                 />
                 {t('settings.notifyWhatsapp')}
-                <span className="text-xs text-foreground dark:text-white">({t('settings.comingSoon')})</span>
               </label>
             </div>
 
