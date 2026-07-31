@@ -19,10 +19,11 @@ jobs:
     steps:
       - name: Install PostgreSQL 17 client
         run: |
-          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+          echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Dump database
         env:
@@ -30,7 +31,7 @@ jobs:
         run: |
           if [ -z "$DB_URL" ]; then echo "SUPABASE_DB_URL secret is not set"; exit 1; fi
           STAMP=$(date -u +%Y-%m-%d_%H%M)
-          pg_dump "$DB_URL" \
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" \
             --no-owner --no-privileges \
             --schema=public --schema=auth --schema=storage \
             --exclude-table-data='auth.audit_log_entries' \
