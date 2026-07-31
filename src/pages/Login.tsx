@@ -107,12 +107,13 @@ export default function Login() {
     >
       <div className="absolute -top-24 -end-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
       <div className="absolute bottom-0 -start-24 w-96 h-96 rounded-full bg-[oklch(0.55_0.18_185)]/20 blur-3xl" />
-      <div className="relative z-10 flex flex-col justify-between p-12 text-white">
+      <div className="relative z-10 flex flex-col p-12 text-white">
         <div className="flex items-center gap-2.5">
           <Logo size={40} variant="white" />
           <Wordmark className="text-base" />
         </div>
-        <div>
+        {/* my-auto centers the headline in the space below the logo */}
+        <div className="my-auto">
           <h1
             className="text-4xl font-bold leading-tight mb-3"
             style={{
