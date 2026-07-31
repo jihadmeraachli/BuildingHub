@@ -146,6 +146,28 @@ Samples (8 fields):
 `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Woroud ·
 `{{5}}` Rana · `{{6}}` Jihad Meraachli · `{{7}}` A-3 · `{{8}}` El Woroud
 
+### 5. `abniyah_payment_reminder` — 8 variables (automated monthly reminder cron)
+```
+مرحباً {{1}}،
+تذكير ودّي: يوجد رصيد مستحق على وحدتك.
+المبلغ: {{2}}
+الوحدة: {{3}}
+المبنى: {{4}}
+تجد التفاصيل وخيارات الدفع في حسابك.
+
+———
+
+Hello {{5}},
+A friendly reminder: your unit has an outstanding balance.
+Amount: {{6}}
+Unit: {{7}}
+Building: {{8}}
+Details and payment options are in your account.
+```
+Samples (8 fields):
+`{{1}}` Rana · `{{2}}` $140.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
+`{{5}}` Rana · `{{6}}` $140.00 · `{{7}}` A-3 · `{{8}}` El Woroud
+
 ⚠️ Templates belong to the WhatsApp ACCOUNT (WABA), not the phone number — create
 them under the account that holds the PRODUCTION number. A number in a different
 account can't see them (error 132001 "template name does not exist").

@@ -18,6 +18,8 @@ export interface Building {
   compound_id: string | null;
   billing_mode: BillingMode;
   is_active: boolean;
+  /** Day of month (1-28) for the automated payment reminder; null = off. */
+  reminder_day: number | null;
   created_at: string;
 }
 

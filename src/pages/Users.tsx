@@ -757,7 +757,19 @@ export default function Users() {
                           <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <div className="flex flex-col gap-1">
                               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                                <input type="checkbox" checked={u.notify_email} onChange={e => updateUser(u.id, { notify_email: e.target.checked })} className="rounded accent-primary" />
+                                <input
+                                  type="checkbox"
+                                  checked={u.notify_email}
+                                  onChange={e => {
+                                    // ≥1 channel must stay on (DB constraint 0057)
+                                    if (!e.target.checked && !u.notify_whatsapp) {
+                                      toast.error(t('users.channelRequired', { name: u.full_name }));
+                                      return;
+                                    }
+                                    updateUser(u.id, { notify_email: e.target.checked });
+                                  }}
+                                  className="rounded accent-primary"
+                                />
                                 {t('users.notifyEmail')}
                               </label>
                               <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
@@ -767,6 +779,10 @@ export default function Users() {
                                   onChange={e => {
                                     if (e.target.checked && !u.phone?.trim()) {
                                       toast.error(t('users.whatsappNeedsPhone', { name: u.full_name }));
+                                      return;
+                                    }
+                                    if (!e.target.checked && !u.notify_email) {
+                                      toast.error(t('users.channelRequired', { name: u.full_name }));
                                       return;
                                     }
                                     updateUser(u.id, { notify_whatsapp: e.target.checked });

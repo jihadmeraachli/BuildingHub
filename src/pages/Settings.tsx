@@ -77,6 +77,9 @@ export default function Settings() {
     if (!fullName.trim()) { toast.error(t('settings.nameRequired')); return; }
     // Catches the "ticked WhatsApp, then cleared the phone" path too.
     if (notifyWhatsapp && !phone.trim()) { toast.error(t('settings.whatsappNeedsPhone')); return; }
+    // At least one channel stays on — otherwise reminders and notices go
+    // nowhere. Mirrors the DB constraint (0057).
+    if (!notifyEmail && !notifyWhatsapp) { toast.error(t('settings.channelRequired')); return; }
     setSavingProfile(true);
     const { error } = await supabase.from('profiles').update({
       full_name: fullName.trim(),

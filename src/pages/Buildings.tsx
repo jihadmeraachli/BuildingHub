@@ -191,6 +191,7 @@ export default function Buildings() {
     name: '', address: '', city: '', country: '',
     contact_email: '', contact_phone: '', maps_url: '',
     compound_id: '', billing_mode: 'arrears', is_active: true, org_id: '',
+    reminder_day: '',
   });
 
   const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<FormData>();
@@ -380,6 +381,7 @@ export default function Buildings() {
       maps_url: b.maps_url ?? '', compound_id: b.compound_id ?? '',
       billing_mode: b.billing_mode, is_active: b.is_active,
       org_id: orgByBuilding[b.id] ?? '',
+      reminder_day: b.reminder_day != null ? String(b.reminder_day) : '',
     });
     setEditB(b);
   }
@@ -392,6 +394,7 @@ export default function Buildings() {
       contact_phone: ebForm.contact_phone || null, maps_url: ebForm.maps_url || null,
       compound_id: ebForm.compound_id || null, billing_mode: ebForm.billing_mode,
       is_active: ebForm.is_active,
+      reminder_day: ebForm.reminder_day ? Number(ebForm.reminder_day) : null,
     }).eq('id', editB.id);
 
     if (isPlatformAdmin) {
@@ -688,6 +691,19 @@ export default function Buildings() {
               <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
             </SelectField>
           )}
+          <div>
+            <SelectField
+              label={t('buildings.reminderDay')}
+              value={ebForm.reminder_day || '__off__'}
+              onValueChange={v => setEbForm({ ...ebForm, reminder_day: v === '__off__' ? '' : v })}
+            >
+              <SelectItem value="__off__">{t('buildings.reminderOff')}</SelectItem>
+              {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(d => (
+                <SelectItem key={d} value={d}>{t('buildings.reminderOnDay', { day: d })}</SelectItem>
+              ))}
+            </SelectField>
+            <p className="text-xs text-muted-foreground mt-1">{t('buildings.reminderHint')}</p>
+          </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
