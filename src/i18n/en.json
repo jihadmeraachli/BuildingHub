@@ -164,6 +164,7 @@
     "afterTrial": "After trial ends",
     "priceBreakdown": "{{count}} units × {{rate}}/unit/month",
     "fullNameRequired": "Full name is required.",
+    "emailExists": "An account with this email already exists. Sign in instead, or use \"Forgot password\" if you can't remember it.",
     "emailRequired": "Email is required.",
     "entityNameRequired": "Please enter a name for your {{noun}}.",
     "continue": "Continue",

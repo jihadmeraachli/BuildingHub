@@ -377,6 +377,15 @@ export default function Register() {
     });
     if (signUpErr) { setError(signUpErr.message); setLoading(false); return; }
 
+    // Existing email: Supabase anti-enumeration returns a FAKE success (user
+    // with zero identities, no email sent) instead of an error — without this
+    // check the person stares at "check your inbox" forever.
+    if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      setError(t('register.emailExists'));
+      setLoading(false);
+      return;
+    }
+
     // Email confirmation ON → no session yet. Entity creation is deferred;
     // show the "check your inbox" screen.
     if (!data.session) {
