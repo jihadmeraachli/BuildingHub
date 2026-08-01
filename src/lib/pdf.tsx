@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { Document, Page, Text, View, StyleSheet, pdf as pdfRenderer } from '@react-pdf/renderer';
 import type { Charge, Payment, Expense, Unit } from '@/types';
 
@@ -222,13 +221,15 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
           </View>
         </View>
 
-        {/* Book table */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Unit Balances (All-Time)</Text>
-          {book.length === 0 ? (
-            <Text style={s.empty}>No units to display.</Text>
-          ) : (
-            <>
+        {/* Book — three sections: All units, then Owner-only, then Tenant-only.
+            Tenant section lists only units that have/had a tenant (split). */}
+        {book.length === 0 ? (
+          <View style={s.section}><Text style={s.empty}>No units to display.</Text></View>
+        ) : (
+          <>
+            {/* All units — total balances */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>All Units — Balances (All-Time)</Text>
               <View style={s.tableHead}>
                 <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Billed</Text>
@@ -236,35 +237,48 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Balance</Text>
               </View>
               {book.map((r) => (
-                <Fragment key={r.unit.id}>
-                  <View style={s.tableRow}>
-                    <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
-                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.charged)}</Text>
-                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.paid)}</Text>
-                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold', color: r.balance < 0 ? C.rose : r.balance > 0 ? C.emerald : C.slate5 }]}>{money(r.balance)}</Text>
-                  </View>
-                  {/* T9: owner/tenant split kept separate (never converged) + total above */}
-                  {r.split && (
-                    <>
-                      <View style={s.tableRow}>
-                        <Text style={[s.tableCell, { flex: 2, paddingLeft: 14, color: C.slate5 }]}>Owner</Text>
-                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
-                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
-                        <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.owner ?? 0) < 0 ? C.rose : (r.owner ?? 0) > 0 ? C.emerald : C.slate5 }]}>{money(r.owner ?? 0)}</Text>
-                      </View>
-                      <View style={s.tableRow}>
-                        <Text style={[s.tableCell, { flex: 2, paddingLeft: 14, color: C.slate5 }]}>Tenant</Text>
-                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
-                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
-                        <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.tenant ?? 0) < 0 ? C.rose : (r.tenant ?? 0) > 0 ? C.emerald : C.slate5 }]}>{money(r.tenant ?? 0)}</Text>
-                      </View>
-                    </>
-                  )}
-                </Fragment>
+                <View key={r.unit.id} style={s.tableRow}>
+                  <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.charged)}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.paid)}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold', color: r.balance < 0 ? C.rose : r.balance > 0 ? C.emerald : C.slate5 }]}>{money(r.balance)}</Text>
+                </View>
               ))}
-            </>
-          )}
-        </View>
+            </View>
+
+            {/* Owner-only balances */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Owner — Balances</Text>
+              <View style={s.tableHead}>
+                <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
+                <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Owner Balance</Text>
+              </View>
+              {book.map((r) => (
+                <View key={r.unit.id} style={s.tableRow}>
+                  <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.owner ?? r.balance) < 0 ? C.rose : (r.owner ?? r.balance) > 0 ? C.emerald : C.slate5 }]}>{money(r.owner ?? r.balance)}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Tenant-only balances — units that have/had a tenant */}
+            {book.some((r) => r.split) && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>Tenant — Balances</Text>
+                <View style={s.tableHead}>
+                  <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
+                  <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Tenant Balance</Text>
+                </View>
+                {book.filter((r) => r.split).map((r) => (
+                  <View key={r.unit.id} style={s.tableRow}>
+                    <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
+                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.tenant ?? 0) < 0 ? C.rose : (r.tenant ?? 0) > 0 ? C.emerald : C.slate5 }]}>{money(r.tenant ?? 0)}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        )}
 
         {/* Expenses table */}
         <View style={s.section}>
