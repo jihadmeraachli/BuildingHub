@@ -226,7 +226,11 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         <Separator className="my-1 bg-sidebar-border" />
 
         <button
-          onClick={signOut}
+          onClick={async () => {
+            await signOut();
+            // Demo visitors flow back to the marketing site, not the login form.
+            if (isDemo) window.location.href = 'https://abniyah.com';
+          }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground w-full transition-colors cursor-pointer"
         >
           <LogOut size={16} />
