@@ -466,7 +466,7 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, payments.filter(p => p.unit_id === r.unit.id));
+              exportUnitStatement(r.unit, r.unitCharges, payments.filter(p => p.unit_id === r.unit.id && !p.voided_at));
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -645,7 +645,7 @@ export default function Finance() {
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id), vPayments.filter(p => p.unit_id === r.unit.id))} className="text-primary hover:text-primary/70 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
@@ -691,7 +691,8 @@ export default function Finance() {
                     {canManageFinance && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
-                    {vPayments.filter((p) => inRange(p.paid_on)).map((p) => (
+                    {/* T3: voided payments are excluded from the list entirely (kept in DB for audit) */}
+                    {vPayments.filter((p) => !p.voided_at && inRange(p.paid_on)).map((p) => (
                       <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
