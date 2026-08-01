@@ -284,11 +284,12 @@ export default function Finance() {
     const within = (d: string) => !asOf || new Date(d) <= new Date(asOf);
     const charged = uCharges.reduce((s, c) => (!c.voided_at && within(c.charge_date) ? s + Number(c.amount_usd) : s), 0);
     const paid = uPayments.reduce((s, p) => (!p.voided_at && within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
-    // T9: owner/tenant split — only when the unit has/had a tenant AND the tenant
-    // still carries a non-zero balance (settled tenants don't clutter the book;
-    // the leftover is what gets offloaded to the owner on move-out, T10).
+    // T9: show the owner/tenant split when there's a LIVE tenant (always, even at
+    // $0), or the unit once had a tenant that still carries a non-zero balance
+    // (the leftover is what T10 offloads to the owner on move-out).
     const bal = computeUnitBalances(u, uCharges, uPayments, uAdj, asOf || null);
-    return { unit: u, charged, paid, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split: everTenantIds.has(u.id) && bal.tenant !== 0 };
+    const split = activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0);
+    return { unit: u, charged, paid, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split };
   }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds]);
 
   // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
@@ -462,7 +463,7 @@ export default function Finance() {
 
   // ─── PDF export ───────────────────────────────────────────────────────────
 
-  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[]) {
+  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], showParty = false) {
     const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
     const el = (
       <UnitStatementDoc
@@ -472,6 +473,7 @@ export default function Finance() {
         generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
         charges={unitCharges}
         payments={unitPayments}
+        showParty={showParty}
       />
     );
     await downloadPdf(el, `statement-unit-${unit.label.replace(/\s+/g, '-')}.pdf`);
@@ -503,7 +505,7 @@ export default function Finance() {
       const bal = computeUnitBalances(u, uCharges, uPayments, uAdj);
       // A tenant of the unit only ever sees the tenant ledger. An owner can toggle.
       const viewerIsTenant = myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id);
-      const canToggle = !viewerIsTenant && everTenantIds.has(u.id) && bal.tenant !== 0;
+      const canToggle = !viewerIsTenant && (activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0));
       const effective: 'owner' | 'tenant' | 'combined' = viewerIsTenant ? 'tenant' : (canToggle ? residentView : 'owner');
       const cShown = effective === 'combined' ? uCharges : uCharges.filter((c) => chargeParty(c) === effective);
       const pShown = effective === 'combined' ? uPayments : uPayments.filter((p) => (p.paid_by === 'tenant' ? 'tenant' : 'owner') === effective);
@@ -523,7 +525,7 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments);
+              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && r.effective === 'combined');
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -720,7 +722,7 @@ export default function Finance() {
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${balCls(r.balance)}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at))} className="text-primary hover:text-primary/70 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), everTenantIds.has(r.unit.id))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>

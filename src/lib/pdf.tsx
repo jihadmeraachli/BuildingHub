@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Document, Page, Text, View, StyleSheet, pdf as pdfRenderer } from '@react-pdf/renderer';
 import type { Charge, Payment, Expense, Unit } from '@/types';
 
@@ -59,11 +60,14 @@ export interface UnitStatementProps {
   buildingName: string;
   period: string;
   generatedOn: string;
-  charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date'>[];
-  payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on'>[];
+  charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date' | 'billed_to'>[];
+  payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on' | 'paid_by'>[];
+  /** show the Owner/Tenant "For" column — true when the unit has/had a tenant */
+  showParty?: boolean;
 }
 
-export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn, charges, payments }: UnitStatementProps) {
+export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn, charges, payments, showParty }: UnitStatementProps) {
+  const partyLabel = (p?: string) => (p === 'tenant' ? 'Tenant' : 'Owner');
   const totalCharged = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
   const balance = totalPaid - totalCharged;
@@ -114,15 +118,17 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
             <>
               <View style={s.tableHead}>
                 <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
-                <Text style={[s.tableHeadCell, { flex: 3 }]}>Description</Text>
-                <Text style={[s.tableHeadCell, { flex: 1.5 }]}>Category</Text>
+                <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Description</Text>
+                <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Category</Text>
+                {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>For</Text>}
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
               </View>
               {charges.map((c) => (
                 <View key={c.id} style={s.tableRow}>
                   <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(c.charge_date)}</Text>
-                  <Text style={[s.tableCell, { flex: 3 }]}>{c.description}</Text>
-                  <Text style={[s.tableCell, { flex: 1.5, color: C.slate5 }]}>{c.category.replace('_', ' ')}</Text>
+                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{c.description}</Text>
+                  <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{c.category.replace('_', ' ')}</Text>
+                  {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(c.billed_to)}</Text>}
                   <Text style={[s.tableCell, { flex: 1, textAlign: 'right' }]}>{money(Number(c.amount_usd))}</Text>
                 </View>
               ))}
@@ -139,15 +145,17 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
             <>
               <View style={s.tableHead}>
                 <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
-                <Text style={[s.tableHeadCell, { flex: 2 }]}>Note</Text>
-                <Text style={[s.tableHeadCell, { flex: 1.5 }]}>Method</Text>
+                <Text style={[s.tableHeadCell, { flex: showParty ? 1.6 : 2 }]}>Note</Text>
+                <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Method</Text>
+                {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>From</Text>}
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
               </View>
               {payments.map((p) => (
                 <View key={p.id} style={s.tableRow}>
                   <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(p.paid_on)}</Text>
-                  <Text style={[s.tableCell, { flex: 2 }]}>{p.note ?? '—'}</Text>
-                  <Text style={[s.tableCell, { flex: 1.5, color: C.slate5 }]}>{p.method.replace('_', ' ')}</Text>
+                  <Text style={[s.tableCell, { flex: showParty ? 1.6 : 2 }]}>{p.note ?? '—'}</Text>
+                  <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{p.method.replace('_', ' ')}</Text>
+                  {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(p.paid_by)}</Text>}
                   <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.emerald }]}>{money(Number(p.amount_usd))}</Text>
                 </View>
               ))}
@@ -172,7 +180,7 @@ export interface BuildingReportProps {
   period: string;
   generatedOn: string;
   kpi: { collected: number; billed: number; outstanding: number };
-  book: { unit: Pick<Unit, 'id' | 'label'>; charged: number; paid: number; balance: number }[];
+  book: { unit: Pick<Unit, 'id' | 'label'>; charged: number; paid: number; balance: number; owner?: number; tenant?: number; split?: boolean }[];
   expenses: Pick<Expense, 'id' | 'description' | 'category' | 'amount_usd' | 'expense_date'>[];
 }
 
@@ -228,12 +236,31 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Balance</Text>
               </View>
               {book.map((r) => (
-                <View key={r.unit.id} style={s.tableRow}>
-                  <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
-                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.charged)}</Text>
-                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.paid)}</Text>
-                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold', color: r.balance < 0 ? C.rose : r.balance > 0 ? C.emerald : C.slate5 }]}>{money(r.balance)}</Text>
-                </View>
+                <Fragment key={r.unit.id}>
+                  <View style={s.tableRow}>
+                    <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
+                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.charged)}</Text>
+                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(r.paid)}</Text>
+                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold', color: r.balance < 0 ? C.rose : r.balance > 0 ? C.emerald : C.slate5 }]}>{money(r.balance)}</Text>
+                  </View>
+                  {/* T9: owner/tenant split kept separate (never converged) + total above */}
+                  {r.split && (
+                    <>
+                      <View style={s.tableRow}>
+                        <Text style={[s.tableCell, { flex: 2, paddingLeft: 14, color: C.slate5 }]}>Owner</Text>
+                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
+                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
+                        <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.owner ?? 0) < 0 ? C.rose : (r.owner ?? 0) > 0 ? C.emerald : C.slate5 }]}>{money(r.owner ?? 0)}</Text>
+                      </View>
+                      <View style={s.tableRow}>
+                        <Text style={[s.tableCell, { flex: 2, paddingLeft: 14, color: C.slate5 }]}>Tenant</Text>
+                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
+                        <Text style={[s.tableCell, { flex: 1 }]}> </Text>
+                        <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.tenant ?? 0) < 0 ? C.rose : (r.tenant ?? 0) > 0 ? C.emerald : C.slate5 }]}>{money(r.tenant ?? 0)}</Text>
+                      </View>
+                    </>
+                  )}
+                </Fragment>
               ))}
             </>
           )}

@@ -33,7 +33,7 @@ interface Agg {
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, canAny, grants, myUnitIds, residentLens, residentUnitId } = useAuth();
+  const { profile, isPlatformAdmin, canAny, grants, myUnitIds, myOwnerUnitIds, myTenantUnitIds, residentLens, residentUnitId } = useAuth();
 
   // New admins land on the setup checklist instead of an empty dashboard —
   // but only ONCE per session, so a deliberate Dashboard click still works.
@@ -52,6 +52,9 @@ export default function Dashboard() {
   const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0, carry: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
   const [resident, setResident] = useState({ charged: 0, paid: 0, opening: 0 });
+  // T6: owner/tenant split for the resident hero
+  const [rSplit, setRSplit] = useState({ ownerBal: 0, tenantBal: 0, ownerCharged: 0, ownerPaid: 0, tenantCharged: 0, tenantPaid: 0, canSplit: false, viewerIsTenant: false });
+  const [residentView, setResidentView] = useState<'combined' | 'owner' | 'tenant'>('combined');
   const [myUnits, setMyUnits] = useState<{ id: string; label: string; buildingName: string; balance: number }[]>([]);
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
@@ -157,19 +160,38 @@ export default function Dashboard() {
     // Unit picker: '' = all my units, otherwise drill into one.
     const pickedIds = residentUnitId ? [residentUnitId] : myUnitIds;
     const inIds = pickedIds.length ? pickedIds : ['00000000-0000-0000-0000-000000000000'];
-    const [c, p, u, a] = await Promise.all([
-      supabase.from('charges').select('amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
-      supabase.from('payments').select('amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
+    const [c, p, u, a, mem] = await Promise.all([
+      supabase.from('charges').select('amount_usd, unit_id, billed_to').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('payments').select('amount_usd, unit_id, paid_by').in('unit_id', inIds).is('voided_at', null),
       supabase.from('units').select('id, label, opening_balance, building_id, buildings(name)').in('id', inIds),
-      supabase.from('adjustments').select('kind, amount_usd, unit_id').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('adjustments').select('kind, amount_usd, unit_id, party').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('memberships').select('unit_id, tenure, ended_at').in('unit_id', inIds),
     ]);
-    const adj = ((a.data ?? []) as { kind: AdjustmentKind; amount_usd: number }[])
-      .reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
+    const cRows = (c.data ?? []) as { amount_usd: number; unit_id: string; billed_to?: string }[];
+    const pRows = (p.data ?? []) as { amount_usd: number; unit_id: string; paid_by?: string }[];
+    const aRows = (a.data ?? []) as { kind: AdjustmentKind; amount_usd: number; unit_id: string; party?: string }[];
+    const adj = aRows.reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
     setResident({
-      charged: ((c.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
-      paid: ((p.data ?? []) as { amount_usd: number }[]).reduce((s, r) => s + Number(r.amount_usd), 0),
+      charged: cRows.reduce((s, r) => s + Number(r.amount_usd), 0),
+      paid: pRows.reduce((s, r) => s + Number(r.amount_usd), 0),
       opening: ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0) + adj,
     });
+
+    // T6: owner/tenant split (opening + owner adj → owner; each row by its party)
+    const isTenantRow = (party?: string) => party === 'tenant';
+    const ownerCharged = cRows.filter((r) => r.billed_to !== 'tenant').reduce((s, r) => s + Number(r.amount_usd), 0);
+    const tenantCharged = cRows.filter((r) => r.billed_to === 'tenant').reduce((s, r) => s + Number(r.amount_usd), 0);
+    const ownerPaid = pRows.filter((r) => !isTenantRow(r.paid_by)).reduce((s, r) => s + Number(r.amount_usd), 0);
+    const tenantPaid = pRows.filter((r) => isTenantRow(r.paid_by)).reduce((s, r) => s + Number(r.amount_usd), 0);
+    const ownerAdj = aRows.filter((r) => !isTenantRow(r.party)).reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
+    const tenantAdj = aRows.filter((r) => isTenantRow(r.party)).reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
+    const opening = ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0);
+    const ownerBal = Math.round((opening + ownerPaid - ownerCharged + ownerAdj) * 100) / 100;
+    const tenantBal = Math.round((tenantPaid - tenantCharged + tenantAdj) * 100) / 100;
+    const memRows = (mem.data ?? []) as { unit_id: string; tenure: string; ended_at: string | null }[];
+    const activeTenant = memRows.some((m) => m.tenure === 'tenant' && !m.ended_at && inIds.includes(m.unit_id));
+    const viewerIsTenant = inIds.some((id) => myTenantUnitIds.includes(id)) && !inIds.some((id) => myOwnerUnitIds.includes(id));
+    setRSplit({ ownerBal, tenantBal, ownerCharged, ownerPaid, tenantCharged, tenantPaid, canSplit: !viewerIsTenant && (activeTenant || tenantBal !== 0), viewerIsTenant });
 
     // Portfolio: per-unit balances, so an investor with units in several
     // buildings sees each one — not just an opaque combined total.
@@ -211,18 +233,33 @@ export default function Dashboard() {
 
   // ── Resident view ──────────────────────────────────────────────────────────
   if (!isManager) {
-    const balance = Math.round((resident.opening + resident.paid - resident.charged) * 100) / 100;
+    const combinedBalance = Math.round((resident.opening + resident.paid - resident.charged) * 100) / 100;
+    // T6: tenant sees tenant only; owner of a leased unit can toggle
+    const effective = rSplit.viewerIsTenant ? 'tenant' : residentView;
+    const balance = effective === 'owner' ? rSplit.ownerBal : effective === 'tenant' ? rSplit.tenantBal : combinedBalance;
+    const shownCharged = effective === 'owner' ? rSplit.ownerCharged : effective === 'tenant' ? rSplit.tenantCharged : resident.charged;
+    const shownPaid = effective === 'owner' ? rSplit.ownerPaid : effective === 'tenant' ? rSplit.tenantPaid : resident.paid;
     return (
       <div className="space-y-6 max-w-2xl">
         <PendingInvites />
         <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
+        {rSplit.canSplit && (
+          <div className="inline-flex rounded-lg border border-border p-0.5 text-sm">
+            {(['combined', 'owner', 'tenant'] as const).map((m) => (
+              <button key={m} onClick={() => setResidentView(m)}
+                className={cn('px-3 py-1.5 rounded-md transition', residentView === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                {t(`finance.view.${m}`)}
+              </button>
+            ))}
+          </div>
+        )}
         <HeroCard
           label={balance < 0 ? t('dashboard.youOwe') : t('dashboard.creditBalance')}
           amount={money(Math.abs(balance))}
           negative={balance < 0}
           stats={[
-            { label: t('dashboard.totalCharged'), value: money(resident.charged) },
-            { label: t('dashboard.totalPaid'),    value: money(resident.paid) },
+            { label: t('dashboard.totalCharged'), value: money(shownCharged) },
+            { label: t('dashboard.totalPaid'),    value: money(shownPaid) },
           ]}
         />
         {/* Portfolio: one card per unit when the account spans several (investor case) */}
