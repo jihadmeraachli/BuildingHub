@@ -727,16 +727,17 @@ export default function Finance() {
                             </button>
                           </td>
                         </tr>
-                        {/* T9: owner/tenant sub-rows for units that have or had a tenant */}
+                        {/* T9: owner/tenant sub-rows — shaded band + indent bar so they
+                            read as belonging to the unit above them */}
                         {r.split && (<>
-                          <tr className="text-xs">
-                            <td className="ps-10 pe-5 py-1.5 text-muted-foreground">{t('finance.owner')}</td>
+                          <tr className="text-xs bg-primary/[0.04]">
+                            <td className="ps-5 pe-5 py-1.5 text-muted-foreground"><span className="inline-block border-s-2 border-primary/30 ps-4">{t('finance.owner')}</span></td>
                             <td /><td /><td />
                             <td className={`px-5 py-1.5 text-end tnum ${balCls(r.owner)}`}>{money(r.owner)}</td>
                             <td />
                           </tr>
-                          <tr className="text-xs border-b border-slate-100/60">
-                            <td className="ps-10 pe-5 py-1.5 text-muted-foreground">{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></td>
+                          <tr className="text-xs bg-primary/[0.04] border-b-2 border-border/70">
+                            <td className="ps-5 pe-5 py-1.5 text-muted-foreground"><span className="inline-block border-s-2 border-primary/30 ps-4">{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></span></td>
                             <td /><td /><td />
                             <td className={`px-5 py-1.5 text-end tnum ${balCls(r.tenant)}`}>{money(r.tenant)}</td>
                             <td />
