@@ -18,6 +18,7 @@ import {
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
+import { isDemoEmail } from '@/lib/demo';
 
 interface SidebarProps {
   open: boolean;
@@ -44,8 +45,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
 function SidebarContent({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const { profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId } = useAuth();
+  const { user, profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId } = useAuth();
   const location = useLocation();
+  const isDemo = isDemoEmail(user?.email);
 
   // Building names for the unit picker (investor case: units across buildings).
   const [unitBuildingNames, setUnitBuildingNames] = useState<Record<string, string>>({});
@@ -195,14 +197,14 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         )}
       </nav>
 
-      {/* User footer */}
+      {/* User footer — the demo account gets no Settings (read-only persona) */}
       <div className="shrink-0 px-2 py-3 border-t border-sidebar-border space-y-0.5">
         <NavLink
-          to="/settings"
+          to={isDemo ? '/dashboard' : '/settings'}
           onClick={onClose}
           className={cn(
             'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full',
-            isActive('/settings')
+            !isDemo && isActive('/settings')
               ? 'bg-sidebar-primary/10'
               : 'hover:bg-sidebar-accent'
           )}

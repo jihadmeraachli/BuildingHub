@@ -16,10 +16,16 @@ import { Privacy, Terms } from '@/pages/Legal';
 // Plain pathname switch, no router needed for three static pages.
 const ROOT_HOSTS = new Set(['abniyah.com', 'www.abniyah.com']);
 
+// The public demo entry must clear the beta gate before BetaGate first renders.
+if (!ROOT_HOSTS.has(window.location.hostname) && window.location.pathname === '/demo') {
+  localStorage.setItem('abniyah_beta_ok', '1');
+}
+
 const Login           = lazy(() => import('@/pages/Login'));
 const Register        = lazy(() => import('@/pages/Register'));
 const NoLicense       = lazy(() => import('@/pages/NoLicense'));
 const SetPassword     = lazy(() => import('@/pages/SetPassword'));
+const DemoEntry       = lazy(() => import('@/pages/DemoEntry'));
 const Dashboard  = lazy(() => import('@/pages/Dashboard'));
 const GettingStarted = lazy(() => import('@/pages/GettingStarted'));
 const Meetings   = lazy(() => import('@/pages/Meetings'));
@@ -63,6 +69,7 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/no-license" element={<NoLicense />} />
             <Route path="/set-password" element={<SetPassword />} />
+            <Route path="/demo" element={<DemoEntry />} />
             <Route
               element={
                 <ProtectedRoute>

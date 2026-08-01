@@ -106,7 +106,13 @@ export default function Landing() {
           >
             {t('landing.startTrial')}
           </a>
-          <span className="text-sm text-white/50">{t('landing.trialNote')}</span>
+          <a
+            href="https://app.abniyah.com/demo"
+            className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 px-6 py-3 text-sm font-semibold transition-colors"
+          >
+            {t('landing.liveDemo')}
+          </a>
+          <span className="text-sm text-white/50 basis-full text-center">{t('landing.trialNote')}</span>
         </div>
         <div className="mt-12 max-w-4xl mx-auto">
           <Shot src="/marketing/shot-dashboard-en.jpg" alt="Abniyah dashboard" />
@@ -224,12 +230,20 @@ export default function Landing() {
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] px-8 py-12">
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">{t('landing.ctaTitle')}</h2>
           <p className="text-white/70 mb-6">{t('landing.ctaBody')}</p>
-          <a
-            href="https://app.abniyah.com/register"
-            className="inline-block rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-7 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
-          >
-            {t('landing.startTrial')}
-          </a>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <a
+              href="https://app.abniyah.com/register"
+              className="inline-block rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-7 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
+            >
+              {t('landing.startTrial')}
+            </a>
+            <a
+              href="https://app.abniyah.com/demo"
+              className="inline-block rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 px-7 py-3 text-sm font-semibold transition-colors"
+            >
+              {t('landing.liveDemo')}
+            </a>
+          </div>
         </div>
       </section>
 

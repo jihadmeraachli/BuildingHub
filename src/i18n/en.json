@@ -202,6 +202,12 @@
     "lockedTitle": "Abniyah is locked",
     "unlock": "Unlock"
   },
+  "demo": {
+    "banner": "You're exploring a live demo building with sample data.",
+    "cta": "Start your free trial",
+    "loading": "Opening the demo building…",
+    "unavailable": "The demo is taking a break. Please try again in a minute, or start your free trial instead."
+  },
   "landing": {
     "docTitle": "Abniyah | Building management for Lebanon · a product of Tatawwor",
     "openApp": "Open the app",
@@ -211,6 +217,7 @@
     "navAbout": "About",
     "navFaq": "FAQ",
     "startTrial": "Start your free trial",
+    "liveDemo": "See the live demo",
     "trialNote": "30 days free · no card required",
     "show": {
       "book": {

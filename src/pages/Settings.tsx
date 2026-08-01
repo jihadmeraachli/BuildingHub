@@ -4,8 +4,10 @@ import { toast } from 'sonner';
 import { Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
 import type { Factor } from '@supabase/supabase-js';
 import Cropper from 'react-easy-crop';
+import { Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { isDemoEmail } from '@/lib/demo';
 import { uploadFile } from '@/lib/upload';
 import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -19,7 +21,15 @@ import { Modal } from '@/components/ui/Modal';
  * nothing on this page touches management access (grants) or residency
  * (memberships); those are admin concerns and live in People.
  */
+/** The public demo account has no self-service page (keeps its email private
+ *  and its password out of reach). Wrapper keeps hook order intact. */
 export default function Settings() {
+  const { user } = useAuth();
+  if (isDemoEmail(user?.email)) return <Navigate to="/dashboard" replace />;
+  return <SettingsInner />;
+}
+
+function SettingsInner() {
   const { t } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
 
