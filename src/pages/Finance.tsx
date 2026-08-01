@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ElementType } from 'react';
+import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban } from 'lucide-react';
@@ -10,8 +10,8 @@ import { uploadFile } from '@/lib/upload';
 import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
-import { computeBalance, adjustmentEffect } from '@/lib/balance';
-import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure } from '@/types';
+import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, Membership } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -35,6 +35,15 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(u
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Split `amount` across `units` by method; rounding fixed so parts sum to total. */
+// Subtle marker on tenant-attributed rows (payments, adjustments, expenses).
+function TenantTag({ label }: { label: string }) {
+  return (
+    <span className="ms-1.5 align-middle text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20">
+      {label}
+    </span>
+  );
+}
+
 function allocate(amount: number, units: Unit[], method: AllocationMethod, custom: Record<string, string>): { unit_id: string; amount: number }[] {
   if (units.length === 0) return [];
   if (method === 'custom') return units.map((u) => ({ unit_id: u.id, amount: round2(Number(custom[u.id]) || 0) }));
@@ -65,8 +74,8 @@ const newExpForm = (): ExpForm => ({
   category: 'common_expenses', description: '', amount: '', expense_date: new Date().toISOString().slice(0, 10),
   scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner',
 });
-type PayForm = { unit_id: string; amount: string; method: PaymentMethod; paid_on: string; note: string };
-const newPayForm = (): PayForm => ({ unit_id: '', amount: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '' });
+type PayForm = { unit_id: string; amount: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure };
+const newPayForm = (): PayForm => ({ unit_id: '', amount: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner' });
 
 export default function Finance() {
   const { t } = useTranslation();
@@ -114,7 +123,7 @@ export default function Finance() {
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
-  const [tenantUnitIds, setTenantUnitIds] = useState<Set<string>>(new Set());
+  const [tenancy, setTenancy] = useState<Membership[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
   const [whishByBuilding, setWhishByBuilding] = useState<Record<string, string>>({});
@@ -182,11 +191,12 @@ export default function Finance() {
     if (ids.length) {
       const [{ data: ug }, { data: mem }] = await Promise.all([
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
-        supabase.from('memberships').select('unit_id, tenure').in('unit_id', ids).is('ended_at', null),
+        // include ENDED memberships too, so a unit that once had a tenant still shows the split
+        supabase.from('memberships').select('unit_id, tenure, ended_at').in('unit_id', ids),
       ]);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
-      setTenantUnitIds(new Set(((mem as { unit_id: string; tenure: string }[]) ?? []).filter((m) => m.tenure === 'tenant').map((m) => m.unit_id)));
-    } else { setUnitGroups([]); setTenantUnitIds(new Set()); }
+      setTenancy((mem as Membership[]) ?? []);
+    } else { setUnitGroups([]); setTenancy([]); }
     setLoading(false);
   }
 
@@ -202,14 +212,33 @@ export default function Finance() {
     setCharges(chargeRows);
     setPayments(paymentRows);
     setAdjustments(adjRows);
-    const { data: mem } = await supabase.from('memberships').select('unit_id, tenure').in('unit_id', myUnitIds).is('ended_at', null);
-    setTenantUnitIds(new Set(((mem as { unit_id: string; tenure: string }[]) ?? []).filter((m) => m.tenure === 'tenant').map((m) => m.unit_id)));
+    const { data: mem } = await supabase.from('memberships').select('unit_id, tenure, ended_at').in('unit_id', myUnitIds);
+    setTenancy((mem as Membership[]) ?? []);
     setLoading(false);
   }
 
   const unitById = useMemo(() => Object.fromEntries(units.map((u) => [u.id, u])), [units]);
-  // which units have an active tenant → drives owner/tenant routing & subrows (0064)
-  const hasTenant = (uid: string) => tenantUnitIds.has(uid);
+
+  // Two tenant signals (see owner-tenant-ledger memory):
+  //  · active  → drives NEW-money form prompts (can only route to a current tenant)
+  //  · ever    → drives the split display / sub-rows / reports (history stays split)
+  const activeTenantIds = useMemo(
+    () => new Set(tenancy.filter((m) => m.tenure === 'tenant' && !m.ended_at).map((m) => m.unit_id)),
+    [tenancy]);
+  const everTenantIds = useMemo(() => {
+    const s = new Set(tenancy.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id));
+    // also any unit that carries tenant-attributed money, even if the membership is gone
+    charges.forEach((c) => { if (c.billed_to === 'tenant') s.add(c.unit_id); });
+    payments.forEach((p) => { if (p.paid_by === 'tenant') s.add(p.unit_id); });
+    adjustments.forEach((a) => { if (a.party === 'tenant') s.add(a.unit_id); });
+    return s;
+  }, [tenancy, charges, payments, adjustments]);
+  const hasTenant = (uid: string) => activeTenantIds.has(uid);        // forms (active tenant)
+  // display/split uses everTenantIds.has(unitId) directly (has or had a tenant)
+  // expenses that produced at least one tenant-billed charge → subtle tag
+  const tenantExpenseIds = useMemo(
+    () => new Set(charges.filter((c) => c.billed_to === 'tenant' && c.expense_id).map((c) => c.expense_id)),
+    [charges]);
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
@@ -253,8 +282,12 @@ export default function Finance() {
     const within = (d: string) => !asOf || new Date(d) <= new Date(asOf);
     const charged = uCharges.reduce((s, c) => (!c.voided_at && within(c.charge_date) ? s + Number(c.amount_usd) : s), 0);
     const paid = uPayments.reduce((s, p) => (!p.voided_at && within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
-    return { unit: u, charged, paid, balance: computeBalance(u, uCharges, uPayments, asOf || null, uAdj) };
-  }), [vUnits, vCharges, vPayments, adjustments, asOf]);
+    // T9: owner/tenant split — only when the unit has/had a tenant AND the tenant
+    // still carries a non-zero balance (settled tenants don't clutter the book;
+    // the leftover is what gets offloaded to the owner on move-out, T10).
+    const bal = computeUnitBalances(u, uCharges, uPayments, uAdj, asOf || null);
+    return { unit: u, charged, paid, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split: everTenantIds.has(u.id) && bal.tenant !== 0 };
+  }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds]);
 
   // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
   // selected period), like Collected/Billed next to it — NOT the Book tab's
@@ -324,7 +357,7 @@ export default function Finance() {
   }
   function openPaymentEdit(p: Payment) {
     setEditingPaymentId(p.id); setPayFile(null);
-    setPayForm({ unit_id: p.unit_id, amount: String(p.amount_usd), method: p.method, paid_on: p.paid_on, note: p.note ?? '' });
+    setPayForm({ unit_id: p.unit_id, amount: String(p.amount_usd), method: p.method, paid_on: p.paid_on, note: p.note ?? '', paid_by: p.paid_by ?? 'owner' });
     setPayOpen(true);
   }
 
@@ -410,7 +443,9 @@ export default function Finance() {
     if (!payForm.unit_id || !amount || amount <= 0) return;
     setSaving(true);
     const receipt_url = payFile ? await uploadFile('attachments', `${payForm.unit_id}/payments`, payFile) : null;
-    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null };
+    // T8: leased units record who paid; owner-only units are always the owner
+    const paid_by = hasTenant(payForm.unit_id) ? payForm.paid_by : 'owner';
+    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by };
     if (receipt_url) base.receipt_url = receipt_url;
     const { error } = editingPaymentId
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
@@ -652,19 +687,37 @@ export default function Finance() {
                   <tbody className="divide-y divide-slate-50">
                     {book.map((r) => {
                       const pct = r.charged > 0 ? (r.paid / r.charged) * 100 : (r.paid > 0 ? 100 : 0);
+                      const balCls = (n: number) => n < 0 ? 'text-red-400 dark:text-red-300' : n > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white';
                       return (
-                        <tr key={r.unit.id} className="hover:bg-slate-50/60">
+                        <Fragment key={r.unit.id}>
+                        <tr className="hover:bg-slate-50/60">
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(r.unit.id)}</td>
                           <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-foreground dark:text-white tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.charged)}</td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
-                          <td className={`px-5 py-3 text-end font-semibold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground dark:text-white'}`}>{money(r.balance)}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${balCls(r.balance)}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
                             <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
                         </tr>
+                        {/* T9: owner/tenant sub-rows for units that have or had a tenant */}
+                        {r.split && (<>
+                          <tr className="text-xs">
+                            <td className="ps-10 pe-5 py-1.5 text-muted-foreground">{t('finance.owner')}</td>
+                            <td /><td /><td />
+                            <td className={`px-5 py-1.5 text-end tnum ${balCls(r.owner)}`}>{money(r.owner)}</td>
+                            <td />
+                          </tr>
+                          <tr className="text-xs border-b border-slate-100/60">
+                            <td className="ps-10 pe-5 py-1.5 text-muted-foreground">{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></td>
+                            <td /><td /><td />
+                            <td className={`px-5 py-1.5 text-end tnum ${balCls(r.tenant)}`}>{money(r.tenant)}</td>
+                            <td />
+                          </tr>
+                        </>)}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -685,7 +738,7 @@ export default function Finance() {
                     {pExpenses.map((e) => (
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
+                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}{tenantExpenseIds.has(e.id) && <TenantTag label={t('finance.tenantTag')} />}</span></td>
                         <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
                         <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(e.amount_usd))}</td>
@@ -713,6 +766,7 @@ export default function Finance() {
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
+                          {p.paid_by === 'tenant' && <TenantTag label={t('finance.tenantTag')} />}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
@@ -750,6 +804,7 @@ export default function Finance() {
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
+                            {a.party === 'tenant' && <TenantTag label={t('finance.tenantTag')} />}
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
@@ -894,6 +949,13 @@ export default function Finance() {
             </SelectField>
           </div>
           <Input label={t('finance.date')} type="date" value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} />
+          {/* T8: only leased units ask who paid */}
+          {hasTenant(payForm.unit_id) && (
+            <SelectField label={t('finance.paidBy')} value={payForm.paid_by} onValueChange={(v) => setPayForm({ ...payForm, paid_by: v as Tenure })}>
+              <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
+              <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
+            </SelectField>
+          )}
           <Input label={t('finance.noteOptional')} value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.receiptOptional')}</label>

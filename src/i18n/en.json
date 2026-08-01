@@ -930,7 +930,11 @@
     "voidReason": "Reason (optional)",
     "voidReasonPlaceholder": "e.g. entered by mistake, wrong unit…",
     "leasedChargeTo": "Leased units — charge the",
-    "leasedChargeHint": "Units with a tenant will be charged this party. Owner-only units always go to the owner."
+    "leasedChargeHint": "Units with a tenant will be charged this party. Owner-only units always go to the owner.",
+    "owner": "Owner",
+    "tenant": "Tenant",
+    "tenantTag": "Tenant",
+    "paidBy": "Paid by"
   },
   "inspections": {
     "title": "Inspections",
