@@ -11,7 +11,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, adjustmentEffect } from '@/lib/balance';
-import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, BilledTo } from '@/types';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -55,13 +55,15 @@ type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
   category: ExpenseCategory; description: string; amount: string; expense_date: string;
   scope: ExpScope; method: AllocationMethod; block_id: string; group_id: string; unit_id: string; selectedUnits: string[];
-  billed_to: BilledTo;
+  // T5: for units that HAVE a tenant, charge this party. Owner-only units always
+  // go to the owner regardless. (No more 'both' / 'all members'.)
+  leasedTo: Tenure;
 };
-const defaultBilledTo = (cat: ExpenseCategory): BilledTo =>
-  cat === 'water' || cat === 'electricity' ? 'tenant' : 'both';
+const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
+  cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
   category: 'common_expenses', description: '', amount: '', expense_date: new Date().toISOString().slice(0, 10),
-  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], billed_to: 'both',
+  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner',
 });
 type PayForm = { unit_id: string; amount: string; method: PaymentMethod; paid_on: string; note: string };
 const newPayForm = (): PayForm => ({ unit_id: '', amount: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '' });
@@ -112,6 +114,7 @@ export default function Finance() {
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
+  const [tenantUnitIds, setTenantUnitIds] = useState<Set<string>>(new Set());
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
   const [whishByBuilding, setWhishByBuilding] = useState<Record<string, string>>({});
@@ -177,9 +180,13 @@ export default function Finance() {
     setAdjustments(adjRows);
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
-      const { data: ug } = await supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids);
+      const [{ data: ug }, { data: mem }] = await Promise.all([
+        supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
+        supabase.from('memberships').select('unit_id, tenure').in('unit_id', ids).is('ended_at', null),
+      ]);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
-    } else setUnitGroups([]);
+      setTenantUnitIds(new Set(((mem as { unit_id: string; tenure: string }[]) ?? []).filter((m) => m.tenure === 'tenant').map((m) => m.unit_id)));
+    } else { setUnitGroups([]); setTenantUnitIds(new Set()); }
     setLoading(false);
   }
 
@@ -195,10 +202,14 @@ export default function Finance() {
     setCharges(chargeRows);
     setPayments(paymentRows);
     setAdjustments(adjRows);
+    const { data: mem } = await supabase.from('memberships').select('unit_id, tenure').in('unit_id', myUnitIds).is('ended_at', null);
+    setTenantUnitIds(new Set(((mem as { unit_id: string; tenure: string }[]) ?? []).filter((m) => m.tenure === 'tenant').map((m) => m.unit_id)));
     setLoading(false);
   }
 
   const unitById = useMemo(() => Object.fromEntries(units.map((u) => [u.id, u])), [units]);
+  // which units have an active tenant → drives owner/tenant routing & subrows (0064)
+  const hasTenant = (uid: string) => tenantUnitIds.has(uid);
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
@@ -307,7 +318,7 @@ export default function Finance() {
   function openExpenseEdit(e: Expense) {
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, description: e.description, amount: String(e.amount_usd), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), billed_to: myCharges[0]?.billed_to ?? 'both' });
+    setExpForm({ category: e.category, description: e.description, amount: String(e.amount_usd), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -347,7 +358,9 @@ export default function Finance() {
     // each charge carries the UNIT's own block_id → compound book slices by block
     const rows = allocate(amount, targetUnits, expForm.method, custom).filter((r) => r.amount !== 0).map((r) => ({
       expense_id: expenseId, unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id,
-      category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date, billed_to: expForm.billed_to, created_by: profile?.id,
+      category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date,
+      // owner-only units → owner; leased units → the chosen party (T5)
+      billed_to: hasTenant(r.unit_id) ? expForm.leasedTo : 'owner', created_by: profile?.id,
     }));
     if (rows.length) await supabase.from('charges').insert(rows);
     toast.success(t('finance.expenseSaved'));
@@ -764,13 +777,13 @@ export default function Finance() {
       <Modal open={expOpen} onClose={() => setExpOpen(false)} title={editingExpenseId ? t('finance.editExpense') : t('finance.recordExpense')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <SelectField label={t('finance.category')} value={expForm.category} onValueChange={(v) => { const cat = v as ExpenseCategory; setExpForm({ ...expForm, category: cat, billed_to: defaultBilledTo(cat) }); }}>
+            <SelectField label={t('finance.category')} value={expForm.category} onValueChange={(v) => { const cat = v as ExpenseCategory; setExpForm({ ...expForm, category: cat, leasedTo: defaultLeasedTo(cat) }); }}>
               {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`finance.cats.${c}`)}</SelectItem>)}
             </SelectField>
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
           </div>
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
             <SelectField label={t('finance.applyTo')} value={expForm.scope} onValueChange={(v) => setExpForm({ ...expForm, scope: v as ExpScope })}>
               <SelectItem value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</SelectItem>
@@ -779,12 +792,19 @@ export default function Finance() {
               <SelectItem value="units">{t('finance.selectedUnits')}</SelectItem>
               <SelectItem value="unit">{t('finance.singleUnit')}</SelectItem>
             </SelectField>
-            <SelectField label={t('finance.billedTo')} value={expForm.billed_to} onValueChange={(v) => setExpForm({ ...expForm, billed_to: v as BilledTo })}>
-              <SelectItem value="both">{t('finance.billedToOptions.both')}</SelectItem>
-              <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
-              <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
-            </SelectField>
           </div>
+
+          {/* T5: only matters when some target unit has a tenant. Owner-only units
+              always bill the owner; here you choose who pays on leased units. */}
+          {targetUnits.some((u) => hasTenant(u.id)) && (
+            <div>
+              <SelectField label={t('finance.leasedChargeTo')} value={expForm.leasedTo} onValueChange={(v) => setExpForm({ ...expForm, leasedTo: v as Tenure })}>
+                <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
+                <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
+              </SelectField>
+              <p className="text-xs text-muted-foreground mt-1">{t('finance.leasedChargeHint')}</p>
+            </div>
+          )}
 
           {expForm.scope === 'block' && (
             <SelectField label={t('finance.block')} value={expForm.block_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, block_id: v === '__none__' ? '' : v })}>

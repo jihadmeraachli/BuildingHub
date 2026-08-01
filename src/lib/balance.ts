@@ -22,11 +22,46 @@ export interface OpeningInfo {
 }
 
 interface Voidable { voided_at?: string | null }
-interface Charge extends Voidable { amount_usd: number; charge_date: string }
-interface Payment extends Voidable { amount_usd: number; paid_on: string }
-interface Adj extends Voidable { amount_usd: number; kind: AdjustmentKind; effective_date: string }
+interface Charge extends Voidable { amount_usd: number; charge_date: string; billed_to?: string }
+interface Payment extends Voidable { amount_usd: number; paid_on: string; paid_by?: string }
+interface Adj extends Voidable { amount_usd: number; kind: AdjustmentKind; effective_date: string; party?: string }
 
 const live = (r: Voidable) => !r.voided_at;
+
+export type Party = 'owner' | 'tenant';
+
+/**
+ * Party-aware balances for a leased unit (0064). Mirrors unit_party_balance() in SQL.
+ *   owner  = opening + owner payments  − owner charges  + owner adjustments
+ *   tenant =          tenant payments − tenant charges + tenant adjustments
+ *   total  = owner + tenant  (=== computeBalance)
+ * A charge billed_to 'both' (legacy) counts as owner; missing paid_by/party → owner.
+ */
+export function computeUnitBalances(
+  unit: OpeningInfo,
+  charges: Charge[],
+  payments: Payment[],
+  adjustments: Adj[] = [],
+  asOf?: string | Date | null,
+): { owner: number; tenant: number; total: number } {
+  const cut = asOf ? new Date(asOf) : null;
+  const within = (d: string) => !cut || new Date(d) <= cut;
+  const openingCounts =
+    !cut || !unit.opening_balance_date || new Date(unit.opening_balance_date) <= cut;
+
+  const chargeParty = (c: Charge): Party => (c.billed_to === 'tenant' ? 'tenant' : 'owner');
+  const pick = (p?: string): Party => (p === 'tenant' ? 'tenant' : 'owner');
+
+  const acc = { owner: 0, tenant: 0 };
+  if (openingCounts) acc.owner += Number(unit.opening_balance ?? 0);
+  for (const p of payments) if (live(p) && within(p.paid_on)) acc[pick(p.paid_by)] += Number(p.amount_usd);
+  for (const c of charges) if (live(c) && within(c.charge_date)) acc[chargeParty(c)] -= Number(c.amount_usd);
+  for (const a of adjustments) if (live(a) && within(a.effective_date)) acc[pick(a.party)] += adjustmentEffect(a.kind, a.amount_usd);
+
+  const owner = round2(acc.owner);
+  const tenant = round2(acc.tenant);
+  return { owner, tenant, total: round2(owner + tenant) };
+}
 
 /**
  * balance = opening + Σpayments − Σcharges + Σadjustments, ignoring voided rows.

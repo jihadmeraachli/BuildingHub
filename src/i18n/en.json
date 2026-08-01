@@ -928,7 +928,9 @@
     "voidTitle": "Void this record?",
     "voidExplain": "{{item}} will be cancelled and excluded from the balance, but kept for the audit trail. This can't be undone from the app.",
     "voidReason": "Reason (optional)",
-    "voidReasonPlaceholder": "e.g. entered by mistake, wrong unit…"
+    "voidReasonPlaceholder": "e.g. entered by mistake, wrong unit…",
+    "leasedChargeTo": "Leased units — charge the",
+    "leasedChargeHint": "Units with a tenant will be charged this party. Owner-only units always go to the owner."
   },
   "inspections": {
     "title": "Inspections",

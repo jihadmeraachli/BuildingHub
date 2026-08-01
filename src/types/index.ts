@@ -242,6 +242,8 @@ export interface Adjustment {
   building_id: string;
   kind: AdjustmentKind;
   amount_usd: number;      // positive magnitude
+  /** Owner/tenant sub-ledger this adjustment belongs to (0064). */
+  party: Tenure;
   effective_date: string;
   note: string | null;
   created_by: string | null;
@@ -262,6 +264,8 @@ export interface Payment {
   note: string | null;
   receipt_url: string | null;
   recorded_by: string | null;
+  /** Owner/tenant sub-ledger this payment belongs to (0064). */
+  paid_by: Tenure;
   created_at: string;
   voided_at?: string | null;
   voided_by?: string | null;
