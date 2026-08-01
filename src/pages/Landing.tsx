@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Globe, Check,
+  BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Globe, Check, ArrowUp,
 } from 'lucide-react';
 import { setLanguage } from '@/i18n';
 import { Logo } from '@/components/ui/Logo';
@@ -31,12 +31,39 @@ function Shot({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+const NAV_SECTIONS = [
+  { id: 'product', key: 'navProduct' },
+  { id: 'pricing', key: 'navPricing' },
+  { id: 'about', key: 'navAbout' },
+  { id: 'faq', key: 'navFaq' },
+] as const;
+
 export default function Landing() {
   const { t, i18n } = useTranslation();
+  const [activeSection, setActiveSection] = useState('');
 
   useEffect(() => {
     document.title = t('landing.docTitle');
   }, [t, i18n.language]);
+
+  // Scroll-spy: light up the nav tab of the section currently in view.
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.id);
+        else if (window.scrollY < 200) setActiveSection('');
+      },
+      { rootMargin: '-15% 0px -55% 0px' },
+    );
+    NAV_SECTIONS.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const showcases = [
     { key: 'book', img: '/marketing/shot-finance-en.jpg' },
@@ -59,10 +86,19 @@ export default function Landing() {
             <Wordmark className="text-sm" />
           </a>
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
-            <a className="hover:text-white transition-colors" href="#product">{t('landing.navProduct')}</a>
-            <a className="hover:text-white transition-colors" href="#pricing">{t('landing.navPricing')}</a>
-            <a className="hover:text-white transition-colors" href="#about">{t('landing.navAbout')}</a>
-            <a className="hover:text-white transition-colors" href="#faq">{t('landing.navFaq')}</a>
+            {NAV_SECTIONS.map(({ id, key }) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className={`transition-colors border-b-2 pb-0.5 ${
+                  activeSection === id
+                    ? 'text-white font-semibold border-[oklch(0.85_0.09_180)]'
+                    : 'border-transparent hover:text-white'
+                }`}
+              >
+                {t(`landing.${key}`)}
+              </a>
+            ))}
           </nav>
           <div className="flex items-center gap-4">
             <button
@@ -256,9 +292,16 @@ export default function Landing() {
               © {new Date().getFullYear()} Abniyah, {t('landing.productOf')} <strong className="text-white/80">Tatawwor</strong>. {t('landing.rights')}
             </span>
           </div>
-          <span className="flex gap-4 text-xs text-white/60">
+          <span className="flex items-center gap-4 text-xs text-white/60">
             <a className="hover:text-white transition-colors" href="/privacy">{t('landing.privacy')}</a>
             <a className="hover:text-white transition-colors" href="/terms">{t('landing.terms')}</a>
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 hover:bg-white/15 px-2.5 py-1.5 transition-colors cursor-pointer"
+            >
+              <ArrowUp size={12} /> {t('landing.backToTop')}
+            </button>
           </span>
         </div>
       </footer>
