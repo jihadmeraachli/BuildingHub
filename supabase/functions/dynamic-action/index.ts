@@ -180,6 +180,21 @@ async function unitOwnerIds(unitId: string): Promise<string[]> {
   return (data ?? []).map((m: { user_id: string }) => m.user_id);
 }
 
+/** Active membership user ids of a unit for a given party (finance #9):
+ *   'owner'  → tenure = owner
+ *   'tenant' → tenure = tenant; if tenantId is given & still active, just that one
+ *   'both'   → everyone (owner + tenant)
+ *  Charges/payments carry paid_by / billed_to (+ tenant_id, 0066) so a charge
+ *  billed to the tenant never reaches the owner, and vice-versa. */
+async function unitPartyIds(unitId: string, party: 'owner' | 'tenant' | 'both', tenantId?: string | null): Promise<string[]> {
+  if (party === 'both') return unitOwnerIds(unitId);
+  const { data } = await supabase.from('memberships').select('user_id, tenure').eq('unit_id', unitId).is('ended_at', null);
+  const rows = ((data ?? []) as { user_id: string; tenure: string }[]).filter((m) => m.tenure === party);
+  const ids = rows.map((m) => m.user_id);
+  if (party === 'tenant' && tenantId && ids.includes(tenantId)) return [tenantId];
+  return ids;
+}
+
 /** everyone living in a building: memberships ∪ legacy profiles.building_id */
 async function buildingResidentIds(buildingId: string): Promise<string[]> {
   const ids = new Set<string>();
@@ -318,10 +333,12 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
     }
 
-    // 4. New charge (v3 finance) → the unit's owner(s)
+    // 4. New charge (v3 finance) → the BILLED party only (owner or tenant)
     if (tbl === 'charges' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), `New charge: ${record.description || 'Charge'}`,
+      // legacy billed_to='both' means owner; only 'tenant' routes to the tenant.
+      const chargeRecipients = await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
+      await emailToUserIds(chargeRecipients, `New charge: ${record.description || 'Charge'}`,
         emailHtml('New charge added',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new charge has been added to your unit's account.</p>
            ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}
@@ -329,31 +346,32 @@ Deno.serve(async (req) => {
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
       const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
-      await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_new_charge',
+      await whatsappToUserIds(chargeRecipients, 'abniyah_new_charge',
         (name, lang) => {
           const base = [name, money(record.amount_usd), chargeUnit?.label ?? '—', b?.name ?? '—'];
           return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
         });
     }
 
-    // 5. Payment recorded (v3 finance) → the unit's owner(s) (receipt)
+    // 5. Payment recorded (v3 finance) → the PAYING party only (receipt)
     if (tbl === 'payments' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), 'Payment received, thank you',
+      const payRecipients = await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
+      await emailToUserIds(payRecipients, 'Payment received, thank you',
         emailHtml('Payment recorded',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">We've recorded your payment. Thank you.</p>
            ${table(row('Amount', money(record.amount_usd)) + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
       const { data: payUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
-      await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_payment_received',
+      await whatsappToUserIds(payRecipients, 'abniyah_payment_received',
         (name) => [name, money(record.amount_usd), payUnit?.label ?? '—', b?.name ?? '—']);
     }
 
-    // 5b. Payment edited (amount changed) → owner(s)
+    // 5b. Payment edited (amount changed) → the paying party only
     if (tbl === 'payments' && type === 'UPDATE' && record.amount_usd !== old_record?.amount_usd) {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), 'Your payment was updated',
+      await emailToUserIds(await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id), 'Your payment was updated',
         emailHtml('Payment updated',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment on your account was updated.</p>
            ${table(row('New amount', money(record.amount_usd)) + row('Date', record.paid_on))}`,
@@ -361,14 +379,39 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
     }
 
-    // 5c. Payment removed → owner(s)  (DELETE payloads carry old_record)
+    // 5c. Payment removed → the paying party only  (DELETE payloads carry old_record)
     if (tbl === 'payments' && type === 'DELETE' && old_record) {
       const b = await getBuilding(old_record.building_id);
-      await emailToUserIds(await unitOwnerIds(old_record.unit_id), 'A payment was removed',
+      await emailToUserIds(await unitPartyIds(old_record.unit_id, old_record.paid_by === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id), 'A payment was removed',
         emailHtml('Payment removed',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment of <strong>${money(old_record.amount_usd)}</strong> was removed from your account.</p>`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
+    }
+
+    // 5c-ii. Move-out offload (transfer) → BOTH the owner and the former tenant.
+    //   end_membership() inserts a PAIR of transfer rows; drive off the
+    //   TENANT-party row so each side gets exactly one email. Requires a
+    //   Database Webhook on `adjustments` INSERT (see docs/DEPENDENCIES.md).
+    //   NOTE: no WhatsApp here — that needs a new approved Meta template
+    //   (existing template param counts are frozen); email + in-app cover it.
+    if (tbl === 'adjustments' && type === 'INSERT'
+        && (record.kind === 'transfer_in' || record.kind === 'transfer_out') && record.party === 'tenant') {
+      const b = await getBuilding(record.building_id);
+      const { data: adjUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
+      const detail = table(row('Unit', esc(adjUnit?.label ?? '—')) + row('Amount', money(record.amount_usd)) + (record.counterparty_name ? row('Former tenant', esc(record.counterparty_name)) : ''));
+      await emailToUserIds(await unitPartyIds(record.unit_id, 'owner'), 'Balance transferred from former tenant',
+        emailHtml('Balance transferred to the owner account',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A former tenant moved out and their remaining balance was transferred to the owner account.</p>${detail}`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'BuildingHub');
+      if (record.tenant_id) {
+        await emailToUserIds([record.tenant_id], 'Your balance was transferred on move-out',
+          emailHtml('Balance transferred to the unit owner',
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">On move-out, your remaining balance on this unit was transferred to the owner account.</p>${detail}`,
+            'View My Account', `${APP_URL}/finance`),
+          b?.name ?? 'BuildingHub');
+      }
     }
 
     // 5d. Dues issued → owner(s)
