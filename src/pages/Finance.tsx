@@ -660,7 +660,7 @@ export default function Finance() {
     return (
       <div>
         <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('finance.myAccount')}</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('finance.myAccount')}</h1>
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
@@ -679,7 +679,7 @@ export default function Finance() {
             </Button>
           )}
         </div>
-        <p className="text-sm text-slate-500 mb-4">{t('finance.myAccountSub')}</p>
+        <p className="text-sm text-muted-foreground mb-4">{t('finance.myAccountSub')}</p>
 
         {/* T6 + per-tenant buckets: owner picks Owner / a specific tenant / Combined */}
         {showToggle && (
@@ -698,11 +698,11 @@ export default function Finance() {
           <Card key={r.unit.id} className="mb-4"><CardBody>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted-foreground">
                   {t('finance.unit')} {r.unit.label}
                 </p>
                 <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.balance)}</p>
-                <p className="text-xs text-slate-400 mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
                 {r.balance < 0 && whishByBuilding[r.unit.building_id] && (
                   <p className="text-xs font-medium text-primary mt-1.5">
                     {t('finance.payViaWhish', { number: whishByBuilding[r.unit.building_id] })}
@@ -710,8 +710,8 @@ export default function Finance() {
                 )}
               </div>
               <div className="text-end text-sm space-y-0.5">
-                <p className="text-slate-500">{t('finance.charged')} <span className="font-medium text-slate-800 tnum">{money(r.charged)}</span></p>
-                <p className="text-slate-500">{t('finance.paid')} <span className="font-medium text-slate-800 tnum">{money(r.paid)}</span></p>
+                <p className="text-muted-foreground">{t('finance.charged')} <span className="font-medium text-foreground tnum">{money(r.charged)}</span></p>
+                <p className="text-muted-foreground">{t('finance.paid')} <span className="font-medium text-foreground tnum">{money(r.paid)}</span></p>
               </div>
             </div>
           </CardBody></Card>
@@ -1333,16 +1333,16 @@ function StatementList({ charges, payments, adjustments = [], openings = [], ten
   if (rows.length === 0) return <Empty body={t('finance.noTransactions')} />;
   return (
     <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-      <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+      <thead><tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
         <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
         <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
         <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
       </tr></thead>
-      <tbody className="divide-y divide-slate-50">
+      <tbody className="divide-y divide-border">
         {rows.map((r, i) => (
-          <tr key={i} className="hover:bg-slate-50/60">
-            <td className="px-5 py-3 text-slate-500">{format(new Date(r.date), 'MMM d, yyyy')}</td>
-            <td className="px-5 py-3 text-slate-800">{r.label} <span className="text-slate-400 text-xs">· {t('finance.unit')} {r.unit}</span>{r.tenant && <TenantTag label={r.tenant} />}</td>
+          <tr key={i} className="hover:bg-muted/40">
+            <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{format(new Date(r.date), 'MMM d, yyyy')}</td>
+            <td className="px-5 py-3 text-foreground">{r.label} <span className="text-muted-foreground text-xs">· {t('finance.unit')} {r.unit}</span>{r.tenant && <TenantTag label={r.tenant} />}</td>
             <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>
         ))}
