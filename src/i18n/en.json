@@ -794,7 +794,8 @@
     "openingHint": "What this unit already owed or had in credit when it joined. Kept out of income/expenses.",
     "openingOwes": "Unit starts owing ${{amt}}. Enter a negative number for arrears.",
     "openingCredit": "Unit starts with ${{amt}} credit.",
-    "oneMemberPerTenure": "This unit already has an active {{role}}. Remove the existing one first."
+    "oneMemberPerTenure": "This unit already has an active {{role}}. Remove the existing one first.",
+    "tenantNeedsOwner": "Add an owner to this unit before assigning a tenant."
   },
   "finance": {
     "title": "Finance",

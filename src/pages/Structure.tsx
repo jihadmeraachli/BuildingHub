@@ -225,14 +225,22 @@ export default function Structure() {
   async function addOwner() {
     if (!ownerModal || !ownerPick) return;
     // T4: at most one active owner and one active tenant per unit. Block early
-    // with a clear message; the DB trigger (0062) is the backstop.
+    // with a clear message; the DB trigger (0062/0063) is the backstop.
     if (ownersOf(ownerModal.id).some((o) => o.tenure === ownerTenure)) {
       toast.error(t('structure.oneMemberPerTenure', { role: t(`structure.tenure.${ownerTenure}`) }));
       return;
     }
+    // A tenant can't be added before an owner exists (0063).
+    if (ownerTenure === 'tenant' && !ownersOf(ownerModal.id).some((o) => o.tenure === 'owner')) {
+      toast.error(t('structure.tenantNeedsOwner'));
+      return;
+    }
     const { error } = await supabase.from('memberships').insert({ user_id: ownerPick, unit_id: ownerModal.id, tenure: ownerTenure });
     if (error) {
-      toast.error(error.code === '23505' ? t('structure.oneMemberPerTenure', { role: t(`structure.tenure.${ownerTenure}`) }) : error.message);
+      toast.error(
+        error.code === '23505' ? t('structure.oneMemberPerTenure', { role: t(`structure.tenure.${ownerTenure}`) })
+        : error.code === '23514' ? t('structure.tenantNeedsOwner')
+        : error.message);
       return;
     }
     setOwnerPick(''); setOwnerTenure('owner');
@@ -381,7 +389,7 @@ export default function Structure() {
                                 {!viewOnly && (
                                 <td className="px-5 py-3">
                                   <div className="flex items-center justify-end gap-1">
-                                    <button onClick={() => { setOwnerModal(u); setOwnerPick(''); setOwnerTenure('owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"><UserPlus size={15} /></button>
+                                    <button onClick={() => { setOwnerModal(u); setOwnerPick(''); setOwnerTenure(ownersOf(u.id).some((o) => o.tenure === 'owner') ? 'tenant' : 'owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"><UserPlus size={15} /></button>
                                     <button onClick={() => openUnit(u)} title="Edit" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
                                     <button onClick={() => deleteUnit(u.id)} title="Delete" className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
                                   </div>
@@ -537,9 +545,9 @@ export default function Structure() {
                 .map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}{p.apartment_number ? ` (${p.apartment_number})` : ''}</SelectItem>)}
             </SelectField>
             <SelectField label={t('structure.role')} value={ownerTenure} onValueChange={(v) => setOwnerTenure(v as Tenure)}>
-              {/* T4: a role already filled on this unit can't be picked again */}
+              {/* T4: a role already filled can't be re-picked; a tenant needs an owner first (0063) */}
               <SelectItem value="owner" disabled={!!ownerModal && ownersOf(ownerModal.id).some((o) => o.tenure === 'owner')}>{t('structure.tenure.owner')}</SelectItem>
-              <SelectItem value="tenant" disabled={!!ownerModal && ownersOf(ownerModal.id).some((o) => o.tenure === 'tenant')}>{t('structure.tenure.tenant')}</SelectItem>
+              <SelectItem value="tenant" disabled={!!ownerModal && (ownersOf(ownerModal.id).some((o) => o.tenure === 'tenant') || !ownersOf(ownerModal.id).some((o) => o.tenure === 'owner'))}>{t('structure.tenure.tenant')}</SelectItem>
             </SelectField>
           </div>
           <p className="text-xs text-muted-foreground">{t('structure.memberHint')}</p>
