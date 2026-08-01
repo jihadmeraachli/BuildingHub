@@ -234,6 +234,7 @@ Prioritised by impact. Do these before or alongside the first real user onboardi
 | 6 | **Backup** | Weekly `pg_dump` export to Cloudflare R2 or S3 | Supabase Pro gives 7-day PITR but no offsite copy. A weekly export is a cheap extra safety net. |
 | 7 | **Security** | Pen-test the RLS policies | `user_can()` + compound/org cascades haven't been adversarially tested. Run a review before taking on enterprise customers. |
 | 8 | **Scalability** | Cache `user_can()` results per session | Eliminates repeated permission joins on every request. Only needed if index audit + materialised view aren't enough headroom. High effort — park until you hit the limit. |
+| 9 | **Launch checklist (un-stealth)** | At public launch: remove `<meta name="robots" content="noindex">` from `index.html`, flip `public/robots.txt` to `Allow: /`, and drop `VITE_BETA_GATE=1` from the Cloudflare Pages build env (ungates app AND marketing site — both use the same gate). | Stealth mode (Aug 2026): abniyah.com landing + the /demo entry sit behind the beta gate; legal pages stay public for App Store review. |
 
 ---
 
