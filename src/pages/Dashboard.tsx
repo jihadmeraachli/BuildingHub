@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ElementType } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { gsHiddenKey } from '@/pages/GettingStarted';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -31,7 +32,16 @@ interface Agg {
 
 export default function Dashboard() {
   const { t } = useTranslation();
-  const { profile, isPlatformAdmin, canAny, myUnitIds, residentLens, residentUnitId } = useAuth();
+  const { profile, isPlatformAdmin, canAny, grants, myUnitIds, residentLens, residentUnitId } = useAuth();
+
+  // New admins land on the setup checklist instead of an empty dashboard —
+  // but only ONCE per session, so a deliberate Dashboard click still works.
+  // (Return happens after all hooks — early-returning here breaks hook order.)
+  const isScopeAdmin = grants.some(g => ['building_admin', 'compound_admin', 'org_admin'].includes(g.role));
+  const routeToSetup =
+    isScopeAdmin && !isPlatformAdmin && !residentLens
+    && localStorage.getItem(gsHiddenKey(profile?.id)) !== '1'
+    && sessionStorage.getItem('abniyah_gs_routed') !== '1';
   const { buildings, loading: buildingsLoading } = useManagedBuildings();
   // Dual-persona lens: an admin browsing "My home" gets the resident dashboard.
   const isManager = (isPlatformAdmin || canAny('finance.view')) && !residentLens;
@@ -184,6 +194,11 @@ export default function Dashboard() {
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
   const fund = Math.round((agg.collected - agg.spent) * 100) / 100;
   const collectionRate = agg.billed > 0 ? Math.round((agg.collected / agg.billed) * 100) : 0;
+
+  if (routeToSetup) {
+    sessionStorage.setItem('abniyah_gs_routed', '1');
+    return <Navigate to="/getting-started" replace />;
+  }
 
   // ── Resident view ──────────────────────────────────────────────────────────
   if (!isManager) {
