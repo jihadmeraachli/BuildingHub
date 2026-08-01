@@ -151,7 +151,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
             <>
               <View style={s.tableHead}>
                 <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
-                <Text style={[s.tableHeadCell, { flex: showParty ? 1.6 : 2 }]}>Note</Text>
+                <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Note</Text>
                 <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Method</Text>
                 {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>From</Text>}
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
@@ -159,7 +159,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
               {payments.map((p) => (
                 <View key={p.id} style={s.tableRow}>
                   <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(p.paid_on)}</Text>
-                  <Text style={[s.tableCell, { flex: showParty ? 1.6 : 2 }]}>{p.note ?? '—'}</Text>
+                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{p.note ?? '—'}</Text>
                   <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{p.method.replace('_', ' ')}</Text>
                   {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(p.paid_by)}</Text>}
                   <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.emerald }]}>{money(Number(p.amount_usd))}</Text>
@@ -176,6 +176,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
             <View style={s.tableHead}>
               <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
               <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Type / Note</Text>
+              <Text style={[s.tableHeadCell, { flex: 1.3 }]}> </Text>
               {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>For</Text>}
               <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Effect</Text>
             </View>
@@ -185,7 +186,8 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
               return (
                 <View key={a.id} style={s.tableRow}>
                   <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(a.effective_date)}</Text>
-                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{kindLabel}{a.note ? ` · ${a.note}` : ''}</Text>
+                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{kindLabel}{a.note ? ` · ${a.note}` : ''}{a.counterparty_name ? ` · ${a.counterparty_name}` : ''}</Text>
+                  <Text style={[s.tableCell, { flex: 1.3 }]}> </Text>
                   {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(a.party)}</Text>}
                   <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: eff < 0 ? C.rose : C.emerald }]}>{money(eff)}</Text>
                 </View>
