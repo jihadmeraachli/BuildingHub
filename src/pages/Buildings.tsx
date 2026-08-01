@@ -197,7 +197,7 @@ export default function Buildings() {
     name: '', address: '', city: '', country: '',
     contact_email: '', contact_phone: '', maps_url: '',
     compound_id: '', billing_mode: 'arrears', is_active: true, org_id: '',
-    reminder_day: '',
+    reminder_day: '', whish_number: '',
   });
 
   const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<FormData>();
@@ -390,6 +390,7 @@ export default function Buildings() {
       billing_mode: b.billing_mode, is_active: b.is_active,
       org_id: orgByBuilding[b.id] ?? '',
       reminder_day: b.reminder_day != null ? String(b.reminder_day) : '',
+      whish_number: b.whish_number ?? '',
     });
     setEditB(b);
   }
@@ -403,6 +404,7 @@ export default function Buildings() {
       compound_id: ebForm.compound_id || null, billing_mode: ebForm.billing_mode,
       is_active: ebForm.is_active,
       reminder_day: ebForm.reminder_day ? Number(ebForm.reminder_day) : null,
+      whish_number: ebForm.whish_number.trim() || null,
     }).eq('id', editB.id);
 
     if (isPlatformAdmin) {
@@ -715,6 +717,15 @@ export default function Buildings() {
               ))}
             </SelectField>
             <p className="text-xs text-muted-foreground mt-1">{t('buildings.reminderHint')}</p>
+          </div>
+          <div>
+            <Input
+              label={t('buildings.whishNumber')}
+              value={ebForm.whish_number}
+              onChange={e => setEbForm({ ...ebForm, whish_number: e.target.value })}
+              placeholder="03 123 456"
+            />
+            <p className="text-xs text-muted-foreground mt-1">{t('buildings.whishHint')}</p>
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input

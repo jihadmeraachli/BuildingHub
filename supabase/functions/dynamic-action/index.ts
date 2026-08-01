@@ -141,7 +141,7 @@ async function whatsappToUserIds(ids: string[], templateName: string, buildParam
 
 // ── Recipient resolution (v3 model: memberships, with legacy fallback) ────────
 async function getBuilding(buildingId: string) {
-  const { data } = await supabase.from('buildings').select('name, address, city, country').eq('id', buildingId).single();
+  const { data } = await supabase.from('buildings').select('name, address, city, country, whish_number').eq('id', buildingId).single();
   return data ?? null;
 }
 async function getUserEmail(userId: string): Promise<string | null> {
@@ -301,7 +301,8 @@ Deno.serve(async (req) => {
       await emailToUserIds(await unitOwnerIds(record.unit_id), `New charge: ${record.description || 'Charge'}`,
         emailHtml('New charge added',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new charge has been added to your unit's account.</p>
-           ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}`,
+           ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}
+           ${b?.whish_number ? `<p style="color:#475569;font-size:14px;line-height:1.6;margin:12px 0 0;">You can pay directly through <strong>Whish</strong> to <strong>${esc(b.whish_number)}</strong>.</p>` : ''}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'BuildingHub');
       const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();

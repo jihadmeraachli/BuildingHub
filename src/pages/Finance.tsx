@@ -113,6 +113,16 @@ export default function Finance() {
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  // building_id → Whish account (0059) — shown to residents who owe money.
+  const [whishByBuilding, setWhishByBuilding] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const ids = [...new Set(units.map((u) => u.building_id))];
+    if (!ids.length) { setWhishByBuilding({}); return; }
+    supabase.from('buildings').select('id, whish_number').in('id', ids).not('whish_number', 'is', null)
+      .then(({ data }) => setWhishByBuilding(
+        Object.fromEntries(((data ?? []) as { id: string; whish_number: string }[]).map((b) => [b.id, b.whish_number])),
+      ));
+  }, [units]);
   const [unitGroups, setUnitGroups] = useState<{ group_id: string; unit_id: string }[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
@@ -453,6 +463,11 @@ export default function Finance() {
                 <p className="text-sm text-slate-500">{t('finance.unit')} {r.unit.label}</p>
                 <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{money(r.balance)}</p>
                 <p className="text-xs text-slate-400 mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
+                {r.balance < 0 && whishByBuilding[r.unit.building_id] && (
+                  <p className="text-xs font-medium text-primary mt-1.5">
+                    {t('finance.payViaWhish', { number: whishByBuilding[r.unit.building_id] })}
+                  </p>
+                )}
               </div>
               <div className="text-end text-sm space-y-0.5">
                 <p className="text-slate-500">{t('finance.charged')} <span className="font-medium text-slate-800 tnum">{money(r.charged)}</span></p>

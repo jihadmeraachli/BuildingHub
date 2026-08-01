@@ -115,10 +115,15 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const [{ data: authData }, { data: profiles }] = await Promise.all([
+    const [{ data: authData }, { data: profiles }, { data: whishRows }] = await Promise.all([
       admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
       admin.from('profiles').select('id, full_name, notify_email, notify_whatsapp, phone, status'),
+      admin.from('buildings').select('id, whish_number').not('whish_number', 'is', null),
     ]);
+
+    // building_id → Whish account (0059) for the "pay directly through Whish" line
+    const whishMap: Record<string, string> = {};
+    for (const w of ((whishRows ?? []) as { id: string; whish_number: string }[])) whishMap[w.id] = w.whish_number;
 
     const emailMap: Record<string, string> = {};
     for (const u of (authData?.users ?? [])) {
@@ -185,17 +190,23 @@ Deno.serve(async (req) => {
           A friendly reminder: unit <strong>${unitLabel}</strong> at <strong>${buildingName}</strong>
           has an outstanding balance of <strong style="color:#dc2626;">${amount}</strong>.
         </p>
+        ${whishMap[buildingId]
+          ? `<p style="color:#475569;font-size:14px;line-height:1.6;">
+              You can pay directly through <strong>Whish</strong> to <strong>${whishMap[buildingId]}</strong>.
+            </p>`
+          : ''}
         <p style="color:#475569;font-size:14px;line-height:1.6;">
           Details and payment options are in your account.
         </p>`,
         'View My Account', `${APP_URL}/finance`,
       );
+      const whishNote = whishMap[buildingId] ? ` Pay via Whish: ${whishMap[buildingId]}.` : '';
       for (const uid of ownerIds) {
         await deliverEmail(uid, subject, html);
         await deliverWhatsApp(uid, 'abniyah_payment_reminder',
           (name) => [name, amount, unitLabel, buildingName]);
         await deliverInApp(uid, buildingId, 'Payment reminder',
-          `Unit ${unitLabel}, ${buildingName}: outstanding balance of ${amount}. Details in Finance.`);
+          `Unit ${unitLabel}, ${buildingName}: outstanding balance of ${amount}.${whishNote} Details in Finance.`);
       }
     }
 

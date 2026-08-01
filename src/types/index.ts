@@ -20,6 +20,8 @@ export interface Building {
   is_active: boolean;
   /** Day of month (1-28) for the automated payment reminder; null = off. */
   reminder_day: number | null;
+  /** Whish account (mobile number) residents can pay to; null = not offered. (0059) */
+  whish_number: string | null;
   created_at: string;
 }
 
