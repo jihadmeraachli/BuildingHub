@@ -208,6 +208,7 @@
     "switch": "Switch view",
     "chooseTitle": "Explore the live demo",
     "chooseSub": "One real building, two points of view. Pick how you want to see it — everything is read-only.",
+    "fictional": "All names, people and figures in this demo are made up. They are not real owners or residents.",
     "admin": {
       "title": "View as building admin",
       "body": "The manager's cockpit: fund balance, the building book, dues, issues, meetings, inspections and contracts."

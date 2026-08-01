@@ -54,6 +54,7 @@ export default function DemoEntry() {
         </div>
         <h1 className="text-2xl font-bold mt-2">{t('demo.chooseTitle')}</h1>
         <p className="text-sm text-white/70 max-w-sm">{t('demo.chooseSub')}</p>
+        <p className="text-xs text-white/45 max-w-md">{t('demo.fictional')}</p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4 w-full max-w-2xl">

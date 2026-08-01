@@ -105,13 +105,23 @@ export default function Structure() {
     setProfiles((p as MiniProfile[]) ?? []);
 
     const unitIds = unitList.map((x) => x.id);
-    if (unitIds.length) {
+    if (unitIds.length && canManage) {
       const [{ data: o }, { data: ug }] = await Promise.all([
         supabase.from('memberships').select('id, user_id, unit_id, tenure').in('unit_id', unitIds).is('ended_at', null),
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', unitIds),
       ]);
       setOwners((o as OwnerRow[]) ?? []);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
+    } else if (unitIds.length) {
+      // Read-only (viewer / demo): names come through the sealed helper (0058)
+      // — full names only, no profile rows.
+      const { data: sm } = await supabase.rpc('structure_members', { p_building_ids: [buildingId] });
+      const rows = (sm ?? []) as { unit_id: string; user_id: string; tenure: Tenure; full_name: string }[];
+      setOwners(rows.map((r) => ({ id: `${r.unit_id}:${r.user_id}:${r.tenure}`, user_id: r.user_id, unit_id: r.unit_id, tenure: r.tenure })));
+      const seen = new Map<string, MiniProfile>();
+      rows.forEach((r) => seen.set(r.user_id, { id: r.user_id, full_name: r.full_name, apartment_number: null }));
+      setProfiles([...seen.values()]);
+      setUnitGroups([]);
     } else {
       setOwners([]); setUnitGroups([]);
     }
@@ -328,7 +338,7 @@ export default function Structure() {
                         <thead>
                           <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                             <th className="px-5 py-3 text-start font-medium">{t('structure.unit')}</th>
-                            {!viewOnly && <th className="px-5 py-3 text-start font-medium">{t('structure.members')}</th>}
+                            <th className="px-5 py-3 text-start font-medium">{t('structure.members')}</th>
                             <th className="px-5 py-3 text-start font-medium">{t('structure.shares')}</th>
                             <th className="px-5 py-3 text-start font-medium">{t('structure.occupancy')}</th>
                             {!viewOnly && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
@@ -341,7 +351,6 @@ export default function Structure() {
                             return (
                               <tr key={u.id} className="hover:bg-accent/30">
                                 <td className="px-5 py-3 font-semibold text-foreground">{u.label}</td>
-                                {!viewOnly && (
                                 <td className="px-5 py-3">
                                   {ow.length === 0 ? <span className="text-muted-foreground">&#8212;</span> : (
                                     <div className="flex flex-wrap gap-1">
@@ -349,13 +358,12 @@ export default function Structure() {
                                         <span key={o.id} className={`inline-flex items-center gap-1 text-xs rounded-full ps-2 pe-1 py-0.5 ${o.tenure === 'tenant' ? 'bg-amber-100 text-amber-800' : 'bg-primary/15 text-primary'}`}>
                                           {profileName[o.user_id] ?? 'User'}
                                           <span className="opacity-60 text-[10px]">· {t(`structure.tenure.${o.tenure}`)}</span>
-                                          <button onClick={() => removeOwner(o.id)} className="opacity-50 hover:opacity-100 hover:text-rose-500 cursor-pointer"><X size={11} /></button>
+                                          {!viewOnly && <button onClick={() => removeOwner(o.id)} className="opacity-50 hover:opacity-100 hover:text-rose-500 cursor-pointer"><X size={11} /></button>}
                                         </span>
                                       ))}
                                     </div>
                                   )}
                                 </td>
-                                )}
                                 <td className="px-5 py-3 text-muted-foreground tnum">
                                   {Number(u.share_weight)} <span className="text-muted-foreground text-xs">({pct.toFixed(1)}%)</span>
                                 </td>
