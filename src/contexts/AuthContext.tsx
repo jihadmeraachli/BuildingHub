@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import type { User, Session } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import i18n, { setLanguage } from '@/i18n';
 import { rolesHaveCap } from '@/lib/permissions';
 import type { Profile, Grant, Membership, Capability, GrantRole } from '@/types';
 
@@ -76,6 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Which user the current grants/memberships state belongs to — token refreshes
   // for the SAME user must not flash the loading gate mid-session.
   const loadedForRef = useRef<string | null>(null);
+
+  // Apply the profile's saved language once per signed-in user (0060). Only on
+  // first load — mid-session toggles (which also persist) must not be fought.
+  const langAppliedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!profile || langAppliedForRef.current === profile.id) return;
+    langAppliedForRef.current = profile.id;
+    if (profile.preferred_language && profile.preferred_language !== i18n.language) {
+      setLanguage(profile.preferred_language);
+    }
+  }, [profile]);
 
   // 2FA gate: a password-only session (aal1) on an account with a verified TOTP
   // factor must not reach the app until the code is entered (aal2).

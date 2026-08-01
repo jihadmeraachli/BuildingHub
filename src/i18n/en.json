@@ -991,6 +991,8 @@
     "phone": "Phone",
     "apartment": "Apartment",
     "managedByAdmin": "set by your building admin",
+    "language": "Language",
+    "languageHint": "Applies on every device you sign in from, and to your WhatsApp notifications.",
     "notifications": "Notifications",
     "notifyEmail": "Email me about my building",
     "notifyWhatsapp": "WhatsApp me",

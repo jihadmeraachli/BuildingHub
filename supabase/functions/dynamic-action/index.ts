@@ -83,7 +83,26 @@ const money = (n: number) => `$${Number(n).toFixed(2)}`;
 const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') ?? '';
 const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
 const WHATSAPP_LANG = Deno.env.get('WHATSAPP_LANG') || 'en';
+// Per-language templates (0060): OFF = legacy bilingual bodies (params doubled,
+// single language code). Flip to '1' ONLY after the per-language template
+// variants are approved in Meta — see docs/WHATSAPP_SETUP.md Part 2b.
+const WHATSAPP_PER_LANG = Deno.env.get('WHATSAPP_PER_LANG') === '1';
 const whatsappEnabled = () => Boolean(WHATSAPP_TOKEN && WHATSAPP_PHONE_ID);
+
+type WaLang = 'en' | 'ar';
+
+/** The final "how to pay" line of money templates ({{5}}/{{6}} in the
+ *  per-language bodies): the building's Whish account when set, else generic. */
+function payLine(lang: WaLang, whish?: string | null): string {
+  if (whish) {
+    return lang === 'ar'
+      ? `يمكنك الدفع مباشرة عبر Whish إلى ${whish}.`
+      : `You can pay directly through Whish to ${whish}.`;
+  }
+  return lang === 'ar'
+    ? 'تجد التفاصيل وخيارات الدفع في حسابك.'
+    : 'Details and payment options are in your account.';
+}
 
 /** Lebanon-first phone normalization → international digits (no '+').
  *  "+961 3 123 456" → 9613123456 · "03 123 456" → 9613123456 · "70123456" → 96170123456 */
@@ -100,11 +119,13 @@ function waPhone(raw: string | null | undefined): string | null {
 /** Template params may not be empty or contain newlines/tabs (Meta rejects the send). */
 const waParam = (v: unknown) => (String(v ?? '').replace(/\s+/g, ' ').trim() || '—');
 
-async function sendWhatsApp(toPhone: string, templateName: string, params: string[]) {
-  // Templates are BILINGUAL: an Arabic section ({{1}}..{{n}}) then an English
-  // section ({{n+1}}..{{2n}}) — Meta requires strictly sequential variables,
-  // so the same values are sent twice. Bodies live in docs/WHATSAPP_SETUP.md.
-  const bilingual = [...params, ...params];
+async function sendWhatsApp(toPhone: string, templateName: string, params: string[], lang: WaLang = 'en') {
+  // Legacy mode: templates are BILINGUAL — an Arabic section ({{1}}..{{n}})
+  // then an English section ({{n+1}}..{{2n}}); the same values are sent twice.
+  // Per-language mode (WHATSAPP_PER_LANG): one language variant per recipient,
+  // params sent once, language code per profile. Bodies: docs/WHATSAPP_SETUP.md.
+  const finalParams = WHATSAPP_PER_LANG ? params : [...params, ...params];
+  const langCode = WHATSAPP_PER_LANG ? lang : WHATSAPP_LANG;
   const res = await fetch(`https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_ID}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -114,9 +135,9 @@ async function sendWhatsApp(toPhone: string, templateName: string, params: strin
       type: 'template',
       template: {
         name: templateName,
-        language: { code: WHATSAPP_LANG },
-        components: bilingual.length
-          ? [{ type: 'body', parameters: bilingual.map((p) => ({ type: 'text', text: waParam(p) })) }]
+        language: { code: langCode },
+        components: finalParams.length
+          ? [{ type: 'body', parameters: finalParams.map((p) => ({ type: 'text', text: waParam(p) })) }]
           : [],
       },
     }),
@@ -125,17 +146,19 @@ async function sendWhatsApp(toPhone: string, templateName: string, params: strin
 }
 
 /** Send one template to a set of users, honoring notify_whatsapp + saved phone.
- *  buildParams receives the recipient's name so templates can greet personally. */
-async function whatsappToUserIds(ids: string[], templateName: string, buildParams: (name: string) => string[]) {
+ *  buildParams receives the recipient's name and language, so templates can
+ *  greet personally and money templates can localize the pay line (0060). */
+async function whatsappToUserIds(ids: string[], templateName: string, buildParams: (name: string, lang: WaLang) => string[]) {
   if (!whatsappEnabled()) return;
   const uniq = [...new Set(ids)];
   if (!uniq.length) return;
   const { data: profs } = await supabase.from('profiles')
-    .select('id, full_name, phone, notify_whatsapp').in('id', uniq);
-  for (const p of (profs ?? []) as { id: string; full_name: string; phone: string | null; notify_whatsapp: boolean }[]) {
+    .select('id, full_name, phone, notify_whatsapp, preferred_language').in('id', uniq);
+  for (const p of (profs ?? []) as { id: string; full_name: string; phone: string | null; notify_whatsapp: boolean; preferred_language: string | null }[]) {
     if (!p.notify_whatsapp) continue;
     const phone = waPhone(p.phone);
-    if (phone) await sendWhatsApp(phone, templateName, buildParams(p.full_name || 'there'));
+    const lang: WaLang = p.preferred_language === 'ar' ? 'ar' : 'en';
+    if (phone) await sendWhatsApp(phone, templateName, buildParams(p.full_name || 'there', lang), lang);
   }
 }
 
@@ -307,7 +330,10 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
       const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_new_charge',
-        (name) => [name, money(record.amount_usd), chargeUnit?.label ?? '—', b?.name ?? '—']);
+        (name, lang) => {
+          const base = [name, money(record.amount_usd), chargeUnit?.label ?? '—', b?.name ?? '—'];
+          return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
+        });
     }
 
     // 5. Payment recorded (v3 finance) → the unit's owner(s) (receipt)
@@ -356,7 +382,10 @@ Deno.serve(async (req) => {
         b?.name ?? 'BuildingHub');
       const { data: duesUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_dues_issued',
-        (name) => [name, record.period_label, money(record.amount_due), duesUnit?.label ?? '—', b?.name ?? '—']);
+        (name, lang) => {
+          const base = [name, record.period_label, money(record.amount_due), duesUnit?.label ?? '—', b?.name ?? '—'];
+          return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
+        });
     }
 
     // 5e. Dues edited (amount changed) → owner(s)

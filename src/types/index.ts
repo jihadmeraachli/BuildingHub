@@ -37,6 +37,8 @@ export interface Profile {
   status: UserStatus;
   notify_email: boolean;
   notify_whatsapp: boolean;
+  /** UI + notification language; null = no explicit choice (device default). (0060) */
+  preferred_language: 'en' | 'ar' | null;
   avatar_url: string | null;
   is_platform_admin?: boolean;
   deactivated_at?: string | null;

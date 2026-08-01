@@ -80,9 +80,28 @@ function waPhone(raw: string | null | undefined): string | null {
 }
 const waParam = (v: unknown) => (String(v ?? '').replace(/\s+/g, ' ').trim() || '—');
 
-async function sendWhatsApp(toPhone: string, templateName: string, params: string[]): Promise<string | null> {
-  // Bilingual templates: Arabic {{1..n}} then English {{n+1..2n}} — send twice.
-  const bilingual = [...params, ...params];
+// Per-language templates (0060) — flip WHATSAPP_PER_LANG to '1' only after the
+// per-language template variants are approved in Meta (docs/WHATSAPP_SETUP.md).
+const WHATSAPP_PER_LANG = Deno.env.get('WHATSAPP_PER_LANG') === '1';
+type WaLang = 'en' | 'ar';
+
+/** Localized "how to pay" line ({{5}} in the per-language reminder body). */
+function payLine(lang: WaLang, whish?: string | null): string {
+  if (whish) {
+    return lang === 'ar'
+      ? `يمكنك الدفع مباشرة عبر Whish إلى ${whish}.`
+      : `You can pay directly through Whish to ${whish}.`;
+  }
+  return lang === 'ar'
+    ? 'تجد التفاصيل وخيارات الدفع في حسابك.'
+    : 'Details and payment options are in your account.';
+}
+
+async function sendWhatsApp(toPhone: string, templateName: string, params: string[], lang: WaLang = 'en'): Promise<string | null> {
+  // Legacy: bilingual templates (Arabic {{1..n}} then English {{n+1..2n}} — send
+  // twice). Per-language mode: single param set + per-recipient language code.
+  const finalParams = WHATSAPP_PER_LANG ? params : [...params, ...params];
+  const langCode = WHATSAPP_PER_LANG ? lang : WHATSAPP_LANG;
   const res = await fetch(`https://graph.facebook.com/v22.0/${WHATSAPP_PHONE_ID}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
@@ -92,8 +111,8 @@ async function sendWhatsApp(toPhone: string, templateName: string, params: strin
       type: 'template',
       template: {
         name: templateName,
-        language: { code: WHATSAPP_LANG },
-        components: [{ type: 'body', parameters: bilingual.map((p) => ({ type: 'text', text: waParam(p) })) }],
+        language: { code: langCode },
+        components: [{ type: 'body', parameters: finalParams.map((p) => ({ type: 'text', text: waParam(p) })) }],
       },
     }),
   });
@@ -117,7 +136,7 @@ Deno.serve(async (req) => {
 
     const [{ data: authData }, { data: profiles }, { data: whishRows }] = await Promise.all([
       admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      admin.from('profiles').select('id, full_name, notify_email, notify_whatsapp, phone, status'),
+      admin.from('profiles').select('id, full_name, notify_email, notify_whatsapp, phone, status, preferred_language'),
       admin.from('buildings').select('id, whish_number').not('whish_number', 'is', null),
     ]);
 
@@ -133,6 +152,7 @@ Deno.serve(async (req) => {
     type Profile = {
       id: string; full_name: string; notify_email: boolean;
       notify_whatsapp: boolean; phone: string | null; status: string;
+      preferred_language: string | null;
     };
     const profileMap: Record<string, Profile> = {};
     for (const p of (profiles as Profile[] ?? [])) profileMap[p.id] = p;
@@ -149,13 +169,14 @@ Deno.serve(async (req) => {
       else sentEmail++;
     }
 
-    async function deliverWhatsApp(userId: string, template: string, params: (name: string) => string[]) {
+    async function deliverWhatsApp(userId: string, template: string, params: (name: string, lang: WaLang) => string[]) {
       if (!whatsappEnabled()) return;
       const prof = profileMap[userId];
       if (!prof?.notify_whatsapp || prof.status !== 'active') return;
       const phone = waPhone(prof.phone);
       if (!phone) return;
-      const err = await sendWhatsApp(phone, template, params(prof.full_name || 'there'));
+      const lang: WaLang = prof.preferred_language === 'ar' ? 'ar' : 'en';
+      const err = await sendWhatsApp(phone, template, params(prof.full_name || 'there', lang), lang);
       if (err) errors.push(`whatsapp ${phone}: ${err}`);
       else sentWhatsApp++;
     }
@@ -204,7 +225,10 @@ Deno.serve(async (req) => {
       for (const uid of ownerIds) {
         await deliverEmail(uid, subject, html);
         await deliverWhatsApp(uid, 'abniyah_payment_reminder',
-          (name) => [name, amount, unitLabel, buildingName]);
+          (name, lang) => {
+            const base = [name, amount, unitLabel, buildingName];
+            return WHATSAPP_PER_LANG ? [...base, payLine(lang, whishMap[buildingId])] : base;
+          });
         await deliverInApp(uid, buildingId, 'Payment reminder',
           `Unit ${unitLabel}, ${buildingName}: outstanding balance of ${amount}.${whishNote} Details in Finance.`);
       }

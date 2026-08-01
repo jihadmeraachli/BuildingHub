@@ -52,7 +52,13 @@ for all four. Language **English** (code `en`) — ⚠️ if the editor only off
 with EXACTLY this name and body — the code sends variables by position, so
 `{{1}}`, `{{2}}`… order matters.
 
-**Bilingual format (since 2026-07-29):** every message carries an Arabic section
+**⚠️ LEGACY bilingual format (2026-07-29 → per-language rollout):** the bodies
+below are the stacked Arabic+English versions that are LIVE while
+`WHATSAPP_PER_LANG` is off. The successor is **Part 2b** (one language per
+recipient, driven by `profiles.preferred_language`, migration 0060) — new work
+happens there; this section stays only until the switch is flipped.
+
+**Bilingual format:** every message carries an Arabic section
 first, a divider, then the same message in English. Meta requires strictly
 sequential variables, so the English section REUSES the same values under new
 numbers — the code sends every value twice automatically (`sendWhatsApp`
@@ -178,6 +184,139 @@ WhatsApp Manager; you'll also get an email.
 **Language code stays `en`** even though the body is bilingual — the code matches
 the template's registered language, and the Arabic lives inside the body. Don't
 set `WHATSAPP_LANG` unless the template's language column says something else.
+
+## Part 2b — Per-language templates (0060) + the Whish pay line
+
+Each resident gets ONE message in their chosen language
+(`profiles.preferred_language`, set from Settings or the header toggle), and
+the money templates end with a **pay-line variable**: the code fills it with
+"You can pay directly through Whish to <number>" when the building has a Whish
+account (0059), else a generic "details in your account" line.
+
+**How to roll out (order matters):**
+1. Run migrations 0059 + 0060 in the SQL Editor (if not already).
+2. Redeploy `dynamic-action` and `send-reminders` — the new code still sends
+   the LEGACY bilingual format until the flag flips, so nothing changes yet.
+3. In WhatsApp Manager, for each of the five templates below:
+   - Open the template → **Add language → Arabic (`ar`)** → paste the Arabic
+     body → submit.
+   - **Edit** the English (`en`) body → replace the old bilingual body with the
+     new English-only body → submit. (The currently-approved version keeps
+     sending while the edit is in review.)
+4. When ALL ten variants (5 templates × 2 languages) show **Approved**:
+   Supabase → Edge Functions → Secrets → add `WHATSAPP_PER_LANG` = `1`.
+   If messages still arrive bilingual afterwards, redeploy both functions.
+   Rollback at any time: delete the secret.
+
+### 1. `abniyah_new_charge` — 5 variables per language
+English (`en`):
+```
+Hello {{1}},
+A new charge was added to your account:
+Amount: {{2}}
+Unit: {{3}}
+Building: {{4}}
+{{5}}
+```
+Arabic (`ar`):
+```
+مرحباً {{1}}،
+تمت إضافة رسم جديد على حسابك بالتفاصيل التالية:
+المبلغ: {{2}}
+الوحدة: {{3}}
+المبنى: {{4}}
+{{5}}
+```
+Samples: `{{1}}` Rana · `{{2}}` $120.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
+`{{5}}` en: `You can pay directly through Whish to 03 123 456.` /
+ar: `يمكنك الدفع مباشرة عبر Whish إلى 03 123 456.`
+
+### 2. `abniyah_payment_received` — 4 variables per language
+English (`en`):
+```
+Hello {{1}},
+We received your payment with the details below:
+Amount: {{2}}
+Unit: {{3}}
+Building: {{4}}
+Thank you!
+```
+Arabic (`ar`):
+```
+مرحباً {{1}}،
+استلمنا دفعتك بالتفاصيل التالية:
+المبلغ: {{2}}
+الوحدة: {{3}}
+المبنى: {{4}}
+شكراً لك!
+```
+Samples: `{{1}}` Rana · `{{2}}` $250.00 · `{{3}}` A-3 · `{{4}}` El Woroud
+
+### 3. `abniyah_dues_issued` — 6 variables per language
+English (`en`):
+```
+Hello {{1}},
+Your dues for {{2}} have been issued:
+Amount: {{3}}
+Unit: {{4}}
+Building: {{5}}
+{{6}}
+```
+Arabic (`ar`):
+```
+مرحباً {{1}}،
+صدرت مستحقاتك عن {{2}}:
+المبلغ: {{3}}
+الوحدة: {{4}}
+المبنى: {{5}}
+{{6}}
+```
+Samples: `{{1}}` Rana · `{{2}}` July 2026 · `{{3}}` $100.00 · `{{4}}` A-3 ·
+`{{5}}` El Woroud · `{{6}}` as in template 1.
+
+### 4. `abniyah_unit_invite` — 4 variables per language
+English (`en`):
+```
+Hello {{1}},
+{{2}} invited you to link your Abniyah account to a unit:
+Unit: {{3}}
+Building: {{4}}
+Sign in to accept or decline — nothing is linked without your approval.
+```
+Arabic (`ar`):
+```
+مرحباً {{1}}،
+دعاك {{2}} لربط حسابك في أبنية بوحدة:
+الوحدة: {{3}}
+المبنى: {{4}}
+سجّل الدخول للقبول أو الرفض — لن يُربط أي شيء دون موافقتك.
+```
+Samples: `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Woroud
+
+### 5. `abniyah_payment_reminder` — 5 variables per language
+English (`en`):
+```
+Hello {{1}},
+A friendly reminder: your unit has an outstanding balance.
+Amount: {{2}}
+Unit: {{3}}
+Building: {{4}}
+{{5}}
+```
+Arabic (`ar`):
+```
+مرحباً {{1}}،
+تذكير ودّي: يوجد رصيد مستحق على وحدتك.
+المبلغ: {{2}}
+الوحدة: {{3}}
+المبنى: {{4}}
+{{5}}
+```
+Samples: `{{1}}` Rana · `{{2}}` $140.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
+`{{5}}` as in template 1.
+
+Recipients with no saved preference get English. The em-dash-free copy rule
+applies to template bodies too.
 
 ## Part 3 — Wire the secrets into Supabase
 

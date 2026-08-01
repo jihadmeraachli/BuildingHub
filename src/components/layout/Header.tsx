@@ -44,7 +44,13 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   }
 
-  function toggleLang() { setLanguage(i18n.language === 'ar' ? 'en' : 'ar'); }
+  function toggleLang() {
+    const next = i18n.language === 'ar' ? 'en' : 'ar';
+    setLanguage(next);
+    // The toggle IS a preference (0060): remember it on the profile so every
+    // device and every notification follows it.
+    if (user) supabase.from('profiles').update({ preferred_language: next }).eq('id', user.id).then(() => {});
+  }
 
   return (
     <header className="h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] shrink-0 flex items-center justify-between gap-2 px-4 lg:px-6 border-b border-border bg-background">

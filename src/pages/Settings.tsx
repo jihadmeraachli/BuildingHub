@@ -12,6 +12,7 @@ import { uploadFile } from '@/lib/upload';
 import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
 import { isNativeApp, bioLockEnabled, setBioLockEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
+import { setLanguage } from '@/i18n';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -30,7 +31,7 @@ export default function Settings() {
 }
 
 function SettingsInner() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, profile, refreshProfile } = useAuth();
 
   // ---- profile ----
@@ -362,6 +363,30 @@ function SettingsInner() {
                 </div>
               </div>
             )}
+
+            <div className="pt-1 space-y-2">
+              <p className="text-sm font-medium text-foreground">{t('settings.language')}</p>
+              <div className="flex gap-2">
+                {([['en', 'English'], ['ar', 'العربية']] as const).map(([lng, label]) => (
+                  <button
+                    key={lng}
+                    type="button"
+                    onClick={async () => {
+                      setLanguage(lng);
+                      if (user) await supabase.from('profiles').update({ preferred_language: lng }).eq('id', user.id);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-sm border transition-colors cursor-pointer ${
+                      i18n.language === lng
+                        ? 'border-primary text-primary bg-primary/10 font-semibold'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{t('settings.languageHint')}</p>
+            </div>
 
             <div className="pt-1 space-y-2">
               <p className="text-sm font-medium text-foreground">{t('settings.notifications')}</p>
