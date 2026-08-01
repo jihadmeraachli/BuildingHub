@@ -328,16 +328,40 @@ export default function Finance() {
     const paid = ownerPaid + tenantPaid;
     // adjustments change the balance but aren't billed/paid → their own column
     const liveA = uAdj.filter((a) => !a.voided_at && within(a.effective_date));
-    const ownerAdj = liveA.filter((a) => a.party !== 'tenant').reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
-    const tenantAdj = liveA.filter((a) => a.party === 'tenant').reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
+    const adjSum = <X extends { kind: AdjustmentKind; amount_usd: number }>(rows: X[]) =>
+      rows.reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
+    const ownerAdj = adjSum(liveA.filter((a) => a.party !== 'tenant'));
+    const tenantAdj = adjSum(liveA.filter((a) => a.party === 'tenant'));
     const adj = ownerAdj + tenantAdj;
+    // Split the tenant sub-ledger into the CURRENT (live) tenant vs FORMER
+    // tenants, so the live tenant's row never absorbs a past tenant's lines.
+    const activeTid = activeTenantId(u.id);
+    const isCur = (tid: string | null | undefined) => !!activeTid && tid === activeTid;
+    const curTenantCharged = sum(liveC.filter((c) => c.billed_to === 'tenant' && isCur(c.tenant_id)));
+    const curTenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant' && isCur(p.tenant_id)));
+    const curTenantAdj = adjSum(liveA.filter((a) => a.party === 'tenant' && isCur(a.tenant_id)));
+    const curTenant = curTenantPaid - curTenantCharged + curTenantAdj;
+    const fmrTenantCharged = sum(liveC.filter((c) => c.billed_to === 'tenant' && !isCur(c.tenant_id)));
+    const fmrTenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant' && !isCur(p.tenant_id)));
+    const fmrTenantAdj = adjSum(liveA.filter((a) => a.party === 'tenant' && !isCur(a.tenant_id)));
+    const fmrTenant = fmrTenantPaid - fmrTenantCharged + fmrTenantAdj;
+    // names of the former tenants present in this view (for the row label)
+    const fmrTenantNames = Array.from(new Set(
+      [...liveC.filter((c) => c.billed_to === 'tenant' && !isCur(c.tenant_id)).map((c) => c.tenant_id),
+       ...liveP.filter((p) => p.paid_by === 'tenant' && !isCur(p.tenant_id)).map((p) => p.tenant_id),
+       ...liveA.filter((a) => a.party === 'tenant' && !isCur(a.tenant_id)).map((a) => a.tenant_id)]
+        .map((id) => nameById(id)).filter((n): n is string => !!n)));
+    const showFormer = fmrTenantCharged !== 0 || fmrTenantPaid !== 0 || fmrTenantAdj !== 0 || fmrTenant !== 0;
     // T9: show the owner/tenant split when there's a LIVE tenant (always, even at
     // $0), or the unit once had a tenant that still carries a non-zero balance
     // (the leftover is what T10 offloads to the owner on move-out).
     const bal = computeUnitBalances(u, uCharges, uPayments, uAdj, asOf || null);
-    const split = activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0);
-    return { unit: u, charged, paid, adj, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, ownerAdj, tenantCharged, tenantPaid, tenantAdj };
-  }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds]);
+    const split = activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0) || showFormer;
+    return { unit: u, charged, paid, adj, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, ownerAdj, tenantCharged, tenantPaid, tenantAdj,
+      hasActiveTenant: activeTenantIds.has(u.id), activeTenantName: nameById(activeTid),
+      curTenantCharged, curTenantPaid, curTenantAdj, curTenant,
+      fmrTenantCharged, fmrTenantPaid, fmrTenantAdj, fmrTenant, showFormer, fmrTenantNames };
+  }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds, activeTenantIds, tenancy]);
 
   // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
   // selected period), like Collected/Billed next to it — NOT the Book tab's
@@ -844,8 +868,13 @@ export default function Finance() {
                             );
                           };
                           return (<>
-                            {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.ownerAdj, r.owner, false)}
-                            {sub(<>{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></>, r.tenantCharged, r.tenantPaid, r.tenantAdj, r.tenant, true)}
+                            {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.ownerAdj, r.owner, !r.hasActiveTenant && !r.showFormer)}
+                            {r.hasActiveTenant && sub(
+                              <>{t('finance.tenant')} <TenantTag label={r.activeTenantName ?? t('finance.tenantTag')} /></>,
+                              r.curTenantCharged, r.curTenantPaid, r.curTenantAdj, r.curTenant, !r.showFormer)}
+                            {r.showFormer && sub(
+                              <>{t('finance.formerTenants')}{r.fmrTenantNames.length > 0 && <span className="text-muted-foreground/70"> · {r.fmrTenantNames.join(', ')}</span>}</>,
+                              r.fmrTenantCharged, r.fmrTenantPaid, r.fmrTenantAdj, r.fmrTenant, true)}
                           </>);
                         })()}
                         </Fragment>
