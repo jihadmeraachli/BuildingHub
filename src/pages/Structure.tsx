@@ -224,7 +224,17 @@ export default function Structure() {
   // ---- owners ----
   async function addOwner() {
     if (!ownerModal || !ownerPick) return;
-    await supabase.from('memberships').insert({ user_id: ownerPick, unit_id: ownerModal.id, tenure: ownerTenure });
+    // T4: at most one active owner and one active tenant per unit. Block early
+    // with a clear message; the DB trigger (0062) is the backstop.
+    if (ownersOf(ownerModal.id).some((o) => o.tenure === ownerTenure)) {
+      toast.error(t('structure.oneMemberPerTenure', { role: t(`structure.tenure.${ownerTenure}`) }));
+      return;
+    }
+    const { error } = await supabase.from('memberships').insert({ user_id: ownerPick, unit_id: ownerModal.id, tenure: ownerTenure });
+    if (error) {
+      toast.error(error.code === '23505' ? t('structure.oneMemberPerTenure', { role: t(`structure.tenure.${ownerTenure}`) }) : error.message);
+      return;
+    }
     setOwnerPick(''); setOwnerTenure('owner');
     loadAll();
   }
@@ -527,8 +537,9 @@ export default function Structure() {
                 .map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name}{p.apartment_number ? ` (${p.apartment_number})` : ''}</SelectItem>)}
             </SelectField>
             <SelectField label={t('structure.role')} value={ownerTenure} onValueChange={(v) => setOwnerTenure(v as Tenure)}>
-              <SelectItem value="owner">{t('structure.tenure.owner')}</SelectItem>
-              <SelectItem value="tenant">{t('structure.tenure.tenant')}</SelectItem>
+              {/* T4: a role already filled on this unit can't be picked again */}
+              <SelectItem value="owner" disabled={!!ownerModal && ownersOf(ownerModal.id).some((o) => o.tenure === 'owner')}>{t('structure.tenure.owner')}</SelectItem>
+              <SelectItem value="tenant" disabled={!!ownerModal && ownersOf(ownerModal.id).some((o) => o.tenure === 'tenant')}>{t('structure.tenure.tenant')}</SelectItem>
             </SelectField>
           </div>
           <p className="text-xs text-muted-foreground">{t('structure.memberHint')}</p>

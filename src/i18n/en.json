@@ -130,8 +130,16 @@
     "residentNote": "A resident? Your building admin will create your account and send you an invite.",
     "createAccount": "Create your account",
     "trialNote": "30-day free trial, no payment required.",
-    "nouns": { "building": "building", "compound": "compound", "org": "organisation" },
-    "nounsTitle": { "building": "Building", "compound": "Compound", "org": "Organisation" },
+    "nouns": {
+      "building": "building",
+      "compound": "compound",
+      "org": "organisation"
+    },
+    "nounsTitle": {
+      "building": "Building",
+      "compound": "Compound",
+      "org": "Organisation"
+    },
     "aboutEntity": "About your {{noun}}",
     "entitySubtitle": "This is what your team and residents will see.",
     "entityNameLabel": "{{noun}} name",
@@ -187,15 +195,42 @@
     "allSetBody": "Everything is configured. This page will disappear from the menu — you can always adjust things from the regular pages.",
     "goDashboard": "Go to dashboard",
     "steps": {
-      "entity_building": { "title": "Create your building", "desc": "Your building was created at registration — review its details (address, contacts) in Buildings." },
-      "entity_compound": { "title": "Add your compound's blocks", "desc": "Create each block of your compound in Buildings." },
-      "entity_org": { "title": "Create your buildings or compounds", "desc": "Add the properties your organisation manages in Buildings." },
-      "units": { "title": "Create or import your units", "desc": "Add apartments one by one in Units, or bulk-import them from Excel in Import." },
-      "licenses": { "title": "License your units", "desc": "Assign licenses so residents can sign in." },
-      "people": { "title": "Add your people", "desc": "Invite owners and tenants, or link existing Abniyah accounts." },
-      "expense": { "title": "Record your first expense", "desc": "Bill it across units and start the building book." },
-      "reminder": { "title": "Turn on payment reminders", "desc": "Pick a day of the month and Abniyah nudges whoever owes." },
-      "profile": { "title": "Review your profile & security", "desc": "Phone number, WhatsApp and email notifications, two-factor authentication, and Face ID in the mobile app." }
+      "entity_building": {
+        "title": "Create your building",
+        "desc": "Your building was created at registration — review its details (address, contacts) in Buildings."
+      },
+      "entity_compound": {
+        "title": "Add your compound's blocks",
+        "desc": "Create each block of your compound in Buildings."
+      },
+      "entity_org": {
+        "title": "Create your buildings or compounds",
+        "desc": "Add the properties your organisation manages in Buildings."
+      },
+      "units": {
+        "title": "Create or import your units",
+        "desc": "Add apartments one by one in Units, or bulk-import them from Excel in Import."
+      },
+      "licenses": {
+        "title": "License your units",
+        "desc": "Assign licenses so residents can sign in."
+      },
+      "people": {
+        "title": "Add your people",
+        "desc": "Invite owners and tenants, or link existing Abniyah accounts."
+      },
+      "expense": {
+        "title": "Record your first expense",
+        "desc": "Bill it across units and start the building book."
+      },
+      "reminder": {
+        "title": "Turn on payment reminders",
+        "desc": "Pick a day of the month and Abniyah nudges whoever owes."
+      },
+      "profile": {
+        "title": "Review your profile & security",
+        "desc": "Phone number, WhatsApp and email notifications, two-factor authentication, and Face ID in the mobile app."
+      }
     }
   },
   "bio": {
@@ -250,9 +285,18 @@
     "everythingElse": "And everything else a building needs",
     "howTitle": "How it works",
     "how": {
-      "h1": { "title": "Register", "body": "Create your account, name your building, compound or organisation, and start a 30-day free trial. No payment details." },
-      "h2": { "title": "Set up in minutes", "body": "Follow the checklist: blocks, units, people, licenses. Import from Excel if you already keep records." },
-      "h3": { "title": "Collect on autopilot", "body": "Expenses become charges, residents get receipts, and Abniyah sends the monthly payment reminders for you." }
+      "h1": {
+        "title": "Register",
+        "body": "Create your account, name your building, compound or organisation, and start a 30-day free trial. No payment details."
+      },
+      "h2": {
+        "title": "Set up in minutes",
+        "body": "Follow the checklist: blocks, units, people, licenses. Import from Excel if you already keep records."
+      },
+      "h3": {
+        "title": "Collect on autopilot",
+        "body": "Expenses become charges, residents get receipts, and Abniyah sends the monthly payment reminders for you."
+      }
     },
     "pricingTitle": "Simple, per-unit pricing",
     "pricingSub": "Every feature included. Start with 30 days free, cancel anytime.",
@@ -290,12 +334,30 @@
     "ctaTitle": "Ready to run your building like a pro?",
     "ctaBody": "Set up your building today. Free for 30 days, and your data stays yours.",
     "features": {
-      "f1": { "title": "The building book", "body": "Every expense, charge and payment in one ledger. The compound view and each block reconcile to the cent." },
-      "f2": { "title": "Dues & collections", "body": "Issue monthly dues or bill actual expenses. Owners see their balance; managers see who has paid." },
-      "f3": { "title": "WhatsApp & email updates", "body": "Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic and English." },
-      "f4": { "title": "Issues & maintenance", "body": "Residents report problems with photos; managers track them from reported to resolved." },
-      "f5": { "title": "Meetings & decisions", "body": "Schedule building meetings with calendar invites, keep minutes and decisions where everyone finds them." },
-      "f6": { "title": "Compounds & portfolios", "body": "One account for a single building, a compound of blocks, or a whole management company." }
+      "f1": {
+        "title": "The building book",
+        "body": "Every expense, charge and payment in one ledger. The compound view and each block reconcile to the cent."
+      },
+      "f2": {
+        "title": "Dues & collections",
+        "body": "Issue monthly dues or bill actual expenses. Owners see their balance; managers see who has paid."
+      },
+      "f3": {
+        "title": "WhatsApp & email updates",
+        "body": "Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic and English."
+      },
+      "f4": {
+        "title": "Issues & maintenance",
+        "body": "Residents report problems with photos; managers track them from reported to resolved."
+      },
+      "f5": {
+        "title": "Meetings & decisions",
+        "body": "Schedule building meetings with calendar invites, keep minutes and decisions where everyone finds them."
+      },
+      "f6": {
+        "title": "Compounds & portfolios",
+        "body": "One account for a single building, a compound of blocks, or a whole management company."
+      }
     },
     "whoFor": "Abniyah serves owners' committees, building supervisors, and property-management companies, from a single block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.",
     "rights": "All rights reserved.",
@@ -313,8 +375,17 @@
   },
   "licensesPage": {
     "subtitle": "Manage your subscription and per-unit licenses.",
-    "statuses": { "trial": "Trial", "active": "Active", "past_due": "Past due", "cancelled": "Cancelled" },
-    "invoiceStatuses": { "open": "Open", "paid": "Paid", "void": "Void" },
+    "statuses": {
+      "trial": "Trial",
+      "active": "Active",
+      "past_due": "Past due",
+      "cancelled": "Cancelled"
+    },
+    "invoiceStatuses": {
+      "open": "Open",
+      "paid": "Paid",
+      "void": "Void"
+    },
     "noSub": "No subscription found",
     "noSubPlatform": "No entity has an active subscription yet.",
     "noSubUser": "Your entity doesn't have a subscription. Contact support to set one up.",
@@ -722,7 +793,8 @@
     "openingAsOf": "As of date",
     "openingHint": "What this unit already owed or had in credit when it joined. Kept out of income/expenses.",
     "openingOwes": "Unit starts owing ${{amt}}. Enter a negative number for arrears.",
-    "openingCredit": "Unit starts with ${{amt}} credit."
+    "openingCredit": "Unit starts with ${{amt}} credit.",
+    "oneMemberPerTenure": "This unit already has an active {{role}}. Remove the existing one first."
   },
   "finance": {
     "title": "Finance",
