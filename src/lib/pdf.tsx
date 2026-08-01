@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, pdf as pdfRenderer } from '@react-pdf/renderer';
-import type { Charge, Payment, Expense, Unit } from '@/types';
+import type { Charge, Payment, Expense, Unit, Adjustment } from '@/types';
+import { adjustmentEffect } from '@/lib/balance';
 
 const C = {
   indigo: '#4f46e5',
@@ -61,15 +62,21 @@ export interface UnitStatementProps {
   generatedOn: string;
   charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date' | 'billed_to'>[];
   payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on' | 'paid_by'>[];
-  /** show the Owner/Tenant "For" column — true when the unit has/had a tenant */
+  adjustments?: Pick<Adjustment, 'id' | 'kind' | 'amount_usd' | 'effective_date' | 'party' | 'note'>[];
+  /** true balance (incl. opening + adjustments); if omitted, derived from paid − charged */
+  balance?: number;
+  openingBalance?: number;
+  /** show the Owner/Tenant "For" column + split — true when the unit has/had a tenant */
   showParty?: boolean;
 }
 
-export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn, charges, payments, showParty }: UnitStatementProps) {
+export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn, charges, payments, adjustments = [], balance: balanceProp, openingBalance = 0, showParty }: UnitStatementProps) {
   const partyLabel = (p?: string) => (p === 'tenant' ? 'Tenant' : 'Owner');
   const totalCharged = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
-  const balance = totalPaid - totalCharged;
+  const totalAdj = adjustments.reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
+  // Use the true balance when provided (incl. opening + adjustments); else derive.
+  const balance = balanceProp ?? (openingBalance + totalPaid - totalCharged + totalAdj);
 
   return (
     <Document title={`Statement — ${unitLabel}`} author="Abniyah">
@@ -161,6 +168,31 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
             </>
           )}
         </View>
+
+        {/* Adjustments table — credit notes / discounts / write-offs / penalties / refunds */}
+        {adjustments.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Adjustments</Text>
+            <View style={s.tableHead}>
+              <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+              <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Type / Note</Text>
+              {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>For</Text>}
+              <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Effect</Text>
+            </View>
+            {adjustments.map((a) => {
+              const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
+              const kindLabel = a.kind.replace('_', ' ');
+              return (
+                <View key={a.id} style={s.tableRow}>
+                  <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(a.effective_date)}</Text>
+                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{kindLabel}{a.note ? ` · ${a.note}` : ''}</Text>
+                  {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(a.party)}</Text>}
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: eff < 0 ? C.rose : C.emerald }]}>{money(eff)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Footer */}
         <View style={s.footer} fixed>

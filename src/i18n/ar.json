@@ -947,7 +947,9 @@
       "combined": "مجمّع",
       "owner": "المالك",
       "tenant": "المستأجر"
-    }
+    },
+    "adjustmentsCol": "التسويات",
+    "exportFailed": "تعذّر إنشاء الملف. حدّث الصفحة وحاول مجددًا."
   },
   "inspections": {
     "title": "الفحوصات",

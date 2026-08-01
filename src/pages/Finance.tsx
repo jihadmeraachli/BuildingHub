@@ -175,12 +175,12 @@ export default function Finance() {
     const [{ data: u }, { data: g }, chargeRows, paymentRows, expenseRows, adjRows] = await Promise.all([
       supabase.from('units').select('*').in('building_id', blocks).order('label'),
       supabase.from('groups').select('*').in('building_id', blocks).order('name'),
-      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('building_id', blocks).order('charge_date', { ascending: false }).order('id').range(f, t)),
-      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('building_id', blocks).order('paid_on', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('building_id', blocks).order('charge_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('building_id', blocks).order('paid_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
       entity.kind === 'compound'
         ? fetchAll<Expense>((f, t) => supabase.from('expenses').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`).order('expense_date', { ascending: false }).order('id').range(f, t))
         : fetchAll<Expense>((f, t) => supabase.from('expenses').select('*').eq('building_id', entity.id).order('expense_date', { ascending: false }).order('id').range(f, t)),
-      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('building_id', blocks).order('effective_date', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('building_id', blocks).order('effective_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
     ]);
     const unitList = (u as Unit[]) ?? [];
     setUnits(unitList);
@@ -206,9 +206,9 @@ export default function Finance() {
     setLoading(true);
     const [{ data: u }, chargeRows, paymentRows, adjRows] = await Promise.all([
       supabase.from('units').select('*').in('id', myUnitIds),
-      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('unit_id', myUnitIds).order('charge_date', { ascending: false }).order('id').range(f, t)),
-      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('unit_id', myUnitIds).order('paid_on', { ascending: false }).order('id').range(f, t)),
-      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('unit_id', myUnitIds).order('effective_date', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('unit_id', myUnitIds).order('charge_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('unit_id', myUnitIds).order('paid_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('unit_id', myUnitIds).order('effective_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
     ]);
     setUnits((u as Unit[]) ?? []);
     setCharges(chargeRows);
@@ -288,12 +288,17 @@ export default function Finance() {
     const tenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant'));
     const charged = ownerCharged + tenantCharged;
     const paid = ownerPaid + tenantPaid;
+    // adjustments change the balance but aren't billed/paid → their own column
+    const liveA = uAdj.filter((a) => !a.voided_at && within(a.effective_date));
+    const ownerAdj = liveA.filter((a) => a.party !== 'tenant').reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
+    const tenantAdj = liveA.filter((a) => a.party === 'tenant').reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
+    const adj = ownerAdj + tenantAdj;
     // T9: show the owner/tenant split when there's a LIVE tenant (always, even at
     // $0), or the unit once had a tenant that still carries a non-zero balance
     // (the leftover is what T10 offloads to the owner on move-out).
     const bal = computeUnitBalances(u, uCharges, uPayments, uAdj, asOf || null);
     const split = activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0);
-    return { unit: u, charged, paid, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, tenantCharged, tenantPaid };
+    return { unit: u, charged, paid, adj, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, ownerAdj, tenantCharged, tenantPaid, tenantAdj };
   }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds]);
 
   // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
@@ -467,35 +472,47 @@ export default function Finance() {
 
   // ─── PDF export ───────────────────────────────────────────────────────────
 
-  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], showParty = false) {
-    const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
-    const el = (
-      <UnitStatementDoc
-        unitLabel={unit.label}
-        buildingName={entity?.name ?? ''}
-        period={periodLabel}
-        generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-        charges={unitCharges}
-        payments={unitPayments}
-        showParty={showParty}
-      />
-    );
-    await downloadPdf(el, `statement-unit-${unit.label.replace(/\s+/g, '-')}.pdf`);
+  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], showParty = false, unitAdjustments: Adjustment[] = [], balance?: number) {
+    try {
+      const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
+      const el = (
+        <UnitStatementDoc
+          unitLabel={unit.label}
+          buildingName={entity?.name ?? ''}
+          period={periodLabel}
+          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          charges={unitCharges}
+          payments={unitPayments}
+          adjustments={unitAdjustments}
+          balance={balance}
+          showParty={showParty}
+        />
+      );
+      await downloadPdf(el, `statement-unit-${unit.label.replace(/\s+/g, '-')}.pdf`);
+    } catch (e) {
+      toast.error(t('finance.exportFailed', { defaultValue: 'Could not generate the statement. Please refresh and try again.' }));
+      console.error('statement export failed:', e);
+    }
   }
 
   async function exportBuildingReport() {
-    const { BuildingReportDoc, downloadPdf } = await import('@/lib/pdf');
-    const el = (
-      <BuildingReportDoc
-        entityName={entity?.name ?? ''}
-        period={periodLabel}
-        generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-        kpi={{ collected: collectedP, billed: billedP, outstanding }}
-        book={book}
-        expenses={pExpenses}
-      />
-    );
-    await downloadPdf(el, `report-${(entity?.name ?? 'building').replace(/\s+/g, '-')}-${period}.pdf`);
+    try {
+      const { BuildingReportDoc, downloadPdf } = await import('@/lib/pdf');
+      const el = (
+        <BuildingReportDoc
+          entityName={entity?.name ?? ''}
+          period={periodLabel}
+          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          kpi={{ collected: collectedP, billed: billedP, outstanding }}
+          book={book}
+          expenses={pExpenses}
+        />
+      );
+      await downloadPdf(el, `report-${(entity?.name ?? 'building').replace(/\s+/g, '-')}-${period}.pdf`);
+    } catch (e) {
+      toast.error(t('finance.exportFailed', { defaultValue: 'Could not generate the report. Please refresh and try again.' }));
+      console.error('report export failed:', e);
+    }
   }
 
   // ================= RESIDENT VIEW =================
@@ -505,7 +522,7 @@ export default function Finance() {
     const rBook = units.map((u) => {
       const uCharges = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
       const uPayments = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
-      const uAdj = adjustments.filter((a) => a.unit_id === u.id);
+      const uAdj = adjustments.filter((a) => a.unit_id === u.id && !a.voided_at);
       const bal = computeUnitBalances(u, uCharges, uPayments, uAdj);
       // A tenant of the unit only ever sees the tenant ledger. An owner can toggle.
       const viewerIsTenant = myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id);
@@ -513,12 +530,13 @@ export default function Finance() {
       const effective: 'owner' | 'tenant' | 'combined' = viewerIsTenant ? 'tenant' : (canToggle ? residentView : 'owner');
       const cShown = effective === 'combined' ? uCharges : uCharges.filter((c) => chargeParty(c) === effective);
       const pShown = effective === 'combined' ? uPayments : uPayments.filter((p) => (p.paid_by === 'tenant' ? 'tenant' : 'owner') === effective);
+      const aShown = effective === 'combined' ? uAdj : uAdj.filter((a) => (a.party === 'tenant' ? 'tenant' : 'owner') === effective);
       const balance = effective === 'owner' ? bal.owner : effective === 'tenant' ? bal.tenant : bal.total;
       return {
         unit: u, balance, effective, canToggle, viewerIsTenant,
         charged: cShown.reduce((s, c) => s + Number(c.amount_usd), 0),
         paid: pShown.reduce((s, p) => s + Number(p.amount_usd), 0),
-        unitCharges: cShown, unitPayments: pShown,
+        unitCharges: cShown, unitPayments: pShown, unitAdjustments: aShown,
       };
     });
     const anyToggle = rBook.some((r) => r.canToggle);
@@ -529,7 +547,7 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && r.effective === 'combined');
+              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && r.effective === 'combined', r.unitAdjustments, r.balance);
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -572,7 +590,7 @@ export default function Finance() {
           </CardBody></Card>
         ))}
         <ResidentDuesCard unitIds={myUnitIds} />
-        <StatementList charges={rBook.flatMap(r => r.unitCharges)} payments={rBook.flatMap(r => r.unitPayments)} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
+        <StatementList charges={rBook.flatMap(r => r.unitCharges)} payments={rBook.flatMap(r => r.unitPayments)} adjustments={rBook.flatMap(r => r.unitAdjustments)} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
       </div>
     );
   }
@@ -709,6 +727,7 @@ export default function Finance() {
                     <th className="px-5 py-3 text-start font-medium w-40">{t('finance.collectedCol')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.billed')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.paid')}</th>
+                    <th className="px-5 py-3 text-end font-medium">{t('finance.adjustmentsCol')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.balance')}</th>
                     <th className="px-3 py-3 w-8" />
                   </tr></thead>
@@ -723,9 +742,10 @@ export default function Finance() {
                           <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-foreground dark:text-white tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.charged)}</td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
+                          <td className={`px-5 py-3 text-end tnum ${r.adj === 0 ? 'text-muted-foreground' : balCls(r.adj)}`}>{r.adj === 0 ? '—' : money(r.adj)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${balCls(r.balance)}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), everTenantIds.has(r.unit.id))} className="text-primary hover:text-primary/70 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), everTenantIds.has(r.unit.id), adjustments.filter(a => a.unit_id === r.unit.id && !a.voided_at), r.balance)} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
@@ -733,7 +753,7 @@ export default function Finance() {
                         {/* T9: owner/tenant sub-rows — mirror the main columns
                             (collected % · billed · paid · balance), shaded + indented */}
                         {r.split && (() => {
-                          const sub = (label: React.ReactNode, ch: number, pd: number, bal: number, last: boolean) => {
+                          const sub = (label: React.ReactNode, ch: number, pd: number, ad: number, bal: number, last: boolean) => {
                             const p = ch > 0 ? (pd / ch) * 100 : (pd > 0 ? 100 : 0);
                             return (
                               <tr className={`text-xs bg-primary/[0.04] ${last ? 'border-b-2 border-border/70' : ''}`}>
@@ -741,14 +761,15 @@ export default function Finance() {
                                 <td className="px-5 py-1.5"><div className="flex items-center gap-2"><MiniBar pct={p} color={p >= 100 ? '#10b981' : p > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-[11px] text-muted-foreground tnum w-9 text-end">{Math.round(p)}%</span></div></td>
                                 <td className="px-5 py-1.5 text-end text-muted-foreground tnum">{money(ch)}</td>
                                 <td className="px-5 py-1.5 text-end text-muted-foreground tnum">{money(pd)}</td>
+                                <td className={`px-5 py-1.5 text-end tnum ${ad === 0 ? 'text-muted-foreground' : balCls(ad)}`}>{ad === 0 ? '—' : money(ad)}</td>
                                 <td className={`px-5 py-1.5 text-end tnum ${balCls(bal)}`}>{money(bal)}</td>
                                 <td />
                               </tr>
                             );
                           };
                           return (<>
-                            {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.owner, false)}
-                            {sub(<>{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></>, r.tenantCharged, r.tenantPaid, r.tenant, true)}
+                            {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.ownerAdj, r.owner, false)}
+                            {sub(<>{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></>, r.tenantCharged, r.tenantPaid, r.tenantAdj, r.tenant, true)}
                           </>);
                         })()}
                         </Fragment>
@@ -1155,12 +1176,14 @@ function EmptyState({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
-function StatementList({ charges, payments, unitLabel }: { charges: Charge[]; payments: Payment[]; unitLabel: Record<string, string> }) {
+function StatementList({ charges, payments, adjustments = [], unitLabel }: { charges: Charge[]; payments: Payment[]; adjustments?: Adjustment[]; unitLabel: Record<string, string> }) {
   const { t } = useTranslation();
   type Row = { date: string; label: string; unit: string; amount: number };
   const rows: Row[] = [
     ...charges.map((c) => ({ date: c.charge_date, label: c.description || t(`finance.cats.${c.category}`), unit: unitLabel[c.unit_id] ?? '', amount: -Number(c.amount_usd) })),
     ...payments.map((p) => ({ date: p.paid_on, label: t('finance.payment'), unit: unitLabel[p.unit_id] ?? '', amount: Number(p.amount_usd) })),
+    // adjustments so residents can see credit notes / discounts / write-offs / penalties / refunds
+    ...adjustments.map((a) => ({ date: a.effective_date, label: t(`finance.adjKinds.${a.kind}`) + (a.note ? ` · ${a.note}` : ''), unit: unitLabel[a.unit_id] ?? '', amount: adjustmentEffect(a.kind, Number(a.amount_usd)) })),
   ].sort((a, b) => (a.date < b.date ? 1 : -1));
   if (rows.length === 0) return <Empty body={t('finance.noTransactions')} />;
   return (
