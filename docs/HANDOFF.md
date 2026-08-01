@@ -80,6 +80,18 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0033 | `0033_opening_balance.sql` | **Opening balances + balance-as-of-date.** `units.opening_balance` (+ date), signed like the balance, excluded from P&L. `unit_balance()` folds it in; `unit_balance_asof()` / `building_book_asof()` for point-in-time statements. |
 | 0034 | `0034_adjustments_and_void.sql` | **Adjustments + soft void.** `adjustments` table (credit_note/discount/waiver/write_off = +credit; penalty/refund = −), `adjustment_effect()`. Soft `voided_at/by/reason` on charges/payments/adjustments (no more destructive delete). `unit_balance*()` fold in adjustments + ignore voided. Client mirror: `src/lib/balance.ts`. |
 | 0035 | `0035_import_batches.sql` | **Import safety.** `import_batches` ledger; imported rows tagged `import_batch_id`; SHA-256 file hash → duplicate-import warning; `reverse_import_batch()` one-click undo. |
+| 0036 | `0036_beta_access.sql` | Private-beta access codes (the beta gate on app.abniyah.com). |
+| 0037–0038, 0046, 0050–0052 | `*_onboarding_*.sql` | Register-wizard hardening: status/grant/event guards, idempotent + race-locked `complete_admin_onboarding()`, building address capture. |
+| 0039–0045 | `0039_profiles_visibility` … `0045_can_delete_user_fix` | Security audit wave: profile visibility rules, critical access fixes, licensing hardening, legacy-policy ports, financial RPC lockdown, admin identity RPC, delete-user guard fix. |
+| 0047 | `0047_policy_recursion_fix.sql` | **Sealed-helper discipline.** RLS policies route through SECURITY DEFINER helper functions to kill policy recursion — follow this pattern for every new cross-table policy. |
+| 0048 | `0048_find_user_by_email.sql` | `find_user_by_email()` for admin flows (invite/link existing users). |
+| 0049 | `0049_dashboard_aggregates.sql` | Dashboard aggregate RPCs (fund balance, collected vs spent series). |
+| 0053 | `0053_membership_invites.sql` | Consent-based unit invitations (`membership_invites` + accept/decline RPCs). |
+| 0054 | `0054_invitee_profile_visibility.sql` | Admins can see a pending invitee's profile (name resolution in People). |
+| 0055 | `0055_admin_invite_tracking.sql` | `admin_membership_invites()` — People → Invitations tab, all statuses with names. |
+| 0056 | `0056_payment_reminder_schedule.sql` | **Automated payment reminders.** `buildings.reminder_day` (1–28, NULL=off), `reminders_sent` dedup table, rebuilt `get_overdue_units()`/`get_overdue_dues()` on `unit_balance()` + compound-governed billing mode; pg_cron `daily-reminders` hits the `send-reminders` edge function at 06:00 UTC (9am Beirut). |
+| 0057 | `0057_notification_channel_required.sql` | Every profile must keep ≥1 notification channel (email OR WhatsApp) — backfill + CHECK. |
+| 0058 | `0058_viewer_member_names.sql` | `structure_members()` — names-only membership visibility for `finance.view` holders (viewer/auditor roles, public demo). Contact details stay behind `resident.manage`. |
 
 ### Key idea: the access ladder (0026 + 0027)
 ```
@@ -131,6 +143,8 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
 - **Organizations:** create/edit/delete orgs; assign buildings to orgs (platform admin).
 - **Sidebar:** two-tier layout — Operations (Dashboard, Finance, Dues, Issues, Meetings, Inspections, Contracts) + collapsible Settings section (Buildings, Structure, People). Settings section persisted in localStorage.
 - **Auth:** login, forgot password → email link → `/set-password` page (handles both password reset and first-time invite setup).
+- **Marketing site (abniyah.com):** the root domain serves `Landing.tsx` (hostname switch in `App.tsx`) — full marketing page (product showcases with real screenshots in `public/marketing/`, pricing, about, FAQ, bilingual). Screenshots re-shot with `shoot-marketing.mjs`.
+- **Public read-only demo:** "See the live demo" on abniyah.com → `app.abniyah.com/demo` — a bilingual persona chooser. **"View as building admin"** = `jihad.meraachli+demoviewer@gmail.com` ("Demo Admin", `viewer` grant on Tulip); **"View as unit owner"** = `jihad.meraachli+demoowner@gmail.com` ("Nadia Salameh", owns units 302 + 503). Both password `abniyah-demo-2026` (public by design — in the bundle, `src/lib/demo.ts`). Demo sessions: conversion banner + Switch view, no Settings, no issue reporting, sign-out redirects to abniyah.com. Demo admin additionally sees Buildings + Structure read-only (0058 names). **Tulip is the showcase building** — seeded by `seed-demo.mjs` (20 units, 16 fictional residents via gmail +aliases, 8 months of books, contracts, inspections, meetings, issues). Re-run it after wipe-day to rebuild the demo.
 
 ---
 
