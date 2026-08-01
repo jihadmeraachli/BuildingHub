@@ -691,8 +691,9 @@ export default function Finance() {
                     {canManageFinance && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
-                    {/* T3: voided payments are excluded from the list entirely (kept in DB for audit) */}
-                    {vPayments.filter((p) => !p.voided_at && inRange(p.paid_on)).map((p) => (
+                    {/* T3: voided payments stay VISIBLE (dimmed + VOIDED badge) for transparency,
+                        but are excluded from every total and the downloaded report. */}
+                    {vPayments.filter((p) => inRange(p.paid_on)).map((p) => (
                       <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
