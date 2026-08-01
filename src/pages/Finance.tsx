@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
+import { useEffect, useMemo, useRef, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban } from 'lucide-react';
@@ -116,8 +116,10 @@ export default function Finance() {
   // Book "as of" date — empty = today/live. Lets you pull a statement position
   // at a past date (e.g. year-end). Only affects the Book tab. (0033)
   const [asOf, setAsOf] = useState<string>('');
-  // T6: an owner of a leased unit can view owner-only / tenant-only / combined
-  const [residentView, setResidentView] = useState<'combined' | 'owner' | 'tenant'>('combined');
+  // T6 + per-tenant buckets: 'combined' | 'owner' | a tenant's user id.
+  // Defaults to the latest tenant once tenancy loads (see effect below).
+  const [residentView, setResidentView] = useState<string>('combined');
+  const residentDefaulted = useRef(false);
   // void (soft-cancel) + adjustments (0034)
   const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments'; id: string; label: string } | null>(null);
   const [voidReason, setVoidReason] = useState('');
@@ -250,6 +252,22 @@ export default function Finance() {
     const hit = periods.find((m) => new Date(m.created_at) <= d && (!m.ended_at || new Date(m.ended_at) >= d));
     return (hit ?? periods[periods.length - 1])?.profiles?.full_name ?? null;
   };
+  // the current (active) tenant of a unit — used to stamp tenant_id on new rows
+  const activeTenantId = (unitId: string): string | null =>
+    tenancy.find((m) => m.unit_id === unitId && m.tenure === 'tenant' && !m.ended_at)?.user_id ?? null;
+  // every tenant a unit has had, oldest→newest, for per-tenant buckets/toggle
+  const tenantsOf = (unitId: string) =>
+    tenancy.filter((m) => m.unit_id === unitId && m.tenure === 'tenant')
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+      .map((m) => ({ id: m.user_id, name: m.profiles?.full_name ?? t('finance.tenant'), ended: !!m.ended_at }));
+  // Default the resident toggle to the latest tenant once tenancy is known.
+  useEffect(() => {
+    if (residentDefaulted.current || !tenancy.length) return;
+    const owned = units.filter((u) => myOwnerUnitIds.includes(u.id));
+    const opts = Array.from(new Map(owned.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values());
+    if (opts.length) { setResidentView(opts[opts.length - 1].id); residentDefaulted.current = true; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenancy, units]);
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
@@ -414,12 +432,16 @@ export default function Finance() {
     }
 
     // each charge carries the UNIT's own block_id → compound book slices by block
-    const rows = allocate(amount, targetUnits, expForm.method, custom).filter((r) => r.amount !== 0).map((r) => ({
-      expense_id: expenseId, unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id,
-      category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date,
-      // owner-only units → owner; leased units → the chosen party (T5)
-      billed_to: hasTenant(r.unit_id) ? expForm.leasedTo : 'owner', created_by: profile?.id,
-    }));
+    const rows = allocate(amount, targetUnits, expForm.method, custom).filter((r) => r.amount !== 0).map((r) => {
+      // owner-only units → owner; leased units → the chosen party (T5).
+      // Tenant charges are stamped with the current tenant's id (0066).
+      const billedTo = hasTenant(r.unit_id) ? expForm.leasedTo : 'owner';
+      return {
+        expense_id: expenseId, unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id,
+        category: expForm.category, description: desc, amount_usd: r.amount, charge_date: expForm.expense_date,
+        billed_to: billedTo, tenant_id: billedTo === 'tenant' ? activeTenantId(r.unit_id) : null, created_by: profile?.id,
+      };
+    });
     if (rows.length) await supabase.from('charges').insert(rows);
     toast.success(t('finance.expenseSaved'));
     setSaving(false); setExpOpen(false); loadScope();
@@ -470,7 +492,7 @@ export default function Finance() {
     const receipt_url = payFile ? await uploadFile('attachments', `${payForm.unit_id}/payments`, payFile) : null;
     // T8: leased units record who paid; owner-only units are always the owner
     const paid_by = hasTenant(payForm.unit_id) ? payForm.paid_by : 'owner';
-    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by };
+    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id: paid_by === 'tenant' ? activeTenantId(payForm.unit_id) : null };
     if (receipt_url) base.receipt_url = receipt_url;
     const { error } = editingPaymentId
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
@@ -540,30 +562,45 @@ export default function Finance() {
   // ================= RESIDENT VIEW =================
   if (!isManager) {
     if (!myUnitIds.length) return <EmptyState title={t('finance.noStatement')} body={t('finance.noStatementBody')} />;
-    const chargeParty = (c: Charge) => (c.billed_to === 'tenant' ? 'tenant' : 'owner');
+
+    // Per-unit rows for a chosen "view": 'combined' | 'owner' | a tenant's id.
+    // A specific tenant is a BUCKET — only that tenant's rows, netting to their
+    // own balance (past tenants net to 0 via the move-out offload).
+    const round2n = (n: number) => Math.round(n * 100) / 100;
+    const rowsForView = (u: Unit, view: string) => {
+      const cAll = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
+      const pAll = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
+      const aAll = adjustments.filter((a) => a.unit_id === u.id && !a.voided_at);
+      const bal = computeUnitBalances(u, cAll, pAll, aAll);
+      if (view === 'combined') return { c: cAll, p: pAll, a: aAll, balance: bal.total };
+      if (view === 'owner') return {
+        c: cAll.filter((c) => c.billed_to !== 'tenant'), p: pAll.filter((p) => p.paid_by !== 'tenant'),
+        a: aAll.filter((a) => a.party !== 'tenant'), balance: bal.owner };
+      // a specific tenant bucket
+      const c = cAll.filter((x) => x.billed_to === 'tenant' && x.tenant_id === view);
+      const p = pAll.filter((x) => x.paid_by === 'tenant' && x.tenant_id === view);
+      const a = aAll.filter((x) => x.party === 'tenant' && x.tenant_id === view);
+      const balance = round2n(p.reduce((s, x) => s + Number(x.amount_usd), 0) - c.reduce((s, x) => s + Number(x.amount_usd), 0) + a.reduce((s, x) => s + adjustmentEffect(x.kind, Number(x.amount_usd)), 0));
+      return { c, p, a, balance };
+    };
+
+    // toggle options for an owner: Owner · <each tenant by name> · Combined
+    const ownedUnits = units.filter((u) => myOwnerUnitIds.includes(u.id));
+    const tenantOptions = Array.from(new Map(ownedUnits.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values());
+    const viewerIsTenantOnly = units.every((u) => myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id));
+
     const rBook = units.map((u) => {
-      const uCharges = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
-      const uPayments = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
-      const uAdj = adjustments.filter((a) => a.unit_id === u.id && !a.voided_at);
-      const bal = computeUnitBalances(u, uCharges, uPayments, uAdj);
-      // A tenant of the unit only ever sees the tenant ledger. An owner can toggle.
       const viewerIsTenant = myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id);
-      // owner of any unit that has or EVER had a tenant can toggle; default is
-      // 'combined' so the full history (incl. a moved-out tenant) stays visible.
-      const canToggle = !viewerIsTenant && everTenantIds.has(u.id);
-      const effective: 'owner' | 'tenant' | 'combined' = viewerIsTenant ? 'tenant' : (canToggle ? residentView : 'combined');
-      const cShown = effective === 'combined' ? uCharges : uCharges.filter((c) => chargeParty(c) === effective);
-      const pShown = effective === 'combined' ? uPayments : uPayments.filter((p) => (p.paid_by === 'tenant' ? 'tenant' : 'owner') === effective);
-      const aShown = effective === 'combined' ? uAdj : uAdj.filter((a) => (a.party === 'tenant' ? 'tenant' : 'owner') === effective);
-      const balance = effective === 'owner' ? bal.owner : effective === 'tenant' ? bal.tenant : bal.total;
+      const view = viewerIsTenant ? (profile?.id ?? 'owner') : residentView;
+      const r = rowsForView(u, view);
       return {
-        unit: u, balance, effective, canToggle, viewerIsTenant,
-        charged: cShown.reduce((s, c) => s + Number(c.amount_usd), 0),
-        paid: pShown.reduce((s, p) => s + Number(p.amount_usd), 0),
-        unitCharges: cShown, unitPayments: pShown, unitAdjustments: aShown,
+        unit: u, view, viewerIsTenant, balance: r.balance,
+        charged: r.c.reduce((s, c) => s + Number(c.amount_usd), 0),
+        paid: r.p.reduce((s, p) => s + Number(p.amount_usd), 0),
+        unitCharges: r.c, unitPayments: r.p, unitAdjustments: r.a,
       };
     });
-    const anyToggle = rBook.some((r) => r.canToggle);
+    const showToggle = !viewerIsTenantOnly && tenantOptions.length > 0;
     return (
       <div>
         <div className="flex items-center justify-between mb-1">
@@ -571,7 +608,7 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && r.effective === 'combined', r.unitAdjustments, r.balance, r.effective !== 'tenant');
+              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && residentView === 'combined', r.unitAdjustments, r.balance, residentView === 'owner' || residentView === 'combined');
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -579,15 +616,16 @@ export default function Finance() {
         </div>
         <p className="text-sm text-slate-500 mb-4">{t('finance.myAccountSub')}</p>
 
-        {/* T6: owner of a leased unit chooses whose numbers to see */}
-        {anyToggle && (
-          <div className="inline-flex rounded-lg border border-border p-0.5 mb-5 text-sm">
-            {(['combined', 'owner', 'tenant'] as const).map((m) => (
-              <button key={m} onClick={() => setResidentView(m)}
-                className={`px-3 py-1.5 rounded-md transition ${residentView === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                {t(`finance.view.${m}`)}
+        {/* T6 + per-tenant buckets: owner picks Owner / a specific tenant / Combined */}
+        {showToggle && (
+          <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 mb-5 text-sm gap-0.5">
+            <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'owner' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
+            {tenantOptions.map((tn) => (
+              <button key={tn.id} onClick={() => setResidentView(tn.id)} className={`px-3 py-1.5 rounded-md transition ${residentView === tn.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {tn.name}{tn.ended ? ` · ${t('finance.former')}` : ''}
               </button>
             ))}
+            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'combined' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
           </div>
         )}
 
@@ -618,7 +656,7 @@ export default function Finance() {
           charges={rBook.flatMap(r => r.unitCharges)}
           payments={rBook.flatMap(r => r.unitPayments)}
           adjustments={rBook.flatMap(r => r.unitAdjustments)}
-          openings={residentView === 'tenant' ? [] : units.filter(u => myOwnerUnitIds.includes(u.id)).map(u => ({ unit_id: u.id, amount: Number(u.opening_balance), date: u.opening_balance_date }))}
+          openings={(residentView === 'owner' || residentView === 'combined') ? units.filter(u => myOwnerUnitIds.includes(u.id)).map(u => ({ unit_id: u.id, amount: Number(u.opening_balance), date: u.opening_balance_date })) : []}
           tenantName={tenantNameAt}
           unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))}
         />

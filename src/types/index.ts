@@ -224,6 +224,8 @@ export interface Charge {
   amount_usd: number;
   charge_date: string;
   billed_to: BilledTo;
+  /** the specific tenant this charge belongs to (when billed_to='tenant'). 0066 */
+  tenant_id?: string | null;
   created_by: string | null;
   created_at: string;
   voided_at?: string | null;
@@ -246,6 +248,8 @@ export interface Adjustment {
   amount_usd: number;      // positive magnitude
   /** Owner/tenant sub-ledger this adjustment belongs to (0064). */
   party: Tenure;
+  /** the specific tenant (when party='tenant'). 0066 */
+  tenant_id?: string | null;
   /** Other party's name for a move-out transfer, stored as text (T10 / 0065). */
   counterparty_name?: string | null;
   effective_date: string;
@@ -270,6 +274,8 @@ export interface Payment {
   recorded_by: string | null;
   /** Owner/tenant sub-ledger this payment belongs to (0064). */
   paid_by: Tenure;
+  /** the specific tenant who paid (when paid_by='tenant'). 0066 */
+  tenant_id?: string | null;
   created_at: string;
   voided_at?: string | null;
   voided_by?: string | null;

@@ -953,7 +953,8 @@
     },
     "adjustmentsCol": "التسويات",
     "exportFailed": "تعذّر إنشاء الملف. حدّث الصفحة وحاول مجددًا.",
-    "openingBalance": "الرصيد الافتتاحي"
+    "openingBalance": "الرصيد الافتتاحي",
+    "former": "سابق"
   },
   "inspections": {
     "title": "الفحوصات",
