@@ -42,6 +42,46 @@ _Last reviewed: 2026-07-26_
 | Database Webhooks (profiles, issues, meetings, charges, payments, dues → POST `dynamic-action`) | Dashboard → Database → Webhooks |
 | Auth settings: Confirm email ON, custom SMTP, redirect URLs (`app.abniyah.com/register`, `/set-password`, pages.dev + localhost variants) | Dashboard → Authentication |
 
+## 🚨 Website not updating? (Cloudflare Pages deploy runbook)
+
+Symptom (seen 2026-08-02): pushes to `master` build fine locally (`npm run build`
+green) but **app.abniyah.com / abniyah.com stay on an old build** — new features
+never appear online. Confirmed the deployed bundle was weeks stale (missing
+0059/0060-era code). The code was NOT the cause: clean build passes, all imports
+resolve with exact case, tree matches `origin/master`. **The break is on the
+Cloudflare side** — the GitHub→Pages pipeline stopped publishing.
+
+**How to confirm which build is live** (no dashboard needed):
+```bash
+# compare the live entry-JS hash to a fresh local build
+curl -s https://app.abniyah.com/ | grep -oE 'assets/index-[A-Za-z0-9]+\.js'
+npm run build && ls dist/assets/index-*.js   # different hash + missing recent strings ⇒ stale
+```
+
+**Fix — do these in order (Cloudflare dashboard → Workers & Pages → `abniyah`):**
+1. **Deployments tab** — are recent `master` commits listed?
+   - **Not listed** → the Git integration disconnected. Settings → **Builds &
+     deployments → Git integration** → reconnect `jihadmeraachli/BuildingHub`.
+   - **Listed but Failed** → open the failed build's **log**, read the error
+     (usually Node version or an env var). Fix, then Retry.
+2. **Settings → Builds & deployments** — verify:
+   - **Production branch = `master`**
+   - **Build command = `npm run build`**, **Output directory = `dist`**
+   - Build env vars present: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+     (and `VITE_BETA_GATE=1` until public launch).
+3. **Retry deployment** on the latest `master` commit. One green build republishes
+   the whole app at once.
+
+**Emergency bypass (deploy without the Git pipeline)** — direct upload from a
+machine with the repo:
+```bash
+npm run build
+npx wrangler login                       # one-time browser OAuth
+npx wrangler pages deploy dist --project-name=abniyah --branch=master
+```
+`--branch=master` makes it the production deployment. This sidesteps GitHub
+entirely and is the fastest way to get current code live in ~30s.
+
 ## Renewal / billing checklist
 
 - [ ] Domain `abniyah.com` renewal — *(date? auto-renew on?)*
