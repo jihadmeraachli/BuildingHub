@@ -252,6 +252,13 @@ export default function Finance() {
     const hit = periods.find((m) => new Date(m.created_at) <= d && (!m.ended_at || new Date(m.ended_at) >= d));
     return (hit ?? periods[periods.length - 1])?.profiles?.full_name ?? null;
   };
+  // Name of a specific tenant by their profile id (from any of their memberships).
+  const nameById = (id: string | null | undefined): string | null =>
+    id ? (tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null) : null;
+  // The tag label for a tenant-attributed row: prefer the row's explicit
+  // tenant_id (0066), fall back to whoever occupied the unit on that date.
+  const tenantLabelFor = (tenant_id: string | null | undefined, unitId: string, date: string): string =>
+    nameById(tenant_id) ?? tenantNameAt(unitId, date) ?? t('finance.tenantTag');
   // the current (active) tenant of a unit — used to stamp tenant_id on new rows
   const activeTenantId = (unitId: string): string | null =>
     tenancy.find((m) => m.unit_id === unitId && m.tenure === 'tenant' && !m.ended_at)?.user_id ?? null;
@@ -513,11 +520,11 @@ export default function Finance() {
       // Pre-resolve the tenant's name into each tenant-attributed row so the PDF
       // shows WHO the tenant was (kept even after move-out).
       const cRows = unitCharges.map((c) => c.billed_to === 'tenant'
-        ? { ...c, description: `${c.description} · ${tenantNameAt(c.unit_id, c.charge_date) ?? t('finance.tenant')}` } : c);
+        ? { ...c, description: `${c.description} · ${nameById(c.tenant_id) ?? tenantNameAt(c.unit_id, c.charge_date) ?? t('finance.tenant')}` } : c);
       const pRows = unitPayments.map((p) => p.paid_by === 'tenant'
-        ? { ...p, note: `${p.note ? p.note + ' · ' : ''}${tenantNameAt(p.unit_id, p.paid_on) ?? t('finance.tenant')}` } : p);
+        ? { ...p, note: `${p.note ? p.note + ' · ' : ''}${nameById(p.tenant_id) ?? tenantNameAt(p.unit_id, p.paid_on) ?? t('finance.tenant')}` } : p);
       const aRows = unitAdjustments.map((a) => a.party === 'tenant' && !a.counterparty_name
-        ? { ...a, counterparty_name: tenantNameAt(a.unit_id, a.effective_date) } : a);
+        ? { ...a, counterparty_name: nameById(a.tenant_id) ?? tenantNameAt(a.unit_id, a.effective_date) } : a);
       const el = (
         <UnitStatementDoc
           unitLabel={unit.label}
@@ -657,7 +664,7 @@ export default function Finance() {
           payments={rBook.flatMap(r => r.unitPayments)}
           adjustments={rBook.flatMap(r => r.unitAdjustments)}
           openings={(residentView === 'owner' || residentView === 'combined') ? units.filter(u => myOwnerUnitIds.includes(u.id)).map(u => ({ unit_id: u.id, amount: Number(u.opening_balance), date: u.opening_balance_date })) : []}
-          tenantName={tenantNameAt}
+          tenantName={tenantLabelFor}
           unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))}
         />
       </div>
@@ -890,7 +897,7 @@ export default function Finance() {
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
-                          {p.paid_by === 'tenant' && <TenantTag label={tenantNameAt(p.unit_id, p.paid_on) ?? t('finance.tenantTag')} />}
+                          {p.paid_by === 'tenant' && <TenantTag label={tenantLabelFor(p.tenant_id, p.unit_id, p.paid_on)} />}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
@@ -928,7 +935,7 @@ export default function Finance() {
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
-                            {a.party === 'tenant' && <TenantTag label={tenantNameAt(a.unit_id, a.effective_date) ?? t('finance.tenantTag')} />}
+                            {a.party === 'tenant' && <TenantTag label={tenantLabelFor(a.tenant_id, a.unit_id, a.effective_date)} />}
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
@@ -1247,18 +1254,18 @@ function EmptyState({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
-function StatementList({ charges, payments, adjustments = [], openings = [], tenantName, unitLabel }: { charges: Charge[]; payments: Payment[]; adjustments?: Adjustment[]; openings?: { unit_id: string; amount: number; date: string | null }[]; tenantName?: (unitId: string, date: string) => string | null; unitLabel: Record<string, string> }) {
+function StatementList({ charges, payments, adjustments = [], openings = [], tenantName, unitLabel }: { charges: Charge[]; payments: Payment[]; adjustments?: Adjustment[]; openings?: { unit_id: string; amount: number; date: string | null }[]; tenantName?: (tenant_id: string | null | undefined, unitId: string, date: string) => string | null; unitLabel: Record<string, string> }) {
   const { t } = useTranslation();
   type Row = { date: string; label: string; unit: string; amount: number; tenant?: string | null };
-  // tenant name suffix for a tenant-attributed row
-  const tn = (unitId: string, date: string) => (tenantName ? tenantName(unitId, date) : null);
+  // tenant name suffix for a tenant-attributed row — prefers the row's tenant_id
+  const tn = (tenant_id: string | null | undefined, unitId: string, date: string) => (tenantName ? tenantName(tenant_id, unitId, date) : null);
   const rows: Row[] = [
     // opening / carried-in balance shows as its own line (T: initial balance visible)
     ...openings.filter((o) => Number(o.amount) !== 0).map((o) => ({ date: o.date ?? '1970-01-01', label: t('finance.openingBalance'), unit: unitLabel[o.unit_id] ?? '', amount: Number(o.amount) })),
-    ...charges.map((c) => ({ date: c.charge_date, label: c.description || t(`finance.cats.${c.category}`), unit: unitLabel[c.unit_id] ?? '', amount: -Number(c.amount_usd), tenant: c.billed_to === 'tenant' ? tn(c.unit_id, c.charge_date) : null })),
-    ...payments.map((p) => ({ date: p.paid_on, label: t('finance.payment'), unit: unitLabel[p.unit_id] ?? '', amount: Number(p.amount_usd), tenant: p.paid_by === 'tenant' ? tn(p.unit_id, p.paid_on) : null })),
+    ...charges.map((c) => ({ date: c.charge_date, label: c.description || t(`finance.cats.${c.category}`), unit: unitLabel[c.unit_id] ?? '', amount: -Number(c.amount_usd), tenant: c.billed_to === 'tenant' ? tn(c.tenant_id, c.unit_id, c.charge_date) : null })),
+    ...payments.map((p) => ({ date: p.paid_on, label: t('finance.payment'), unit: unitLabel[p.unit_id] ?? '', amount: Number(p.amount_usd), tenant: p.paid_by === 'tenant' ? tn(p.tenant_id, p.unit_id, p.paid_on) : null })),
     // adjustments (credit notes / discounts / write-offs / penalties / refunds / transfers)
-    ...adjustments.map((a) => ({ date: a.effective_date, label: t(`finance.adjKinds.${a.kind}`) + (a.note ? ` · ${a.note}` : '') + (a.counterparty_name ? ` · ${a.counterparty_name}` : ''), unit: unitLabel[a.unit_id] ?? '', amount: adjustmentEffect(a.kind, Number(a.amount_usd)), tenant: a.party === 'tenant' ? tn(a.unit_id, a.effective_date) : null })),
+    ...adjustments.map((a) => ({ date: a.effective_date, label: t(`finance.adjKinds.${a.kind}`) + (a.note ? ` · ${a.note}` : '') + (a.counterparty_name ? ` · ${a.counterparty_name}` : ''), unit: unitLabel[a.unit_id] ?? '', amount: adjustmentEffect(a.kind, Number(a.amount_usd)), tenant: a.party === 'tenant' ? tn(a.tenant_id, a.unit_id, a.effective_date) : null })),
   ].sort((a, b) => (a.date < b.date ? 1 : -1));
   if (rows.length === 0) return <Empty body={t('finance.noTransactions')} />;
   return (
