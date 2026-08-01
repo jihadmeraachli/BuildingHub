@@ -226,6 +226,8 @@ export default function Finance() {
   const pCharges = vCharges.filter((c) => !c.voided_at && inRange(c.charge_date));
   const pPayments = vPayments.filter((p) => !p.voided_at && inRange(p.paid_on));
   const pExpenses = vExpenses.filter((e) => inRange(e.expense_date));
+  // adjustments filtered by the top period filter too (voided kept, shown dimmed)
+  const pAdjustments = adjustments.filter((a) => inRange(a.effective_date));
 
   const collectedP = round2(pPayments.reduce((s, p) => s + Number(p.amount_usd), 0));
   const billedP = round2(pCharges.reduce((s, c) => s + Number(c.amount_usd), 0));
@@ -717,7 +719,7 @@ export default function Finance() {
                 </table></div></Card>
               ))}
 
-              {tab === 'adjustments' && (adjustments.length === 0 ? <Empty body={t('finance.noAdjustments')} /> : (
+              {tab === 'adjustments' && (pAdjustments.length === 0 ? <Empty body={t('finance.noAdjustments')} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
@@ -728,7 +730,7 @@ export default function Finance() {
                     {canManageFinance && <th className="px-5 py-3 w-8" />}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
-                    {adjustments.map((a) => {
+                    {pAdjustments.map((a) => {
                       const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
                       return (
                         <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
