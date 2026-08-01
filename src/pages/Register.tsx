@@ -67,7 +67,7 @@ function nounKey(role: AdminRole | null): 'building' | 'compound' | 'org' {
 
 function monthlyEquivalent(plan: 'monthly' | 'annual', units: number) {
   const ppu = plan === 'monthly' ? 5 : 50 / 12;
-  return (ppu * units).toFixed(2);
+  return (ppu * units).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ── Steps progress bar (named phases) ─────────────────────────────────────────

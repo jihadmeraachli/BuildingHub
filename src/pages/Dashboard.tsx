@@ -278,7 +278,7 @@ export default function Dashboard() {
                         <p className="font-semibold">{u.label}</p>
                         <p className="text-xs text-muted-foreground truncate">{u.buildingName}</p>
                       </div>
-                      <p className={cn('text-lg font-semibold tnum shrink-0', u.balance < 0 ? 'text-red-500 dark:text-red-300' : 'text-foreground')}>
+                      <p className={cn('text-lg font-semibold tnum shrink-0', u.balance < 0 ? 'text-red-400 dark:text-red-300' : 'text-foreground')}>
                         {money(u.balance)}
                       </p>
                     </div>
@@ -430,7 +430,7 @@ function HeroCard({ label, amount, stats, pill, negative }: {
             </span>
           )}
         </div>
-        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-red-400 dark:text-red-200')}>
+        <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-red-400 dark:text-red-300')}>
           {amount}
         </p>
         <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">

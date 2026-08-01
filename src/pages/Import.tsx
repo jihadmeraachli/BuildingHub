@@ -826,9 +826,9 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     const batchId = (batch as { id: string }).id;
 
     const allRows: ProgressRow[] = [
-      ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toFixed(2)} · expense${e.block ? ` · Block ${e.block}` : ''}`, status: 'pending' as RowStatus })),
-      ...matchedCharges.map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toFixed(2)} charge`, status: 'pending' as RowStatus })),
-      ...matchedPayments.map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toFixed(2)} payment`, status: 'pending' as RowStatus })),
+      ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · expense${e.block ? ` · Block ${e.block}` : ''}`, status: 'pending' as RowStatus })),
+      ...matchedCharges.map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} charge`, status: 'pending' as RowStatus })),
+      ...matchedPayments.map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} payment`, status: 'pending' as RowStatus })),
     ];
     setProgress(allRows);
     setStep('running');

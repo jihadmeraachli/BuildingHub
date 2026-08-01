@@ -73,7 +73,7 @@ const row = (label: string, value: string) =>
   `<tr><td style="padding:6px 0;color:#94a3b8;font-size:14px;width:120px;vertical-align:top;">${label}</td>
    <td style="padding:6px 0;color:#0f172a;font-size:14px;">${value}</td></tr>`;
 const table = (rows: string) => `<table style="width:100%;border-collapse:collapse;">${rows}</table>`;
-const money = (n: number) => `$${Number(n).toFixed(2)}`;
+const money = (n: number) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ── WhatsApp primitives (Meta Cloud API) ─────────────────────────────────────
 // Disabled until both secrets are set — same two-step opt-in as WEBHOOK_SECRET,

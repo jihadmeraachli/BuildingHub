@@ -27,7 +27,7 @@ const INVOICE_BADGE: Record<Invoice['status'], { color: 'green' | 'yellow' | 'sl
 };
 
 function usd(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtDate(iso: string | null) {

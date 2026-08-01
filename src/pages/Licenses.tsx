@@ -24,7 +24,7 @@ const INVOICE_COLOR: Record<Invoice['status'], 'green' | 'yellow' | 'slate'> = {
 };
 
 function usd(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
+  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function daysLeft(iso: string | null): number | null {

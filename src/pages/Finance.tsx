@@ -701,7 +701,7 @@ export default function Finance() {
                 <p className="text-sm text-slate-500">
                   {t('finance.unit')} {r.unit.label}
                 </p>
-                <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{money(r.balance)}</p>
+                <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.balance)}</p>
                 <p className="text-xs text-slate-400 mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
                 {r.balance < 0 && whishByBuilding[r.unit.building_id] && (
                   <p className="text-xs font-medium text-primary mt-1.5">
@@ -1003,7 +1003,7 @@ export default function Finance() {
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
                           <td className="px-5 py-3 text-muted-foreground text-xs">{a.note ?? '—'}{a.counterparty_name ? ` · ${a.counterparty_name}` : ''}</td>
-                          <td className={`px-5 py-3 text-end font-semibold tnum ${a.voided_at ? 'line-through text-slate-400' : eff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(eff)}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${a.voided_at ? 'line-through text-slate-400' : eff < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(eff)}</td>
                           {canManageFinance && (
                             <td className="px-3 py-3 text-end">
                               {!a.voided_at && (
@@ -1343,7 +1343,7 @@ function StatementList({ charges, payments, adjustments = [], openings = [], ten
           <tr key={i} className="hover:bg-slate-50/60">
             <td className="px-5 py-3 text-slate-500">{format(new Date(r.date), 'MMM d, yyyy')}</td>
             <td className="px-5 py-3 text-slate-800">{r.label} <span className="text-slate-400 text-xs">· {t('finance.unit')} {r.unit}</span>{r.tenant && <TenantTag label={r.tenant} />}</td>
-            <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
+            <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>
         ))}
       </tbody>

@@ -260,7 +260,7 @@ export default function Dues() {
                         <td className="px-5 py-3 text-slate-500">{d.period_label}</td>
                         <td className="px-5 py-3 font-semibold text-slate-900">{unitLabel(d.unit_id)}</td>
                         <td className="px-5 py-3 text-end text-slate-600 tnum">{money(Number(d.base_amount))}</td>
-                        {!isB2 && <td className={`px-5 py-3 text-end tnum ${Number(d.carry_in) < 0 ? 'text-emerald-600' : Number(d.carry_in) > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{money(Number(d.carry_in))}</td>}
+                        {!isB2 && <td className={`px-5 py-3 text-end tnum ${Number(d.carry_in) < 0 ? 'text-emerald-600 dark:text-emerald-400' : Number(d.carry_in) > 0 ? 'text-red-400 dark:text-red-300' : 'text-slate-400'}`}>{money(Number(d.carry_in))}</td>}
                         <td className="px-5 py-3 text-end font-semibold text-slate-900 tnum">{money(Number(d.amount_due))}</td>
                         <td className="px-5 py-3 text-slate-500">{d.due_date ? format(new Date(d.due_date), 'MMM d, yyyy') : '—'}</td>
                         {canManage && <td className="px-5 py-3 text-end"><button onClick={() => removeItem(d.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button></td>}
