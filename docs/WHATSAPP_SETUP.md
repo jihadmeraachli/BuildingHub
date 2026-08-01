@@ -208,24 +208,32 @@ account (0059), else a generic "details in your account" line.
    If messages still arrive bilingual afterwards, redeploy both functions.
    Rollback at any time: delete the secret.
 
+> Submitted via the Graph API on 2026-08-02 (the UI can't add languages to
+> existing templates). Two Meta validation rules shaped the bodies: a variable
+> may not START or END the body (hence the closing line after the pay-line
+> variable), and short bodies with many variables trip a words-per-variable
+> ratio check (hence the fuller sentences on dues).
+
 ### 1. `abniyah_new_charge` — 5 variables per language
 English (`en`):
 ```
 Hello {{1}},
-A new charge was added to your account:
+A new charge was added to your unit account with the details below:
 Amount: {{2}}
 Unit: {{3}}
 Building: {{4}}
 {{5}}
+Thank you!
 ```
 Arabic (`ar`):
 ```
 مرحباً {{1}}،
-تمت إضافة رسم جديد على حسابك بالتفاصيل التالية:
+تمت إضافة رسم جديد على حساب وحدتك بالتفاصيل التالية:
 المبلغ: {{2}}
 الوحدة: {{3}}
 المبنى: {{4}}
 {{5}}
+شكراً لك!
 ```
 Samples: `{{1}}` Rana · `{{2}}` $120.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
 `{{5}}` en: `You can pay directly through Whish to 03 123 456.` /
@@ -256,20 +264,22 @@ Samples: `{{1}}` Rana · `{{2}}` $250.00 · `{{3}}` A-3 · `{{4}}` El Woroud
 English (`en`):
 ```
 Hello {{1}},
-Your dues for {{2}} have been issued:
-Amount: {{3}}
+Your dues for {{2}} have been issued with the details below:
+Amount due: {{3}}
 Unit: {{4}}
 Building: {{5}}
 {{6}}
+Thank you for keeping your account up to date!
 ```
 Arabic (`ar`):
 ```
 مرحباً {{1}}،
-صدرت مستحقاتك عن {{2}}:
-المبلغ: {{3}}
+صدرت مستحقاتك عن {{2}} بالتفاصيل التالية:
+المبلغ المستحق: {{3}}
 الوحدة: {{4}}
 المبنى: {{5}}
 {{6}}
+شكراً لمواظبتك على تسديد حسابك!
 ```
 Samples: `{{1}}` Rana · `{{2}}` July 2026 · `{{3}}` $100.00 · `{{4}}` A-3 ·
 `{{5}}` El Woroud · `{{6}}` as in template 1.
@@ -281,7 +291,7 @@ Hello {{1}},
 {{2}} invited you to link your Abniyah account to a unit:
 Unit: {{3}}
 Building: {{4}}
-Sign in to accept or decline — nothing is linked without your approval.
+Sign in to accept or decline. Nothing is linked without your approval.
 ```
 Arabic (`ar`):
 ```
@@ -289,7 +299,7 @@ Arabic (`ar`):
 دعاك {{2}} لربط حسابك في أبنية بوحدة:
 الوحدة: {{3}}
 المبنى: {{4}}
-سجّل الدخول للقبول أو الرفض — لن يُربط أي شيء دون موافقتك.
+سجّل الدخول للقبول أو الرفض، لن يُربط أي شيء دون موافقتك.
 ```
 Samples: `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Woroud
 
@@ -297,20 +307,22 @@ Samples: `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Wo
 English (`en`):
 ```
 Hello {{1}},
-A friendly reminder: your unit has an outstanding balance.
+A friendly reminder: your unit has an outstanding balance with the details below.
 Amount: {{2}}
 Unit: {{3}}
 Building: {{4}}
 {{5}}
+Thank you for settling it soon!
 ```
 Arabic (`ar`):
 ```
 مرحباً {{1}}،
-تذكير ودّي: يوجد رصيد مستحق على وحدتك.
+تذكير ودّي: يوجد رصيد مستحق على وحدتك بالتفاصيل التالية.
 المبلغ: {{2}}
 الوحدة: {{3}}
 المبنى: {{4}}
 {{5}}
+شكراً لتسديده قريباً!
 ```
 Samples: `{{1}}` Rana · `{{2}}` $140.00 · `{{3}}` A-3 · `{{4}}` El Woroud ·
 `{{5}}` as in template 1.
