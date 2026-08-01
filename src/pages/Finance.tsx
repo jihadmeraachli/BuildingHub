@@ -660,19 +660,19 @@ export default function Finance() {
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.category')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.split')}</th>
-                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pExpenses.map((e) => (
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
+                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
                         <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
-                        <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(e.amount_usd))}</td>
                       </tr>
                     ))}
@@ -683,9 +683,9 @@ export default function Finance() {
               {tab === 'payments' && (pPayments.length === 0 ? <Empty body={t('finance.noPayments', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.method')}</th>
-                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.note')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
                     {canManageFinance && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
@@ -695,12 +695,12 @@ export default function Finance() {
                         but are excluded from every total and the downloaded report. */}
                     {vPayments.filter((p) => inRange(p.paid_on)).map((p) => (
                       <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
+                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
-                        <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
                         <td className={`px-5 py-3 text-end font-semibold tnum ${p.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
@@ -720,9 +720,9 @@ export default function Finance() {
               {tab === 'adjustments' && (adjustments.length === 0 ? <Empty body={t('finance.noAdjustments')} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.adjKind')}</th>
-                    <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.note')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.effect')}</th>
                     {canManageFinance && <th className="px-5 py-3 w-8" />}
@@ -732,12 +732,12 @@ export default function Finance() {
                       const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
                       return (
                         <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
+                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
-                          <td className="px-5 py-3 text-foreground dark:text-white">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 text-muted-foreground text-xs">{a.note ?? '—'}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${a.voided_at ? 'line-through text-slate-400' : eff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(eff)}</td>
                           {canManageFinance && (
