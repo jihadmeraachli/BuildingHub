@@ -231,7 +231,9 @@ export interface BuildingReportProps {
   period: string;
   generatedOn: string;
   kpi: { collected: number; billed: number; outstanding: number };
-  book: { unit: Pick<Unit, 'id' | 'label'>; charged: number; paid: number; balance: number; owner?: number; tenant?: number; split?: boolean }[];
+  book: { unit: Pick<Unit, 'id' | 'label'>; charged: number; paid: number; balance: number; owner?: number; tenant?: number; split?: boolean;
+    hasActiveTenant?: boolean; activeTenantName?: string | null; curTenant?: number;
+    showFormer?: boolean; fmrTenant?: number; fmrTenantNames?: string[] }[];
   expenses: Pick<Expense, 'id' | 'description' | 'category' | 'amount_usd' | 'expense_date'>[];
   payments?: { id: string; date: string; unit: string; method: string; amount: number }[];
 }
@@ -314,18 +316,28 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
               ))}
             </View>
 
-            {/* Tenant-only balances — units that have/had a tenant */}
-            {book.some((r) => r.split) && (
+            {/* Tenant balances — split into the CURRENT tenant and FORMER
+                tenant(s) per unit, mirroring the Book. */}
+            {book.some((r) => r.hasActiveTenant || r.showFormer) && (
               <View style={s.section}>
                 <Text style={s.sectionTitle}>Tenant — Balances</Text>
                 <View style={s.tableHead}>
                   <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
-                  <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Tenant Balance</Text>
+                  <Text style={[s.tableHeadCell, { flex: 2.2 }]}>Tenant</Text>
+                  <Text style={[s.tableHeadCell, { flex: 1 }]}>Status</Text>
+                  <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Balance</Text>
                 </View>
-                {book.filter((r) => r.split).map((r) => (
-                  <View key={r.unit.id} style={s.tableRow}>
-                    <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{r.unit.label}</Text>
-                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: (r.tenant ?? 0) < 0 ? C.rose : (r.tenant ?? 0) > 0 ? C.emerald : C.slate5 }]}>{money(r.tenant ?? 0)}</Text>
+                {book.flatMap((r) => {
+                  const rows: { key: string; unit: string; name: string; status: string; bal: number }[] = [];
+                  if (r.hasActiveTenant) rows.push({ key: `${r.unit.id}-cur`, unit: r.unit.label, name: r.activeTenantName ?? 'Tenant', status: 'Current', bal: r.curTenant ?? 0 });
+                  if (r.showFormer) rows.push({ key: `${r.unit.id}-fmr`, unit: r.unit.label, name: (r.fmrTenantNames && r.fmrTenantNames.length) ? r.fmrTenantNames.join(', ') : 'Former tenant', status: 'Former', bal: r.fmrTenant ?? 0 });
+                  return rows;
+                }).map((row) => (
+                  <View key={row.key} style={s.tableRow}>
+                    <Text style={[s.tableCell, { flex: 2, fontFamily: 'Helvetica-Bold' }]}>{row.unit}</Text>
+                    <Text style={[s.tableCell, { flex: 2.2 }]}>{row.name}</Text>
+                    <Text style={[s.tableCell, { flex: 1, color: row.status === 'Former' ? C.slate5 : C.slate7 }]}>{row.status}</Text>
+                    <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: row.bal < 0 ? C.rose : row.bal > 0 ? C.emerald : C.slate5 }]}>{money(row.bal)}</Text>
                   </View>
                 ))}
               </View>
