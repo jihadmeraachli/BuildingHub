@@ -39,6 +39,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "gettingStarted": "Getting started",
     "meetings": "Meetings",
     "billing": "Billing",
     "licenses": "Billing & Licenses",
@@ -180,13 +181,20 @@
     "title": "Getting started",
     "subtitle": "Set up your building in a few steps",
     "progress": "{{done}} of {{total}} done",
-    "dismiss": "Hide this checklist",
+    "dismiss": "Hide this checklist from the menu",
+    "allSetTitle": "You're all set!",
+    "allSetBody": "Everything is configured. This page will disappear from the menu — you can always adjust things from the regular pages.",
+    "goDashboard": "Go to dashboard",
     "steps": {
-      "units": { "title": "Create your units", "desc": "Add the apartments and their share weights in Units." },
+      "entity_building": { "title": "Create your building", "desc": "Your building was created at registration — review its details (address, contacts) in Buildings." },
+      "entity_compound": { "title": "Add your compound's blocks", "desc": "Create each block of your compound in Buildings." },
+      "entity_org": { "title": "Create your buildings or compounds", "desc": "Add the properties your organisation manages in Buildings." },
+      "units": { "title": "Create or import your units", "desc": "Add apartments one by one in Units, or bulk-import them from Excel in Import." },
       "licenses": { "title": "License your units", "desc": "Assign licenses so residents can sign in." },
       "people": { "title": "Add your people", "desc": "Invite owners and tenants, or link existing Abniyah accounts." },
       "expense": { "title": "Record your first expense", "desc": "Bill it across units and start the building book." },
-      "reminder": { "title": "Turn on payment reminders", "desc": "Pick a day of the month and Abniyah nudges whoever owes." }
+      "reminder": { "title": "Turn on payment reminders", "desc": "Pick a day of the month and Abniyah nudges whoever owes." },
+      "profile": { "title": "Review your profile & security", "desc": "Phone number, WhatsApp and email notifications, two-factor authentication, and Face ID in the mobile app." }
     }
   },
   "bio": {

@@ -21,6 +21,7 @@ const Register        = lazy(() => import('@/pages/Register'));
 const NoLicense       = lazy(() => import('@/pages/NoLicense'));
 const SetPassword     = lazy(() => import('@/pages/SetPassword'));
 const Dashboard  = lazy(() => import('@/pages/Dashboard'));
+const GettingStarted = lazy(() => import('@/pages/GettingStarted'));
 const Meetings   = lazy(() => import('@/pages/Meetings'));
 const Finance    = lazy(() => import('@/pages/Finance'));
 const Dues       = lazy(() => import('@/pages/Dues'));
@@ -69,6 +70,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
+              <Route path="/getting-started" element={<GettingStarted />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/meetings" element={<Meetings />} />
               <Route path="/finance" element={<Finance />} />

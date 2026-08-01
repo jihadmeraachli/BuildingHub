@@ -15,8 +15,9 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
-  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home,
+  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket,
 } from 'lucide-react';
+import { gsHiddenKey } from '@/pages/GettingStarted';
 
 interface SidebarProps {
   open: boolean;
@@ -80,7 +81,14 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
 
   // Resident lens (dual-persona accounts browsing as "My home"): only the links
   // a plain resident would have. UI preference only — permissions unchanged.
+  // Setup checklist tab: admins only, self-retires once the checklist is
+  // complete or dismissed (flag written by the GettingStarted page).
+  const showGettingStarted =
+    !isPlatformAdmin && isScopeAdmin && !residentLens
+    && localStorage.getItem(gsHiddenKey(profile?.id)) !== '1';
+
   const primaryLinks = [
+    { to: '/getting-started', label: t('nav.gettingStarted'), icon: Rocket, show: showGettingStarted },
     { to: '/dashboard',   label: t('nav.dashboard'),   icon: LayoutDashboard },
     { to: '/finance',     label: t('nav.finance'),      icon: Wallet },
     { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: !residentLens && (canStructure || canAny('finance.view')) },
