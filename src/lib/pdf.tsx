@@ -233,9 +233,10 @@ export interface BuildingReportProps {
   kpi: { collected: number; billed: number; outstanding: number };
   book: { unit: Pick<Unit, 'id' | 'label'>; charged: number; paid: number; balance: number; owner?: number; tenant?: number; split?: boolean }[];
   expenses: Pick<Expense, 'id' | 'description' | 'category' | 'amount_usd' | 'expense_date'>[];
+  payments?: { id: string; date: string; unit: string; method: string; amount: number }[];
 }
 
-export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, expenses }: BuildingReportProps) {
+export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, expenses, payments = [] }: BuildingReportProps) {
   return (
     <Document title={`Financial Report — ${entityName}`} author="Abniyah">
       <Page size="A4" style={s.page}>
@@ -331,6 +332,35 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
             )}
           </>
         )}
+
+        {/* Payments received · period */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Payments Received · {period}</Text>
+          {payments.length === 0 ? (
+            <Text style={s.empty}>No payments in this period.</Text>
+          ) : (
+            <>
+              <View style={s.tableHead}>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+                <Text style={[s.tableHeadCell, { flex: 3 }]}>Unit</Text>
+                <Text style={[s.tableHeadCell, { flex: 1.5 }]}>Method</Text>
+                <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+              </View>
+              {payments.map((p) => (
+                <View key={p.id} style={s.tableRow}>
+                  <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(p.date)}</Text>
+                  <Text style={[s.tableCell, { flex: 3 }]}>{p.unit}</Text>
+                  <Text style={[s.tableCell, { flex: 1.5, color: C.slate5 }]}>{p.method.replace('_', ' ')}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.emerald }]}>{money(p.amount)}</Text>
+                </View>
+              ))}
+              <View style={[s.tableRow, { borderBottom: 'none' }]}>
+                <Text style={[s.tableCell, { flex: 5.5, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>Total</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold', color: C.emerald }]}>{money(payments.reduce((sm, p) => sm + p.amount, 0))}</Text>
+              </View>
+            </>
+          )}
+        </View>
 
         {/* Expenses table */}
         <View style={s.section}>

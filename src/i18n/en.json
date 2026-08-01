@@ -948,7 +948,8 @@
     "openingBalance": "Opening balance",
     "former": "former",
     "formerTenants": "Former tenants",
-    "formerTenant": "Former tenant"
+    "formerTenant": "Former tenant",
+    "recordAdjustment": "Record Adjustment"
   },
   "inspections": {
     "title": "Inspections",

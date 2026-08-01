@@ -308,12 +308,15 @@ export default function Finance() {
     return { buckets, combined: round2n(buckets.reduce((s, b) => s + b.balance, 0)) };
   };
 
-  // Default the resident toggle to the latest tenant once tenancy is known.
+  // Default the resident toggle to the CURRENT (active) tenant once tenancy is
+  // known — never a moved-out one. If no active tenant, stay on Combined.
   useEffect(() => {
     if (residentDefaulted.current || !tenancy.length) return;
     const owned = units.filter((u) => myOwnerUnitIds.includes(u.id));
     const opts = Array.from(new Map(owned.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values());
-    if (opts.length) { setResidentView(opts[opts.length - 1].id); residentDefaulted.current = true; }
+    const active = opts.find((o) => !o.ended);
+    if (active) setResidentView(active.id);
+    residentDefaulted.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenancy, units]);
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
@@ -611,6 +614,7 @@ export default function Finance() {
           kpi={{ collected: collectedP, billed: billedP, outstanding }}
           book={book}
           expenses={pExpenses}
+          payments={pPayments.map((p) => ({ id: p.id, date: p.paid_on, unit: unitDisplay(p.unit_id), method: p.method, amount: Number(p.amount_usd) }))}
         />
       );
       await downloadPdf(el, `report-${(entity?.name ?? 'building').replace(/\s+/g, '-')}-${period}.pdf`);
@@ -645,9 +649,10 @@ export default function Finance() {
       return { c, p, a, balance };
     };
 
-    // toggle options for an owner: Owner · <each tenant by name> · Combined
+    // toggle options for an owner, ordered current tenant(s) first, then formers
     const ownedUnits = units.filter((u) => myOwnerUnitIds.includes(u.id));
-    const tenantOptions = Array.from(new Map(ownedUnits.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values());
+    const tenantOptions = Array.from(new Map(ownedUnits.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values())
+      .sort((a, b) => Number(a.ended) - Number(b.ended));
     const viewerIsTenantOnly = units.every((u) => myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id));
 
     const rBook = units.map((u) => {
@@ -689,13 +694,13 @@ export default function Finance() {
         {/* T6 + per-tenant buckets: owner picks Owner / a specific tenant / Combined */}
         {showToggle && (
           <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 mb-5 text-sm gap-0.5">
+            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'combined' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
             <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'owner' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
             {tenantOptions.map((tn) => (
               <button key={tn.id} onClick={() => setResidentView(tn.id)} className={`px-3 py-1.5 rounded-md transition ${residentView === tn.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                 {tn.name}{tn.ended ? ` · ${t('finance.former')}` : ''}
               </button>
             ))}
-            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'combined' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
           </div>
         )}
 
@@ -821,9 +826,9 @@ export default function Finance() {
               {canManageFinance && (
                 <>
                   {tab === 'adjustments' && (
-                    <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.adjustment')}</Button>
+                    <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.recordAdjustment')}</Button>
                   )}
-                  {tab === 'expenses' && (
+                  {(tab === 'expenses' || tab === 'book') && (
                     <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
                   )}
                   {(tab === 'book' || tab === 'payments') && (

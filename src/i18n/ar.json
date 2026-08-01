@@ -956,7 +956,8 @@
     "openingBalance": "الرصيد الافتتاحي",
     "former": "سابق",
     "formerTenants": "المستأجرون السابقون",
-    "formerTenant": "مستأجر سابق"
+    "formerTenant": "مستأجر سابق",
+    "recordAdjustment": "تسجيل تسوية"
   },
   "inspections": {
     "title": "الفحوصات",
