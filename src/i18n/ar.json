@@ -957,7 +957,11 @@
     "former": "سابق",
     "formerTenants": "المستأجرون السابقون",
     "formerTenant": "مستأجر سابق",
-    "recordAdjustment": "تسجيل تسوية"
+    "recordAdjustment": "تسجيل تسوية",
+    "collectedDesc": "المدفوعات المحصّلة",
+    "billedDesc": "الرسوم الصادرة",
+    "netDesc": "المحصّل − المفوتر",
+    "outstandingDesc": "إجمالي المبالغ المستحقة على كل الوحدات"
   },
   "inspections": {
     "title": "الفحوصات",

@@ -949,7 +949,11 @@
     "former": "former",
     "formerTenants": "Former tenants",
     "formerTenant": "Former tenant",
-    "recordAdjustment": "Record Adjustment"
+    "recordAdjustment": "Record Adjustment",
+    "collectedDesc": "Payments received",
+    "billedDesc": "Charges issued",
+    "netDesc": "Collected − Billed",
+    "outstandingDesc": "Total still owed across all units"
   },
   "inspections": {
     "title": "Inspections",

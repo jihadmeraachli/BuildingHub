@@ -775,10 +775,10 @@ export default function Finance() {
       {!entity ? <Empty body={t('finance.noBuildings')} /> : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            <Kpi label={t('finance.collected')} value={money(collectedP)} icon={TrendingUp} tone="emerald" hint={periodLabel} />
-            <Kpi label={t('finance.billed')} value={money(billedP)} icon={Receipt} tone="slate" hint={periodLabel} />
-            <Kpi label={t('finance.net')} value={money(netP)} icon={Wallet} tone={netP >= 0 ? 'indigo' : 'rose'} hint={periodLabel} />
-            <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} />
+            <Kpi label={t('finance.collected')} value={money(collectedP)} icon={TrendingUp} tone="emerald" hint={periodLabel} desc={t('finance.collectedDesc')} />
+            <Kpi label={t('finance.billed')} value={money(billedP)} icon={Receipt} tone="slate" hint={periodLabel} desc={t('finance.billedDesc')} />
+            <Kpi label={t('finance.net')} value={money(netP)} icon={Wallet} tone={netP >= 0 ? 'indigo' : 'rose'} hint={periodLabel} desc={t('finance.netDesc')} />
+            <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} desc={t('finance.outstandingDesc')} />
           </div>
 
           <div className="grid lg:grid-cols-3 gap-4 mb-6">
@@ -1267,7 +1267,7 @@ export default function Finance() {
   );
 }
 
-function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string }) {
+function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string; desc?: string }) {
   const gradients: Record<string, string> = {
     emerald: 'from-emerald-400 to-teal-500',
     indigo:  'from-violet-400 to-indigo-500',
@@ -1278,7 +1278,7 @@ function Kpi({ label, value, icon: Icon, tone, hint }: { label: string; value: s
   const gradient = gradients[tone ?? 'slate'] ?? 'from-teal-400 to-teal-600';
   return (
     <Card><CardBody><div className="flex items-start justify-between">
-      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className={`text-xl lg:text-2xl font-bold tnum mt-1 truncate ${tone === 'rose' ? 'text-red-400 dark:text-red-300' : 'text-foreground'}`}>{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}</div>
+      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className={`text-xl lg:text-2xl font-bold tnum mt-1 truncate ${tone === 'rose' ? 'text-red-400 dark:text-red-300' : 'text-foreground'}`}>{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}{desc && <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-snug">{desc}</p>}</div>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradient} text-white shadow-sm`}><Icon size={18} /></div>
     </div></CardBody></Card>
   );
