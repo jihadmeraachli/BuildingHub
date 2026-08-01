@@ -28,6 +28,7 @@ const money = (n: number) =>
 interface Agg {
   collected: number; spent: number; billed: number; outstanding: number; ytd: number;
   units: number; openIssues: number;
+  carry: number; // net opening balances + adjustments (T2 / 0061)
 }
 
 export default function Dashboard() {
@@ -48,7 +49,7 @@ export default function Dashboard() {
   // Monotonic request id: a slow, stale response must never overwrite a newer one.
   const loadSeq = useRef(0);
 
-  const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0 });
+  const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0, carry: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
   const [resident, setResident] = useState({ charged: 0, paid: 0, opening: 0 });
   const [myUnits, setMyUnits] = useState<{ id: string; label: string; buildingName: string; balance: number }[]>([]);
@@ -101,9 +102,12 @@ export default function Dashboard() {
 
     // Server-side aggregation (0049): the DB answers with numbers, not rows —
     // no payload growth, no silent 1000-row truncation as history accumulates.
-    const [statsRes, monthlyRes] = await Promise.all([
+    const [statsRes, monthlyRes, carryRes] = await Promise.all([
       supabase.rpc('dashboard_stats', { p_building_ids: inIds }),
       supabase.rpc('dashboard_monthly', { p_building_ids: inIds }),
+      // T2: net carry (opening balances + adjustments) so the Fund balance
+      // reflects units that joined with a balance (0061).
+      supabase.rpc('dashboard_carry', { p_building_ids: inIds }),
     ]);
 
     // Never render silent zeros on failure (e.g. migration 0049 not applied) —
@@ -125,6 +129,8 @@ export default function Dashboard() {
     const billed = Number(s?.billed ?? 0);
     const collected = Number(s?.collected ?? 0);
     const spent = billed;
+    // net opening + adjustments; tolerate an un-applied 0061 (carry = 0)
+    const carry = carryRes.error ? 0 : Number((Array.isArray(carryRes.data) ? carryRes.data[0] : carryRes.data) ?? 0);
 
     const labels = monthsRows.map((m) => format(new Date(m.month_start), 'MMM yy'));
     const monthlyCollected = monthsRows.map((m) => Number(m.collected));
@@ -138,7 +144,7 @@ export default function Dashboard() {
     if (seq !== loadSeq.current) return;
     setCoverage({ runwayMonths, duesIssued: Number(s?.dues_issued ?? 0), duesPeriod: s?.dues_period ?? '' });
     setAgg({
-      collected, spent, billed,
+      collected, spent, billed, carry,
       outstanding: Number(s?.outstanding ?? 0),
       ytd: Number(s?.ytd ?? 0),
       units: Number(s?.units ?? 0),
@@ -192,7 +198,10 @@ export default function Dashboard() {
   }
 
   const firstName = profile?.full_name?.split(' ')[0] ?? '';
-  const fund = Math.round((agg.collected - agg.spent) * 100) / 100;
+  // Fund balance = cash surplus + carried-in balances (opening + adjustments),
+  // i.e. the true net book position. carry is 0 when no unit had a starting
+  // balance, so this is unchanged for those buildings. (T2)
+  const fund = Math.round((agg.collected - agg.spent + agg.carry) * 100) / 100;
   const collectionRate = agg.billed > 0 ? Math.round((agg.collected / agg.billed) * 100) : 0;
 
   if (routeToSetup) {
