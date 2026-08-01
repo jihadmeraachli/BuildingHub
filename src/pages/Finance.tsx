@@ -282,14 +282,22 @@ export default function Finance() {
     const uPayments = vPayments.filter((p) => p.unit_id === u.id);
     const uAdj = adjustments.filter((a) => a.unit_id === u.id);
     const within = (d: string) => !asOf || new Date(d) <= new Date(asOf);
-    const charged = uCharges.reduce((s, c) => (!c.voided_at && within(c.charge_date) ? s + Number(c.amount_usd) : s), 0);
-    const paid = uPayments.reduce((s, p) => (!p.voided_at && within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
+    const liveC = uCharges.filter((c) => !c.voided_at && within(c.charge_date));
+    const liveP = uPayments.filter((p) => !p.voided_at && within(p.paid_on));
+    const sum = <X extends { amount_usd: number }>(rows: X[]) => rows.reduce((s, r) => s + Number(r.amount_usd), 0);
+    // per-party billed/paid so sub-rows can mirror the main row's columns
+    const ownerCharged = sum(liveC.filter((c) => c.billed_to !== 'tenant'));
+    const tenantCharged = sum(liveC.filter((c) => c.billed_to === 'tenant'));
+    const ownerPaid = sum(liveP.filter((p) => p.paid_by !== 'tenant'));
+    const tenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant'));
+    const charged = ownerCharged + tenantCharged;
+    const paid = ownerPaid + tenantPaid;
     // T9: show the owner/tenant split when there's a LIVE tenant (always, even at
     // $0), or the unit once had a tenant that still carries a non-zero balance
     // (the leftover is what T10 offloads to the owner on move-out).
     const bal = computeUnitBalances(u, uCharges, uPayments, uAdj, asOf || null);
     const split = activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0);
-    return { unit: u, charged, paid, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split };
+    return { unit: u, charged, paid, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, tenantCharged, tenantPaid };
   }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds]);
 
   // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
@@ -727,22 +735,27 @@ export default function Finance() {
                             </button>
                           </td>
                         </tr>
-                        {/* T9: owner/tenant sub-rows — shaded band + indent bar so they
-                            read as belonging to the unit above them */}
-                        {r.split && (<>
-                          <tr className="text-xs bg-primary/[0.04]">
-                            <td className="ps-5 pe-5 py-1.5 text-muted-foreground"><span className="inline-block border-s-2 border-primary/30 ps-4">{t('finance.owner')}</span></td>
-                            <td /><td /><td />
-                            <td className={`px-5 py-1.5 text-end tnum ${balCls(r.owner)}`}>{money(r.owner)}</td>
-                            <td />
-                          </tr>
-                          <tr className="text-xs bg-primary/[0.04] border-b-2 border-border/70">
-                            <td className="ps-5 pe-5 py-1.5 text-muted-foreground"><span className="inline-block border-s-2 border-primary/30 ps-4">{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></span></td>
-                            <td /><td /><td />
-                            <td className={`px-5 py-1.5 text-end tnum ${balCls(r.tenant)}`}>{money(r.tenant)}</td>
-                            <td />
-                          </tr>
-                        </>)}
+                        {/* T9: owner/tenant sub-rows — mirror the main columns
+                            (collected % · billed · paid · balance), shaded + indented */}
+                        {r.split && (() => {
+                          const sub = (label: React.ReactNode, ch: number, pd: number, bal: number, last: boolean) => {
+                            const p = ch > 0 ? (pd / ch) * 100 : (pd > 0 ? 100 : 0);
+                            return (
+                              <tr className={`text-xs bg-primary/[0.04] ${last ? 'border-b-2 border-border/70' : ''}`}>
+                                <td className="ps-5 pe-5 py-1.5 text-muted-foreground"><span className="inline-block border-s-2 border-primary/30 ps-4">{label}</span></td>
+                                <td className="px-5 py-1.5"><div className="flex items-center gap-2"><MiniBar pct={p} color={p >= 100 ? '#10b981' : p > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-[11px] text-muted-foreground tnum w-9 text-end">{Math.round(p)}%</span></div></td>
+                                <td className="px-5 py-1.5 text-end text-muted-foreground tnum">{money(ch)}</td>
+                                <td className="px-5 py-1.5 text-end text-muted-foreground tnum">{money(pd)}</td>
+                                <td className={`px-5 py-1.5 text-end tnum ${balCls(bal)}`}>{money(bal)}</td>
+                                <td />
+                              </tr>
+                            );
+                          };
+                          return (<>
+                            {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.owner, false)}
+                            {sub(<>{t('finance.tenant')} <TenantTag label={t('finance.tenantTag')} /></>, r.tenantCharged, r.tenantPaid, r.tenant, true)}
+                          </>);
+                        })()}
                         </Fragment>
                       );
                     })}
