@@ -5,6 +5,7 @@ import { Plus, Layers, Home, Users2, Trash2, Pencil, UserPlus, X, Building2 } fr
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { isDemoEmail } from '@/lib/demo';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import type { Unit, Group, Occupancy, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -63,6 +64,9 @@ export default function Structure() {
   }, [buildings, buildingId]);
 
   const canManage = isPlatformAdmin || can('unit.manage', buildingId);
+  // Read-only rendering for the public demo admin: units/shares/occupancy
+  // without the members column (viewer RLS can't resolve names), no actions.
+  const viewOnly = !canManage && isDemoEmail(user?.email);
 
   useEffect(() => { if (buildingId) loadAll(); }, [buildingId]);
 
@@ -287,26 +291,30 @@ export default function Structure() {
             )}
           </div>
         </CardBody></Card>
-      ) : !canManage ? (
+      ) : !canManage && !viewOnly ? (
         <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{t('structure.noAccess')}</p></CardBody></Card>
       ) : (
         <>
           {/* tabs */}
-          <SegmentedTabs
-            className="mb-5"
-            value={tab}
-            onChange={setTab}
-            tabs={[
-              { key: 'units', label: t('structure.units'), icon: Home },
-              { key: 'groups', label: t('structure.groups'), icon: Users2 },
-            ]}
-          />
+          {!viewOnly && (
+            <SegmentedTabs
+              className="mb-5"
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { key: 'units', label: t('structure.units'), icon: Home },
+                { key: 'groups', label: t('structure.groups'), icon: Users2 },
+              ]}
+            />
+          )}
 
-          {tab === 'units' && (
+          {(tab === 'units' || viewOnly) && (
             <>
-              <div className="flex justify-end mb-3">
-                <Button onClick={() => openUnit()}><Plus size={16} /> {t('structure.addUnit')}</Button>
-              </div>
+              {!viewOnly && (
+                <div className="flex justify-end mb-3">
+                  <Button onClick={() => openUnit()}><Plus size={16} /> {t('structure.addUnit')}</Button>
+                </div>
+              )}
               {loading ? <SkeletonTable rows={5} cols={5} />
                 : units.length === 0 ? (
                   <Card><CardBody><div className="text-center py-10">
@@ -320,10 +328,10 @@ export default function Structure() {
                         <thead>
                           <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                             <th className="px-5 py-3 text-start font-medium">{t('structure.unit')}</th>
-                            <th className="px-5 py-3 text-start font-medium">{t('structure.members')}</th>
+                            {!viewOnly && <th className="px-5 py-3 text-start font-medium">{t('structure.members')}</th>}
                             <th className="px-5 py-3 text-start font-medium">{t('structure.shares')}</th>
                             <th className="px-5 py-3 text-start font-medium">{t('structure.occupancy')}</th>
-                            <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>
+                            {!viewOnly && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -333,6 +341,7 @@ export default function Structure() {
                             return (
                               <tr key={u.id} className="hover:bg-accent/30">
                                 <td className="px-5 py-3 font-semibold text-foreground">{u.label}</td>
+                                {!viewOnly && (
                                 <td className="px-5 py-3">
                                   {ow.length === 0 ? <span className="text-muted-foreground">&#8212;</span> : (
                                     <div className="flex flex-wrap gap-1">
@@ -346,10 +355,12 @@ export default function Structure() {
                                     </div>
                                   )}
                                 </td>
+                                )}
                                 <td className="px-5 py-3 text-muted-foreground tnum">
                                   {Number(u.share_weight)} <span className="text-muted-foreground text-xs">({pct.toFixed(1)}%)</span>
                                 </td>
                                 <td className="px-5 py-3"><Badge color={occupancyColor[u.occupancy]}>{t(`structure.${u.occupancy}`)}</Badge></td>
+                                {!viewOnly && (
                                 <td className="px-5 py-3">
                                   <div className="flex items-center justify-end gap-1">
                                     <button onClick={() => { setOwnerModal(u); setOwnerPick(''); setOwnerTenure('owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"><UserPlus size={15} /></button>
@@ -357,6 +368,7 @@ export default function Structure() {
                                     <button onClick={() => deleteUnit(u.id)} title="Delete" className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
                                   </div>
                                 </td>
+                                )}
                               </tr>
                             );
                           })}

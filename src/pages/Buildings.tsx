@@ -175,6 +175,12 @@ export default function Buildings() {
     .map(g => g.building_id as string)
     .filter(Boolean);
   const isBuildingAdminOnly = !isPlatformAdmin && !isOrgAdmin && !isCompoundAdmin && myBuildingIds.length > 0;
+  // Non-admin grant holders (viewer / finance / super) get a READ-ONLY view of
+  // their own scope — never the whole platform (the buildings SELECT policy
+  // reads broadly, so the page must scope itself).
+  const anyBuildingIds = grants.filter(g => g.building_id).map(g => g.building_id as string);
+  const anyCompoundIds = grants.filter(g => g.compound_id).map(g => g.compound_id as string);
+  const canEdit = isPlatformAdmin || isOrgAdmin || isCompoundAdmin || isBuildingAdminOnly;
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -233,7 +239,7 @@ export default function Buildings() {
       ? buildings.filter(b => myCompoundIds.includes(b.compound_id ?? ''))
       : isBuildingAdminOnly
         ? buildings.filter(b => myBuildingIds.includes(b.id))
-        : buildings;
+        : buildings.filter(b => anyBuildingIds.includes(b.id) || anyCompoundIds.includes(b.compound_id ?? ''));
 
   // Single-building admin: skip the one-row table — open their building's
   // details directly (once; closing the modal shows the row, not a reopen loop).
@@ -251,7 +257,9 @@ export default function Buildings() {
     ? compounds.filter(c => myOrgIds.includes(c.org_id ?? ''))
     : isCompoundAdmin
       ? compounds.filter(c => myCompoundIds.includes(c.id))
-      : compounds;
+      : isPlatformAdmin
+        ? compounds
+        : compounds.filter(c => anyCompoundIds.includes(c.id) || visibleBuildings.some(b => b.compound_id === c.id));
 
   const effMode = (b: Building) =>
     b.compound_id
@@ -450,7 +458,9 @@ export default function Buildings() {
                 className="h-9 pl-8 pr-3 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 w-52"
               />
             </div>
-            <Button variant="tinted" onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
+            {(isPlatformAdmin || isOrgAdmin || isCompoundAdmin) && (
+              <Button variant="tinted" onClick={() => setModalOpen(true)}><Plus size={16} /> {t('buildings.addBuilding')}</Button>
+            )}
           </div>
         )}
       </div>
@@ -555,8 +565,8 @@ export default function Buildings() {
                 ) : filtered.map(b => (
                   <tr
                     key={b.id}
-                    onClick={() => openEditB(b)}
-                    className="border-t border-border/60 cursor-pointer hover:bg-accent transition-colors"
+                    onClick={canEdit ? () => openEditB(b) : undefined}
+                    className={cn('border-t border-border/60 transition-colors', canEdit && 'cursor-pointer hover:bg-accent')}
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2 min-w-0">
@@ -607,13 +617,15 @@ export default function Buildings() {
                             <MapPin size={13} />
                           </button>
                         )}
-                        <button
-                          onClick={e => { e.stopPropagation(); openEditB(b); }}
-                          title={t('common.edit')}
-                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer transition-colors"
-                        >
-                          <Pencil size={13} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={e => { e.stopPropagation(); openEditB(b); }}
+                            title={t('common.edit')}
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer transition-colors"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
