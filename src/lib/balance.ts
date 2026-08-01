@@ -13,7 +13,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Signed effect of an adjustment on the balance. Mirrors adjustment_effect() in SQL. */
 export function adjustmentEffect(kind: AdjustmentKind, amount: number): number {
-  return kind === 'penalty' || kind === 'refund' ? -Number(amount) : Number(amount);
+  return kind === 'penalty' || kind === 'refund' || kind === 'transfer_out' ? -Number(amount) : Number(amount);
 }
 
 export interface OpeningInfo {

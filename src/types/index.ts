@@ -232,7 +232,9 @@ export interface Charge {
   unit?: Unit;
 }
 
-export type AdjustmentKind = 'credit_note' | 'discount' | 'waiver' | 'write_off' | 'penalty' | 'refund';
+export type AdjustmentKind = 'credit_note' | 'discount' | 'waiver' | 'write_off' | 'penalty' | 'refund'
+  // system-generated on tenant move-out (T10) — a signed balance transfer
+  | 'transfer_in' | 'transfer_out';
 
 // Non-cash change to a unit's balance (0034). Sign of its balance effect is
 // derived from `kind` — see adjustmentEffect() in src/lib/balance.ts.
@@ -244,6 +246,8 @@ export interface Adjustment {
   amount_usd: number;      // positive magnitude
   /** Owner/tenant sub-ledger this adjustment belongs to (0064). */
   party: Tenure;
+  /** Other party's name for a move-out transfer, stored as text (T10 / 0065). */
+  counterparty_name?: string | null;
   effective_date: string;
   note: string | null;
   created_by: string | null;

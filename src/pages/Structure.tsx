@@ -249,8 +249,15 @@ export default function Structure() {
   // Move-out = soft-end (0026). Never hard-delete: the unit's ledger needs to know
   // who was liable when each charge was raised (owner vs tenant billing).
   async function removeOwner(membershipId: string) {
-    const { error } = await supabase.rpc('end_membership', { p_membership: membershipId });
+    // T10: for a tenant with a leftover balance, end_membership auto-transfers it
+    // to the owner and returns the (signed) amount that moved.
+    const { data, error } = await supabase.rpc('end_membership', { p_membership: membershipId });
     if (error) { toast.error(error.message); return; }
+    const moved = Number(data ?? 0);
+    if (moved !== 0) {
+      const amt = `${moved < 0 ? '-' : ''}$${Math.abs(moved).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      toast.success(t('structure.tenantBalanceMoved', { amt }));
+    }
     loadAll();
   }
 

@@ -861,7 +861,7 @@ export default function Finance() {
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
-                          <td className="px-5 py-3 text-muted-foreground text-xs">{a.note ?? '—'}</td>
+                          <td className="px-5 py-3 text-muted-foreground text-xs">{a.note ?? '—'}{a.counterparty_name ? ` · ${a.counterparty_name}` : ''}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${a.voided_at ? 'line-through text-slate-400' : eff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(eff)}</td>
                           {canManageFinance && (
                             <td className="px-3 py-3 text-end">
