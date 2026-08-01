@@ -242,7 +242,24 @@ export default function Finance() {
     const paid = uPayments.reduce((s, p) => (!p.voided_at && within(p.paid_on) ? s + Number(p.amount_usd) : s), 0);
     return { unit: u, charged, paid, balance: computeBalance(u, uCharges, uPayments, asOf || null, uAdj) };
   }), [vUnits, vCharges, vPayments, adjustments, asOf]);
-  const outstanding = round2(book.reduce((s, r) => s + (r.balance < 0 ? -r.balance : 0), 0));
+
+  // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
+  // selected period), like Collected/Billed next to it — NOT the Book tab's
+  // separate "as of" date picker. period 'all' → outstanding right now.
+  const outstanding = useMemo(() => {
+    const periodEnd = range ? range.to : null;
+    return round2(vUnits.reduce((s, u) => {
+      const bal = computeBalance(
+        u,
+        vCharges.filter((c) => c.unit_id === u.id),
+        vPayments.filter((p) => p.unit_id === u.id),
+        periodEnd,
+        adjustments.filter((a) => a.unit_id === u.id),
+      );
+      return s + (bal < 0 ? -bal : 0);
+    }, 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vUnits, vCharges, vPayments, adjustments, period, monthValue]);
 
   // category breakdown (charges → block-sliceable)
   const breakdown = CATEGORIES.map((cat) => ({
@@ -531,7 +548,7 @@ export default function Finance() {
             <Kpi label={t('finance.collected')} value={money(collectedP)} icon={TrendingUp} tone="emerald" hint={periodLabel} />
             <Kpi label={t('finance.billed')} value={money(billedP)} icon={Receipt} tone="slate" hint={periodLabel} />
             <Kpi label={t('finance.net')} value={money(netP)} icon={Wallet} tone={netP >= 0 ? 'indigo' : 'rose'} hint={periodLabel} />
-            <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={t('finance.owedNow')} />
+            <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} />
           </div>
 
           <div className="grid lg:grid-cols-3 gap-4 mb-6">
