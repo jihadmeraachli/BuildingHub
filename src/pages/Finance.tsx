@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, Fragment, type ElementType } from 'react';
+import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban } from 'lucide-react';
@@ -119,7 +119,6 @@ export default function Finance() {
   // T6 + per-tenant buckets: 'combined' | 'owner' | a tenant's user id.
   // Defaults to the latest tenant once tenancy loads (see effect below).
   const [residentView, setResidentView] = useState<string>('combined');
-  const residentDefaulted = useRef(false);
   // void (soft-cancel) + adjustments (0034)
   const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments'; id: string; label: string } | null>(null);
   const [voidReason, setVoidReason] = useState('');
@@ -308,17 +307,8 @@ export default function Finance() {
     return { buckets, combined: round2n(buckets.reduce((s, b) => s + b.balance, 0)) };
   };
 
-  // Default the resident toggle to the CURRENT (active) tenant once tenancy is
-  // known — never a moved-out one. If no active tenant, stay on Combined.
-  useEffect(() => {
-    if (residentDefaulted.current || !tenancy.length) return;
-    const owned = units.filter((u) => myOwnerUnitIds.includes(u.id));
-    const opts = Array.from(new Map(owned.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values());
-    const active = opts.find((o) => !o.ended);
-    if (active) setResidentView(active.id);
-    residentDefaulted.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenancy, units]);
+  // Owner's resident finance defaults to the Combined view (residentView's
+  // initial state); they can switch to Owner / a specific tenant via the toggle.
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
