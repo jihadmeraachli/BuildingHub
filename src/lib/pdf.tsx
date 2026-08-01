@@ -62,7 +62,7 @@ export interface UnitStatementProps {
   generatedOn: string;
   charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date' | 'billed_to'>[];
   payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on' | 'paid_by'>[];
-  adjustments?: Pick<Adjustment, 'id' | 'kind' | 'amount_usd' | 'effective_date' | 'party' | 'note'>[];
+  adjustments?: Pick<Adjustment, 'id' | 'kind' | 'amount_usd' | 'effective_date' | 'party' | 'note' | 'counterparty_name'>[];
   /** true balance (incl. opening + adjustments); if omitted, derived from paid − charged */
   balance?: number;
   openingBalance?: number;
