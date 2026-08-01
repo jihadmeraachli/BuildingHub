@@ -211,7 +211,14 @@ export default function Dues() {
 
       {entity && entity.billingMode !== 'dues' && (
         <Card className="mb-4"><CardBody>
-          <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2"><Info size={15} /> This {entity.kind} uses the arrears model. Switch it to &ldquo;Dues&rdquo; in <Link to="/buildings" className="underline">Buildings</Link> to use prepayments.</p>
+          <p className="text-sm text-amber-600 dark:text-amber-400 flex items-start gap-2">
+            <Info size={15} className="shrink-0 mt-0.5" />
+            <span>
+              {t('dues.arrearsNote1', { kind: t(`register.nouns.${entity.kind}`, { defaultValue: entity.kind }) })}{' '}
+              <Link to="/buildings" className="underline">{t('nav.buildings')}</Link>{' '}
+              {t('dues.arrearsNote2')}
+            </span>
+          </p>
         </CardBody></Card>
       )}
 

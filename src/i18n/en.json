@@ -937,6 +937,8 @@
     "poolHint": "Split across units by the basis.",
     "customAmounts": "Per-unit amounts",
     "generate": "Generate dues",
+    "arrearsNote1": "This {{kind}} uses the arrears model. Switch it to \"Dues\" in",
+    "arrearsNote2": "to use prepayments.",
     "generateTitle": "Generate dues for a period",
     "period": "Period label",
     "periodPlaceholder": "e.g. 2026-Q1",
