@@ -18,7 +18,7 @@ import {
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
-import { isDemoEmail } from '@/lib/demo';
+import { isDemoEmail, DEMO_ACCOUNTS } from '@/lib/demo';
 
 interface SidebarProps {
   open: boolean;
@@ -48,6 +48,9 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const { user, profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId } = useAuth();
   const location = useLocation();
   const isDemo = isDemoEmail(user?.email);
+  // The demo admin persona gets the structural pages too (read-only — every
+  // edit control on them is capability-gated, and RLS blocks writes anyway).
+  const isDemoAdmin = user?.email?.toLowerCase() === DEMO_ACCOUNTS.admin;
 
   // Building names for the unit picker (investor case: units across buildings).
   const [unitBuildingNames, setUnitBuildingNames] = useState<Record<string, string>>({});
@@ -101,8 +104,8 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   ].filter(l => l.show !== false);
 
   const manageLinks = (residentLens ? [] : [
-    { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings },
-    { to: '/structure',     label: t('nav.structure'),     icon: Layers,    show: canStructure },
+    { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings || isDemoAdmin },
+    { to: '/structure',     label: t('nav.structure'),     icon: Layers,    show: canStructure || isDemoAdmin },
     { to: '/users',         label: t('nav.people'),        icon: Users,     show: canPeople },
     { to: '/security',      label: t('nav.security'),      icon: ShieldCheck, show: isPlatformAdmin || canAny('grant.manage') },
     { to: '/organizations', label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
