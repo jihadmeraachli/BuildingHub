@@ -114,6 +114,8 @@ export default function Finance() {
   // Book "as of" date — empty = today/live. Lets you pull a statement position
   // at a past date (e.g. year-end). Only affects the Book tab. (0033)
   const [asOf, setAsOf] = useState<string>('');
+  // T6: an owner of a leased unit can view owner-only / tenant-only / combined
+  const [residentView, setResidentView] = useState<'combined' | 'owner' | 'tenant'>('combined');
   // void (soft-cancel) + adjustments (0034)
   const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments'; id: string; label: string } | null>(null);
   const [voidReason, setVoidReason] = useState('');
@@ -493,22 +495,27 @@ export default function Finance() {
   // ================= RESIDENT VIEW =================
   if (!isManager) {
     if (!myUnitIds.length) return <EmptyState title={t('finance.noStatement')} body={t('finance.noStatementBody')} />;
-    const myChargesForUnit = (unitId: string) => {
-      const isOwner = myOwnerUnitIds.includes(unitId);
-      const isTenant = myTenantUnitIds.includes(unitId);
-      return charges.filter((c) => c.unit_id === unitId && (
-        c.billed_to === 'both' || (isOwner && c.billed_to === 'owner') || (isTenant && c.billed_to === 'tenant')
-      ));
-    };
+    const chargeParty = (c: Charge) => (c.billed_to === 'tenant' ? 'tenant' : 'owner');
     const rBook = units.map((u) => {
-      const unitCharges = myChargesForUnit(u.id).filter((c) => !c.voided_at);
+      const uCharges = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
       const uPayments = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
       const uAdj = adjustments.filter((a) => a.unit_id === u.id);
-      const charged = unitCharges.reduce((s, c) => s + Number(c.amount_usd), 0);
-      const paid = uPayments.reduce((s, p) => s + Number(p.amount_usd), 0);
-      // include opening balance + adjustments so the resident sees the true figure
-      return { unit: u, charged, paid, balance: computeBalance(u, unitCharges, uPayments, null, uAdj), unitCharges };
+      const bal = computeUnitBalances(u, uCharges, uPayments, uAdj);
+      // A tenant of the unit only ever sees the tenant ledger. An owner can toggle.
+      const viewerIsTenant = myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id);
+      const canToggle = !viewerIsTenant && everTenantIds.has(u.id) && bal.tenant !== 0;
+      const effective: 'owner' | 'tenant' | 'combined' = viewerIsTenant ? 'tenant' : (canToggle ? residentView : 'owner');
+      const cShown = effective === 'combined' ? uCharges : uCharges.filter((c) => chargeParty(c) === effective);
+      const pShown = effective === 'combined' ? uPayments : uPayments.filter((p) => (p.paid_by === 'tenant' ? 'tenant' : 'owner') === effective);
+      const balance = effective === 'owner' ? bal.owner : effective === 'tenant' ? bal.tenant : bal.total;
+      return {
+        unit: u, balance, effective, canToggle, viewerIsTenant,
+        charged: cShown.reduce((s, c) => s + Number(c.amount_usd), 0),
+        paid: pShown.reduce((s, p) => s + Number(p.amount_usd), 0),
+        unitCharges: cShown, unitPayments: pShown,
+      };
     });
+    const anyToggle = rBook.some((r) => r.canToggle);
     return (
       <div>
         <div className="flex items-center justify-between mb-1">
@@ -516,18 +523,34 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, payments.filter(p => p.unit_id === r.unit.id && !p.voided_at));
+              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments);
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
           )}
         </div>
-        <p className="text-sm text-slate-500 mb-6">{t('finance.myAccountSub')}</p>
+        <p className="text-sm text-slate-500 mb-4">{t('finance.myAccountSub')}</p>
+
+        {/* T6: owner of a leased unit chooses whose numbers to see */}
+        {anyToggle && (
+          <div className="inline-flex rounded-lg border border-border p-0.5 mb-5 text-sm">
+            {(['combined', 'owner', 'tenant'] as const).map((m) => (
+              <button key={m} onClick={() => setResidentView(m)}
+                className={`px-3 py-1.5 rounded-md transition ${residentView === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {t(`finance.view.${m}`)}
+              </button>
+            ))}
+          </div>
+        )}
+
         {rBook.map((r) => (
           <Card key={r.unit.id} className="mb-4"><CardBody>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">{t('finance.unit')} {r.unit.label}</p>
+                <p className="text-sm text-slate-500">
+                  {t('finance.unit')} {r.unit.label}
+                  {r.effective === 'tenant' && <TenantTag label={t('finance.tenantTag')} />}
+                </p>
                 <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{money(r.balance)}</p>
                 <p className="text-xs text-slate-400 mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
                 {r.balance < 0 && whishByBuilding[r.unit.building_id] && (
@@ -544,7 +567,7 @@ export default function Finance() {
           </CardBody></Card>
         ))}
         <ResidentDuesCard unitIds={myUnitIds} />
-        <StatementList charges={rBook.flatMap(r => r.unitCharges)} payments={payments} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
+        <StatementList charges={rBook.flatMap(r => r.unitCharges)} payments={rBook.flatMap(r => r.unitPayments)} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
       </div>
     );
   }

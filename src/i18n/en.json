@@ -934,7 +934,12 @@
     "owner": "Owner",
     "tenant": "Tenant",
     "tenantTag": "Tenant",
-    "paidBy": "Paid by"
+    "paidBy": "Paid by",
+    "view": {
+      "combined": "Combined",
+      "owner": "Owner",
+      "tenant": "Tenant"
+    }
   },
   "inspections": {
     "title": "Inspections",

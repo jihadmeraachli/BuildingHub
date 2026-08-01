@@ -942,7 +942,12 @@
     "owner": "المالك",
     "tenant": "المستأجر",
     "tenantTag": "مستأجر",
-    "paidBy": "دفعها"
+    "paidBy": "دفعها",
+    "view": {
+      "combined": "مجمّع",
+      "owner": "المالك",
+      "tenant": "المستأجر"
+    }
   },
   "inspections": {
     "title": "الفحوصات",
