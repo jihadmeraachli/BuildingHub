@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Abniyah — Finance Fixes 1–9</title>
+<style>
+  :root{
+    --cyan:#57D6E2; --blue:#349ECD; --ink:#0f1b2d; --muted:#5b6b82;
+    --line:#e2e8f0; --amber-bg:#fff7ed; --amber-bd:#f6c88a; --amber-ink:#9a5a12;
+    --green-bg:#f0fbf6; --green-bd:#9bdcbf; --green-ink:#0f7a52;
+    --card:#f8fafc;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink);
+       margin:0; font-size:12.5px; line-height:1.5;}
+  .page{padding:34px 40px;}
+  h1{font-size:26px; margin:0; letter-spacing:-.02em;}
+  h2{font-size:15px; margin:0;}
+  small,.muted{color:var(--muted);}
+
+  /* cover header */
+  .cover{background:linear-gradient(120deg,var(--cyan),var(--blue)); color:#04222e;
+         border-radius:16px; padding:26px 28px; margin-bottom:22px;}
+  .cover .tag{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.16em; opacity:.8;}
+  .cover h1{color:#032230;}
+  .cover p{margin:6px 0 0; color:#063245; max-width:60ch;}
+
+  .legend{display:flex; gap:10px; margin:16px 0 26px; flex-wrap:wrap;}
+  .chip{border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:var(--card); flex:1; min-width:220px;}
+  .chip b{display:block; font-size:12px;}
+  .chip span{font-size:11.5px; color:var(--muted);}
+
+  .task{border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin:0 0 16px;
+        break-inside:avoid;}
+  .task-head{display:flex; align-items:center; gap:12px; margin-bottom:6px;}
+  .num{background:linear-gradient(120deg,var(--cyan),var(--blue)); color:#04222e; font-weight:800;
+       width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;}
+  .task-head h2{flex:1;}
+  .pill{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:3px 8px; border-radius:999px;}
+  .pill.bug{background:#fdecec; color:#b42318;}
+  .pill.feature{background:#eaf2ff; color:#1f5bb5;}
+  .pill.rule{background:#f3eefe; color:#6b3fd1;}
+
+  .ba{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0;}
+  .box{border-radius:10px; padding:11px 13px; font-size:12px;}
+  .box.now{background:var(--amber-bg); border:1px solid var(--amber-bd);}
+  .box.next{background:var(--green-bg); border:1px solid var(--green-bd);}
+  .box .lbl{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px;}
+  .box.now .lbl{color:var(--amber-ink);}
+  .box.next .lbl{color:var(--green-ink);}
+
+  .ex{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 13px; margin-top:4px;}
+  .ex .lbl{font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:7px;}
+  table{width:100%; border-collapse:collapse; font-size:11.5px; margin-top:2px;}
+  th,td{text-align:left; padding:5px 8px; border-bottom:1px solid var(--line);}
+  th{color:var(--muted); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.06em;}
+  td.n{text-align:right; font-variant-numeric:tabular-nums;}
+  .neg{color:#d24b8a;} /* pink negatives, per task 19 */
+  .pos{color:#0f7a52;}
+  .sub td:first-child{padding-left:22px; color:var(--muted);}
+  .mode{margin-top:10px; font-size:11.5px; background:#eefcfb; border:1px solid #bfeef0; border-radius:9px; padding:9px 12px;}
+  .mode b{color:#0b6b73;}
+  .foot{margin-top:8px; color:var(--muted); font-size:11px;}
+  @page{margin:14mm 0;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="cover">
+    <div class="tag">Abniyah · Product Spec</div>
+    <h1>Finance — Fixes 1 to 9</h1>
+    <p>Before &amp; after for the first finance batch, with worked examples. Prepared so we align before building. Every change is designed to work in <b>both</b> billing modes.</p>
+    <p style="margin-top:10px; font-size:11.5px;">1 Aug 2026 · for partner review</p>
+  </div>
+
+  <div class="legend">
+    <div class="chip"><b>Post-pay (Arrears)</b><span>Residents pay what they actually owe. Balance = payments − charges (+ starting balance, − adjustments).</span></div>
+    <div class="chip"><b>Prepay (Dues)</b><span>Residents pay a fixed amount each period; the system reconciles it against the real balance.</span></div>
+    <div class="chip"><b>Owner vs Tenant</b><span>Every unit has an owner; a leased unit also has a tenant. Several fixes below track money separately for each.</span></div>
+  </div>
+
+  <!-- 1 -->
+  <div class="task">
+    <div class="task-head"><div class="num">1</div><h2>“Outstanding” should follow the top time filter</h2><span class="pill bug">Bug</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        On the Finance page the top tabs (Month / Year / All time) update <b>Collected</b> and <b>Billed</b>, but <b>Outstanding</b> ignores them. It only reacts to the separate date filter down in the Book section — so it looks out of sync with the figures right next to it.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        <b>Outstanding</b> responds to the same top filter as its neighbours, showing the outstanding position <b>as of the end of the selected period</b>. Change the period once and all four numbers move together.</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — filter set to “This year”</div>
+      <table>
+        <tr><th>Figure</th><th style="text-align:right">Now</th><th style="text-align:right">After</th></tr>
+        <tr><td>Collected (year)</td><td class="n">$14,400</td><td class="n">$14,400</td></tr>
+        <tr><td>Billed (year)</td><td class="n">$18,000</td><td class="n">$18,000</td></tr>
+        <tr><td>Outstanding</td><td class="n neg">$9,200 <span class="muted">(all-time — ignores filter)</span></td><td class="n">$3,600 <span class="muted">(as of 31 Dec)</span></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="task">
+    <div class="task-head"><div class="num">2</div><h2>Home-page balance must include starting balances</h2><span class="pill bug">Bug</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        When a building joins, some units already owe money (or are in credit) from before. We enter that as the unit’s <b>starting balance</b>. The home-page (dashboard) headline ignores it — it only counts charges and payments made inside the app.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        The dashboard balance includes every unit’s starting balance — both those who begin <b>owing</b> and those who begin <b>in credit</b> — so the headline matches the real books from day one.</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — building onboarded with history</div>
+      <table>
+        <tr><th>Unit</th><th>Starting balance</th><th style="text-align:right">Counted now?</th></tr>
+        <tr><td>A101</td><td class="neg">owes $300</td><td class="n">No → shows $0</td></tr>
+        <tr><td>A102</td><td class="pos">$100 credit</td><td class="n">No → shows $0</td></tr>
+        <tr><td><b>Dashboard outstanding</b></td><td class="neg"><b>should reflect $300 owed</b></td><td class="n"><b>After: included</b></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="task">
+    <div class="task-head"><div class="num">3</div><h2>Voided payment keeps re-appearing</h2><span class="pill bug">Bug</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        Voiding a payment is inconsistent: it leaves the on-screen list but still shows in the <b>downloaded report</b>; and when a new payment is later added, the voided one <b>re-appears</b> in the list — while the report still carries it.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        A voided payment is treated the same everywhere — excluded from the list, from all totals, and from the downloaded report — and it <b>stays</b> excluded. (It’s still kept in the database for audit, just never counted.)</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — void payment of $200, then add a new $150 payment</div>
+      <table>
+        <tr><th>Where</th><th style="text-align:right">Now</th><th style="text-align:right">After</th></tr>
+        <tr><td>Payments list</td><td class="n">gone, then returns</td><td class="n">gone &amp; stays gone</td></tr>
+        <tr><td>Downloaded report</td><td class="n">still shows the $200</td><td class="n">excluded</td></tr>
+        <tr><td>Totals / balance</td><td class="n">unreliable</td><td class="n">correct</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="task">
+    <div class="task-head"><div class="num">4</div><h2>One owner and one tenant per unit</h2><span class="pill rule">Rule</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        A unit that already has an owner can be given a <b>second owner</b>; the same for tenants. This corrupts who is responsible for the money.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        A unit may have <b>at most one owner and one tenant</b>. Adding a second is blocked with a clear message — you must remove the existing one first. <span class="muted">(This is the foundation the owner/tenant money split, fixes 5–9, relies on.)</span></div>
+    </div>
+    <div class="ex"><div class="lbl">Example</div>
+      <table>
+        <tr><th>Action</th><th style="text-align:right">Now</th><th style="text-align:right">After</th></tr>
+        <tr><td>A101 has owner Sara → add owner Karim</td><td class="n">allowed (2 owners)</td><td class="n">blocked: “A101 already has an owner”</td></tr>
+        <tr><td>A101 has tenant Ali → add tenant Rima</td><td class="n">allowed (2 tenants)</td><td class="n">blocked: remove Ali first</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="task">
+    <div class="task-head"><div class="num">5</div><h2>Direct an expense to the owner or the tenant <span class="muted" style="font-weight:400">(includes fix 7)</span></h2><span class="pill feature">Feature</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        When recording an expense you can only allocate it to units in general (an “All members” option). There’s no way to say “this one is the tenant’s responsibility.”</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        The expense form gains one choice: <b>“For units with tenants, apply to: Owner / Tenant.”</b> Units that have <b>only an owner</b> always go to the owner automatically (no prompt). The old <b>“All members”</b> option is removed (fix 7).</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — $600 water bill, split by shares across 3 units, “apply to Tenant”</div>
+      <table>
+        <tr><th>Unit</th><th>Occupancy</th><th style="text-align:right">Charge lands on</th></tr>
+        <tr><td>A101</td><td>owner + tenant</td><td class="n">Tenant</td></tr>
+        <tr><td>A102</td><td>owner only</td><td class="n">Owner (automatic)</td></tr>
+        <tr><td>A103</td><td>owner + tenant</td><td class="n">Tenant</td></tr>
+      </table>
+    </div>
+    <div class="mode"><b>Both modes:</b> in <b>post-pay</b> the charge is recorded on the chosen party’s ledger; in <b>prepay</b> the same choice decides whose dues that cost feeds into.</div>
+  </div>
+
+  <!-- 6 -->
+  <div class="task">
+    <div class="task-head"><div class="num">6</div><h2>Owner can switch the view: owner-only / tenant-only / combined</h2><span class="pill feature">Feature</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        For a leased unit there’s no way for the owner to see their own numbers apart from the tenant’s — everything is lumped together.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        In <b>Finance and the Dashboard</b>, an owner of a leased unit gets a toggle: <b>Owner only · Tenant only · Combined</b>. The tenant, of course, only ever sees the tenant’s own numbers.</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — owner of A101 opens Finance</div>
+      <table>
+        <tr><th>View</th><th style="text-align:right">Shows</th></tr>
+        <tr><td>Combined (default)</td><td class="n">owner + tenant together</td></tr>
+        <tr><td>Owner only</td><td class="n">only what the owner owes/paid</td></tr>
+        <tr><td>Tenant only</td><td class="n">only the tenant’s charges/payments</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 8 -->
+  <div class="task">
+    <div class="task-head"><div class="num">8</div><h2>Record a payment as owner’s or tenant’s</h2><span class="pill feature">Feature</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        A payment is recorded against the unit with no way to say whether the <b>owner or the tenant</b> paid — so a leased unit’s two balances can’t be kept straight.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        <b>Only when a unit has a tenant</b>, the payment form shows <b>“Paid by: Owner / Tenant.”</b> The payment reduces that party’s balance only. (This is also what lets fix 11 send the receipt to the right person.)</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — $200 received for A101, “Paid by: Tenant”</div>
+      <table>
+        <tr><th>Ledger</th><th style="text-align:right">Effect</th></tr>
+        <tr><td>Tenant balance</td><td class="n pos">+$200</td></tr>
+        <tr><td>Owner balance</td><td class="n">unchanged</td></tr>
+        <tr><td>Receipt / notification</td><td class="n">tenant only</td></tr>
+      </table>
+    </div>
+    <div class="mode"><b>Both modes:</b> post-pay reduces the chosen party’s outstanding; prepay records it against that party’s dues for the period.</div>
+  </div>
+
+  <!-- 9 -->
+  <div class="task">
+    <div class="task-head"><div class="num">9</div><h2>Balances, reports &amp; dues: total row + owner / tenant sub-rows</h2><span class="pill feature">Feature</span></div>
+    <div class="ba">
+      <div class="box now"><div class="lbl">Now — the problem</div>
+        A leased unit shows a single blended balance — you can’t see how much is the owner’s vs the tenant’s.</div>
+      <div class="box next"><div class="lbl">After — the fix</div>
+        Everywhere a unit balance appears — the Book, downloaded reports, and Dues — a leased unit shows a <b>total row</b> with two <b>sub-rows: Owner and Tenant</b>. Units with no tenant show a single row (tenant = <b>N/A</b>).</div>
+    </div>
+    <div class="ex"><div class="lbl">Example — Finance book</div>
+      <table>
+        <tr><th>Unit</th><th style="text-align:right">Balance</th></tr>
+        <tr><td><b>A101</b> (leased) — total</td><td class="n neg"><b>$450 owed</b></td></tr>
+        <tr class="sub"><td>↳ Owner</td><td class="n neg">$150 owed</td></tr>
+        <tr class="sub"><td>↳ Tenant</td><td class="n neg">$300 owed</td></tr>
+        <tr><td><b>A102</b> (owner only)</td><td class="n neg">$150 owed <span class="muted">· tenant N/A</span></td></tr>
+      </table>
+    </div>
+    <div class="mode"><b>Both modes:</b> post-pay sub-rows show each party’s outstanding; prepay sub-rows show each party’s <b>amount due</b> and <b>carry-in</b> (this is also fix 14).</div>
+  </div>
+
+  <div class="foot">Fixes 10–21 to be added to this document in the next revision. Order within this batch: bugs (1–3) → owner/tenant foundation (4) → owner/tenant money split (5, 6, 8, 9).</div>
+
+</div>
+</body>
+</html>
