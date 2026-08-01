@@ -206,6 +206,68 @@
     "docTitle": "Abniyah | Building management for Lebanon · a product of Tatawwor",
     "openApp": "Open the app",
     "privateBeta": "Currently in private beta",
+    "navProduct": "Product",
+    "navPricing": "Pricing",
+    "navAbout": "About",
+    "navFaq": "FAQ",
+    "startTrial": "Start your free trial",
+    "trialNote": "30 days free · no card required",
+    "show": {
+      "book": {
+        "title": "The building book, to the cent",
+        "body": "Record an expense once and Abniyah bills it across units by their shares. Payments, balances and statements reconcile automatically, for the whole compound and for each block. Export a clean PDF whenever the committee asks."
+      },
+      "setup": {
+        "title": "Set up in minutes, not weeks",
+        "body": "A guided checklist takes you from a fresh account to a working building: create your blocks, import units from Excel, add your people, and switch on automated payment reminders. Each step checks itself off as you go."
+      },
+      "arabic": {
+        "title": "Arabic and English, born bilingual",
+        "body": "The whole app flows right-to-left in Arabic and switches with one tap. Notifications reach residents on WhatsApp and email in both languages, so everyone in the building reads comfortably."
+      }
+    },
+    "everythingElse": "And everything else a building needs",
+    "howTitle": "How it works",
+    "how": {
+      "h1": { "title": "Register", "body": "Create your account, name your building, compound or organisation, and start a 30-day free trial. No payment details." },
+      "h2": { "title": "Set up in minutes", "body": "Follow the checklist: blocks, units, people, licenses. Import from Excel if you already keep records." },
+      "h3": { "title": "Collect on autopilot", "body": "Expenses become charges, residents get receipts, and Abniyah sends the monthly payment reminders for you." }
+    },
+    "pricingTitle": "Simple, per-unit pricing",
+    "pricingSub": "Every feature included. Start with 30 days free, cancel anytime.",
+    "pricing": {
+      "p1": "All features, all channels: WhatsApp, email and in-app",
+      "p2": "Unlimited managers and residents per unit",
+      "p3": "Arabic and English included"
+    },
+    "aboutTitle": "About Abniyah",
+    "aboutBody1": "Abniyah is built and operated by Tatawwor, a Beirut-based technology company whose team earned its experience in Australia, New Zealand and the United Kingdom. We build it the way we run our own systems: security enforced in the database, daily backups, and no shortcuts.",
+    "aboutBody2": "Learn more about Tatawwor at",
+    "faqTitle": "Frequently asked questions",
+    "faq": {
+      "privacy": {
+        "q": "Who can see my building's data?",
+        "a": "Only your building's authorized managers see its residents and finances, and residents see their own units. Access rules are enforced at the database level on every request. Details are in our Privacy Policy."
+      },
+      "arabic": {
+        "q": "Does it really work in Arabic?",
+        "a": "Yes. The full app, including notifications, works in Arabic with proper right-to-left layout. Every user picks their own language."
+      },
+      "payments": {
+        "q": "How do residents pay?",
+        "a": "Today, money changes hands as your building prefers (cash, transfer) and management records it in Abniyah; residents see their balance and receipts instantly. Direct in-app payment via Whish is on our roadmap."
+      },
+      "price": {
+        "q": "What does it cost after the trial?",
+        "a": "$5 per unit per month, or $50 per unit per year (about 17% less). One license covers one unit, with all features and no hidden extras."
+      },
+      "residents": {
+        "q": "What do residents get?",
+        "a": "Their own login showing their balance, charges and receipts, building announcements and meetings, the ability to report maintenance issues with photos, and notifications on WhatsApp or email in their language."
+      }
+    },
+    "ctaTitle": "Ready to run your building like a pro?",
+    "ctaBody": "Set up your building today. Free for 30 days, and your data stays yours.",
     "features": {
       "f1": { "title": "The building book", "body": "Every expense, charge and payment in one ledger. The compound view and each block reconcile to the cent." },
       "f2": { "title": "Dues & collections", "body": "Issue monthly dues or bill actual expenses. Owners see their balance; managers see who has paid." },
