@@ -11,7 +11,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
-import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, Membership } from '@/types';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -35,6 +35,8 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(u
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Split `amount` across `units` by method; rounding fixed so parts sum to total. */
+type TenancyRow = { unit_id: string; user_id: string; tenure: string; created_at: string; ended_at: string | null; profiles: { full_name: string } | null };
+
 // Subtle marker on tenant-attributed rows (payments, adjustments, expenses).
 function TenantTag({ label }: { label: string }) {
   return (
@@ -125,7 +127,8 @@ export default function Finance() {
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
-  const [tenancy, setTenancy] = useState<Membership[]>([]);
+  // tenancy with names + date ranges → resolve who the tenant was on any date
+  const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
   const [whishByBuilding, setWhishByBuilding] = useState<Record<string, string>>({});
@@ -194,10 +197,10 @@ export default function Finance() {
       const [{ data: ug }, { data: mem }] = await Promise.all([
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
         // include ENDED memberships too, so a unit that once had a tenant still shows the split
-        supabase.from('memberships').select('unit_id, tenure, ended_at').in('unit_id', ids),
+        supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', ids),
       ]);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
-      setTenancy((mem as Membership[]) ?? []);
+      setTenancy((mem as unknown as TenancyRow[]) ?? []);
     } else { setUnitGroups([]); setTenancy([]); }
     setLoading(false);
   }
@@ -214,8 +217,8 @@ export default function Finance() {
     setCharges(chargeRows);
     setPayments(paymentRows);
     setAdjustments(adjRows);
-    const { data: mem } = await supabase.from('memberships').select('unit_id, tenure, ended_at').in('unit_id', myUnitIds);
-    setTenancy((mem as Membership[]) ?? []);
+    const { data: mem } = await supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', myUnitIds);
+    setTenancy((mem as unknown as TenancyRow[]) ?? []);
     setLoading(false);
   }
 
@@ -237,6 +240,16 @@ export default function Finance() {
   }, [tenancy, charges, payments, adjustments]);
   const hasTenant = (uid: string) => activeTenantIds.has(uid);        // forms (active tenant)
   // display/split uses everTenantIds.has(unitId) directly (has or had a tenant)
+
+  // Who was the tenant of this unit on a given date — so tenant-attributed rows
+  // (charges/payments/adjustments) show the name, even after move-out.
+  const tenantNameAt = (unitId: string, date: string): string | null => {
+    const d = new Date(date);
+    const periods = tenancy.filter((m) => m.unit_id === unitId && m.tenure === 'tenant');
+    if (!periods.length) return null;
+    const hit = periods.find((m) => new Date(m.created_at) <= d && (!m.ended_at || new Date(m.ended_at) >= d));
+    return (hit ?? periods[periods.length - 1])?.profiles?.full_name ?? null;
+  };
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
@@ -472,19 +485,28 @@ export default function Finance() {
 
   // ─── PDF export ───────────────────────────────────────────────────────────
 
-  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], showParty = false, unitAdjustments: Adjustment[] = [], balance?: number) {
+  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], showParty = false, unitAdjustments: Adjustment[] = [], balance?: number, includeOpening = false) {
     try {
       const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
+      // Pre-resolve the tenant's name into each tenant-attributed row so the PDF
+      // shows WHO the tenant was (kept even after move-out).
+      const cRows = unitCharges.map((c) => c.billed_to === 'tenant'
+        ? { ...c, description: `${c.description} · ${tenantNameAt(c.unit_id, c.charge_date) ?? t('finance.tenant')}` } : c);
+      const pRows = unitPayments.map((p) => p.paid_by === 'tenant'
+        ? { ...p, note: `${p.note ? p.note + ' · ' : ''}${tenantNameAt(p.unit_id, p.paid_on) ?? t('finance.tenant')}` } : p);
+      const aRows = unitAdjustments.map((a) => a.party === 'tenant' && !a.counterparty_name
+        ? { ...a, counterparty_name: tenantNameAt(a.unit_id, a.effective_date) } : a);
       const el = (
         <UnitStatementDoc
           unitLabel={unit.label}
           buildingName={entity?.name ?? ''}
           period={periodLabel}
           generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-          charges={unitCharges}
-          payments={unitPayments}
-          adjustments={unitAdjustments}
+          charges={cRows}
+          payments={pRows}
+          adjustments={aRows}
           balance={balance}
+          openingBalance={includeOpening ? Number(unit.opening_balance ?? 0) : 0}
           showParty={showParty}
         />
       );
@@ -526,8 +548,10 @@ export default function Finance() {
       const bal = computeUnitBalances(u, uCharges, uPayments, uAdj);
       // A tenant of the unit only ever sees the tenant ledger. An owner can toggle.
       const viewerIsTenant = myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id);
-      const canToggle = !viewerIsTenant && (activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0));
-      const effective: 'owner' | 'tenant' | 'combined' = viewerIsTenant ? 'tenant' : (canToggle ? residentView : 'owner');
+      // owner of any unit that has or EVER had a tenant can toggle; default is
+      // 'combined' so the full history (incl. a moved-out tenant) stays visible.
+      const canToggle = !viewerIsTenant && everTenantIds.has(u.id);
+      const effective: 'owner' | 'tenant' | 'combined' = viewerIsTenant ? 'tenant' : (canToggle ? residentView : 'combined');
       const cShown = effective === 'combined' ? uCharges : uCharges.filter((c) => chargeParty(c) === effective);
       const pShown = effective === 'combined' ? uPayments : uPayments.filter((p) => (p.paid_by === 'tenant' ? 'tenant' : 'owner') === effective);
       const aShown = effective === 'combined' ? uAdj : uAdj.filter((a) => (a.party === 'tenant' ? 'tenant' : 'owner') === effective);
@@ -547,7 +571,7 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && r.effective === 'combined', r.unitAdjustments, r.balance);
+              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && r.effective === 'combined', r.unitAdjustments, r.balance, r.effective !== 'tenant');
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -590,7 +614,14 @@ export default function Finance() {
           </CardBody></Card>
         ))}
         <ResidentDuesCard unitIds={myUnitIds} />
-        <StatementList charges={rBook.flatMap(r => r.unitCharges)} payments={rBook.flatMap(r => r.unitPayments)} adjustments={rBook.flatMap(r => r.unitAdjustments)} unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))} />
+        <StatementList
+          charges={rBook.flatMap(r => r.unitCharges)}
+          payments={rBook.flatMap(r => r.unitPayments)}
+          adjustments={rBook.flatMap(r => r.unitAdjustments)}
+          openings={residentView === 'tenant' ? [] : units.filter(u => myOwnerUnitIds.includes(u.id)).map(u => ({ unit_id: u.id, amount: Number(u.opening_balance), date: u.opening_balance_date }))}
+          tenantName={tenantNameAt}
+          unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))}
+        />
       </div>
     );
   }
@@ -745,7 +776,7 @@ export default function Finance() {
                           <td className={`px-5 py-3 text-end tnum ${r.adj === 0 ? 'text-muted-foreground' : balCls(r.adj)}`}>{r.adj === 0 ? '—' : money(r.adj)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${balCls(r.balance)}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), everTenantIds.has(r.unit.id), adjustments.filter(a => a.unit_id === r.unit.id && !a.voided_at), r.balance)} className="text-primary hover:text-primary/70 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), everTenantIds.has(r.unit.id), adjustments.filter(a => a.unit_id === r.unit.id && !a.voided_at), r.balance, true)} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
@@ -821,6 +852,7 @@ export default function Finance() {
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
+                          {p.paid_by === 'tenant' && <TenantTag label={tenantNameAt(p.unit_id, p.paid_on) ?? t('finance.tenantTag')} />}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
@@ -858,6 +890,7 @@ export default function Finance() {
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
+                            {a.party === 'tenant' && <TenantTag label={tenantNameAt(a.unit_id, a.effective_date) ?? t('finance.tenantTag')} />}
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
@@ -1176,14 +1209,18 @@ function EmptyState({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
-function StatementList({ charges, payments, adjustments = [], unitLabel }: { charges: Charge[]; payments: Payment[]; adjustments?: Adjustment[]; unitLabel: Record<string, string> }) {
+function StatementList({ charges, payments, adjustments = [], openings = [], tenantName, unitLabel }: { charges: Charge[]; payments: Payment[]; adjustments?: Adjustment[]; openings?: { unit_id: string; amount: number; date: string | null }[]; tenantName?: (unitId: string, date: string) => string | null; unitLabel: Record<string, string> }) {
   const { t } = useTranslation();
-  type Row = { date: string; label: string; unit: string; amount: number };
+  type Row = { date: string; label: string; unit: string; amount: number; tenant?: string | null };
+  // tenant name suffix for a tenant-attributed row
+  const tn = (unitId: string, date: string) => (tenantName ? tenantName(unitId, date) : null);
   const rows: Row[] = [
-    ...charges.map((c) => ({ date: c.charge_date, label: c.description || t(`finance.cats.${c.category}`), unit: unitLabel[c.unit_id] ?? '', amount: -Number(c.amount_usd) })),
-    ...payments.map((p) => ({ date: p.paid_on, label: t('finance.payment'), unit: unitLabel[p.unit_id] ?? '', amount: Number(p.amount_usd) })),
-    // adjustments so residents can see credit notes / discounts / write-offs / penalties / refunds
-    ...adjustments.map((a) => ({ date: a.effective_date, label: t(`finance.adjKinds.${a.kind}`) + (a.note ? ` · ${a.note}` : ''), unit: unitLabel[a.unit_id] ?? '', amount: adjustmentEffect(a.kind, Number(a.amount_usd)) })),
+    // opening / carried-in balance shows as its own line (T: initial balance visible)
+    ...openings.filter((o) => Number(o.amount) !== 0).map((o) => ({ date: o.date ?? '1970-01-01', label: t('finance.openingBalance'), unit: unitLabel[o.unit_id] ?? '', amount: Number(o.amount) })),
+    ...charges.map((c) => ({ date: c.charge_date, label: c.description || t(`finance.cats.${c.category}`), unit: unitLabel[c.unit_id] ?? '', amount: -Number(c.amount_usd), tenant: c.billed_to === 'tenant' ? tn(c.unit_id, c.charge_date) : null })),
+    ...payments.map((p) => ({ date: p.paid_on, label: t('finance.payment'), unit: unitLabel[p.unit_id] ?? '', amount: Number(p.amount_usd), tenant: p.paid_by === 'tenant' ? tn(p.unit_id, p.paid_on) : null })),
+    // adjustments (credit notes / discounts / write-offs / penalties / refunds / transfers)
+    ...adjustments.map((a) => ({ date: a.effective_date, label: t(`finance.adjKinds.${a.kind}`) + (a.note ? ` · ${a.note}` : '') + (a.counterparty_name ? ` · ${a.counterparty_name}` : ''), unit: unitLabel[a.unit_id] ?? '', amount: adjustmentEffect(a.kind, Number(a.amount_usd)), tenant: a.party === 'tenant' ? tn(a.unit_id, a.effective_date) : null })),
   ].sort((a, b) => (a.date < b.date ? 1 : -1));
   if (rows.length === 0) return <Empty body={t('finance.noTransactions')} />;
   return (
@@ -1197,7 +1234,7 @@ function StatementList({ charges, payments, adjustments = [], unitLabel }: { cha
         {rows.map((r, i) => (
           <tr key={i} className="hover:bg-slate-50/60">
             <td className="px-5 py-3 text-slate-500">{format(new Date(r.date), 'MMM d, yyyy')}</td>
-            <td className="px-5 py-3 text-slate-800">{r.label} <span className="text-slate-400 text-xs">· {t('finance.unit')} {r.unit}</span></td>
+            <td className="px-5 py-3 text-slate-800">{r.label} <span className="text-slate-400 text-xs">· {t('finance.unit')} {r.unit}</span>{r.tenant && <TenantTag label={r.tenant} />}</td>
             <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>
         ))}

@@ -115,6 +115,13 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
           </View>
         </View>
 
+        {/* Opening / carried-in balance line */}
+        {openingBalance !== 0 && (
+          <Text style={{ fontSize: 8.5, color: C.slate5, marginBottom: 10 }}>
+            Includes opening balance: <Text style={{ color: openingBalance < 0 ? C.rose : C.emerald }}>{money(openingBalance)}</Text>
+          </Text>
+        )}
+
         {/* Charges table */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Charges</Text>
