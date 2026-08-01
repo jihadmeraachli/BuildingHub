@@ -205,7 +205,18 @@
   "demo": {
     "banner": "You're exploring a live demo building with sample data.",
     "cta": "Start your free trial",
-    "loading": "Opening the demo building…",
+    "switch": "Switch view",
+    "chooseTitle": "Explore the live demo",
+    "chooseSub": "One real building, two points of view. Pick how you want to see it — everything is read-only.",
+    "admin": {
+      "title": "View as building admin",
+      "body": "The manager's cockpit: fund balance, the building book, dues, issues, meetings, inspections and contracts."
+    },
+    "owner": {
+      "title": "View as unit owner",
+      "body": "What your residents see: their units, balances and receipts, building meetings and announcements."
+    },
+    "backToSite": "Back to abniyah.com",
     "unavailable": "The demo is taking a break. Please try again in a minute, or start your free trial instead."
   },
   "landing": {

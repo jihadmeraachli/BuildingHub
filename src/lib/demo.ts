@@ -1,11 +1,24 @@
 // Public read-only demo — the "See the live demo" button on abniyah.com.
-// The demo account holds a `viewer` grant on the showcase building (seeded by
-// seed-demo.mjs), so RLS makes every write impossible; the credentials being
-// in the bundle is by design. Settings is hidden for this account (the email
-// must stay out of the UI) — see Sidebar/Settings guards.
-export const DEMO_EMAIL = 'jihad.meraachli+demoviewer@gmail.com';
+// Two personas into the same showcase building (seeded by seed-demo.mjs):
+//   admin — a `viewer` grant: the manager's oversight surface, RLS blocks writes
+//   owner — a resident with two units: the unit-owner experience (balances,
+//           receipts, meetings). Residents can normally write a little (report
+//           issues), so demo accounts also get client-side gates (Issues,
+//           Settings) — worst case a stray API write lands in the demo
+//           building and is trivially cleaned.
+// Credentials in the bundle are by design; Settings is hidden for these
+// accounts so the emails stay out of the UI.
 export const DEMO_PASSWORD = 'abniyah-demo-2026';
 
+export const DEMO_ACCOUNTS = {
+  admin: 'jihad.meraachli+demoviewer@gmail.com',
+  owner: 'jihad.meraachli+demoowner@gmail.com',
+} as const;
+
+export type DemoPersona = keyof typeof DEMO_ACCOUNTS;
+
+const DEMO_EMAILS = new Set<string>(Object.values(DEMO_ACCOUNTS));
+
 export function isDemoEmail(email: string | null | undefined): boolean {
-  return !!email && email.toLowerCase() === DEMO_EMAIL;
+  return !!email && DEMO_EMAILS.has(email.toLowerCase());
 }

@@ -6,6 +6,7 @@ import { Plus, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { isDemoEmail } from '@/lib/demo';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
 import type { Issue, IssueStatus, IssuePriority } from '@/types';
@@ -22,7 +23,8 @@ const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = { open: 'o
 
 export default function Issues() {
   const { t } = useTranslation();
-  const { profile, canAny, isPlatformAdmin, residentLens } = useAuth();
+  const { user, profile, canAny, isPlatformAdmin, residentLens } = useAuth();
+  const isDemo = isDemoEmail(user?.email);
   const { buildings } = useViewableBuildings();
   const entities = useEntities(buildings);
 
@@ -154,7 +156,7 @@ export default function Issues() {
               <SelectItem value="resolved">{t('issues.statuses.resolved')}</SelectItem>
             </SelectContent>
           </RadixSelect>
-          {entity && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
+          {entity && !isDemo && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
         </div>
       </div>
 

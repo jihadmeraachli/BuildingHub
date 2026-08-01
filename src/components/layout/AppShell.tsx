@@ -26,6 +26,8 @@ export function AppShell() {
         {isDemo && (
           <div className="shrink-0 bg-primary text-primary-foreground text-center text-xs font-medium py-1.5 px-4">
             {t('demo.banner')}{' '}
+            <a href="/demo" className="underline font-semibold">{t('demo.switch')}</a>
+            <span className="mx-1.5 opacity-50">·</span>
             <button onClick={startTrial} className="underline font-semibold cursor-pointer">
               {t('demo.cta')}
             </button>
