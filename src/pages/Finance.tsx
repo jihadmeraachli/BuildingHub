@@ -237,10 +237,6 @@ export default function Finance() {
   }, [tenancy, charges, payments, adjustments]);
   const hasTenant = (uid: string) => activeTenantIds.has(uid);        // forms (active tenant)
   // display/split uses everTenantIds.has(unitId) directly (has or had a tenant)
-  // expenses that produced at least one tenant-billed charge → subtle tag
-  const tenantExpenseIds = useMemo(
-    () => new Set(charges.filter((c) => c.billed_to === 'tenant' && c.expense_id).map((c) => c.expense_id)),
-    [charges]);
   const blockName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
@@ -559,7 +555,6 @@ export default function Finance() {
               <div>
                 <p className="text-sm text-slate-500">
                   {t('finance.unit')} {r.unit.label}
-                  {r.effective === 'tenant' && <TenantTag label={t('finance.tenantTag')} />}
                 </p>
                 <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{money(r.balance)}</p>
                 <p className="text-xs text-slate-400 mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
@@ -777,7 +772,7 @@ export default function Finance() {
                     {pExpenses.map((e) => (
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}{tenantExpenseIds.has(e.id) && <TenantTag label={t('finance.tenantTag')} />}</span></td>
+                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
                         <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
                         <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(e.amount_usd))}</td>
@@ -805,7 +800,6 @@ export default function Finance() {
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
-                          {p.paid_by === 'tenant' && <TenantTag label={t('finance.tenantTag')} />}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
@@ -843,7 +837,6 @@ export default function Finance() {
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
-                            {a.party === 'tenant' && <TenantTag label={t('finance.tenantTag')} />}
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
