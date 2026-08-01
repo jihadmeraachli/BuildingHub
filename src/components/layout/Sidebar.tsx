@@ -130,10 +130,12 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="flex flex-col h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      {/* Logo */}
+      {/* Logo — clickable, back to home base */}
       <div className="flex items-center gap-3 h-14 px-4 border-b border-sidebar-border shrink-0">
-        <Logo size={26} className="shrink-0" />
-        <Wordmark className="text-xs text-sidebar-foreground" />
+        <NavLink to="/dashboard" onClick={onClose} className="flex items-center gap-3 min-w-0">
+          <Logo size={26} className="shrink-0" />
+          <Wordmark className="text-xs text-sidebar-foreground" />
+        </NavLink>
         <button
           onClick={onClose}
           className="ms-auto lg:hidden text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors cursor-pointer"

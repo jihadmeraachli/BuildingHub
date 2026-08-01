@@ -55,7 +55,7 @@ export default function App() {
     <BetaGate>
     <ThemeProvider>
     <AuthProvider>
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster position="top-center" richColors closeButton />
       <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>
