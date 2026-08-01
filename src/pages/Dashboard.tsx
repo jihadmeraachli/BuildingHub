@@ -13,6 +13,7 @@ import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { PendingInvites } from '@/components/PendingInvites';
+import { GettingStarted } from '@/components/GettingStarted';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
@@ -239,6 +240,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <PendingInvites />
+      {/* Setup checklist for new admins — self-checks off real data, hides
+          when complete. Not shown to the platform operator. */}
+      {!isPlatformAdmin && <GettingStarted buildingIds={buildingIds} />}
       {/* Page header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />

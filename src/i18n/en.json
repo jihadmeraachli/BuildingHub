@@ -176,6 +176,19 @@
     "confirmPost": "Click it to activate your account. Your {{noun}} and 30-day free trial will be created the moment you do.",
     "noEmailHint": "Nothing in your inbox? Check spam, or contact the Abniyah team."
   },
+  "gs": {
+    "title": "Getting started",
+    "subtitle": "Set up your building in a few steps",
+    "progress": "{{done}} of {{total}} done",
+    "dismiss": "Hide this checklist",
+    "steps": {
+      "units": { "title": "Create your units", "desc": "Add the apartments and their share weights in Units." },
+      "licenses": { "title": "License your units", "desc": "Assign licenses so residents can sign in." },
+      "people": { "title": "Add your people", "desc": "Invite owners and tenants, or link existing Abniyah accounts." },
+      "expense": { "title": "Record your first expense", "desc": "Bill it across units and start the building book." },
+      "reminder": { "title": "Turn on payment reminders", "desc": "Pick a day of the month and Abniyah nudges whoever owes." }
+    }
+  },
   "bio": {
     "reason": "Unlock Abniyah",
     "lockedTitle": "Abniyah is locked",
