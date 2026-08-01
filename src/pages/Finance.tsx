@@ -792,8 +792,8 @@ export default function Finance() {
           </SelectField>
 
           {targetUnits.length > 0 && (
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 text-xs font-medium text-slate-500">
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-secondary text-xs font-medium text-muted-foreground">
                 <span>{t('finance.previewUnits', { count: targetUnits.length })}</span>
                 <span className={Math.abs(previewSum - (Number(expForm.amount) || 0)) > 0.01 ? 'text-amber-600' : 'text-slate-500'}>{t('finance.total')} {money(previewSum)}</span>
               </div>
@@ -861,13 +861,13 @@ export default function Finance() {
                 { l: t('finance.date'), v: format(new Date(detailExpense.expense_date), 'MMM d, yyyy') },
                 { l: t('finance.split'), v: detailExpense.building_id ? (blockName[detailExpense.building_id] ?? t('finance.aBlock')) : (detailExpense.compound_id ? t('finance.wholeCompound') : detailExpense.scope_type) },
               ].map((x) => (
-                <div key={x.l} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-[11px] text-slate-400 uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-slate-800 mt-0.5 capitalize">{x.v}</p></div>
+                <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
               ))}
             </div>
-            {detailExpense.invoice_url && <a href={detailExpense.invoice_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline"><FileText size={15} /> {t('finance.viewInvoice')}</a>}
+            {detailExpense.invoice_url && <a href={detailExpense.invoice_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"><FileText size={15} /> {t('finance.viewInvoice')}</a>}
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t('finance.billedToUnits')}</p>
-              <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-50 max-h-72 overflow-y-auto">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('finance.billedToUnits')}</p>
+              <div className="rounded-xl border border-border overflow-hidden divide-y divide-border max-h-72 overflow-y-auto">
                 {charges.filter((c) => c.expense_id === detailExpense.id).map((c) => (
                   <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm"><span className="text-slate-700">{unitDisplay(c.unit_id)}</span><span className="font-medium text-slate-900 tnum">{money(Number(c.amount_usd))}</span></div>
                 ))}
@@ -887,7 +887,7 @@ export default function Finance() {
       <Modal open={!!detailPayment} onClose={() => setDetailPayment(null)} title={detailPayment ? `${t('finance.payment')} — ${unitDisplay(detailPayment.unit_id)}` : t('finance.payment')}>
         {detailPayment && (
           <div className="space-y-4">
-            <div className="rounded-2xl bg-emerald-50 px-4 py-3"><p className="text-xs text-emerald-600">{t('finance.amount')}</p><p className="text-2xl font-bold text-emerald-700 tnum">{money(Number(detailPayment.amount_usd))}</p></div>
+            <div className="rounded-2xl bg-emerald-500/10 px-4 py-3"><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('finance.amount')}</p><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tnum">{money(Number(detailPayment.amount_usd))}</p></div>
             <div className="grid grid-cols-2 gap-3">
               {[
                 { l: t('finance.unit'), v: unitDisplay(detailPayment.unit_id) },
@@ -895,10 +895,10 @@ export default function Finance() {
                 { l: t('finance.date'), v: format(new Date(detailPayment.paid_on), 'MMM d, yyyy') },
                 { l: t('finance.note'), v: detailPayment.note || '—' },
               ].map((x) => (
-                <div key={x.l} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-[11px] text-slate-400 uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-slate-800 mt-0.5 capitalize">{x.v}</p></div>
+                <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
               ))}
             </div>
-            {detailPayment.receipt_url && <AttachmentLink url={detailPayment.receipt_url} label={t('finance.viewReceipt')} className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline" />}
+            {detailPayment.receipt_url && <AttachmentLink url={detailPayment.receipt_url} label={t('finance.viewReceipt')} className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline" />}
             {canManageFinance && (
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <Button variant="danger" onClick={() => { const p = detailPayment; setDetailPayment(null); setVoidReason(''); setVoidTarget({ table: 'payments', id: p.id, label: `${unitDisplay(p.unit_id)} · ${money(Number(p.amount_usd))}` }); }}><Ban size={15} /> {t('finance.void')}</Button>
