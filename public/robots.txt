@@ -1,0 +1,4 @@
+# Private beta — keep the site out of search indexes until launch.
+# At launch: change to "Allow: /" (or delete this file) and redeploy.
+User-agent: *
+Disallow: /

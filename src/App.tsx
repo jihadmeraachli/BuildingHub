@@ -16,11 +16,6 @@ import { Privacy, Terms } from '@/pages/Legal';
 // Plain pathname switch, no router needed for three static pages.
 const ROOT_HOSTS = new Set(['abniyah.com', 'www.abniyah.com']);
 
-// The public demo entry must clear the beta gate before BetaGate first renders.
-if (!ROOT_HOSTS.has(window.location.hostname) && window.location.pathname === '/demo') {
-  localStorage.setItem('abniyah_beta_ok', '1');
-}
-
 const Login           = lazy(() => import('@/pages/Login'));
 const Register        = lazy(() => import('@/pages/Register'));
 const NoLicense       = lazy(() => import('@/pages/NoLicense'));
@@ -52,9 +47,12 @@ function PageFallback() {
 export default function App() {
   if (ROOT_HOSTS.has(window.location.hostname)) {
     const path = window.location.pathname;
+    // Legal pages stay public — App Store review and external policies link here.
     if (path.startsWith('/privacy')) return <Privacy />;
     if (path.startsWith('/terms')) return <Terms />;
-    return <Landing />;
+    // Stealth: the marketing page sits behind the same beta gate as the app
+    // (per-origin localStorage, so testers enter their code once per domain).
+    return <BetaGate><Landing /></BetaGate>;
   }
   return (
     <BioLock>
