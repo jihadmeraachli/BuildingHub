@@ -955,7 +955,8 @@
     "exportFailed": "تعذّر إنشاء الملف. حدّث الصفحة وحاول مجددًا.",
     "openingBalance": "الرصيد الافتتاحي",
     "former": "سابق",
-    "formerTenants": "المستأجرون السابقون"
+    "formerTenants": "المستأجرون السابقون",
+    "formerTenant": "مستأجر سابق"
   },
   "inspections": {
     "title": "الفحوصات",

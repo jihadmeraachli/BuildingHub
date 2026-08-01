@@ -55,28 +55,122 @@ const fmtDate = (d: string) => {
 
 // ─── Unit Statement ───────────────────────────────────────────────────────────
 
+/** One owner/tenant/former-tenant bucket of a unit's ledger. */
+export interface StatementBucket {
+  key: string;
+  /** e.g. "Owner", "Tenant · Jey", "Former tenant · Nadine" */
+  title: string;
+  /** the bucket's own balance (owner incl. opening + adjustments) */
+  balance: number;
+  /** owner bucket only — carried-in opening balance, shown as a line */
+  openingBalance?: number;
+  charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date'>[];
+  payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on'>[];
+  adjustments: Pick<Adjustment, 'id' | 'kind' | 'amount_usd' | 'effective_date' | 'note' | 'counterparty_name'>[];
+}
+
 export interface UnitStatementProps {
   unitLabel: string;
   buildingName: string;
   period: string;
   generatedOn: string;
-  charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date' | 'billed_to'>[];
-  payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on' | 'paid_by'>[];
-  adjustments?: Pick<Adjustment, 'id' | 'kind' | 'amount_usd' | 'effective_date' | 'party' | 'note' | 'counterparty_name'>[];
-  /** true balance (incl. opening + adjustments); if omitted, derived from paid − charged */
-  balance?: number;
-  openingBalance?: number;
-  /** show the Owner/Tenant "For" column + split — true when the unit has/had a tenant */
-  showParty?: boolean;
+  /** owner / current-tenant / former-tenant buckets, in display order */
+  buckets: StatementBucket[];
+  /** the unit's combined balance across all buckets */
+  combinedBalance: number;
 }
 
-export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn, charges, payments, adjustments = [], balance: balanceProp, openingBalance = 0, showParty }: UnitStatementProps) {
-  const partyLabel = (p?: string) => (p === 'tenant' ? 'Tenant' : 'Owner');
-  const totalCharged = charges.reduce((s, c) => s + Number(c.amount_usd), 0);
-  const totalPaid = payments.reduce((s, p) => s + Number(p.amount_usd), 0);
-  const totalAdj = adjustments.reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
-  // Use the true balance when provided (incl. opening + adjustments); else derive.
-  const balance = balanceProp ?? (openingBalance + totalPaid - totalCharged + totalAdj);
+const balCol = (n: number) => (n < 0 ? C.rose : n > 0 ? C.emerald : C.slate5);
+
+// One bucket rendered as a titled block: header (name + balance) then the
+// charges / payments / adjustments it contains.
+function BucketBlock({ b }: { b: StatementBucket }) {
+  const charged = b.charges.reduce((s, c) => s + Number(c.amount_usd), 0);
+  const paid = b.payments.reduce((s, p) => s + Number(p.amount_usd), 0);
+  return (
+    <View style={s.section} wrap={false}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 4, borderBottom: `1 solid ${C.slate2}` }}>
+        <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold', color: C.slate9 }}>{b.title}</Text>
+        <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold', color: balCol(b.balance) }}>{money(b.balance)}</Text>
+      </View>
+
+      {/* summary + opening line */}
+      <View style={{ flexDirection: 'row', gap: 16, marginBottom: 8 }}>
+        <Text style={{ fontSize: 8, color: C.slate5 }}>Charged <Text style={{ color: C.slate7 }}>{money(charged)}</Text></Text>
+        <Text style={{ fontSize: 8, color: C.slate5 }}>Paid <Text style={{ color: C.emerald }}>{money(paid)}</Text></Text>
+        {!!b.openingBalance && (
+          <Text style={{ fontSize: 8, color: C.slate5 }}>Opening balance <Text style={{ color: balCol(b.openingBalance) }}>{money(b.openingBalance)}</Text></Text>
+        )}
+      </View>
+
+      {b.charges.length > 0 && (
+        <>
+          <View style={s.tableHead}>
+            <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+            <Text style={[s.tableHeadCell, { flex: 3 }]}>Charge</Text>
+            <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Category</Text>
+            <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+          </View>
+          {b.charges.map((c) => (
+            <View key={c.id} style={s.tableRow}>
+              <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(c.charge_date)}</Text>
+              <Text style={[s.tableCell, { flex: 3 }]}>{c.description}</Text>
+              <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{c.category.replace('_', ' ')}</Text>
+              <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.rose }]}>{money(-Number(c.amount_usd))}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {b.payments.length > 0 && (
+        <>
+          <View style={[s.tableHead, { marginTop: b.charges.length > 0 ? 6 : 0 }]}>
+            <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+            <Text style={[s.tableHeadCell, { flex: 3 }]}>Payment</Text>
+            <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Method</Text>
+            <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+          </View>
+          {b.payments.map((p) => (
+            <View key={p.id} style={s.tableRow}>
+              <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(p.paid_on)}</Text>
+              <Text style={[s.tableCell, { flex: 3 }]}>{p.note ?? 'Payment'}</Text>
+              <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{p.method.replace('_', ' ')}</Text>
+              <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.emerald }]}>{money(Number(p.amount_usd))}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {b.adjustments.length > 0 && (
+        <>
+          <View style={[s.tableHead, { marginTop: (b.charges.length > 0 || b.payments.length > 0) ? 6 : 0 }]}>
+            <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+            <Text style={[s.tableHeadCell, { flex: 4.3 }]}>Adjustment</Text>
+            <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Effect</Text>
+          </View>
+          {b.adjustments.map((a) => {
+            const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
+            return (
+              <View key={a.id} style={s.tableRow}>
+                <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(a.effective_date)}</Text>
+                <Text style={[s.tableCell, { flex: 4.3 }]}>{a.kind.replace('_', ' ')}{a.note ? ` · ${a.note}` : ''}{a.counterparty_name ? ` · ${a.counterparty_name}` : ''}</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: balCol(eff) }]}>{money(eff)}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
+
+      {b.charges.length === 0 && b.payments.length === 0 && b.adjustments.length === 0 && (
+        <Text style={s.empty}>No transactions in this period.</Text>
+      )}
+    </View>
+  );
+}
+
+export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn, buckets, combinedBalance }: UnitStatementProps) {
+  const totalCharged = buckets.reduce((s, b) => s + b.charges.reduce((x, c) => x + Number(c.amount_usd), 0), 0);
+  const totalPaid = buckets.reduce((s, b) => s + b.payments.reduce((x, p) => x + Number(p.amount_usd), 0), 0);
 
   return (
     <Document title={`Statement — ${unitLabel}`} author="Abniyah">
@@ -99,7 +193,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
         <Text style={s.title}>Unit Statement</Text>
         <Text style={s.subtitle}>Unit {unitLabel}</Text>
 
-        {/* KPI row */}
+        {/* KPI row — combined across buckets */}
         <View style={s.kpiRow}>
           <View style={s.kpiBox}>
             <Text style={s.kpiLabel}>Total Charged</Text>
@@ -111,97 +205,14 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
           </View>
           <View style={s.kpiBox}>
             <Text style={s.kpiLabel}>Balance</Text>
-            <Text style={[s.kpiValue, { color: balance < 0 ? C.rose : balance > 0 ? C.emerald : C.slate5 }]}>{money(balance)}</Text>
+            <Text style={[s.kpiValue, { color: balCol(combinedBalance) }]}>{money(combinedBalance)}</Text>
           </View>
         </View>
 
-        {/* Opening / carried-in balance line */}
-        {openingBalance !== 0 && (
-          <Text style={{ fontSize: 8.5, color: C.slate5, marginBottom: 10 }}>
-            Includes opening balance: <Text style={{ color: openingBalance < 0 ? C.rose : C.emerald }}>{money(openingBalance)}</Text>
-          </Text>
-        )}
-
-        {/* Charges table */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Charges</Text>
-          {charges.length === 0 ? (
-            <Text style={s.empty}>No charges in this period.</Text>
-          ) : (
-            <>
-              <View style={s.tableHead}>
-                <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
-                <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Description</Text>
-                <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Category</Text>
-                {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>For</Text>}
-                <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
-              </View>
-              {charges.map((c) => (
-                <View key={c.id} style={s.tableRow}>
-                  <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(c.charge_date)}</Text>
-                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{c.description}</Text>
-                  <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{c.category.replace('_', ' ')}</Text>
-                  {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(c.billed_to)}</Text>}
-                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right' }]}>{money(Number(c.amount_usd))}</Text>
-                </View>
-              ))}
-            </>
-          )}
-        </View>
-
-        {/* Payments table */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Payments</Text>
-          {payments.length === 0 ? (
-            <Text style={s.empty}>No payments in this period.</Text>
-          ) : (
-            <>
-              <View style={s.tableHead}>
-                <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
-                <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Note</Text>
-                <Text style={[s.tableHeadCell, { flex: 1.3 }]}>Method</Text>
-                {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>From</Text>}
-                <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
-              </View>
-              {payments.map((p) => (
-                <View key={p.id} style={s.tableRow}>
-                  <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(p.paid_on)}</Text>
-                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{p.note ?? '—'}</Text>
-                  <Text style={[s.tableCell, { flex: 1.3, color: C.slate5 }]}>{p.method.replace('_', ' ')}</Text>
-                  {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(p.paid_by)}</Text>}
-                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.emerald }]}>{money(Number(p.amount_usd))}</Text>
-                </View>
-              ))}
-            </>
-          )}
-        </View>
-
-        {/* Adjustments table — credit notes / discounts / write-offs / penalties / refunds */}
-        {adjustments.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Adjustments</Text>
-            <View style={s.tableHead}>
-              <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
-              <Text style={[s.tableHeadCell, { flex: showParty ? 2.4 : 3 }]}>Type / Note</Text>
-              <Text style={[s.tableHeadCell, { flex: 1.3 }]}> </Text>
-              {showParty && <Text style={[s.tableHeadCell, { flex: 1 }]}>For</Text>}
-              <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Effect</Text>
-            </View>
-            {adjustments.map((a) => {
-              const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
-              const kindLabel = a.kind.replace('_', ' ');
-              return (
-                <View key={a.id} style={s.tableRow}>
-                  <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{fmtDate(a.effective_date)}</Text>
-                  <Text style={[s.tableCell, { flex: showParty ? 2.4 : 3 }]}>{kindLabel}{a.note ? ` · ${a.note}` : ''}{a.counterparty_name ? ` · ${a.counterparty_name}` : ''}</Text>
-                  <Text style={[s.tableCell, { flex: 1.3 }]}> </Text>
-                  {showParty && <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{partyLabel(a.party)}</Text>}
-                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: eff < 0 ? C.rose : C.emerald }]}>{money(eff)}</Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
+        {/* Owner / Tenant / Former-tenant buckets */}
+        {buckets.length === 0
+          ? <View style={s.section}><Text style={s.empty}>No transactions to display.</Text></View>
+          : buckets.map((b) => <BucketBlock key={b.key} b={b} />)}
 
         {/* Footer */}
         <View style={s.footer} fixed>

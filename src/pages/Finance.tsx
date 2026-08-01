@@ -267,6 +267,47 @@ export default function Finance() {
     tenancy.filter((m) => m.unit_id === unitId && m.tenure === 'tenant')
       .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
       .map((m) => ({ id: m.user_id, name: m.profiles?.full_name ?? t('finance.tenant'), ended: !!m.ended_at }));
+
+  // Build the owner / current-tenant / former-tenant buckets for a unit's PDF
+  // statement (mirrors the Book + resident toggle). `only` restricts to a subset
+  // of bucket keys ('owner' | a tenant id); omit for the full combined statement.
+  const buildUnitBuckets = (u: Unit, cAll: Charge[], pAll: Payment[], aAll: Adjustment[], only?: Set<string>) => {
+    const bal = computeUnitBalances(u, cAll, pAll, aAll);
+    const sumAmt = (rows: { amount_usd: number }[]) => rows.reduce((s, r) => s + Number(r.amount_usd), 0);
+    const adjEff = (rows: Adjustment[]) => rows.reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
+    const round2n = (n: number) => Math.round(n * 100) / 100;
+    const wants = (k: string) => !only || only.has(k);
+    const buckets: import('@/lib/pdf').StatementBucket[] = [];
+    // Owner bucket (carries the opening balance).
+    if (wants('owner')) {
+      const oc = cAll.filter((c) => c.billed_to !== 'tenant');
+      const op = pAll.filter((p) => p.paid_by !== 'tenant');
+      const oa = aAll.filter((a) => a.party !== 'tenant');
+      const opening = Number(u.opening_balance) || 0;
+      if (oc.length || op.length || oa.length || opening !== 0 || bal.owner !== 0)
+        buckets.push({ key: 'owner', title: t('finance.owner'), balance: bal.owner, openingBalance: opening, charges: oc, payments: op, adjustments: oa });
+    }
+    // One bucket per tenant (active first, then formers).
+    const activeTid = activeTenantId(u.id);
+    const tids = Array.from(new Set([
+      ...cAll.filter((c) => c.billed_to === 'tenant').map((c) => c.tenant_id ?? '∅'),
+      ...pAll.filter((p) => p.paid_by === 'tenant').map((p) => p.tenant_id ?? '∅'),
+      ...aAll.filter((a) => a.party === 'tenant').map((a) => a.tenant_id ?? '∅'),
+    ])).sort((a, b) => (a === activeTid ? -1 : b === activeTid ? 1 : 0));
+    for (const tid of tids) {
+      if (!wants(tid)) continue;
+      const c = cAll.filter((x) => x.billed_to === 'tenant' && (x.tenant_id ?? '∅') === tid);
+      const p = pAll.filter((x) => x.paid_by === 'tenant' && (x.tenant_id ?? '∅') === tid);
+      const a = aAll.filter((x) => x.party === 'tenant' && (x.tenant_id ?? '∅') === tid);
+      if (!c.length && !p.length && !a.length) continue;
+      const isActive = tid !== '∅' && tid === activeTid;
+      const name = tid === '∅' ? t('finance.tenant') : (nameById(tid) ?? t('finance.tenant'));
+      buckets.push({ key: `tenant:${tid}`, title: `${isActive ? t('finance.tenant') : t('finance.formerTenant')} · ${name}`,
+        balance: round2n(sumAmt(p) - sumAmt(c) + adjEff(a)), charges: c, payments: p, adjustments: a });
+    }
+    return { buckets, combined: round2n(buckets.reduce((s, b) => s + b.balance, 0)) };
+  };
+
   // Default the resident toggle to the latest tenant once tenancy is known.
   useEffect(() => {
     if (residentDefaulted.current || !tenancy.length) return;
@@ -538,29 +579,18 @@ export default function Finance() {
 
   // ─── PDF export ───────────────────────────────────────────────────────────
 
-  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], showParty = false, unitAdjustments: Adjustment[] = [], balance?: number, includeOpening = false) {
+  async function exportUnitStatement(unit: Unit, unitCharges: Charge[], unitPayments: Payment[], unitAdjustments: Adjustment[] = [], only?: Set<string>) {
     try {
       const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
-      // Pre-resolve the tenant's name into each tenant-attributed row so the PDF
-      // shows WHO the tenant was (kept even after move-out).
-      const cRows = unitCharges.map((c) => c.billed_to === 'tenant'
-        ? { ...c, description: `${c.description} · ${nameById(c.tenant_id) ?? tenantNameAt(c.unit_id, c.charge_date) ?? t('finance.tenant')}` } : c);
-      const pRows = unitPayments.map((p) => p.paid_by === 'tenant'
-        ? { ...p, note: `${p.note ? p.note + ' · ' : ''}${nameById(p.tenant_id) ?? tenantNameAt(p.unit_id, p.paid_on) ?? t('finance.tenant')}` } : p);
-      const aRows = unitAdjustments.map((a) => a.party === 'tenant' && !a.counterparty_name
-        ? { ...a, counterparty_name: nameById(a.tenant_id) ?? tenantNameAt(a.unit_id, a.effective_date) } : a);
+      const { buckets, combined } = buildUnitBuckets(unit, unitCharges, unitPayments, unitAdjustments, only);
       const el = (
         <UnitStatementDoc
           unitLabel={unit.label}
           buildingName={entity?.name ?? ''}
           period={periodLabel}
           generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-          charges={cRows}
-          payments={pRows}
-          adjustments={aRows}
-          balance={balance}
-          openingBalance={includeOpening ? Number(unit.opening_balance ?? 0) : 0}
-          showParty={showParty}
+          buckets={buckets}
+          combinedBalance={combined}
         />
       );
       await downloadPdf(el, `statement-unit-${unit.label.replace(/\s+/g, '-')}.pdf`);
@@ -639,7 +669,16 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              exportUnitStatement(r.unit, r.unitCharges, r.unitPayments, everTenantIds.has(r.unit.id) && residentView === 'combined', r.unitAdjustments, r.balance, residentView === 'owner' || residentView === 'combined');
+              // Combined → all buckets; a specific view → just that bucket.
+              const only = residentView === 'combined'
+                ? undefined
+                : new Set([r.viewerIsTenant ? (profile?.id ?? '') : residentView]);
+              exportUnitStatement(
+                r.unit,
+                charges.filter((c) => c.unit_id === r.unit.id && !c.voided_at),
+                payments.filter((p) => p.unit_id === r.unit.id && !p.voided_at),
+                adjustments.filter((a) => a.unit_id === r.unit.id && !a.voided_at),
+                only);
             }}>
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
@@ -845,7 +884,7 @@ export default function Finance() {
                           <td className={`px-5 py-3 text-end tnum ${r.adj === 0 ? 'text-muted-foreground' : balCls(r.adj)}`}>{r.adj === 0 ? '—' : money(r.adj)}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${balCls(r.balance)}`}>{money(r.balance)}</td>
                           <td className="px-3 py-3">
-                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), everTenantIds.has(r.unit.id), adjustments.filter(a => a.unit_id === r.unit.id && !a.voided_at), r.balance, true)} className="text-primary hover:text-primary/70 transition cursor-pointer">
+                            <button title={t('finance.exportStatement')} onClick={() => exportUnitStatement(r.unit, vCharges.filter(c => c.unit_id === r.unit.id && !c.voided_at), vPayments.filter(p => p.unit_id === r.unit.id && !p.voided_at), adjustments.filter(a => a.unit_id === r.unit.id && !a.voided_at))} className="text-primary hover:text-primary/70 transition cursor-pointer">
                               <Download size={14} />
                             </button>
                           </td>
