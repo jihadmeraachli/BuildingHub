@@ -39,7 +39,7 @@ _Last reviewed: 2026-07-26_
 |---|---|
 | SQL migrations `0002`–`0048` | By hand: SQL Editor, paste + run (no automated runner). Shared DB — run once |
 | Edge functions: `dynamic-action`, `invite-user`, `send-reminders`, `ai-expense-import`, `ai-pdf-import`, `ai-import-mapping` (`notify` = legacy, superseded) | Dashboard → Edge Functions → paste from `supabase/functions/<name>/index.ts` → Deploy |
-| Database Webhooks (profiles, issues, meetings, charges, payments, dues → POST `dynamic-action`) | Dashboard → Database → Webhooks |
+| Database Webhooks (profiles, issues, meetings, charges, payments, dues, membership_invites, **adjustments** → POST `dynamic-action`) | Dashboard → Database → Webhooks. ⚠️ adjustments INSERT added 2026-08-02 for move-out offload emails (dynamic-action §5c-ii) — copy an existing webhook's config (e.g. charges), change table to `adjustments`, events to Insert only. |
 | Auth settings: Confirm email ON, custom SMTP, redirect URLs (`app.abniyah.com/register`, `/set-password`, pages.dev + localhost variants) | Dashboard → Authentication |
 
 ## 🚨 Website not updating? (Cloudflare Pages deploy runbook)
