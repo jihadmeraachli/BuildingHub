@@ -255,7 +255,13 @@
     "pickUnit": "Choose a unit…",
     "pickUnitFirst": "Choose a unit first.",
     "download": "Download PDF",
-    "exportFailed": "Could not generate the report. Please refresh and try again."
+    "exportFailed": "Could not generate the report. Please refresh and try again.",
+    "residentSubtitle": "Your statements, and where your building's money goes.",
+    "myStatement": "My unit statement",
+    "myStatementDesc": "Your unit's account for the period: charges, payments and balance, as a branded PDF you can keep or share.",
+    "buildingExpenses": "Building expenses",
+    "buildingExpensesDesc": "Everything the building spent in the period, with category totals. Full transparency on where the money goes.",
+    "building": "Building"
   },
   "feedback": {
     "button": "Send feedback",

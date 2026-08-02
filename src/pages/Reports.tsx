@@ -23,9 +23,175 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
  * crunching is shared with Finance via lib/reportData — same inputs, same
  * figures, by construction.
  */
+
+/** Resident report set: my unit's statement + the building's expenses (0069).
+ *  A tenant's statement is THEIR ledger only; owners get the full unit. */
+function ResidentReports() {
+  const { t } = useTranslation();
+  const { user, memberships } = useAuth();
+  const myUnits = useMemo(
+    () => memberships.filter((m) => m.unit).map((m) => ({ unit: m.unit as Unit, tenure: m.tenure })),
+    [memberships]);
+
+  const [unitId, setUnitId] = useState('');
+  useEffect(() => { if (!unitId && myUnits.length) setUnitId(myUnits[0].unit.id); }, [myUnits, unitId]);
+
+  const [bldgs, setBldgs] = useState<{ id: string; name: string; compound_id: string | null }[]>([]);
+  const [buildingId, setBuildingId] = useState('');
+  useEffect(() => {
+    const ids = [...new Set(myUnits.map((m) => m.unit.building_id))];
+    if (!ids.length) return;
+    supabase.from('buildings').select('id, name, compound_id').in('id', ids).then(({ data }) => {
+      const rows = (data as { id: string; name: string; compound_id: string | null }[]) ?? [];
+      setBldgs(rows);
+      setBuildingId((cur) => cur || rows[0]?.id || '');
+    });
+  }, [myUnits]);
+
+  const [period, setPeriod] = useState<'all' | 'year' | 'month'>('year');
+  const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
+  const [busy, setBusy] = useState('');
+
+  const now = new Date();
+  let range: { from: Date; to: Date } | null = null;
+  if (period === 'year') range = { from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31, 23, 59, 59) };
+  else if (period === 'month') { const [y, m] = monthValue.split('-').map(Number); range = { from: new Date(y, m - 1, 1), to: new Date(y, m, 0, 23, 59, 59) }; }
+  const inRange = (d: string) => !range || (new Date(d) >= range.from && new Date(d) <= range.to);
+  const periodLabel = period === 'month'
+    ? new Date(`${monthValue}-01`).toLocaleString(undefined, { month: 'long', year: 'numeric' })
+    : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
+
+  async function downloadMyStatement() {
+    const mine = myUnits.find((m) => m.unit.id === unitId);
+    if (!mine || !user) return;
+    setBusy('statement');
+    try {
+      const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
+      const [cRes, pRes, aRes, mRes, bRes] = await Promise.all([
+        supabase.from('charges').select('*').eq('unit_id', mine.unit.id),
+        supabase.from('payments').select('*').eq('unit_id', mine.unit.id),
+        supabase.from('adjustments').select('*').eq('unit_id', mine.unit.id),
+        supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').eq('unit_id', mine.unit.id),
+        supabase.from('buildings').select('name').eq('id', mine.unit.building_id).single(),
+      ]);
+      const cAll = ((cRes.data as Charge[]) ?? []).filter((c) => !c.voided_at && inRange(c.charge_date));
+      const pAll = ((pRes.data as Payment[]) ?? []).filter((p) => !p.voided_at && inRange(p.paid_on));
+      const aAll = ((aRes.data as Adjustment[]) ?? []).filter((a) => !a.voided_at && inRange(a.effective_date));
+      const tenancy = (mRes.data as unknown as TenancyRow[]) ?? [];
+      const th = tenancyHelpers(tenancy, cAll, pAll, aAll);
+      const labels = { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') };
+      // Tenants export their own ledger only; owners get the whole unit.
+      const only = mine.tenure === 'tenant' ? new Set([user.id]) : undefined;
+      const { buckets, combined } = buildUnitBuckets(mine.unit, cAll, pAll, aAll, th, labels, only);
+      const el = (
+        <UnitStatementDoc
+          unitLabel={mine.unit.label}
+          buildingName={(bRes.data as { name: string } | null)?.name ?? ''}
+          period={periodLabel}
+          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          buckets={buckets}
+          combinedBalance={combined}
+        />
+      );
+      await downloadPdf(el, `statement-unit-${mine.unit.label.replace(/\s+/g, '-')}.pdf`);
+    } catch (e) {
+      toast.error(t('reports.exportFailed'));
+      console.error('resident statement failed:', e);
+    } finally { setBusy(''); }
+  }
+
+  async function downloadBuildingExpenses() {
+    const b = bldgs.find((x) => x.id === buildingId);
+    if (!b) return;
+    setBusy('expenses');
+    try {
+      const { ExpensesReportDoc, downloadPdf } = await import('@/lib/pdf');
+      const q = b.compound_id
+        ? supabase.from('expenses').select('*').or(`building_id.eq.${b.id},compound_id.eq.${b.compound_id}`)
+        : supabase.from('expenses').select('*').eq('building_id', b.id);
+      const { data, error } = await q.order('expense_date', { ascending: false });
+      if (error) throw error;
+      const rows = ((data as Expense[]) ?? []).filter((e) => inRange(e.expense_date));
+      const categoryLabels = Object.fromEntries(EXPENSE_CATS.map((c) => [c, t(`finance.cats.${c}`)]));
+      const el = (
+        <ExpensesReportDoc
+          entityName={b.name}
+          period={periodLabel}
+          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          expenses={rows}
+          categoryLabels={categoryLabels}
+        />
+      );
+      await downloadPdf(el, `expenses-${b.name.replace(/\s+/g, '-')}-${period}.pdf`);
+    } catch (e) {
+      toast.error(t('reports.exportFailed'));
+      console.error('building expenses failed:', e);
+    } finally { setBusy(''); }
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('reports.title')}</h1>
+        <p className="text-sm text-slate-500 mt-0.5">{t('reports.residentSubtitle')}</p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4 max-w-4xl">
+        <Card><CardBody>
+          <div className="flex items-center gap-2.5 mb-2">
+            <FileText size={18} className="text-primary" />
+            <p className="font-semibold text-foreground">{t('reports.myStatement')}</p>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.myStatementDesc')}</p>
+          <div className="space-y-3">
+            {myUnits.length > 1 && (
+              <SelectField label={t('finance.unit')} value={unitId} onValueChange={setUnitId}>
+                {myUnits.map((m) => <SelectItem key={m.unit.id} value={m.unit.id}>{m.unit.label}</SelectItem>)}
+              </SelectField>
+            )}
+            <SelectField label={t('reports.period')} value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+              <SelectItem value="month">{t('reports.specificMonth')}</SelectItem>
+            </SelectField>
+            {period === 'month' && (
+              <input
+                type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
+                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            )}
+            <Button onClick={downloadMyStatement} loading={busy === 'statement'} disabled={!unitId} className="w-full">
+              <Download size={15} /> {t('reports.download')}
+            </Button>
+          </div>
+        </CardBody></Card>
+
+        <Card><CardBody>
+          <div className="flex items-center gap-2.5 mb-2">
+            <FileBarChart2 size={18} className="text-primary" />
+            <p className="font-semibold text-foreground">{t('reports.buildingExpenses')}</p>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.buildingExpensesDesc')}</p>
+          <div className="space-y-3">
+            {bldgs.length > 1 && (
+              <SelectField label={t('reports.building')} value={buildingId} onValueChange={setBuildingId}>
+                {bldgs.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectField>
+            )}
+            <Button onClick={downloadBuildingExpenses} loading={busy === 'expenses'} disabled={!buildingId} className="w-full">
+              <Download size={15} /> {t('reports.download')}
+            </Button>
+          </div>
+        </CardBody></Card>
+      </div>
+    </div>
+  );
+}
+const EXPENSE_CATS = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
+
 export default function Reports() {
   const { t } = useTranslation();
-  const { canAny, isPlatformAdmin, loading: authLoading } = useAuth();
+  const { canAny, isPlatformAdmin, residentLens, memberships, loading: authLoading } = useAuth();
   const { buildings } = useManagedBuildings();
   const entities = useEntities(buildings);
 
@@ -156,7 +322,13 @@ export default function Reports() {
   }
 
   if (authLoading) return <div className="p-6"><SkeletonCards count={2} /></div>;
-  if (!isPlatformAdmin && !canAny('finance.view')) return <Navigate to="/dashboard" replace />;
+  // Residents (and dual-persona users browsing "My home") get their own report
+  // set: their statement + the building's expenses (transparency, 0069).
+  const managerMode = (isPlatformAdmin || canAny('finance.view')) && !residentLens;
+  if (!managerMode) {
+    if (memberships.length) return <ResidentReports />;
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div>

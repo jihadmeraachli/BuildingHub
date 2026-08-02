@@ -409,6 +409,102 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
   );
 }
 
+// ─── Building Expenses (resident transparency report, #62 part 2) ─────────────
+// Deliberately LIGHT: the building's outgoings only — no per-unit balances, no
+// names, nothing about who owes what. Safe to hand any resident.
+
+export interface ExpensesReportProps {
+  entityName: string;
+  period: string;
+  generatedOn: string;
+  expenses: Pick<Expense, 'id' | 'description' | 'category' | 'amount_usd' | 'expense_date'>[];
+  /** localized category labels, keyed by category value */
+  categoryLabels: Record<string, string>;
+}
+
+export function ExpensesReportDoc({ entityName, period, generatedOn, expenses, categoryLabels }: ExpensesReportProps) {
+  const total = expenses.reduce((sm, e) => sm + Number(e.amount_usd), 0);
+  const byCategory = Object.entries(
+    expenses.reduce<Record<string, number>>((acc, e) => {
+      acc[e.category] = (acc[e.category] ?? 0) + Number(e.amount_usd);
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
+  return (
+    <Document title={`Building Expenses — ${entityName}`} author="Abniyah">
+      <Page size="A4" style={s.page}>
+        <View style={s.header}>
+          <View>
+            <Text style={s.brand}>ABNIYAH</Text>
+            <Text style={s.brandSub}>{entityName}</Text>
+          </View>
+          <View style={s.metaRight}>
+            <Text style={s.metaLabel}>Period</Text>
+            <Text style={s.metaValue}>{period}</Text>
+            <Text style={[s.metaLabel, { marginTop: 6 }]}>Generated</Text>
+            <Text style={s.metaValue}>{generatedOn}</Text>
+          </View>
+        </View>
+
+        <Text style={s.title}>Building Expenses</Text>
+        <Text style={s.subtitle}>What the building spent in this period, as recorded by the management.</Text>
+
+        <View style={s.balanceSummary}>
+          <View style={s.balanceBox}>
+            <Text style={s.balanceLabel}>Total spent · {period}</Text>
+            <Text style={[s.balanceValue, { color: C.slate9 }]}>{money(total)}</Text>
+          </View>
+        </View>
+
+        {byCategory.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>By category</Text>
+            {byCategory.map(([cat, amt]) => (
+              <View key={cat} style={s.tableRow}>
+                <Text style={[s.tableCell, { flex: 4 }]}>{categoryLabels[cat] ?? cat}</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{money(amt)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>All expenses · {period}</Text>
+          {expenses.length === 0 ? (
+            <Text style={s.empty}>No expenses in this period.</Text>
+          ) : (
+            <>
+              <View style={s.tableHead}>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+                <Text style={[s.tableHeadCell, { flex: 3 }]}>Description</Text>
+                <Text style={[s.tableHeadCell, { flex: 1.5 }]}>Category</Text>
+                <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+              </View>
+              {expenses.map((e) => (
+                <View key={e.id} style={s.tableRow}>
+                  <Text style={[s.tableCell, { flex: 1 }]}>{fmtDate(e.expense_date)}</Text>
+                  <Text style={[s.tableCell, { flex: 3 }]}>{e.description}</Text>
+                  <Text style={[s.tableCell, { flex: 1.5 }]}>{categoryLabels[e.category] ?? e.category}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right' }]}>{money(Number(e.amount_usd))}</Text>
+                </View>
+              ))}
+              <View style={[s.tableRow, { borderBottom: 'none' }]}>
+                <Text style={[s.tableCell, { flex: 5.5, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>Total</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{money(total)}</Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        <View style={s.footer} fixed>
+          <Text style={s.footerText}>Abniyah · {entityName}</Text>
+          <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
 // ─── Download helper ──────────────────────────────────────────────────────────
 
 export async function downloadPdf(element: React.ReactElement, filename: string): Promise<void> {

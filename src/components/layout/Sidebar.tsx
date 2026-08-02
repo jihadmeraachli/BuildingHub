@@ -97,7 +97,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/getting-started', label: t('nav.gettingStarted'), icon: Rocket, show: showGettingStarted },
     { to: '/dashboard',   label: t('nav.dashboard'),   icon: LayoutDashboard },
     { to: '/finance',     label: t('nav.finance'),      icon: Wallet },
-    { to: '/reports',     label: t('nav.reports'),       icon: FileBarChart2,  show: !residentLens && canAny('finance.view') },
+    { to: '/reports',     label: t('nav.reports'),       icon: FileBarChart2,  show: canAny('finance.view') || memberships.length > 0 },
     { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: !residentLens && (canStructure || canAny('finance.view')) },
     { to: '/issues',      label: t('nav.issues'),        icon: AlertTriangle },
     { to: '/meetings',    label: t('nav.meetings'),      icon: CalendarDays },
