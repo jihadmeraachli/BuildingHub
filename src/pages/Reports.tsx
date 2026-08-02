@@ -249,7 +249,7 @@ export default function Reports() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [entityKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const th = useMemo(() => tenancyHelpers(tenancy, charges, payments, adjustments),
     [tenancy, charges, payments, adjustments]);

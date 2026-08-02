@@ -91,7 +91,7 @@ export default function Dues() {
   const [obPeriod, setObPeriod] = useState('');
   const [obDue, setObDue] = useState(new Date().toISOString().slice(0, 10));
 
-  useEffect(() => { if (entity) load(); }, [entityKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (entity) load(); }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load() {
     if (!entity) return;

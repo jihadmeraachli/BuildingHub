@@ -171,7 +171,7 @@ export default function Finance() {
     if (isManager && entity) loadScope();
     else if (!isManager && myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityKey, isManager, residentUnitId]);
+  }, [entityKey, entities.length, isManager, residentUnitId]);
 
   async function loadScope() {
     if (!entity) return;
