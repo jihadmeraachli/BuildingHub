@@ -11,7 +11,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle } from '@/lib/reportData';
 import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -270,7 +270,7 @@ export default function Finance() {
   // Logic lives in lib/reportData (shared with the Reports tab, #62).
   const buildUnitBuckets = (u: Unit, cAll: Charge[], pAll: Payment[], aAll: Adjustment[], only?: Set<string>) =>
     buildUnitBucketsShared(u, cAll, pAll, aAll, th,
-      { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') }, only,
+      { owner: t('finance.owner'), tenant: t('finance.currentTenant'), formerTenant: t('finance.formerTenant') }, only,
       dues.filter((d) => d.unit_id === u.id));
 
   // Owner's resident finance defaults to the Combined view (residentView's
@@ -521,21 +521,35 @@ export default function Finance() {
     // A specific tenant is a BUCKET — only that tenant's rows, netting to their
     // own balance (past tenants net to 0 via the move-out offload).
     const round2n = (n: number) => Math.round(n * 100) / 100;
+    // The period filters the STATEMENT and the charged/paid totals. The balance
+    // is deliberately computed from the UNFILTERED rows: "you owe" has to mean
+    // what you owe right now, not what you happened to owe inside a window.
     const rowsForView = (u: Unit, view: string) => {
-      const cAll = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
-      const pAll = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
-      const aAll = adjustments.filter((a) => a.unit_id === u.id && !a.voided_at);
-      const bal = computeUnitBalances(u, cAll, pAll, aAll);
+      // live = every non-voided row (drives the BALANCE)
+      const cLive = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
+      const pLive = payments.filter((p) => p.unit_id === u.id && !p.voided_at);
+      const aLive = adjustments.filter((a) => a.unit_id === u.id && !a.voided_at);
+      // shown = the slice inside the selected period (drives the STATEMENT)
+      const cAll = cLive.filter((c) => inRange(c.charge_date));
+      const pAll = pLive.filter((p) => inRange(p.paid_on));
+      const aAll = aLive.filter((a) => inRange(a.effective_date));
+      const bal = computeUnitBalances(u, cLive, pLive, aLive);
+      const tenantBal = (tid: string) => round2n(
+        pLive.filter((x) => x.paid_by === 'tenant' && x.tenant_id === tid).reduce((s, x) => s + Number(x.amount_usd), 0)
+        - cLive.filter((x) => x.billed_to === 'tenant' && x.tenant_id === tid).reduce((s, x) => s + Number(x.amount_usd), 0)
+        + aLive.filter((x) => x.party === 'tenant' && x.tenant_id === tid).reduce((s, x) => s + adjustmentEffect(x.kind, Number(x.amount_usd)), 0));
+
       if (view === 'combined') return { c: cAll, p: pAll, a: aAll, balance: bal.total };
       if (view === 'owner') return {
         c: cAll.filter((c) => c.billed_to !== 'tenant'), p: pAll.filter((p) => p.paid_by !== 'tenant'),
         a: aAll.filter((a) => a.party !== 'tenant'), balance: bal.owner };
       // a specific tenant bucket
-      const c = cAll.filter((x) => x.billed_to === 'tenant' && x.tenant_id === view);
-      const p = pAll.filter((x) => x.paid_by === 'tenant' && x.tenant_id === view);
-      const a = aAll.filter((x) => x.party === 'tenant' && x.tenant_id === view);
-      const balance = round2n(p.reduce((s, x) => s + Number(x.amount_usd), 0) - c.reduce((s, x) => s + Number(x.amount_usd), 0) + a.reduce((s, x) => s + adjustmentEffect(x.kind, Number(x.amount_usd)), 0));
-      return { c, p, a, balance };
+      return {
+        c: cAll.filter((x) => x.billed_to === 'tenant' && x.tenant_id === view),
+        p: pAll.filter((x) => x.paid_by === 'tenant' && x.tenant_id === view),
+        a: aAll.filter((x) => x.party === 'tenant' && x.tenant_id === view),
+        balance: tenantBal(view),
+      };
     };
 
     // toggle options for an owner, ordered current tenant(s) first, then formers
@@ -558,8 +572,22 @@ export default function Finance() {
     const showToggle = !viewerIsTenantOnly && tenantOptions.length > 0;
     return (
       <div>
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('finance.myAccount')}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+          {/* Residents get the same period control as managers. It scopes the
+              statement and the charged/paid totals; the balance stays current. */}
+          <RadixSelect value={period} onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}>
+            <SelectTrigger className="min-w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+              <SelectItem value="month">{t('finance.month')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
+          {period === 'month' && <MonthPicker value={monthValue} onChange={setMonthValue} />}
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
@@ -577,8 +605,12 @@ export default function Finance() {
               <Download size={15} /> {t('finance.exportStatement')}
             </Button>
           )}
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">{t('finance.myAccountSub')}</p>
+        <p className="text-sm text-muted-foreground mb-1">{t('finance.myAccountSub')}</p>
+        {period !== 'all' && (
+          <p className="text-xs text-muted-foreground mb-4">{t('finance.periodHint')}</p>
+        )}
 
         {/* T6 + per-tenant buckets: owner picks Owner / a specific tenant / Combined */}
         {showToggle && (
@@ -587,7 +619,7 @@ export default function Finance() {
             <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'owner' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
             {tenantOptions.map((tn) => (
               <button key={tn.id} onClick={() => setResidentView(tn.id)} className={`px-3 py-1.5 rounded-md transition ${residentView === tn.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                {tn.name}{tn.ended ? ` · ${t('finance.former')}` : ''}
+                {tenantTitle(tn.ended ? t('finance.formerTenant') : t('finance.currentTenant'), tn.name)}
               </button>
             ))}
           </div>
@@ -622,6 +654,8 @@ export default function Finance() {
             return viewerIsTenant ? (profile?.id ?? 'owner') : residentView;
           }}
           nameById={(id) => tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null}
+          isCurrentTenant={(unitId, tenantId) => !!tenantId && tenancy.some(
+            (m) => m.unit_id === unitId && m.user_id === tenantId && m.tenure === 'tenant' && !m.ended_at)}
         />
         <StatementList
           charges={rBook.flatMap(r => r.unitCharges)}
@@ -798,10 +832,11 @@ export default function Finance() {
                           return (<>
                             {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.ownerAdj, r.owner, !r.hasActiveTenant && !r.showFormer)}
                             {r.hasActiveTenant && sub(
-                              <>{t('finance.tenant')} <TenantTag label={r.activeTenantName ?? t('finance.tenantTag')} /></>,
+                              <>{t('finance.currentTenant')}: <TenantTag label={r.activeTenantName ?? t('finance.tenantTag')} /></>,
                               r.curTenantCharged, r.curTenantPaid, r.curTenantAdj, r.curTenant, !r.showFormer)}
                             {r.showFormer && sub(
-                              <>{t('finance.formerTenants')}{r.fmrTenantNames.length > 0 && <span className="text-muted-foreground/70"> · {r.fmrTenantNames.join(', ')}</span>}</>,
+                              <>{r.fmrTenantNames.length > 1 ? t('finance.formerTenants') : t('finance.formerTenant')}
+                                {r.fmrTenantNames.length > 0 && <span className="text-muted-foreground/70">: {r.fmrTenantNames.join(', ')}</span>}</>,
                               r.fmrTenantCharged, r.fmrTenantPaid, r.fmrTenantAdj, r.fmrTenant, true)}
                           </>);
                         })()}
@@ -1182,10 +1217,11 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
  *  saw the owner's dues and vice versa. Now a tenant sees only their own rows,
  *  an owner sees whichever bucket the toggle is on, and Combined tags each row
  *  with the party it falls on. */
-function ResidentDuesCard({ unitIds, viewFor, nameById }: {
+function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant }: {
   unitIds: string[];
   viewFor: (unitId: string) => string;
   nameById: (id: string) => string | null;
+  isCurrentTenant: (unitId: string, tenantId: string | null) => boolean;
 }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Dues[]>([]);
@@ -1205,12 +1241,14 @@ function ResidentDuesCard({ unitIds, viewFor, nameById }: {
 
   if (!visible.length) return null;
 
-  /** In Combined, say whose obligation each row is. */
+  /** In Combined, say whose obligation each row is — always qualifying a tenant
+   *  as current or former, never a bare "Tenant". */
   const partyTag = (d: Dues) => {
     if (viewFor(d.unit_id) !== 'combined') return null;
     if (d.billed_to !== 'tenant') return t('finance.owner');
     const name = d.tenant_id ? nameById(d.tenant_id) : null;
-    return name ? `${t('finance.tenant')} · ${name}` : t('finance.tenant');
+    const current = isCurrentTenant(d.unit_id, d.tenant_id);
+    return tenantTitle(current ? t('finance.currentTenant') : t('finance.formerTenant'), name);
   };
 
   return (

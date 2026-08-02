@@ -14,8 +14,16 @@ export type TenancyRow = {
   ended_at: string | null; profiles: { full_name: string } | null;
 };
 
-/** Localized labels the builders need (callers pass t() results). */
+/** Localized labels the builders need (callers pass t() results).
+ *  `tenant` is the CURRENT tenant's label ("Current tenant"); a tenant is always
+ *  qualified as current or former so the two never read the same. */
 export interface ReportLabels { owner: string; tenant: string; formerTenant: string; }
+
+/** "Current tenant: Nadia" / "Former tenant: Rami" — one format everywhere
+ *  (toggles, book sub-rows, statement buckets, PDFs) so a name never appears
+ *  bare or with a different separator depending on the screen. */
+export const tenantTitle = (label: string, name?: string | null) =>
+  name ? `${label}: ${name}` : label;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -142,8 +150,8 @@ export function buildUnitBuckets(
     const d = duesAll.filter((x) => x.billed_to === 'tenant' && (x.tenant_id ?? '∅') === tid);
     if (!c.length && !p.length && !a.length && !d.length) continue;
     const isActive = tid !== '∅' && tid === activeTid;
-    const name = tid === '∅' ? labels.tenant : (th.nameById(tid) ?? labels.tenant);
-    buckets.push({ key: `tenant:${tid}`, title: `${isActive ? labels.tenant : labels.formerTenant} · ${name}`,
+    const name = tid === '∅' ? null : th.nameById(tid);
+    buckets.push({ key: `tenant:${tid}`, title: tenantTitle(isActive ? labels.tenant : labels.formerTenant, name),
       balance: round2n(sumAmt(p) - sumAmt(c) + adjEff(a)), charges: c, payments: p, adjustments: a, dues: d });
   }
   return { buckets, combined: round2n(buckets.reduce((s, b) => s + b.balance, 0)) };
@@ -231,7 +239,7 @@ export function buildDuesRows(
       const isFormer = d.billed_to === 'tenant' && tenantId !== th.activeTenantId(d.unit_id);
       const name = tenantId ? th.nameById(tenantId) : null;
       const title = d.billed_to === 'tenant'
-        ? `${isFormer ? labels.formerTenant : labels.tenant}${name ? ` · ${name}` : ''}`
+        ? tenantTitle(isFormer ? labels.formerTenant : labels.tenant, name)
         : labels.owner;
       p = { key: pKey, party: d.billed_to, tenantId, title, isFormer,
             base: 0, carry: 0, due: 0, lines: [] };

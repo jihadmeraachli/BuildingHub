@@ -1002,7 +1002,9 @@
     "collectedDesc": "Payments received",
     "billedDesc": "Charges issued",
     "netDesc": "Collected − Billed",
-    "outstandingDesc": "Total still owed across all units"
+    "outstandingDesc": "Total still owed across all units",
+    "currentTenant": "Current tenant",
+    "periodHint": "Charged and paid are for the selected period. Your balance is always what you owe right now."
   },
   "inspections": {
     "title": "Inspections",

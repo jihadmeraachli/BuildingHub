@@ -83,7 +83,7 @@ function ResidentReports() {
       const dAll = ((dRes.data as Dues[]) ?? []).filter((d) => !d.due_date || inRange(d.due_date));
       const tenancy = (mRes.data as unknown as TenancyRow[]) ?? [];
       const th = tenancyHelpers(tenancy, cAll, pAll, aAll);
-      const labels = { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') };
+      const labels = { owner: t('finance.owner'), tenant: t('finance.currentTenant'), formerTenant: t('finance.formerTenant') };
       // Tenants export their own ledger only; owners get the whole unit.
       const only = mine.tenure === 'tenant' ? new Set([user.id]) : undefined;
       const { buckets, combined } = buildUnitBuckets(mine.unit, cAll, pAll, aAll, th, labels, only, dAll);
@@ -253,7 +253,7 @@ export default function Reports() {
 
   const th = useMemo(() => tenancyHelpers(tenancy, charges, payments, adjustments),
     [tenancy, charges, payments, adjustments]);
-  const labels = { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') };
+  const labels = { owner: t('finance.owner'), tenant: t('finance.currentTenant'), formerTenant: t('finance.formerTenant') };
 
   // Period filter (mirrors Finance)
   const now = new Date();

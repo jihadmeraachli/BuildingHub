@@ -136,7 +136,7 @@ export default function Dues() {
     [tenancy, charges, payments, adjustments]);
 
   const labels = useMemo(
-    () => ({ owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') }),
+    () => ({ owner: t('finance.owner'), tenant: t('finance.currentTenant'), formerTenant: t('finance.formerTenant') }),
     [t]);
 
   /** Party balances per unit — the dues true-up is per sub-ledger now (0070),

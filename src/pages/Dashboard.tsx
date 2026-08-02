@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
 import { supabase } from '@/lib/supabase';
+import { tenantTitle } from '@/lib/reportData';
 import type { Meeting, AdjustmentKind } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
@@ -52,8 +53,15 @@ export default function Dashboard() {
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
   const [resident, setResident] = useState({ charged: 0, paid: 0, opening: 0 });
   // T6: owner/tenant split for the resident hero
-  const [rSplit, setRSplit] = useState({ ownerBal: 0, tenantBal: 0, ownerCharged: 0, ownerPaid: 0, tenantCharged: 0, tenantPaid: 0, canSplit: false, viewerIsTenant: false });
-  const [residentView, setResidentView] = useState<'combined' | 'owner' | 'tenant'>('combined');
+  const [rSplit, setRSplit] = useState({
+    ownerBal: 0, tenantBal: 0, ownerCharged: 0, ownerPaid: 0, tenantCharged: 0, tenantPaid: 0,
+    canSplit: false, viewerIsTenant: false,
+    // tenant side split into the current tenant vs everyone before them (0066)
+    curBal: 0, curCharged: 0, curPaid: 0, curNames: [] as string[],
+    fmrBal: 0, fmrCharged: 0, fmrPaid: 0, fmrNames: [] as string[],
+    hasFormer: false, hasCurrent: false,
+  });
+  const [residentView, setResidentView] = useState<'combined' | 'owner' | 'current' | 'former'>('combined');
   const [myUnits, setMyUnits] = useState<{ id: string; label: string; buildingName: string; balance: number }[]>([]);
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
@@ -154,15 +162,16 @@ export default function Dashboard() {
     const pickedIds = residentUnitId ? [residentUnitId] : myUnitIds;
     const inIds = pickedIds.length ? pickedIds : ['00000000-0000-0000-0000-000000000000'];
     const [c, p, u, a, mem] = await Promise.all([
-      supabase.from('charges').select('amount_usd, unit_id, billed_to').in('unit_id', inIds).is('voided_at', null),
-      supabase.from('payments').select('amount_usd, unit_id, paid_by').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('charges').select('amount_usd, unit_id, billed_to, tenant_id').in('unit_id', inIds).is('voided_at', null),
+      supabase.from('payments').select('amount_usd, unit_id, paid_by, tenant_id').in('unit_id', inIds).is('voided_at', null),
       supabase.from('units').select('id, label, opening_balance, building_id, buildings(name)').in('id', inIds),
-      supabase.from('adjustments').select('kind, amount_usd, unit_id, party').in('unit_id', inIds).is('voided_at', null),
-      supabase.from('memberships').select('unit_id, tenure, ended_at').in('unit_id', inIds),
+      supabase.from('adjustments').select('kind, amount_usd, unit_id, party, tenant_id').in('unit_id', inIds).is('voided_at', null),
+      // ended memberships included so a departed tenant still resolves by name
+      supabase.from('memberships').select('unit_id, user_id, tenure, ended_at, profiles(full_name)').in('unit_id', inIds),
     ]);
-    const cRows = (c.data ?? []) as { amount_usd: number; unit_id: string; billed_to?: string }[];
-    const pRows = (p.data ?? []) as { amount_usd: number; unit_id: string; paid_by?: string }[];
-    const aRows = (a.data ?? []) as { kind: AdjustmentKind; amount_usd: number; unit_id: string; party?: string }[];
+    const cRows = (c.data ?? []) as { amount_usd: number; unit_id: string; billed_to?: string; tenant_id?: string | null }[];
+    const pRows = (p.data ?? []) as { amount_usd: number; unit_id: string; paid_by?: string; tenant_id?: string | null }[];
+    const aRows = (a.data ?? []) as { kind: AdjustmentKind; amount_usd: number; unit_id: string; party?: string; tenant_id?: string | null }[];
     const adj = aRows.reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
     setResident({
       charged: cRows.reduce((s, r) => s + Number(r.amount_usd), 0),
@@ -181,10 +190,50 @@ export default function Dashboard() {
     const opening = ((u.data ?? []) as { opening_balance: number }[]).reduce((s, r) => s + Number(r.opening_balance ?? 0), 0);
     const ownerBal = Math.round((opening + ownerPaid - ownerCharged + ownerAdj) * 100) / 100;
     const tenantBal = Math.round((tenantPaid - tenantCharged + tenantAdj) * 100) / 100;
-    const memRows = (mem.data ?? []) as { unit_id: string; tenure: string; ended_at: string | null }[];
+    const memRows = (mem.data ?? []) as unknown as {
+      unit_id: string; user_id: string; tenure: string; ended_at: string | null;
+      profiles: { full_name: string } | null;
+    }[];
     const activeTenant = memRows.some((m) => m.tenure === 'tenant' && !m.ended_at && inIds.includes(m.unit_id));
     const viewerIsTenant = inIds.some((id) => myTenantUnitIds.includes(id)) && !inIds.some((id) => myOwnerUnitIds.includes(id));
-    setRSplit({ ownerBal, tenantBal, ownerCharged, ownerPaid, tenantCharged, tenantPaid, canSplit: !viewerIsTenant && (activeTenant || tenantBal !== 0), viewerIsTenant });
+
+    // Split the tenant side into the CURRENT tenant and everyone before them,
+    // the same division the Finance book makes. Lumping them together hides a
+    // departed tenant's history behind the live one.
+    const currentIds = new Set(memRows
+      .filter((m) => m.tenure === 'tenant' && !m.ended_at && inIds.includes(m.unit_id))
+      .map((m) => m.user_id));
+    const isCur = (tid?: string | null) => !!tid && currentIds.has(tid);
+    const nameOf = (id: string) => memRows.find((m) => m.user_id === id)?.profiles?.full_name ?? null;
+
+    const tSum = <R extends { amount_usd: number }>(rows: R[]) => rows.reduce((s, r) => s + Number(r.amount_usd), 0);
+    const tAdj = (rows: typeof aRows) => rows.reduce((s, r) => s + adjustmentEffect(r.kind, Number(r.amount_usd)), 0);
+    const tenantC = cRows.filter((r) => r.billed_to === 'tenant');
+    const tenantP = pRows.filter((r) => isTenantRow(r.paid_by));
+    const tenantA = aRows.filter((r) => isTenantRow(r.party));
+
+    const curCharged = tSum(tenantC.filter((r) => isCur(r.tenant_id)));
+    const curPaid    = tSum(tenantP.filter((r) => isCur(r.tenant_id)));
+    const curBal     = Math.round((curPaid - curCharged + tAdj(tenantA.filter((r) => isCur(r.tenant_id)))) * 100) / 100;
+    const fmrCharged = tSum(tenantC.filter((r) => !isCur(r.tenant_id)));
+    const fmrPaid    = tSum(tenantP.filter((r) => !isCur(r.tenant_id)));
+    const fmrBal     = Math.round((fmrPaid - fmrCharged + tAdj(tenantA.filter((r) => !isCur(r.tenant_id)))) * 100) / 100;
+
+    const curNames = Array.from(currentIds).map(nameOf).filter((n): n is string => !!n);
+    const fmrNames = Array.from(new Set([...tenantC, ...tenantP, ...tenantA]
+      .filter((r) => !isCur(r.tenant_id)).map((r) => r.tenant_id)
+      .filter((id): id is string => !!id).map(nameOf)
+      .filter((n): n is string => !!n)));
+
+    setRSplit({
+      ownerBal, tenantBal, ownerCharged, ownerPaid, tenantCharged, tenantPaid,
+      canSplit: !viewerIsTenant && (activeTenant || tenantBal !== 0), viewerIsTenant,
+      curBal, curCharged, curPaid, curNames,
+      fmrBal, fmrCharged, fmrPaid, fmrNames,
+      // only offer the former bucket when there is actually history there
+      hasFormer: fmrCharged !== 0 || fmrPaid !== 0 || fmrBal !== 0,
+      hasCurrent: activeTenant,
+    });
 
     // Portfolio: per-unit balances, so an investor with units in several
     // buildings sees each one — not just an opaque combined total.
@@ -227,11 +276,43 @@ export default function Dashboard() {
   // ── Resident view ──────────────────────────────────────────────────────────
   if (!isManager) {
     const combinedBalance = Math.round((resident.opening + resident.paid - resident.charged) * 100) / 100;
-    // T6: tenant sees tenant only; owner of a leased unit can toggle
-    const effective = rSplit.viewerIsTenant ? 'tenant' : residentView;
-    const balance = effective === 'owner' ? rSplit.ownerBal : effective === 'tenant' ? rSplit.tenantBal : combinedBalance;
-    const shownCharged = effective === 'owner' ? rSplit.ownerCharged : effective === 'tenant' ? rSplit.tenantCharged : resident.charged;
-    const shownPaid = effective === 'owner' ? rSplit.ownerPaid : effective === 'tenant' ? rSplit.tenantPaid : resident.paid;
+    // T6: a tenant sees their own side only; the owner of a leased unit toggles
+    // between Combined / Owner / the current tenant / former tenants.
+    // Switching units can remove the bucket that was selected (drill into a unit
+    // with no tenant while "Current tenant" is active). Fall back to Combined
+    // rather than showing a bucket that no longer exists as a row of zeros.
+    const bucketGone =
+      (residentView === 'current' && !rSplit.hasCurrent) ||
+      (residentView === 'former' && !rSplit.hasFormer);
+    const effective = rSplit.viewerIsTenant ? 'current' : bucketGone ? 'combined' : residentView;
+    const pick = <T,>(owner: T, cur: T, fmr: T, combined: T): T =>
+      effective === 'owner' ? owner
+        : effective === 'current' ? cur
+        : effective === 'former' ? fmr
+        : combined;
+    // A tenant viewer has no separate "current" bucket computed for them — their
+    // whole tenant side IS their own, so fall back to the tenant totals.
+    const curBal = rSplit.viewerIsTenant ? rSplit.tenantBal : rSplit.curBal;
+    const curCharged = rSplit.viewerIsTenant ? rSplit.tenantCharged : rSplit.curCharged;
+    const curPaid = rSplit.viewerIsTenant ? rSplit.tenantPaid : rSplit.curPaid;
+
+    const balance = pick(rSplit.ownerBal, curBal, rSplit.fmrBal, combinedBalance);
+    const shownCharged = pick(rSplit.ownerCharged, curCharged, rSplit.fmrCharged, resident.charged);
+    const shownPaid = pick(rSplit.ownerPaid, curPaid, rSplit.fmrPaid, resident.paid);
+
+    // Toggle options, current tenant before former — same order as Finance.
+    const viewOptions: { key: typeof residentView; label: string }[] = [
+      { key: 'combined', label: t('finance.view.combined') },
+      { key: 'owner', label: t('finance.view.owner') },
+      ...(rSplit.hasCurrent
+        ? [{ key: 'current' as const, label: tenantTitle(t('finance.currentTenant'), rSplit.curNames.join(', ') || null) }]
+        : []),
+      ...(rSplit.hasFormer
+        ? [{ key: 'former' as const, label: tenantTitle(
+            rSplit.fmrNames.length > 1 ? t('finance.formerTenants') : t('finance.formerTenant'),
+            rSplit.fmrNames.join(', ') || null) }]
+        : []),
+    ];
     // Mirrors the MANAGER dashboard's structure (full-width hero, card grid)
     // so switching the Managing / My home lens changes the data, not the app.
     return (
@@ -240,11 +321,11 @@ export default function Dashboard() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
           {rSplit.canSplit && (
-            <div className="inline-flex rounded-lg border border-border p-0.5 text-sm">
-              {(['combined', 'owner', 'tenant'] as const).map((m) => (
-                <button key={m} onClick={() => setResidentView(m)}
-                  className={cn('px-3 py-1.5 rounded-md transition', residentView === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                  {t(`finance.view.${m}`)}
+            <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 text-sm gap-0.5">
+              {viewOptions.map((o) => (
+                <button key={o.key} onClick={() => setResidentView(o.key)}
+                  className={cn('px-3 py-1.5 rounded-md transition', effective === o.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                  {o.label}
                 </button>
               ))}
             </div>
