@@ -146,6 +146,32 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
 - **Sidebar:** two-tier layout — Operations (Dashboard, Finance, Dues, Issues, Meetings, Inspections, Contracts) + collapsible Settings section (Buildings, Structure, People). Settings section persisted in localStorage.
 - **Auth:** login, forgot password → email link → `/set-password` page (handles both password reset and first-time invite setup).
 - **Marketing site (abniyah.com):** the root domain serves `Landing.tsx` (hostname switch in `App.tsx`) — full marketing page (product showcases with real screenshots in `public/marketing/`, pricing, about, FAQ, bilingual). Screenshots re-shot with `shoot-marketing.mjs`.
+- **⚠️ FINANCE REFACTOR 2026-08-02 (pull before touching Finance!):** the book
+  row math (`buildBook`), statement buckets (`buildUnitBuckets`) and tenancy
+  derivations (`tenancyHelpers`) moved VERBATIM out of Finance.tsx into
+  **`src/lib/reportData.ts`** as pure functions — Finance calls them and so does
+  the new Reports page, so screen and PDFs always agree. Evolving the ledger
+  model = edit the lib, both pages follow. Finance UI unchanged EXCEPT the
+  Export Report button moved to Reports (charts/KPIs/tabs all still there).
+- **Reports tab (2026-08-02, #62):** `/reports`, sidebar between Finance and
+  Dues. Managers (`finance.view`): Building financial report + Unit statement
+  cards. Residents (and the My-home lens): My unit statement (tenants get THEIR
+  ledger only; owners the full unit) + **Building expenses** transparency PDF
+  (`ExpensesReportDoc` in pdf.tsx — expenses only, never unit balances/names).
+  Backed by **0069**: building members can READ their building's/compound's
+  expense list (Jey's default-on decision); writes untouched. NEW REPORT TYPES
+  GO HERE as cards, not into Finance.
+- **In-app feedback widget (2026-08-02, 0068):** sidebar "Send feedback" →
+  `feedback` table → `file-feedback` edge function → GitHub issue labeled
+  `feedback` (reporter, route, device, signed screenshot). SWEEP THE BOARD for
+  new feedback issues at session start; docs/TESTING_FEEDBACK.md is annotated
+  and frozen — the Projects board is the single source of truth.
+- **Copy rules now enforced:** American English (organization, Canceled as
+  display; DB enum 'cancelled' untouched; 'Cheque' kept deliberately), no
+  em-dashes, theme tokens (never hardcoded slate/emerald backgrounds).
+- **My-home dashboard (2026-08-02, #67):** resident view mirrors the manager
+  layout (full-width hero, unit card grid, side-by-side quick links) — keep the
+  two lenses structurally parallel when editing Dashboard.tsx.
 - **WhatsApp is PER-LANGUAGE now (2026-08-02):** `WHATSAPP_PER_LANG=1` is LIVE. Each of the 5 templates has approved `en` + `ar` variants; recipients get ONE message in their `preferred_language`. ⚠️ Param counts are frozen per template (new_charge 5, payment_received 4, dues_issued 6, unit_invite 4, payment_reminder 5) — changing a template's variables requires a body revision through Meta review, done via the Graph API (the UI cannot add languages to existing templates; see WHATSAPP_SETUP.md Part 2b, WABA id 4479435942319273, token = a fresh `abniyah-api` system-user token generated AFTER the WABA asset was assigned). Money templates' last variable is the pay line (Whish account or generic fallback), filled by `payLine()` in both edge functions.
 - **Public read-only demo:** "See the live demo" on abniyah.com → `app.abniyah.com/demo` — a bilingual persona chooser. **"View as building admin"** = `jihad.meraachli+demoviewer@gmail.com` ("Demo Admin", `viewer` grant on Tulip); **"View as unit owner"** = `jihad.meraachli+demoowner@gmail.com` ("Nadia Salameh", owns units 302 + 503). Both password `abniyah-demo-2026` (public by design — in the bundle, `src/lib/demo.ts`). Demo sessions: conversion banner + Switch view, no Settings, no issue reporting, sign-out redirects to abniyah.com. Demo admin additionally sees Buildings + Structure read-only (0058 names). **Tulip is the showcase building** — seeded by `seed-demo.mjs` (20 units, 16 fictional residents via gmail +aliases, 8 months of books, contracts, inspections, meetings, issues). Re-run it after wipe-day to rebuild the demo.
 
