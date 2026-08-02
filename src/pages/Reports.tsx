@@ -10,7 +10,7 @@ import { useEntities } from '@/lib/entities';
 import { fetchAll } from '@/lib/fetchAll';
 import { computeBalance } from '@/lib/balance';
 import { tenancyHelpers, buildBook, buildUnitBuckets, type TenancyRow } from '@/lib/reportData';
-import type { Unit, Charge, Payment, Expense, Adjustment } from '@/types';
+import type { Unit, Charge, Payment, Expense, Adjustment, Dues } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
@@ -67,22 +67,26 @@ function ResidentReports() {
     setBusy('statement');
     try {
       const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
-      const [cRes, pRes, aRes, mRes, bRes] = await Promise.all([
+      const [cRes, pRes, aRes, mRes, bRes, dRes] = await Promise.all([
         supabase.from('charges').select('*').eq('unit_id', mine.unit.id),
         supabase.from('payments').select('*').eq('unit_id', mine.unit.id),
         supabase.from('adjustments').select('*').eq('unit_id', mine.unit.id),
         supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').eq('unit_id', mine.unit.id),
         supabase.from('buildings').select('name').eq('id', mine.unit.building_id).single(),
+        supabase.from('dues').select('*').eq('unit_id', mine.unit.id),
       ]);
       const cAll = ((cRes.data as Charge[]) ?? []).filter((c) => !c.voided_at && inRange(c.charge_date));
       const pAll = ((pRes.data as Payment[]) ?? []).filter((p) => !p.voided_at && inRange(p.paid_on));
       const aAll = ((aRes.data as Adjustment[]) ?? []).filter((a) => !a.voided_at && inRange(a.effective_date));
+      // dues sit on the party bucket they were billed to; a tenant's statement
+      // therefore lists only their own dues (0070)
+      const dAll = ((dRes.data as Dues[]) ?? []).filter((d) => !d.due_date || inRange(d.due_date));
       const tenancy = (mRes.data as unknown as TenancyRow[]) ?? [];
       const th = tenancyHelpers(tenancy, cAll, pAll, aAll);
       const labels = { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') };
       // Tenants export their own ledger only; owners get the whole unit.
       const only = mine.tenure === 'tenant' ? new Set([user.id]) : undefined;
-      const { buckets, combined } = buildUnitBuckets(mine.unit, cAll, pAll, aAll, th, labels, only);
+      const { buckets, combined } = buildUnitBuckets(mine.unit, cAll, pAll, aAll, th, labels, only, dAll);
       const el = (
         <UnitStatementDoc
           unitLabel={mine.unit.label}
@@ -209,6 +213,7 @@ export default function Reports() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
+  const [dues, setDues] = useState<Dues[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
 
@@ -232,11 +237,15 @@ export default function Reports() {
       setUnits(unitList); setCharges(chargeRows); setPayments(paymentRows);
       setExpenses(expenseRows); setAdjustments(adjRows);
       if (unitList.length) {
-        const { data: mem } = await supabase.from('memberships')
-          .select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)')
-          .in('unit_id', unitList.map((x) => x.id));
-        if (!cancelled) setTenancy((mem as unknown as TenancyRow[]) ?? []);
-      } else setTenancy([]);
+        const ids = unitList.map((x) => x.id);
+        const [{ data: mem }, { data: dus }] = await Promise.all([
+          supabase.from('memberships')
+            .select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)')
+            .in('unit_id', ids),
+          supabase.from('dues').select('*').in('unit_id', ids),
+        ]);
+        if (!cancelled) { setTenancy((mem as unknown as TenancyRow[]) ?? []); setDues((dus as Dues[]) ?? []); }
+      } else { setTenancy([]); setDues([]); }
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -303,7 +312,8 @@ export default function Reports() {
       const cAll = charges.filter((c) => c.unit_id === unit.id && !c.voided_at);
       const pAll = payments.filter((p) => p.unit_id === unit.id && !p.voided_at);
       const aAll = adjustments.filter((a) => a.unit_id === unit.id && !a.voided_at);
-      const { buckets, combined } = buildUnitBuckets(unit, cAll, pAll, aAll, th, labels);
+      const { buckets, combined } = buildUnitBuckets(unit, cAll, pAll, aAll, th, labels, undefined,
+        dues.filter((d) => d.unit_id === unit.id));
       const el = (
         <UnitStatementDoc
           unitLabel={unit.label}

@@ -94,6 +94,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0058 | `0058_viewer_member_names.sql` | `structure_members()` — names-only membership visibility for `finance.view` holders (viewer/auditor roles, public demo). Contact details stay behind `resident.manage`. |
 | 0059 | `0059_whish_account.sql` | `buildings.whish_number` — manual Whish payment flow: charge/reminder emails, the resident statement and WhatsApp money templates tell residents to pay to the building's Whish account; finance user records incoming transfers as payments. |
 | 0060 | `0060_preferred_language.sql` | `profiles.preferred_language` (en\|ar) — app loads in the user's language on every device (Settings section + header globe persists), and WhatsApp goes out in the recipient's language. |
+| 0070 | `0070_dues_party.sql` | **Dues become party-aware (#61).** `dues.billed_to`/`tenant_id`/`kind`/`label`; `dues_plans.owner_pool_amount` + `dues_unit_amounts.owner_amount` (the owner-only slice). Dues notify triggers rebuilt on the 0067 pattern — they previously fanned to EVERY membership with no `ended_at` filter, so moved-out tenants got current dues notices. `reminders_sent` gains `party` and its unique index widens to `(unit, period, party)` — without it the owner's and tenant's reminders for the same unit collide and the second is silently dropped as a duplicate. `get_overdue_dues()` rebuilt per unit PER PARTY (party-scoped recipients, party-scoped payment offset, and it now sums a party's rows in the latest overdue period so an assessment beside a recurring due is not hidden). Backfills every existing row to `billed_to='owner'`, `kind='recurring'` — unit-level meant owner, so nothing already generated changes meaning. **⚠️ Run this together with the `send-reminders` + `dynamic-action` redeploys** (see §4). |
 
 ### Key idea: the access ladder (0026 + 0027)
 ```
@@ -129,6 +130,18 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
   - Scheduled via pg_cron: `0 7 * * 1` (Mondays 7am UTC = 9am Beirut).
 - **Database Webhooks** (Database → Webhooks) — each POSTs to `dynamic-action`. Should exist for: `profiles` (Insert/Update), `issues` (Insert/Update), `meetings` (Insert), `charges` (Insert), `payments` (Insert/Update/Delete), `dues` (Insert/Update/Delete).
 - **Notifications are two independent channels:** the 🔔 bell = DB triggers (migrations), email = webhooks → edge function. Same event → one of each; they don't duplicate within a channel.
+- **⚠️ PENDING OPS for migration 0070 (#61) — run as one batch:**
+  1. Run `0070_dues_party.sql` in the SQL Editor.
+  2. Redeploy **`send-reminders`** from current master — it now passes `party` to
+     the `reminders_sent` insert. Until it is redeployed, a leased unit's tenant
+     reminder is swallowed as a duplicate of the owner's (the dedup key widened
+     but the old code does not fill the new column). Owner reminders keep working
+     throughout: `get_overdue_dues()` deliberately kept the `owner_user_ids`
+     column name so the un-redeployed function degrades instead of going silent.
+  3. Redeploy **`dynamic-action`** from current master — dues email + WhatsApp now
+     use `unitPartyIds()` so a tenant's dues never reach the owner and a
+     moved-out tenant hears nothing. **WhatsApp param counts were NOT touched**
+     (`abniyah_dues_issued` stays at 6) — only the recipient list changed.
 
 ---
 
@@ -137,6 +150,27 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
 - **Dashboard:** gradient balance hero, KPIs, collected-vs-spent interactive chart, **coverage** (reserve + runway + dues issued), upcoming meetings — all filterable by **compound / block / building**.
 - **Finance:** entity selector (compound or standalone building) + block filter + period (all/year/month). Record expense with scope (whole compound / a block / group / selected units / one unit) and method (by shares/equal/custom); per-unit **Book**, **Expenses**, **Payments** tabs; detail + edit/delete + attachments. Residents get a read-only **"My Account"** statement.
 - **Dues:** per building/compound plan (cadence + by-shares/equal/manual/B2). "Generate dues for a period" auto-trues-up (`amount_due = max(0, base − balance)`). Residents see a **Dues card**.
+- **⚠️ DUES ARE PARTY-AWARE (2026-08-02, #61, migration 0070).** A plan now has
+  **two pools**: `pool_amount` (the recurring budget — billed to the **tenant**
+  where a unit is leased, to the owner otherwise) and `owner_pool_amount` (the
+  owner-only slice, 0 by default). Plus **one-time assessments** ("Add
+  assessment") — owner-billed, allocated across units, `kind='off_budget'`.
+  Two rules keep the numbers honest, both implemented in
+  **`computeDuesGeneration()` in `src/lib/reportData.ts`**:
+  1. **Carry-in is party-scoped** — owner carry = `−bal.owner`, tenant carry =
+     `−bal.tenant`. A unit's pre-existing balance is the owner's (opening
+     balance is owner by definition), so it never lands on a tenant.
+  2. **Carry is consumed once per unit + period + party.** Dues never touch the
+     balance ledger, so a second generation into the same period would apply the
+     same carry twice. This is what makes "the carry applies to the sum of the
+     recurring and assessment amounts" hold even across separate runs.
+  **Move-out needs no dues offload:** `end_membership()` (0065) credits the owner
+  sub-ledger, so a departed tenant's balance lands in the OWNER's carry-in next
+  period by itself. Historical dues keep their original `tenant_id` — that is the
+  former-tenant view, and rewriting it would destroy the history. The Dues tab,
+  the generate preview, the resident card and the PDF statements all read the
+  shared builders (`buildDuesRows` / `computeDuesGeneration` / `buildUnitBuckets`),
+  so screen and PDF cannot disagree.
 - **Structure:** units (share weight/occupancy/owners/tenure) + allocation groups; building selector grouped by compound.
 - **Inspections / Service Contracts:** compound- or block-level; residents can view.
 - **Issues / Meetings:** compound/block/building selector; create targets a specific block; issue status filter, apartment-as-unit dropdown; meeting attendees + "select all" + online link + detail view + attachments.

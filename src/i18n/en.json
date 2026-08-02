@@ -266,7 +266,11 @@
   "feedback": {
     "button": "Send feedback",
     "title": "Send feedback",
-    "categories": { "bug": "Bug", "idea": "Idea", "question": "Question" },
+    "categories": {
+      "bug": "Bug",
+      "idea": "Idea",
+      "question": "Question"
+    },
     "placeholder": "What happened? What did you expect? The more detail, the faster the fix.",
     "addScreenshot": "Attach a screenshot",
     "send": "Send",
@@ -1110,7 +1114,23 @@
       "by_shares": "By shares",
       "equal": "Equal",
       "custom": "Manual (per unit)"
-    }
+    },
+    "poolPartyHint": "Billed to the tenant where a unit is leased, to the owner otherwise.",
+    "ownerPool": "Owner-only amount per period (USD)",
+    "ownerPoolHint": "Charged to owners only, on top of the recurring budget. Leave at 0 if there is none.",
+    "customPartyHint": "Recurring is billed to the tenant where a unit is leased; owner-only is always the owner's.",
+    "tenantColumn": "Recurring",
+    "ownerColumn": "Owner only",
+    "recurringLine": "Recurring",
+    "formerNote": "no longer in the unit",
+    "unitsCount": "{{count}} units",
+    "offBudget": "Off-budget",
+    "offBudgetAction": "Add assessment",
+    "offBudgetTitle": "One-time assessment",
+    "offBudgetNote": "A one-time amount allocated across units and billed to owners only, outside the recurring budget. An owner's carry-in applies to the total of their recurring and assessment amounts.",
+    "offBudgetLabel": "What it is for",
+    "offBudgetPlaceholder": "Roof waterproofing 2026",
+    "offBudgetTotal": "Total to allocate (USD)"
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",

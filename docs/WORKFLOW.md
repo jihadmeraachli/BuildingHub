@@ -216,6 +216,47 @@ Committee/company spends money  →  records an EXPENSE  →  allocates (scope+m
 - Fee-driven / budget billing is a **future** add-on (same Charge object, new
   source) — not built now.
 
+### 7.1 Dues (prepay mode) and who a due falls on — #61 / migration 0070
+
+A building in `dues` mode asks for a fixed amount per period instead of billing
+actual cost. Two things about dues are easy to get wrong:
+
+**Dues are obligations, not ledger money.** Generating dues writes rows to the
+`dues` table and touches nothing else. The balance still comes only from
+charges + payments + adjustments. Unpaid dues therefore roll forward *implicitly*:
+if a resident does not pay, their balance stays low, and next period's
+`max(0, base − balance)` comes out higher. This is why an unpaid due is never
+"carried" as a separate object.
+
+**A due falls on a party, not on a unit.** Once the owner/tenant sub-ledger
+exists (0064–0067), trueing a due up against the unit's *total* balance would net
+a tenant's credit against an owner's obligation. So:
+
+- The plan's `pool_amount` is the recurring budget and is billed to the
+  **tenant** where the unit is leased, to the **owner** otherwise. `owner_pool_amount`
+  is an owner-only slice on top, and one-time **assessments** (`kind='off_budget'`)
+  are always the owner's.
+- **Carry-in is party-scoped.** Owner carry = `−bal.owner`, tenant carry =
+  `−bal.tenant`. A unit's pre-existing balance belongs to the owner, because
+  `opening_balance` is owner by definition. A new tenant never inherits it.
+- **Carry is consumed once per unit + period + party.** Since dues do not move
+  the balance, generating twice into one period would otherwise apply the same
+  carry twice. This rule is what makes an owner's carry apply to the *sum* of
+  their recurring and assessment amounts rather than to each line.
+
+**Why dues are not "offloaded" on move-out.** The instinct is to transfer a
+departing tenant's dues to the owner, mirroring the balance offload. It is not
+needed and would be harmful. `end_membership()` (0065) already credits the owner
+sub-ledger, so the money lands in the **owner's carry-in** next period on its own.
+Meanwhile the historical dues rows keep their original `tenant_id`, which is
+precisely what the former-tenant view reads — rewriting them would erase the
+record of who owed what while they lived there. **Money follows the owner; the
+tag stays with the former tenant.**
+
+Implementation lives in `computeDuesGeneration()` / `buildDuesRows()` in
+`src/lib/reportData.ts`, shared by the Dues tab, the generate preview, the
+resident card and the PDF statements, so no two surfaces can drift apart.
+
 ---
 
 ## 8. The building book (financial ledger)

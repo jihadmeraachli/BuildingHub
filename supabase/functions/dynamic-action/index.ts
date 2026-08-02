@@ -417,27 +417,39 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5d. Dues issued → owner(s)
+    // 5d. Dues issued → the BILLED party only (0070).
+    //     Dues used to fan to every membership on the unit; once they carry
+    //     billed_to + tenant_id a tenant's dues must not reach the owner, and a
+    //     former tenant must not hear about the current period at all.
+    //     ⚠️ WhatsApp param count stays 6 — only the recipients changed.
     if (tbl === 'dues' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues for ${record.period_label}: ${money(record.amount_due)}`,
+      const duesParty = record.billed_to === 'tenant' ? 'tenant' : 'owner';
+      const duesTo = await unitPartyIds(record.unit_id, duesParty, record.tenant_id);
+      const what = record.kind === 'off_budget' && record.label ? esc(record.label) : null;
+      await emailToUserIds(duesTo, `Dues for ${record.period_label}: ${money(record.amount_due)}`,
         emailHtml('Dues issued',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> are ready.</p>
-           ${table(row('Amount due', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
+           ${table(
+             (what ? row('For', what) : '') +
+             row('Amount due', money(record.amount_due)) +
+             (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'Abniyah');
       const { data: duesUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
-      await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_dues_issued',
+      await whatsappToUserIds(duesTo, 'abniyah_dues_issued',
         (name, lang) => {
           const base = [name, record.period_label, money(record.amount_due), duesUnit?.label ?? '—', b?.name ?? '—'];
           return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
         });
     }
 
-    // 5e. Dues edited (amount changed) → owner(s)
+    // 5e. Dues edited (amount changed) → the billed party only
     if (tbl === 'dues' && type === 'UPDATE' && record.amount_due !== old_record?.amount_due) {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitOwnerIds(record.unit_id), `Dues updated: ${record.period_label}`,
+      await emailToUserIds(
+        await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
+        `Dues updated: ${record.period_label}`,
         emailHtml('Dues updated',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> were updated.</p>
            ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
@@ -445,10 +457,12 @@ Deno.serve(async (req) => {
         b?.name ?? 'Abniyah');
     }
 
-    // 5f. Dues removed → owner(s)
+    // 5f. Dues removed → the billed party only
     if (tbl === 'dues' && type === 'DELETE' && old_record) {
       const b = await getBuilding(old_record.building_id);
-      await emailToUserIds(await unitOwnerIds(old_record.unit_id), `Dues removed: ${old_record.period_label}`,
+      await emailToUserIds(
+        await unitPartyIds(old_record.unit_id, old_record.billed_to === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
+        `Dues removed: ${old_record.period_label}`,
         emailHtml('Dues removed',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(old_record.period_label)}</strong> were removed.</p>`,
           'View My Account', `${APP_URL}/finance`),

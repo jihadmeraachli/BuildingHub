@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Wallet, Settings2, Trash2, Info } from 'lucide-react';
+import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight, Receipt } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
-import { computeBalance } from '@/lib/balance';
+import { computeUnitBalances } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
-import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType } from '@/types';
+import {
+  tenancyHelpers, buildDuesRows, computeDuesGeneration,
+  type TenancyRow, type DuesGenRow, type OffBudgetSpec,
+} from '@/lib/reportData';
+import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -20,7 +24,11 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 const CADENCES: DuesCadence[] = ['monthly', 'quarterly', 'semiannual', 'annual'];
 const METHODS: DuesMethod[] = ['by_shares', 'equal', 'custom'];
 const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Carry-in sign colors match Finance: a credit is good, arrears are not. */
+const carryTone = (n: number) =>
+  n < 0 ? 'text-emerald-600 dark:text-emerald-400'
+    : n > 0 ? 'text-red-500 dark:text-red-300'
+    : 'text-muted-foreground';
 
 export default function Dues() {
   const { t } = useTranslation();
@@ -43,15 +51,22 @@ export default function Dues() {
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [plan, setPlan] = useState<DuesPlan | null>(null);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+  const [ownerCustomAmounts, setOwnerCustomAmounts] = useState<Record<string, string>>({});
   const [items, setItems] = useState<DuesItem[]>([]);
+  // ended memberships included, so a unit whose tenant left still resolves that
+  // tenant's name on their historical dues rows (0070)
+  const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // plan form
   const [planOpen, setPlanOpen] = useState(false);
   const [pCadence, setPCadence] = useState<DuesCadence>('quarterly');
   const [pMethod, setPMethod] = useState<DuesMethod>('by_shares');
   const [pPool, setPPool] = useState('');
+  const [pOwnerPool, setPOwnerPool] = useState('');
   const [pCustom, setPCustom] = useState<Record<string, string>>({});
+  const [pOwnerCustom, setPOwnerCustom] = useState<Record<string, string>>({});
   const [pPlanType, setPPlanType] = useState<DuesPlanType>('b1');
   const [saving, setSaving] = useState(false);
 
@@ -59,6 +74,15 @@ export default function Dues() {
   const [genOpen, setGenOpen] = useState(false);
   const [genPeriod, setGenPeriod] = useState('');
   const [genDue, setGenDue] = useState(new Date().toISOString().slice(0, 10));
+
+  // off-budget assessment (C13) — owner-only, allocated across units
+  const [obOpen, setObOpen] = useState(false);
+  const [obLabel, setObLabel] = useState('');
+  const [obMethod, setObMethod] = useState<DuesMethod>('by_shares');
+  const [obTotal, setObTotal] = useState('');
+  const [obCustom, setObCustom] = useState<Record<string, string>>({});
+  const [obPeriod, setObPeriod] = useState('');
+  const [obDue, setObDue] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => { if (entity) load(); }, [entityKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -84,39 +108,65 @@ export default function Dues() {
     setPlan(planRow);
     const ids = ((u as Unit[]) ?? []).map((x) => x.id);
     if (ids.length) {
-      const { data: d } = await supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false });
+      const [{ data: d }, { data: mem }] = await Promise.all([
+        supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false }),
+        supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', ids),
+      ]);
       setItems((d as DuesItem[]) ?? []);
-    } else setItems([]);
+      setTenancy((mem as unknown as TenancyRow[]) ?? []);
+    } else { setItems([]); setTenancy([]); }
     if (planRow && planRow.method === 'custom') {
-      const { data: ca } = await supabase.from('dues_unit_amounts').select('unit_id, amount').eq('plan_id', planRow.id);
-      setCustomAmounts(Object.fromEntries(((ca as { unit_id: string; amount: number }[]) ?? []).map((r) => [r.unit_id, String(r.amount)])));
-    } else setCustomAmounts({});
+      const { data: ca } = await supabase.from('dues_unit_amounts').select('unit_id, amount, owner_amount').eq('plan_id', planRow.id);
+      const rows = (ca as { unit_id: string; amount: number; owner_amount: number }[]) ?? [];
+      setCustomAmounts(Object.fromEntries(rows.map((r) => [r.unit_id, String(r.amount)])));
+      setOwnerCustomAmounts(Object.fromEntries(rows.map((r) => [r.unit_id, String(r.owner_amount ?? 0)])));
+    } else { setCustomAmounts({}); setOwnerCustomAmounts({}); }
     setLoading(false);
   }
 
+  const th = useMemo(
+    () => tenancyHelpers(tenancy, charges, payments, adjustments),
+    [tenancy, charges, payments, adjustments]);
+
+  const labels = useMemo(
+    () => ({ owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') }),
+    [t]);
+
+  /** Party balances per unit — the dues true-up is per sub-ledger now (0070),
+   *  so an owner's carry-in never nets against a tenant's dues. */
   const balanceOf = useMemo(() => {
-    const m: Record<string, number> = {};
+    const m: Record<string, { owner: number; tenant: number; total: number }> = {};
     units.forEach((u) => {
-      // opening balance + adjustments, ignoring voided — same math as Finance so
-      // the dues true-up (base − balance) is correct (0033/0034)
-      const uCharges = charges.filter((c) => c.unit_id === u.id);
-      const uPayments = payments.filter((p) => p.unit_id === u.id);
-      const uAdj = adjustments.filter((a) => a.unit_id === u.id);
-      m[u.id] = computeBalance(u, uCharges, uPayments, null, uAdj);
+      m[u.id] = computeUnitBalances(
+        u,
+        charges.filter((c) => c.unit_id === u.id),
+        payments.filter((p) => p.unit_id === u.id),
+        adjustments.filter((a) => a.unit_id === u.id),
+      );
     });
     return m;
   }, [units, charges, payments, adjustments]);
 
-  function baseFor(u: Unit, method: DuesMethod, pool: number, custom: Record<string, string>): number {
-    if (method === 'custom') return round2(Number(custom[u.id]) || 0);
-    if (method === 'equal') return round2(pool / (units.length || 1));
-    const total = units.reduce((s, x) => s + Number(x.share_weight), 0) || 1;
-    return round2((pool * Number(u.share_weight)) / total);
+  const num = (r: Record<string, string>) =>
+    Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Number(v) || 0]));
+
+  /** Has this unit+period+party already been generated? If so its carry-in was
+   *  already consumed and must not be applied a second time (0070). */
+  function carryConsumedIn(period: string) {
+    return (unitId: string, party: Tenure) =>
+      items.some((d) => d.unit_id === unitId && d.period_label === period && d.billed_to === party);
   }
 
   function openPlan() {
-    if (plan) { setPCadence(plan.cadence); setPMethod(plan.method); setPPool(plan.pool_amount != null ? String(plan.pool_amount) : ''); setPCustom(customAmounts); setPPlanType(plan.plan_type ?? 'b1'); }
-    else { setPCadence('quarterly'); setPMethod('by_shares'); setPPool(''); setPCustom({}); setPPlanType('b1'); }
+    if (plan) {
+      setPCadence(plan.cadence); setPMethod(plan.method);
+      setPPool(plan.pool_amount != null ? String(plan.pool_amount) : '');
+      setPOwnerPool(plan.owner_pool_amount ? String(plan.owner_pool_amount) : '');
+      setPCustom(customAmounts); setPOwnerCustom(ownerCustomAmounts); setPPlanType(plan.plan_type ?? 'b1');
+    } else {
+      setPCadence('quarterly'); setPMethod('by_shares'); setPPool(''); setPOwnerPool('');
+      setPCustom({}); setPOwnerCustom({}); setPPlanType('b1');
+    }
     setPlanOpen(true);
   }
 
@@ -126,14 +176,21 @@ export default function Dues() {
     const payload = {
       building_id: entity.kind === 'building' ? entity.id : null,
       compound_id: entity.kind === 'compound' ? entity.id : null,
-      cadence: pCadence, method: pMethod, pool_amount: pMethod === 'custom' ? null : (Number(pPool) || 0), plan_type: pPlanType, active: true,
+      cadence: pCadence, method: pMethod,
+      pool_amount: pMethod === 'custom' ? null : (Number(pPool) || 0),
+      owner_pool_amount: pMethod === 'custom' ? 0 : (Number(pOwnerPool) || 0),
+      plan_type: pPlanType, active: true,
     };
     let planId = plan?.id;
     if (plan) await supabase.from('dues_plans').update(payload).eq('id', plan.id);
     else { const { data } = await supabase.from('dues_plans').insert(payload).select().single(); planId = (data as DuesPlan)?.id; }
     if (planId && pMethod === 'custom') {
       await supabase.from('dues_unit_amounts').delete().eq('plan_id', planId);
-      const rows = units.map((u) => ({ plan_id: planId, unit_id: u.id, amount: Number(pCustom[u.id]) || 0 }));
+      const rows = units.map((u) => ({
+        plan_id: planId, unit_id: u.id,
+        amount: Number(pCustom[u.id]) || 0,
+        owner_amount: Number(pOwnerCustom[u.id]) || 0,
+      }));
       if (rows.length) await supabase.from('dues_unit_amounts').insert(rows);
     }
     toast.success(t('dues.planSaved'));
@@ -141,26 +198,73 @@ export default function Dues() {
   }
 
   const isB2 = plan?.plan_type === 'b2';
+
+  const genPlan = useMemo(() => ({
+    method: (plan?.method ?? 'by_shares') as DuesMethod,
+    planType: (plan?.plan_type ?? 'b1') as DuesPlanType,
+    poolAmount: Number(plan?.pool_amount) || 0,
+    ownerPoolAmount: Number(plan?.owner_pool_amount) || 0,
+    custom: num(customAmounts),
+    ownerCustom: num(ownerCustomAmounts),
+  }), [plan, customAmounts, ownerCustomAmounts]);
+
+  /** Preview and insert come from the same pure call, so what the manager sees
+   *  is exactly what gets written. */
   const preview = useMemo(() => {
     if (!plan) return [];
-    return units.map((u) => {
-      const base = baseFor(u, plan.method, Number(plan.pool_amount) || 0, customAmounts);
-      if (plan.plan_type === 'b2') return { unit: u, base, carry: 0, amount_due: base };
-      const bal = balanceOf[u.id] ?? 0;
-      return { unit: u, base, carry: round2(-bal), amount_due: Math.max(0, round2(base - bal)) };
+    return computeDuesGeneration({
+      units, plan: genPlan, balances: balanceOf,
+      activeTenantId: th.activeTenantId,
+      carryConsumed: carryConsumedIn(genPeriod.trim()),
+      includeRecurring: true,
     });
-  }, [plan, units, customAmounts, balanceOf]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan, units, genPlan, balanceOf, th, genPeriod, items]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const obSpec: OffBudgetSpec | null = useMemo(() => (
+    obLabel.trim()
+      ? { label: obLabel.trim(), method: obMethod, total: Number(obTotal) || 0, custom: num(obCustom) }
+      : null
+  ), [obLabel, obMethod, obTotal, obCustom]);
+
+  const obPreview = useMemo(() => {
+    if (!plan || !obSpec) return [];
+    return computeDuesGeneration({
+      units, plan: genPlan, balances: balanceOf,
+      activeTenantId: th.activeTenantId,
+      carryConsumed: carryConsumedIn(obPeriod.trim()),
+      includeRecurring: false,
+      offBudget: obSpec,
+    });
+  }, [plan, units, genPlan, balanceOf, th, obPeriod, obSpec, items]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toRows(gen: DuesGenRow[], period: string, due: string) {
+    return gen.map((r) => ({
+      plan_id: plan?.id ?? null, building_id: r.unit.building_id, unit_id: r.unit.id,
+      period_label: period, due_date: due || null,
+      base_amount: r.base, carry_in: r.carry, amount_due: r.due,
+      billed_to: r.party, tenant_id: r.tenantId, kind: r.kind, label: r.label,
+      created_by: profile?.id,
+    }));
+  }
 
   async function generate() {
     if (!entity || !plan || !genPeriod.trim()) return;
     setSaving(true);
-    const rows = preview.filter((r) => r.amount_due > 0 || r.base > 0).map((r) => ({
-      plan_id: plan.id, building_id: r.unit.building_id, unit_id: r.unit.id, period_label: genPeriod.trim(),
-      due_date: genDue || null, base_amount: r.base, carry_in: r.carry, amount_due: r.amount_due, created_by: profile?.id,
-    }));
+    const rows = toRows(preview, genPeriod.trim(), genDue);
     if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { toast.error(error.message); setSaving(false); return; } }
     toast.success(t('dues.generated'));
     setSaving(false); setGenOpen(false); load();
+  }
+
+  async function generateOffBudget() {
+    if (!entity || !plan || !obSpec || !obPeriod.trim()) return;
+    setSaving(true);
+    const rows = toRows(obPreview, obPeriod.trim(), obDue);
+    if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { toast.error(error.message); setSaving(false); return; } }
+    toast.success(t('dues.generated'));
+    setSaving(false); setObOpen(false);
+    setObLabel(''); setObTotal(''); setObCustom({});
+    load();
   }
 
   async function removeItem(id: string) {
@@ -174,6 +278,15 @@ export default function Dues() {
     const u = units.find((x) => x.id === uid); if (!u) return '—';
     return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
   };
+
+  /** Unit + period totals with owner / tenant sub-rows (0070). */
+  const duesGroups = useMemo(
+    () => buildDuesRows(vItems, units, th, labels),
+    [vItems, units, th, labels]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** The line label inside a party sub-row: an assessment shows its name. */
+  const lineLabel = (d: DuesItem) =>
+    d.kind === 'off_budget' ? (d.label || t('dues.offBudget')) : t('dues.recurringLine');
 
   return (
     <div>
@@ -205,6 +318,7 @@ export default function Dues() {
             </RadixSelect>
           )}
           {canManage && entity && <Button variant="secondary" onClick={openPlan}><Settings2 size={16} /> {plan ? t('dues.editPlan') : t('dues.setupPlan')}</Button>}
+          {canManage && entity && plan && <Button variant="secondary" onClick={() => { setObPeriod(''); setObOpen(true); }}><Receipt size={16} /> {t('dues.offBudgetAction')}</Button>}
           {canManage && entity && plan && <Button onClick={() => { setGenPeriod(''); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
         </div>
       </div>
@@ -245,7 +359,7 @@ export default function Dues() {
               : vItems.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('dues.noDues')}</p></CardBody></Card>
               : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
-                  <thead><tr className="border-b border-slate-100 text-slate-400 text-xs uppercase tracking-wide">
+                  <thead><tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('dues.period')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('dues.unit')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('dues.base')}</th>
@@ -254,18 +368,90 @@ export default function Dues() {
                     <th className="px-5 py-3 text-start font-medium">{t('dues.dueDate')}</th>
                     {canManage && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
                   </tr></thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {vItems.map((d) => (
-                      <tr key={d.id} className="hover:bg-slate-50/60">
-                        <td className="px-5 py-3 text-slate-500">{d.period_label}</td>
-                        <td className="px-5 py-3 font-semibold text-slate-900">{unitLabel(d.unit_id)}</td>
-                        <td className="px-5 py-3 text-end text-slate-600 tnum">{money(Number(d.base_amount))}</td>
-                        {!isB2 && <td className={`px-5 py-3 text-end tnum ${Number(d.carry_in) < 0 ? 'text-emerald-600 dark:text-emerald-400' : Number(d.carry_in) > 0 ? 'text-red-400 dark:text-red-300' : 'text-slate-400'}`}>{money(Number(d.carry_in))}</td>}
-                        <td className="px-5 py-3 text-end font-semibold text-slate-900 tnum">{money(Number(d.amount_due))}</td>
-                        <td className="px-5 py-3 text-slate-500">{d.due_date ? format(new Date(d.due_date), 'MMM d, yyyy') : '—'}</td>
-                        {canManage && <td className="px-5 py-3 text-end"><button onClick={() => removeItem(d.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button></td>}
-                      </tr>
-                    ))}
+                  <tbody className="divide-y divide-border/60">
+                    {duesGroups.map((g) => {
+                      const open = expanded[g.key] ?? false;
+                      const single = g.parties.length === 1 && g.parties[0].lines.length === 1;
+                      const cols = 4 + (isB2 ? 0 : 1) + (canManage ? 1 : 0);
+                      return (
+                        <Fragment key={g.key}>
+                          <tr className={`hover:bg-secondary/40 ${g.split ? 'cursor-pointer' : ''}`}
+                              onClick={() => g.split && setExpanded((s) => ({ ...s, [g.key]: !open }))}>
+                            <td className="px-5 py-3 text-muted-foreground">{g.periodLabel}</td>
+                            <td className="px-5 py-3 font-semibold text-foreground">
+                              <span className="inline-flex items-center gap-1.5">
+                                {g.split && (
+                                  <ChevronRight size={14}
+                                    className={`text-muted-foreground transition-transform ${open ? 'rotate-90' : ''} rtl:-scale-x-100`} />
+                                )}
+                                {unitLabel(g.unitId)}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-end text-muted-foreground tnum">{money(g.base)}</td>
+                            {!isB2 && <td className={`px-5 py-3 text-end tnum ${carryTone(g.carry)}`}>{money(g.carry)}</td>}
+                            <td className="px-5 py-3 text-end font-semibold text-foreground tnum">{money(g.due)}</td>
+                            <td className="px-5 py-3 text-muted-foreground">{g.dueDate ? format(new Date(g.dueDate), 'MMM d, yyyy') : '—'}</td>
+                            {canManage && (
+                              <td className="px-5 py-3 text-end">
+                                {single && (
+                                  <button onClick={(e) => { e.stopPropagation(); removeItem(g.parties[0].lines[0].id); }}
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
+                                    <Trash2 size={15} />
+                                  </button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+
+                          {g.split && open && g.parties.map((p) => (
+                            <Fragment key={`${g.key}|${p.key}`}>
+                              <tr className="bg-secondary/30 text-xs">
+                                <td className="px-5 py-2" />
+                                <td className="px-5 py-2 ps-10 text-foreground/90">
+                                  <span className="font-medium">{p.title}</span>
+                                  {p.isFormer && <span className="ms-1.5 text-muted-foreground/70">({t('dues.formerNote')})</span>}
+                                </td>
+                                <td className="px-5 py-2 text-end text-muted-foreground tnum">{money(p.base)}</td>
+                                {!isB2 && <td className={`px-5 py-2 text-end tnum ${carryTone(p.carry)}`}>{money(p.carry)}</td>}
+                                <td className="px-5 py-2 text-end font-semibold text-foreground tnum">{money(p.due)}</td>
+                                <td className="px-5 py-2" />
+                                {canManage && <td className="px-5 py-2" />}
+                              </tr>
+                              {/* individual lines only when a party has more than one (recurring + assessment) */}
+                              {p.lines.length > 1 && p.lines.map((d) => (
+                                <tr key={d.id} className="bg-secondary/10 text-xs">
+                                  <td className="px-5 py-1.5" />
+                                  <td className="px-5 py-1.5 ps-16 text-muted-foreground">{lineLabel(d)}</td>
+                                  <td className="px-5 py-1.5 text-end text-muted-foreground tnum">{money(Number(d.base_amount))}</td>
+                                  {!isB2 && <td className="px-5 py-1.5" />}
+                                  <td className="px-5 py-1.5 text-end text-muted-foreground tnum">{money(Number(d.amount_due))}</td>
+                                  <td className="px-5 py-1.5" />
+                                  {canManage && (
+                                    <td className="px-5 py-1.5 text-end">
+                                      <button onClick={(e) => { e.stopPropagation(); removeItem(d.id); }}
+                                        className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                              {p.lines.length === 1 && canManage && (
+                                <tr className="bg-secondary/10">
+                                  <td className="px-5 py-1" colSpan={cols - 1} />
+                                  <td className="px-5 py-1 text-end">
+                                    <button onClick={(e) => { e.stopPropagation(); removeItem(p.lines[0].id); }}
+                                      className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          ))}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table></div></Card>
               )}
@@ -289,15 +475,41 @@ export default function Dues() {
             </SelectField>
           </div>
           {pMethod !== 'custom'
-            ? <Input label={t('dues.pool')} type="number" step="0.01" min="0" value={pPool} onChange={(e) => setPPool(e.target.value)} />
+            ? (
+              <div className="space-y-3">
+                <div>
+                  <Input label={t('dues.pool')} type="number" step="0.01" min="0" value={pPool} onChange={(e) => setPPool(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">{t('dues.poolPartyHint')}</p>
+                </div>
+                <div>
+                  <Input label={t('dues.ownerPool')} type="number" step="0.01" min="0" value={pOwnerPool} onChange={(e) => setPOwnerPool(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">{t('dues.ownerPoolHint')}</p>
+                </div>
+              </div>
+            )
             : (
               <div>
-                <label className="text-sm font-medium text-slate-600">{t('dues.customAmounts')}</label>
-                <div className="mt-1.5 max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+                <label className="text-sm font-medium text-foreground">{t('dues.customAmounts')}</label>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('dues.customPartyHint')}</p>
+                <div className="mt-1.5 max-h-56 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
+                  <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground uppercase tracking-wide">
+                    <span>{t('dues.unit')}</span>
+                    <span className="flex gap-2">
+                      <span className="w-28 text-end">{t('dues.tenantColumn')}</span>
+                      <span className="w-28 text-end">{t('dues.ownerColumn')}</span>
+                    </span>
+                  </div>
                   {units.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                      <span className="text-slate-700">{unitLabel(u.id)}</span>
-                      <input type="number" step="0.01" min="0" value={pCustom[u.id] ?? ''} placeholder="0.00" onChange={(e) => setPCustom({ ...pCustom, [u.id]: e.target.value })} className="w-28 text-end rounded-lg border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+                    <div key={u.id} className="flex items-center justify-between px-3 py-1.5 text-sm gap-2">
+                      <span className="text-foreground truncate">{unitLabel(u.id)}</span>
+                      <span className="flex gap-2 shrink-0">
+                        <input type="number" step="0.01" min="0" value={pCustom[u.id] ?? ''} placeholder="0.00"
+                          onChange={(e) => setPCustom({ ...pCustom, [u.id]: e.target.value })}
+                          className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                        <input type="number" step="0.01" min="0" value={pOwnerCustom[u.id] ?? ''} placeholder="0.00"
+                          onChange={(e) => setPOwnerCustom({ ...pOwnerCustom, [u.id]: e.target.value })}
+                          className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -318,25 +530,108 @@ export default function Dues() {
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
           </div>
           <p className="text-xs text-muted-foreground">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
-          <div className="rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-3 py-2 bg-slate-50 text-xs font-medium text-slate-500">{t('dues.amountDue')}: {preview.length} units</div>
-            <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
-              {preview.map((r) => (
-                <div key={r.unit.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                  <span className="text-slate-700">{unitLabel(r.unit.id)}</span>
-                  {isB2
-                    ? <span className="font-semibold text-slate-900 tnum">{money(r.amount_due)}</span>
-                    : <span className="text-slate-500 text-xs">{money(r.base)} {r.carry !== 0 && <>{r.carry < 0 ? 'âˆ’' : '+'} {money(Math.abs(r.carry))}</>} = <span className="font-semibold text-slate-900">{money(r.amount_due)}</span></span>}
-                </div>
-              ))}
-            </div>
-          </div>
+          <GenPreview rows={preview} isB2={isB2} unitLabel={unitLabel} th={th} labels={labels} t={t} />
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setGenOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={generate} loading={saving} disabled={!genPeriod.trim()}>{t('dues.generate')}</Button>
           </div>
         </div>
       </Modal>
+
+      {/* Off-budget assessment modal (C13) — owner-only, allocated across units */}
+      <Modal open={obOpen} onClose={() => setObOpen(false)} title={t('dues.offBudgetTitle')} size="lg">
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">{t('dues.offBudgetNote')}</p>
+          <Input label={t('dues.offBudgetLabel')} value={obLabel} onChange={(e) => setObLabel(e.target.value)} placeholder={t('dues.offBudgetPlaceholder')} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('dues.period')} value={obPeriod} onChange={(e) => setObPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
+            <Input label={t('dues.dueDate')} type="date" value={obDue} onChange={(e) => setObDue(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label={t('dues.method')} value={obMethod} onValueChange={(v) => setObMethod(v as DuesMethod)}>
+              {METHODS.map((m) => <SelectItem key={m} value={m}>{t(`dues.methods.${m}`)}</SelectItem>)}
+            </SelectField>
+            {obMethod !== 'custom' && (
+              <Input label={t('dues.offBudgetTotal')} type="number" step="0.01" min="0" value={obTotal} onChange={(e) => setObTotal(e.target.value)} />
+            )}
+          </div>
+          {obMethod === 'custom' && (
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('dues.customAmounts')}</label>
+              <div className="mt-1.5 max-h-48 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
+                {units.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
+                    <span className="text-foreground truncate">{unitLabel(u.id)}</span>
+                    <input type="number" step="0.01" min="0" value={obCustom[u.id] ?? ''} placeholder="0.00"
+                      onChange={(e) => setObCustom({ ...obCustom, [u.id]: e.target.value })}
+                      className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <GenPreview rows={obPreview} isB2={isB2} unitLabel={unitLabel} th={th} labels={labels} t={t} />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setObOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={generateOffBudget} loading={saving} disabled={!obLabel.trim() || !obPeriod.trim()}>{t('dues.generate')}</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/** Generation preview — grouped by unit with the same owner / tenant sub-rows
+ *  the Dues table shows, so the manager sees exactly what will be written. */
+function GenPreview({ rows, isB2, unitLabel, th, labels, t }: {
+  rows: DuesGenRow[]; isB2: boolean; unitLabel: (id: string) => string;
+  th: ReturnType<typeof tenancyHelpers>; labels: { owner: string; tenant: string; formerTenant: string };
+  t: (k: string, o?: Record<string, unknown>) => string;
+}) {
+  const byUnit = useMemo(() => {
+    const m = new Map<string, { unitId: string; total: number; lines: DuesGenRow[] }>();
+    for (const r of rows) {
+      let g = m.get(r.unit.id);
+      if (!g) { g = { unitId: r.unit.id, total: 0, lines: [] }; m.set(r.unit.id, g); }
+      g.lines.push(r);
+      g.total = Math.round((g.total + r.due) * 100) / 100;
+    }
+    return Array.from(m.values());
+  }, [rows]);
+
+  const lineTitle = (r: DuesGenRow) => {
+    if (r.party === 'owner') {
+      return r.kind === 'off_budget' ? `${labels.owner} · ${r.label ?? t('dues.offBudget')}` : labels.owner;
+    }
+    const name = r.tenantId ? th.nameById(r.tenantId) : null;
+    return `${labels.tenant}${name ? ` · ${name}` : ''}`;
+  };
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <div className="px-3 py-2 bg-secondary/50 text-xs font-medium text-muted-foreground">
+        {t('dues.amountDue')}: {t('dues.unitsCount', { count: byUnit.length })}
+      </div>
+      <div className="max-h-56 overflow-y-auto divide-y divide-border/60">
+        {byUnit.map((g) => (
+          <div key={g.unitId} className="px-3 py-1.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-foreground font-medium">{unitLabel(g.unitId)}</span>
+              <span className="font-semibold text-foreground tnum">{money(g.total)}</span>
+            </div>
+            {g.lines.map((r, i) => (
+              <div key={i} className="flex items-center justify-between ps-4 text-xs text-muted-foreground">
+                <span>{lineTitle(r)}</span>
+                <span className="tnum">
+                  {isB2
+                    ? money(r.due)
+                    : <>{money(r.base)}{r.carry !== 0 && <> {r.carry < 0 ? '−' : '+'} {money(Math.abs(r.carry))}</>} = <span className="font-semibold text-foreground">{money(r.due)}</span></>}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -286,6 +286,8 @@ export interface Payment {
 export type DuesCadence = 'monthly' | 'quarterly' | 'semiannual' | 'annual';
 export type DuesMethod = 'by_shares' | 'equal' | 'custom';
 export type DuesPlanType = 'b1' | 'b2';
+/** What a dues row is: the plan's recurring pool, or a one-time assessment (0070). */
+export type DuesKind = 'recurring' | 'off_budget';
 
 export interface DuesPlan {
   id: string;
@@ -293,7 +295,10 @@ export interface DuesPlan {
   compound_id: string | null;
   cadence: DuesCadence;
   method: DuesMethod;
+  /** Recurring budget. Billed to the TENANT on leased units, owner otherwise (0070). */
   pool_amount: number | null;
+  /** Owner-only slice per period, same allocation method. 0 = none (0070). */
+  owner_pool_amount: number | null;
   plan_type: DuesPlanType;
   active: boolean;
   created_at: string;
@@ -309,6 +314,15 @@ export interface Dues {
   base_amount: number;
   carry_in: number;
   amount_due: number;
+  /** Which sub-ledger this obligation falls on (0070). Legacy rows = 'owner'.
+   *  Tenure, not BilledTo — dues have no legacy 'both'. */
+  billed_to: Tenure;
+  /** The specific tenant billed; NULL on owner rows. Never rewritten on move-out
+   *  — it records who was tenant when the due was issued (0070). */
+  tenant_id: string | null;
+  kind: DuesKind;
+  /** Name of an off_budget assessment, e.g. "Roof waterproofing 2026" (0070). */
+  label: string | null;
   created_by: string | null;
   created_at: string;
 }

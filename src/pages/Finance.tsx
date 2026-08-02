@@ -131,6 +131,9 @@ export default function Finance() {
   const [units, setUnits] = useState<Unit[]>([]);
   // tenancy with names + date ranges → resolve who the tenant was on any date
   const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
+  /** Dues for the loaded units — listed on exported statements under the party
+   *  they fall on (0070). Obligations, never part of the balance. */
+  const [dues, setDues] = useState<Dues[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
   const [whishByBuilding, setWhishByBuilding] = useState<Record<string, string>>({});
@@ -203,7 +206,11 @@ export default function Finance() {
       ]);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
-    } else { setUnitGroups([]); setTenancy([]); }
+      // dues ride along so an exported statement lists the party's obligations
+      // next to its ledger (0070)
+      const { data: dus } = await supabase.from('dues').select('*').in('unit_id', ids);
+      setDues((dus as Dues[]) ?? []);
+    } else { setUnitGroups([]); setTenancy([]); setDues([]); }
     setLoading(false);
   }
 
@@ -219,8 +226,12 @@ export default function Finance() {
     setCharges(chargeRows);
     setPayments(paymentRows);
     setAdjustments(adjRows);
-    const { data: mem } = await supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', myUnitIds);
+    const [{ data: mem }, { data: dus }] = await Promise.all([
+      supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', myUnitIds),
+      supabase.from('dues').select('*').in('unit_id', myUnitIds),
+    ]);
     setTenancy((mem as unknown as TenancyRow[]) ?? []);
+    setDues((dus as Dues[]) ?? []);
     setLoading(false);
   }
 
@@ -259,7 +270,8 @@ export default function Finance() {
   // Logic lives in lib/reportData (shared with the Reports tab, #62).
   const buildUnitBuckets = (u: Unit, cAll: Charge[], pAll: Payment[], aAll: Adjustment[], only?: Set<string>) =>
     buildUnitBucketsShared(u, cAll, pAll, aAll, th,
-      { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') }, only);
+      { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') }, only,
+      dues.filter((d) => d.unit_id === u.id));
 
   // Owner's resident finance defaults to the Combined view (residentView's
   // initial state); they can switch to Owner / a specific tenant via the toggle.
@@ -603,7 +615,14 @@ export default function Finance() {
             </div>
           </CardBody></Card>
         ))}
-        <ResidentDuesCard unitIds={myUnitIds} />
+        <ResidentDuesCard
+          unitIds={myUnitIds}
+          viewFor={(unitId) => {
+            const viewerIsTenant = myTenantUnitIds.includes(unitId) && !myOwnerUnitIds.includes(unitId);
+            return viewerIsTenant ? (profile?.id ?? 'owner') : residentView;
+          }}
+          nameById={(id) => tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null}
+        />
         <StatementList
           charges={rBook.flatMap(r => r.unitCharges)}
           payments={rBook.flatMap(r => r.unitPayments)}
@@ -1167,26 +1186,61 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
     </div></CardBody></Card>
   );
 }
-function ResidentDuesCard({ unitIds }: { unitIds: string[] }) {
+/** Resident dues, filtered by the same lens as the statement (0070).
+ *  Before the party split this listed every dues row on the unit, so a tenant
+ *  saw the owner's dues and vice versa. Now a tenant sees only their own rows,
+ *  an owner sees whichever bucket the toggle is on, and Combined tags each row
+ *  with the party it falls on. */
+function ResidentDuesCard({ unitIds, viewFor, nameById }: {
+  unitIds: string[];
+  viewFor: (unitId: string) => string;
+  nameById: (id: string) => string | null;
+}) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Dues[]>([]);
   const key = unitIds.join(',');
   useEffect(() => {
     if (!unitIds.length) return;
-    supabase.from('dues').select('*').in('unit_id', unitIds).order('due_date', { ascending: false }).limit(8)
+    supabase.from('dues').select('*').in('unit_id', unitIds).order('due_date', { ascending: false }).limit(24)
       .then(({ data }) => setRows((data as Dues[]) ?? []));
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!rows.length) return null;
+
+  const visible = rows.filter((d) => {
+    const view = viewFor(d.unit_id);
+    if (view === 'combined') return true;
+    if (view === 'owner') return d.billed_to !== 'tenant';
+    return d.billed_to === 'tenant' && d.tenant_id === view;
+  }).slice(0, 8);
+
+  if (!visible.length) return null;
+
+  /** In Combined, say whose obligation each row is. */
+  const partyTag = (d: Dues) => {
+    if (viewFor(d.unit_id) !== 'combined') return null;
+    if (d.billed_to !== 'tenant') return t('finance.owner');
+    const name = d.tenant_id ? nameById(d.tenant_id) : null;
+    return name ? `${t('finance.tenant')} · ${name}` : t('finance.tenant');
+  };
+
   return (
     <Card className="mb-4"><CardBody>
       <p className="text-sm font-semibold text-primary mb-3">{t('dues.residentTitle')}</p>
       <div className="space-y-2">
-        {rows.map((d) => (
-          <div key={d.id} className="flex items-center justify-between text-sm">
-            <span className="text-slate-600">{d.period_label}{d.due_date ? ` · ${format(new Date(d.due_date), 'MMM d, yyyy')}` : ''}</span>
-            <span className="font-semibold text-slate-900 tnum">{money(Number(d.amount_due))}</span>
-          </div>
-        ))}
+        {visible.map((d) => {
+          const tag = partyTag(d);
+          return (
+            <div key={d.id} className="flex items-center justify-between text-sm gap-3">
+              <span className="text-muted-foreground min-w-0">
+                {d.period_label}{d.due_date ? ` · ${format(new Date(d.due_date), 'MMM d, yyyy')}` : ''}
+                {d.kind === 'off_budget' && (
+                  <span className="ms-1.5 text-xs text-muted-foreground/70">· {d.label || t('dues.offBudget')}</span>
+                )}
+                {tag && <span className="ms-1.5 text-xs text-muted-foreground/70">· {tag}</span>}
+              </span>
+              <span className="font-semibold text-foreground tnum shrink-0">{money(Number(d.amount_due))}</span>
+            </div>
+          );
+        })}
       </div>
     </CardBody></Card>
   );

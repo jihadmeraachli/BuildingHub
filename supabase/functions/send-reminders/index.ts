@@ -192,14 +192,17 @@ Deno.serve(async (req) => {
       else sentInApp++;
     }
 
-    /** One unit's reminder across all channels — the reminders_sent insert is
-     *  FIRST and unique per (unit, month), so a double-run can never double-send. */
+    /** One reminder across all channels — the reminders_sent insert is FIRST and
+     *  unique per (unit, month, PARTY), so a double-run can never double-send.
+     *  The party is part of the key since 0070: a leased unit can owe on both
+     *  sub-ledgers in the same month, and before the widening the tenant's
+     *  reminder was silently swallowed as a duplicate of the owner's. */
     async function remindUnit(
       unitId: string, buildingId: string, unitLabel: string, buildingName: string,
-      owed: number, ownerIds: string[],
+      owed: number, ownerIds: string[], party: 'owner' | 'tenant' = 'owner',
     ) {
       const { error } = await admin.from('reminders_sent').insert({
-        unit_id: unitId, building_id: buildingId, period: beirutPeriod(), amount_usd: owed,
+        unit_id: unitId, building_id: buildingId, period: beirutPeriod(), amount_usd: owed, party,
       });
       if (error) {
         if (error.code === '23505') { skippedDup++; return; }
@@ -249,17 +252,20 @@ Deno.serve(async (req) => {
         Number(row.balance_usd), row.owner_user_ids ?? []);
     }
 
-    // ── 2. Dues buildings: latest overdue dues, minus payments since ─────────
+    // ── 2. Dues buildings: latest overdue dues per PARTY, minus that party's
+    //      payments since (0070). One row per (unit, party): a leased unit can
+    //      owe on both sub-ledgers, and each side is reminded separately.
     type OverdueDue = {
       unit_id: string; unit_label: string; building_id: string;
       building_name: string; period_label: string; due_date: string;
       amount_due: number; owner_user_ids: string[];
+      party?: 'owner' | 'tenant'; tenant_id?: string | null; tenant_name?: string | null;
     };
     const { data: overdueDues, error: odErr } = await admin.rpc('get_overdue_dues');
     if (odErr) errors.push(`get_overdue_dues: ${odErr.message}`);
     for (const row of (overdueDues as OverdueDue[] ?? [])) {
       await remindUnit(row.unit_id, row.building_id, row.unit_label, row.building_name,
-        Number(row.amount_due), row.owner_user_ids ?? []);
+        Number(row.amount_due), row.owner_user_ids ?? [], row.party ?? 'owner');
     }
 
     // ── 3. Inspection reminders → admins (email only, Mondays to avoid spam) ─

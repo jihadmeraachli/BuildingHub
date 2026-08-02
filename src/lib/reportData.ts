@@ -5,7 +5,7 @@
 // If the ledger model evolves (owner/tenant buckets, offloads), change it HERE
 // and both pages follow.
 // ============================================================
-import type { Unit, Charge, Payment, Adjustment } from '@/types';
+import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure } from '@/types';
 import { computeUnitBalances, adjustmentEffect } from '@/lib/balance';
 import type { StatementBucket } from '@/lib/pdf';
 
@@ -16,6 +16,8 @@ export type TenancyRow = {
 
 /** Localized labels the builders need (callers pass t() results). */
 export interface ReportLabels { owner: string; tenant: string; formerTenant: string; }
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Tenant lookups derived from the memberships history (incl. ended rows). */
 export function tenancyHelpers(
@@ -106,6 +108,9 @@ export function buildBook(
 export function buildUnitBuckets(
   u: Unit, cAll: Charge[], pAll: Payment[], aAll: Adjustment[],
   th: TenancyHelpers, labels: ReportLabels, only?: Set<string>,
+  /** Dues for this unit, split onto the party buckets they fall on (0070).
+   *  Obligations only — never folded into a bucket's balance. */
+  duesAll: Dues[] = [],
 ): { buckets: StatementBucket[]; combined: number } {
   const bal = computeUnitBalances(u, cAll, pAll, aAll);
   const sumAmt = (rows: { amount_usd: number }[]) => rows.reduce((s, r) => s + Number(r.amount_usd), 0);
@@ -118,25 +123,266 @@ export function buildUnitBuckets(
     const op = pAll.filter((p) => p.paid_by !== 'tenant');
     const oa = aAll.filter((a) => a.party !== 'tenant');
     const opening = Number(u.opening_balance) || 0;
-    if (oc.length || op.length || oa.length || opening !== 0 || bal.owner !== 0)
-      buckets.push({ key: 'owner', title: labels.owner, balance: bal.owner, openingBalance: opening, charges: oc, payments: op, adjustments: oa });
+    const od = duesAll.filter((d) => d.billed_to !== 'tenant');
+    if (oc.length || op.length || oa.length || od.length || opening !== 0 || bal.owner !== 0)
+      buckets.push({ key: 'owner', title: labels.owner, balance: bal.owner, openingBalance: opening, charges: oc, payments: op, adjustments: oa, dues: od });
   }
   const activeTid = th.activeTenantId(u.id);
   const tids = Array.from(new Set([
     ...cAll.filter((c) => c.billed_to === 'tenant').map((c) => c.tenant_id ?? '∅'),
     ...pAll.filter((p) => p.paid_by === 'tenant').map((p) => p.tenant_id ?? '∅'),
     ...aAll.filter((a) => a.party === 'tenant').map((a) => a.tenant_id ?? '∅'),
+    ...duesAll.filter((d) => d.billed_to === 'tenant').map((d) => d.tenant_id ?? '∅'),
   ])).sort((a, b) => (a === activeTid ? -1 : b === activeTid ? 1 : 0));
   for (const tid of tids) {
     if (!wants(tid)) continue;
     const c = cAll.filter((x) => x.billed_to === 'tenant' && (x.tenant_id ?? '∅') === tid);
     const p = pAll.filter((x) => x.paid_by === 'tenant' && (x.tenant_id ?? '∅') === tid);
     const a = aAll.filter((x) => x.party === 'tenant' && (x.tenant_id ?? '∅') === tid);
-    if (!c.length && !p.length && !a.length) continue;
+    const d = duesAll.filter((x) => x.billed_to === 'tenant' && (x.tenant_id ?? '∅') === tid);
+    if (!c.length && !p.length && !a.length && !d.length) continue;
     const isActive = tid !== '∅' && tid === activeTid;
     const name = tid === '∅' ? labels.tenant : (th.nameById(tid) ?? labels.tenant);
     buckets.push({ key: `tenant:${tid}`, title: `${isActive ? labels.tenant : labels.formerTenant} · ${name}`,
-      balance: round2n(sumAmt(p) - sumAmt(c) + adjEff(a)), charges: c, payments: p, adjustments: a });
+      balance: round2n(sumAmt(p) - sumAmt(c) + adjEff(a)), charges: c, payments: p, adjustments: a, dues: d });
   }
   return { buckets, combined: round2n(buckets.reduce((s, b) => s + b.balance, 0)) };
+}
+
+// ============================================================
+// DUES — party-aware (0070, #61)
+//
+// A dues row used to be unit-level: one obligation trued up against the unit's
+// TOTAL balance. On a leased unit that nets the tenant's carry-in against the
+// owner's dues, which is wrong once the sub-ledger exists (0064-0067). Dues now
+// carry `billed_to` + `tenant_id` and are computed per party.
+//
+// Two rules make the numbers hold together:
+//   1. CARRY IS PARTY-SCOPED. Owner carry = −bal.owner, tenant carry =
+//      −bal.tenant. A unit's pre-existing balance sits on the owner side
+//      (opening_balance is owner by definition), so it never lands on a tenant.
+//   2. CARRY IS CONSUMED ONCE per unit + period + party. Dues never touch the
+//      balance ledger, so generating twice into the same period would apply the
+//      same carry twice. When a party already has a row in the period, the next
+//      one gets carry 0 — which is what makes "the carry applies to the sum of
+//      the recurring and the off-budget amounts" true even when they are
+//      generated in separate runs.
+//
+// Move-out needs no dues offload: end_membership() (0065) credits the owner
+// sub-ledger, so the departed tenant's balance lands in the OWNER's carry-in
+// next period on its own. Historical dues rows keep their original tenant_id,
+// which is what the former-tenant view reads.
+// ============================================================
+
+/** One party's slice of a unit's dues for a period. */
+export interface DuesPartyGroup {
+  key: string;                 // 'owner' | `tenant:${id}`
+  party: Tenure;
+  tenantId: string | null;
+  title: string;               // 'Owner' | 'Tenant · Nadia' | 'Former tenant · Rami'
+  isFormer: boolean;
+  base: number; carry: number; due: number;
+  lines: Dues[];               // recurring first, then off-budget assessments
+}
+
+/** A unit's dues for one period: the total, plus its party sub-rows. */
+export interface DuesUnitGroup {
+  key: string;
+  unitId: string;
+  unit: Unit | null;
+  periodLabel: string;
+  dueDate: string | null;
+  base: number; carry: number; due: number;
+  parties: DuesPartyGroup[];
+  /** Show sub-rows? True once a tenant is involved on either side. */
+  split: boolean;
+}
+
+const partyKey = (d: Pick<Dues, 'billed_to' | 'tenant_id'>) =>
+  d.billed_to === 'tenant' ? `tenant:${d.tenant_id ?? '∅'}` : 'owner';
+
+/**
+ * Group dues rows into unit + period totals with owner / tenant sub-rows.
+ * Drives the Dues tab, the resident card and the statements from one shape, so
+ * the screen and the PDF can never disagree.
+ */
+export function buildDuesRows(
+  items: Dues[], units: Unit[], th: TenancyHelpers, labels: ReportLabels,
+): DuesUnitGroup[] {
+  const unitById = new Map(units.map((u) => [u.id, u]));
+  const groups = new Map<string, DuesUnitGroup>();
+
+  for (const d of items) {
+    const gKey = `${d.unit_id}|${d.period_label}`;
+    let g = groups.get(gKey);
+    if (!g) {
+      g = { key: gKey, unitId: d.unit_id, unit: unitById.get(d.unit_id) ?? null,
+            periodLabel: d.period_label, dueDate: d.due_date,
+            base: 0, carry: 0, due: 0, parties: [], split: false };
+      groups.set(gKey, g);
+    }
+    // The period's due date is the earliest set on any of its rows.
+    if (d.due_date && (!g.dueDate || d.due_date < g.dueDate)) g.dueDate = d.due_date;
+
+    const pKey = partyKey(d);
+    let p = g.parties.find((x) => x.key === pKey);
+    if (!p) {
+      const tenantId = d.billed_to === 'tenant' ? d.tenant_id : null;
+      const isFormer = d.billed_to === 'tenant' && tenantId !== th.activeTenantId(d.unit_id);
+      const name = tenantId ? th.nameById(tenantId) : null;
+      const title = d.billed_to === 'tenant'
+        ? `${isFormer ? labels.formerTenant : labels.tenant}${name ? ` · ${name}` : ''}`
+        : labels.owner;
+      p = { key: pKey, party: d.billed_to, tenantId, title, isFormer,
+            base: 0, carry: 0, due: 0, lines: [] };
+      g.parties.push(p);
+    }
+    p.lines.push(d);
+    p.base  = round2(p.base  + Number(d.base_amount));
+    p.carry = round2(p.carry + Number(d.carry_in));
+    p.due   = round2(p.due   + Number(d.amount_due));
+  }
+
+  for (const g of groups.values()) {
+    // Owner first, then the current tenant, then former tenants.
+    g.parties.sort((a, b) =>
+      a.party !== b.party ? (a.party === 'owner' ? -1 : 1)
+        : Number(a.isFormer) - Number(b.isFormer));
+    for (const p of g.parties) {
+      p.lines.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'recurring' ? -1 : 1));
+      g.base  = round2(g.base  + p.base);
+      g.carry = round2(g.carry + p.carry);
+      g.due   = round2(g.due   + p.due);
+    }
+    g.split = g.parties.some((p) => p.party === 'tenant') || g.parties.length > 1;
+  }
+
+  return Array.from(groups.values()).sort((a, b) => {
+    const d = (b.dueDate ?? '').localeCompare(a.dueDate ?? '');
+    if (d) return d;
+    const pl = b.periodLabel.localeCompare(a.periodLabel);
+    return pl || (a.unit?.label ?? '').localeCompare(b.unit?.label ?? '', undefined, { numeric: true });
+  });
+}
+
+// ---------- generation ----------
+
+/** Per-unit allocation of a pool, by the plan's method. */
+function allocate(
+  method: DuesMethod, pool: number, custom: Record<string, number>, u: Unit, units: Unit[],
+): number {
+  if (method === 'custom') return round2(Number(custom[u.id]) || 0);
+  if (method === 'equal') return round2(pool / (units.length || 1));
+  const total = units.reduce((s, x) => s + Number(x.share_weight), 0) || 1;
+  return round2((pool * Number(u.share_weight)) / total);
+}
+
+export interface DuesGenPlan {
+  method: DuesMethod;
+  planType: DuesPlan['plan_type'];
+  /** Recurring budget: tenant where the unit is leased, owner otherwise. */
+  poolAmount: number;
+  /** Owner-only slice, same allocation method. */
+  ownerPoolAmount: number;
+  custom: Record<string, number>;
+  ownerCustom: Record<string, number>;
+}
+
+/** A one-time assessment allocated across units, always billed to owners. */
+export interface OffBudgetSpec {
+  label: string;
+  method: DuesMethod;
+  total: number;
+  custom: Record<string, number>;
+}
+
+export interface DuesGenRow {
+  unit: Unit;
+  party: Tenure;
+  tenantId: string | null;
+  kind: Dues['kind'];
+  label: string | null;
+  base: number;
+  carry: number;
+  due: number;
+}
+
+export interface DuesGenInput {
+  units: Unit[];
+  plan: DuesGenPlan;
+  /** Party balances per unit id, from computeUnitBalances. */
+  balances: Record<string, { owner: number; tenant: number; total: number }>;
+  /** The unit's ACTIVE tenant, or null. Only a tenant who is currently there
+   *  can be billed the recurring budget. */
+  activeTenantId: (unitId: string) => string | null;
+  /** Does this unit+period already have a row for this party? If so the carry
+   *  was already consumed and must not be applied twice. */
+  carryConsumed: (unitId: string, party: Tenure) => boolean;
+  /** Generate the plan's recurring amounts (false = assessment-only run). */
+  includeRecurring: boolean;
+  offBudget?: OffBudgetSpec | null;
+}
+
+/**
+ * Work out what a generation run would write. Pure, so the preview in the
+ * generate modal and the rows actually inserted come from the same call.
+ */
+export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
+  const { units, plan, balances, activeTenantId, carryConsumed, includeRecurring, offBudget } = input;
+  const isB2 = plan.planType === 'b2';
+  const rows: DuesGenRow[] = [];
+
+  for (const u of units) {
+    const bal = balances[u.id] ?? { owner: 0, tenant: 0, total: 0 };
+    const tenantId = activeTenantId(u.id);
+    const leased = !!tenantId;
+
+    const recurring  = includeRecurring ? allocate(plan.method, plan.poolAmount, plan.custom, u, units) : 0;
+    const ownerSlice = includeRecurring ? allocate(plan.method, plan.ownerPoolAmount, plan.ownerCustom, u, units) : 0;
+    const offBase    = offBudget ? allocate(offBudget.method, offBudget.total, offBudget.custom, u, units) : 0;
+
+    // --- tenant side: the recurring budget, only when the unit is leased ---
+    if (leased && includeRecurring) {
+      const consumed = carryConsumed(u.id, 'tenant');
+      const carry = isB2 || consumed ? 0 : round2(-bal.tenant);
+      const due   = isB2 ? recurring : Math.max(0, round2(recurring + carry));
+      if (due > 0 || recurring > 0) {
+        rows.push({ unit: u, party: 'tenant', tenantId, kind: 'recurring', label: null,
+                    base: recurring, carry, due });
+      }
+    }
+
+    // --- owner side: the owner slice, plus the recurring budget when NOT leased ---
+    // The owner can have two lines in one run (recurring + assessment) but only
+    // ONE carry-in. It is applied to the recurring line first, and whatever the
+    // recurring line cannot absorb spills onto the assessment, so the lines
+    // always sum to max(0, totalOwnerBase + carry) — "the carry applies to the
+    // sum". The carry is reported on whichever line actually absorbed it, so a
+    // reduced amount is never left looking unexplained.
+    const ownerRecurringBase = includeRecurring ? round2(ownerSlice + (leased ? 0 : recurring)) : 0;
+    const ownerConsumed = carryConsumed(u.id, 'owner');
+    const ownerCarry = isB2 || ownerConsumed ? 0 : round2(-bal.owner);
+
+    let carryLeft = ownerCarry;
+
+    if (includeRecurring) {
+      const due = isB2 ? ownerRecurringBase : Math.max(0, round2(ownerRecurringBase + ownerCarry));
+      if (due > 0 || ownerRecurringBase > 0) {
+        rows.push({ unit: u, party: 'owner', tenantId: null, kind: 'recurring', label: null,
+                    base: ownerRecurringBase, carry: ownerCarry, due });
+        // whatever the recurring line absorbed no longer applies downstream
+        carryLeft = isB2 ? 0 : round2(ownerRecurringBase + ownerCarry - due);
+      }
+    }
+
+    if (offBudget) {
+      const offDue = isB2 ? offBase : Math.max(0, round2(offBase + carryLeft));
+      if (offDue > 0 || offBase > 0) {
+        rows.push({ unit: u, party: 'owner', tenantId: null, kind: 'off_budget',
+                    label: offBudget.label, base: offBase, carry: carryLeft, due: offDue });
+      }
+    }
+  }
+
+  return rows;
 }

@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, pdf as pdfRenderer } from '@react-pdf/renderer';
-import type { Charge, Payment, Expense, Unit, Adjustment } from '@/types';
+import type { Charge, Payment, Expense, Unit, Adjustment, Dues } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 
 const C = {
@@ -67,6 +67,10 @@ export interface StatementBucket {
   charges: Pick<Charge, 'id' | 'description' | 'category' | 'amount_usd' | 'charge_date'>[];
   payments: Pick<Payment, 'id' | 'note' | 'method' | 'amount_usd' | 'paid_on'>[];
   adjustments: Pick<Adjustment, 'id' | 'kind' | 'amount_usd' | 'effective_date' | 'note' | 'counterparty_name'>[];
+  /** Dues that fall on THIS bucket's party (0070). Obligations, not ledger
+   *  movements — they are listed for reference and never folded into the
+   *  bucket's balance, which comes from charges/payments/adjustments alone. */
+  dues?: Pick<Dues, 'id' | 'period_label' | 'due_date' | 'amount_due' | 'kind' | 'label'>[];
 }
 
 export interface UnitStatementProps {
@@ -161,7 +165,26 @@ function BucketBlock({ b }: { b: StatementBucket }) {
         </>
       )}
 
-      {b.charges.length === 0 && b.payments.length === 0 && b.adjustments.length === 0 && (
+      {!!b.dues?.length && (
+        <>
+          <View style={[s.tableHead, { marginTop: (b.charges.length > 0 || b.payments.length > 0 || b.adjustments.length > 0) ? 6 : 0 }]}>
+            <Text style={[s.tableHeadCell, { flex: 1 }]}>Due date</Text>
+            <Text style={[s.tableHeadCell, { flex: 4.3 }]}>Dues</Text>
+            <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount due</Text>
+          </View>
+          {b.dues.map((d) => (
+            <View key={d.id} style={s.tableRow}>
+              <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{d.due_date ? fmtDate(d.due_date) : '—'}</Text>
+              <Text style={[s.tableCell, { flex: 4.3 }]}>
+                {d.period_label}{d.kind === 'off_budget' ? ` · ${d.label ?? 'Off-budget'}` : ''}
+              </Text>
+              <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate7 }]}>{money(Number(d.amount_due))}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {b.charges.length === 0 && b.payments.length === 0 && b.adjustments.length === 0 && !b.dues?.length && (
         <Text style={s.empty}>No transactions in this period.</Text>
       )}
     </View>
