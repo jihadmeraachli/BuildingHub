@@ -242,6 +242,17 @@
     "lockedTitle": "Abniyah is locked",
     "unlock": "Unlock"
   },
+  "feedback": {
+    "button": "Send feedback",
+    "title": "Send feedback",
+    "categories": { "bug": "Bug", "idea": "Idea", "question": "Question" },
+    "placeholder": "What happened? What did you expect? The more detail, the faster the fix.",
+    "addScreenshot": "Attach a screenshot",
+    "send": "Send",
+    "sent": "Thank you! Your feedback went straight to the team's board.",
+    "failed": "Could not send feedback. Please try again.",
+    "tooShort": "Tell us a little more so we can act on it."
+  },
   "demo": {
     "banner": "You're exploring a live demo building with sample data.",
     "cta": "Start your free trial",

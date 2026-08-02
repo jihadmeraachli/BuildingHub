@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { isDemoEmail, DEMO_ACCOUNTS } from '@/lib/demo';
+import { FeedbackWidget } from '@/components/FeedbackWidget';
 
 interface SidebarProps {
   open: boolean;
@@ -227,6 +228,8 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         </NavLink>
 
         <Separator className="my-1 bg-sidebar-border" />
+
+        {!isDemo && <FeedbackWidget onOpenNavClose={onClose} />}
 
         <button
           onClick={async () => {
