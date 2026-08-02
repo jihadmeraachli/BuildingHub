@@ -239,20 +239,24 @@ export default function Dashboard() {
     const balance = effective === 'owner' ? rSplit.ownerBal : effective === 'tenant' ? rSplit.tenantBal : combinedBalance;
     const shownCharged = effective === 'owner' ? rSplit.ownerCharged : effective === 'tenant' ? rSplit.tenantCharged : resident.charged;
     const shownPaid = effective === 'owner' ? rSplit.ownerPaid : effective === 'tenant' ? rSplit.tenantPaid : resident.paid;
+    // Mirrors the MANAGER dashboard's structure (full-width hero, card grid)
+    // so switching the Managing / My home lens changes the data, not the app.
     return (
-      <div className="space-y-6 max-w-2xl mx-auto">
+      <div className="space-y-6">
         <PendingInvites />
-        <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
-        {rSplit.canSplit && (
-          <div className="inline-flex rounded-lg border border-border p-0.5 text-sm">
-            {(['combined', 'owner', 'tenant'] as const).map((m) => (
-              <button key={m} onClick={() => setResidentView(m)}
-                className={cn('px-3 py-1.5 rounded-md transition', residentView === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                {t(`finance.view.${m}`)}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
+          {rSplit.canSplit && (
+            <div className="inline-flex rounded-lg border border-border p-0.5 text-sm">
+              {(['combined', 'owner', 'tenant'] as const).map((m) => (
+                <button key={m} onClick={() => setResidentView(m)}
+                  className={cn('px-3 py-1.5 rounded-md transition', residentView === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                  {t(`finance.view.${m}`)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <HeroCard
           label={balance < 0 ? t('dashboard.youOwe') : t('dashboard.creditBalance')}
           amount={money(Math.abs(balance))}
@@ -266,7 +270,7 @@ export default function Dashboard() {
         {myUnits.length > 1 && (
           <div>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">{t('dashboard.myUnits')}</h2>
-            <div className="space-y-2">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {myUnits.map((u) => (
                 <Card key={u.id} className="gap-0 py-0">
                   <CardContent className="p-4">
@@ -288,10 +292,12 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        <Link to="/finance">
-          <QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} />
-        </Link>
-        <MeetingsCard meetings={upcoming} />
+        <div className="grid lg:grid-cols-2 gap-4 items-start">
+          <Link to="/finance" className="block">
+            <QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} />
+          </Link>
+          <MeetingsCard meetings={upcoming} />
+        </div>
       </div>
     );
   }
