@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { MonthPicker } from '@/components/ui/MonthPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
-import { MiniBar } from '@/components/ui/Charts';
+import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 const CATEGORIES: ExpenseCategory[] = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
@@ -321,7 +321,31 @@ export default function Finance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vUnits, vCharges, vPayments, adjustments, period, monthValue]);
 
-  // (charts moved: trends live on Dashboard, downloadable reports on Reports — #62)
+  // category breakdown (charges → block-sliceable)
+  const breakdown = CATEGORIES.map((cat) => ({
+    label: t(`finance.cats.${cat}`),
+    value: round2(pCharges.filter((c) => c.category === cat).reduce((s, c) => s + Number(c.amount_usd), 0)),
+  })).filter((d) => d.value > 0);
+
+  // trend: collected (payments) vs billed (charges), granularity by period
+  const trend = useMemo(() => {
+    if (period === 'month') {
+      const [y, m] = monthValue.split('-').map(Number);
+      const days = new Date(y, m, 0).getDate();
+      const collected = new Array(days).fill(0); const billed = new Array(days).fill(0);
+      pPayments.forEach((p) => { collected[new Date(p.paid_on).getDate() - 1] += Number(p.amount_usd); });
+      pCharges.forEach((c) => { billed[new Date(c.charge_date).getDate() - 1] += Number(c.amount_usd); });
+      const labels = Array.from({ length: days }, (_, i) => (i === 0 || i === days - 1 || (i + 1) % 5 === 0 ? String(i + 1) : ''));
+      return { labels, collected: collected.map(round2), billed: billed.map(round2) };
+    }
+    const buckets = period === 'year'
+      ? Array.from({ length: 12 }, (_, k) => ({ key: `${now.getFullYear()}-${k}`, label: new Date(now.getFullYear(), k, 1).toLocaleString(undefined, { month: 'short' }), c: 0, b: 0 }))
+      : Array.from({ length: 12 }, (_, k) => { const d = new Date(now.getFullYear(), now.getMonth() - 11 + k, 1); return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString(undefined, { month: 'short' }), c: 0, b: 0 }; });
+    const find = (dt: string) => { const d = new Date(dt); return buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`); };
+    pPayments.forEach((p) => { const x = find(p.paid_on); if (x) x.c += Number(p.amount_usd); });
+    pCharges.forEach((c) => { const x = find(c.charge_date); if (x) x.b += Number(c.amount_usd); });
+    return { labels: buckets.map((x) => x.label), collected: buckets.map((x) => round2(x.c)), billed: buckets.map((x) => round2(x.b)) };
+  }, [period, monthValue, pPayments, pCharges]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // units targeted by the current expense form
   const targetUnits = useMemo(() => {
@@ -642,6 +666,20 @@ export default function Finance() {
             <Kpi label={t('finance.billed')} value={money(billedP)} icon={Receipt} tone="slate" hint={periodLabel} desc={t('finance.billedDesc')} />
             <Kpi label={t('finance.net')} value={money(netP)} icon={Wallet} tone={netP >= 0 ? 'indigo' : 'rose'} hint={periodLabel} desc={t('finance.netDesc')} />
             <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} desc={t('finance.outstandingDesc')} />
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-4 mb-6">
+            <Card className="lg:col-span-2"><CardBody>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-primary">{t('dashboard.collectedVsSpent')}</p>
+                <span className="text-xs text-muted-foreground">{periodLabel}{blockFilters.length === 1 ? ` · ${blockName[blockFilters[0]]}` : blockFilters.length > 1 ? ` · ${blockFilters.length} blocks` : ''}</span>
+              </div>
+              <TrendChart labels={trend.labels} series={[{ name: t('finance.collected'), color: '#10b981', data: trend.collected }, { name: t('finance.billed'), color: '#6366f1', data: trend.billed }]} />
+            </CardBody></Card>
+            <Card><CardBody>
+              <p className="text-sm font-semibold text-primary mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-muted-foreground text-xs">· {periodLabel}</span></p>
+              <Donut data={breakdown} centerLabel={t('finance.billed')} />
+            </CardBody></Card>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
