@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
-import { KeyRound, Wallet, Boxes, Receipt, CalendarPlus, FileText, Ban } from 'lucide-react';
+import { KeyRound, Wallet, Boxes, Receipt, CalendarPlus, FileText, Ban, Search } from 'lucide-react';
 
 const STATUS_BADGE: Record<Subscription['status'], { color: 'green' | 'yellow' | 'red' | 'slate'; label: string }> = {
   trial:     { color: 'yellow', label: 'Trial' },
@@ -51,6 +52,11 @@ export default function PlatformLicensing() {
   const [actorNames, setActorNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+
+  // Subscription list controls — the table is capped, so the page stays fast
+  // with thousands of subscriptions (filter/search instead of endless rows).
+  const [subSearch, setSubSearch] = useState('');
+  const [subStatus, setSubStatus] = useState<'all' | Subscription['status']>('all');
 
   // Modals
   const [extendSub, setExtendSub] = useState<Subscription | null>(null);
@@ -205,6 +211,12 @@ export default function PlatformLicensing() {
   // ── Derived stats ─────────────────────────────────────────────────────────
 
   const live = subs.filter(s => s.status !== 'cancelled');
+  const SUB_ROW_CAP = 50;
+  const filteredSubs = subs.filter(s =>
+    (subStatus === 'all' || s.status === subStatus)
+    && (!subSearch.trim() || entityName(s).toLowerCase().includes(subSearch.trim().toLowerCase())),
+  );
+  const visibleSubs = filteredSubs.slice(0, SUB_ROW_CAP);
   const totalLicenses = live.reduce((n, s) => n + s.license_count, 0);
   const activeCount = live.filter(s => s.status === 'active').length;
   const trialCount = live.filter(s => s.status === 'trial').length;
@@ -253,8 +265,41 @@ export default function PlatformLicensing() {
               <CardDescription>Extend trials, issue invoices, or cancel.</CardDescription>
             </CardHeader>
             <CardContent>
+              {subs.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <RadixSelect value={subStatus} onValueChange={v => setSubStatus(v as typeof subStatus)}>
+                    <SelectTrigger className="w-40 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="past_due">Past due</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </RadixSelect>
+                  <div className="relative">
+                    <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="search"
+                      value={subSearch}
+                      onChange={e => setSubSearch(e.target.value)}
+                      placeholder="Search entity…"
+                      className="h-9 ps-8 pe-3 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 w-56"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {filteredSubs.length === subs.length
+                      ? `${subs.length} subscription${subs.length === 1 ? '' : 's'}`
+                      : `${filteredSubs.length} of ${subs.length} match`}
+                  </span>
+                </div>
+              )}
               {!subs.length ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">No subscriptions yet.</p>
+              ) : !filteredSubs.length ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">No subscriptions match the current filter.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -271,7 +316,7 @@ export default function PlatformLicensing() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {subs.map(s => (
+                      {visibleSubs.map(s => (
                         <TableRow key={s.id}>
                           <TableCell className="font-medium">{entityName(s)}</TableCell>
                           <TableCell className="text-muted-foreground capitalize">{s.scope_type}</TableCell>
@@ -311,6 +356,11 @@ export default function PlatformLicensing() {
                       ))}
                     </TableBody>
                   </Table>
+                  {filteredSubs.length > SUB_ROW_CAP && (
+                    <p className="text-xs text-muted-foreground text-center py-3">
+                      Showing {SUB_ROW_CAP} of {filteredSubs.length}. Refine the search or status filter to narrow down.
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
