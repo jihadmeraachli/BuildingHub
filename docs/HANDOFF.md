@@ -147,8 +147,23 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
 
 ## 5. Feature areas (what's in the app now)
 
+- **⚠️ GLOBAL ENTITY SELECTOR (2026-08-02, commits 766c566 + b73c2ec).** The
+  compound/building selection now lives in the **sidebar** (Managing lens),
+  mirroring the My-home unit picker: pick once, applies to every tab.
+  `entityKey` state moved to **`AuthContext`** (`entityKey`/`setEntityKey`,
+  persisted in localStorage `abniyah_entity_key`, `''` = "All buildings").
+  Per-page entity dropdowns were REMOVED from Dashboard, Finance, Dues,
+  Reports, Issues, Meetings, Inspections, Contracts, Users. Rules: platform
+  admins never get "All" (auto-forced to first entity); single-entity admins
+  are locked; Finance/Dues/Reports show a `common.pickEntity` prompt on "All";
+  Issues/Meetings/Inspections/Contracts/Users aggregate across all viewable
+  buildings on "All". **Import deliberately keeps its own local target picker**
+  (import destination should be explicit). Block drill-down filters stay local
+  per page. Pitfall (b73c2ec): any load effect keyed on `entityKey` must also
+  depend on `entities.length` — on mount with a persisted key, `entities` is
+  still loading and the effect must refire once it resolves.
 - **Dashboard:** gradient balance hero, KPIs, collected-vs-spent interactive chart, **coverage** (reserve + runway + dues issued), upcoming meetings — all filterable by **compound / block / building**.
-- **Finance:** entity selector (compound or standalone building) + block filter + period (all/year/month). Record expense with scope (whole compound / a block / group / selected units / one unit) and method (by shares/equal/custom); per-unit **Book**, **Expenses**, **Payments** tabs; detail + edit/delete + attachments. Residents get a read-only **"My Account"** statement.
+- **Finance:** entity comes from the sidebar selector; block filter + period (all/year/month) stay in-page. Record expense with scope (whole compound / a block / group / selected units / one unit) and method (by shares/equal/custom); per-unit **Book**, **Expenses**, **Payments** tabs; detail + edit/delete + attachments. Residents get a read-only **"My Account"** statement.
 - **Dues:** per building/compound plan (cadence + by-shares/equal/manual/B2). "Generate dues for a period" auto-trues-up (`amount_due = max(0, base − balance)`). Residents see a **Dues card**.
 - **⚠️ DUES ARE PARTY-AWARE (2026-08-02, #61, migration 0070).** A plan now has
   **two pools**: `pool_amount` (the recurring budget — billed to the **tenant**
