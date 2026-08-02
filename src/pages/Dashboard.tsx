@@ -240,7 +240,7 @@ export default function Dashboard() {
     const shownCharged = effective === 'owner' ? rSplit.ownerCharged : effective === 'tenant' ? rSplit.tenantCharged : resident.charged;
     const shownPaid = effective === 'owner' ? rSplit.ownerPaid : effective === 'tenant' ? rSplit.tenantPaid : resident.paid;
     return (
-      <div className="space-y-6 max-w-2xl">
+      <div className="space-y-6 max-w-2xl mx-auto">
         <PendingInvites />
         <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
         {rSplit.canSplit && (
