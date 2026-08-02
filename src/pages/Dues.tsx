@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight, Receipt, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -397,7 +397,7 @@ export default function Dues() {
                             <td className="px-5 py-3 text-end text-muted-foreground tnum">{money(g.base)}</td>
                             {!isB2 && <td className={`px-5 py-3 text-end tnum ${carryTone(g.carry)}`}>{money(g.carry)}</td>}
                             <td className="px-5 py-3 text-end font-semibold text-foreground tnum">{money(g.due)}</td>
-                            <td className="px-5 py-3 text-muted-foreground">{g.dueDate ? format(new Date(g.dueDate), 'MMM d, yyyy') : '—'}</td>
+                            <td className="px-5 py-3 text-muted-foreground">{g.dueDate ? fmtDate(g.dueDate, 'MMM d, yyyy') : '—'}</td>
                             {canManage && (
                               <td className="px-5 py-3 text-end">
                                 {single && (

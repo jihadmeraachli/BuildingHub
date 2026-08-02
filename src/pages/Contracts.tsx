@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { Plus, FileSignature, Pencil, Trash2, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -185,7 +185,7 @@ export default function Contracts() {
                   )}
                   {(r.start_date || r.end_date) && (
                     <p className="text-xs text-muted-foreground flex items-center gap-2">
-                      {r.start_date ? format(new Date(r.start_date), 'MMM yyyy') : '—'} → {r.end_date ? format(new Date(r.end_date), 'MMM yyyy') : '—'}
+                      {r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}
                       {expiryBadge(r.end_date)}
                     </p>
                   )}

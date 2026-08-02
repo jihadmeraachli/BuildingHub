@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { Plus, ClipboardCheck, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -159,10 +159,10 @@ export default function Inspections() {
                     </div>
                     {r.outcome && <p className="text-sm text-muted-foreground mb-2">{r.outcome}</p>}
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span>{format(new Date(r.inspection_date), 'MMM d, yyyy')}</span>
+                      <span>{fmtDate(r.inspection_date, 'MMM d, yyyy')}</span>
                       {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
                       {r.inspector && <><span>•</span><span>{r.inspector}</span></>}
-                      {r.next_due_date && <><span>•</span><span>{t('inspections.nextDue')}: {format(new Date(r.next_due_date), 'MMM d, yyyy')}</span></>}
+                      {r.next_due_date && <><span>•</span><span>{t('inspections.nextDue')}: {fmtDate(r.next_due_date, 'MMM d, yyyy')}</span></>}
                       {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('inspections.viewReport')} className="inline-flex items-center gap-1 text-primary hover:underline" /></>}
                     </div>
                   </div>

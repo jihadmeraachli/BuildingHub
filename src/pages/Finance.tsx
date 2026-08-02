@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -305,7 +305,7 @@ export default function Finance() {
   // Last day of the selected period; null = all time. A filtered balance is the
   // running balance ON that date, not a sum of the window (0033's as-of model).
   const asOfDate = range?.to ?? null;
-  const asOfLabel = asOfDate ? format(asOfDate, 'MMM d, yyyy') : '';
+  const asOfLabel = asOfDate ? fmtDate(asOfDate, 'MMM d, yyyy') : '';
   const periodLabel = period === 'month' ? new Date(`${monthValue}-01`).toLocaleString(undefined, { month: 'long', year: 'numeric' }) : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
 
   // voided charges/payments never count toward cash or the book
@@ -744,12 +744,21 @@ export default function Finance() {
           nameById={(id) => tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null}
           isCurrentTenant={(unitId, tenantId) => !!tenantId && tenancy.some(
             (m) => m.unit_id === unitId && m.user_id === tenantId && m.tenure === 'tenant' && !m.ended_at)}
+          // dues are dated obligations — a period hides the ones outside it
+          inPeriod={(d) => d.due_date ? inRange(d.due_date) : period === 'all'}
         />
         <StatementList
           charges={rBook.flatMap(r => r.unitCharges)}
           payments={rBook.flatMap(r => r.unitPayments)}
           adjustments={rBook.flatMap(r => r.unitAdjustments)}
-          openings={(residentView === 'owner' || residentView === 'combined') ? units.filter(u => myOwnerUnitIds.includes(u.id)).map(u => ({ unit_id: u.id, amount: Number(u.opening_balance), date: u.opening_balance_date })) : []}
+          // The opening balance is a dated line like any other: it belongs in
+          // the statement only when its date falls inside the period. An
+          // undated opening predates everything, so it shows on All time only.
+          openings={(effView === 'owner' || effView === 'combined')
+            ? units.filter((u) => myOwnerUnitIds.includes(u.id))
+                .filter((u) => u.opening_balance_date ? inRange(u.opening_balance_date) : period === 'all')
+                .map((u) => ({ unit_id: u.id, amount: Number(u.opening_balance), date: u.opening_balance_date }))
+            : []}
           tenantName={tenantLabelFor}
           unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))}
         />
@@ -814,6 +823,25 @@ export default function Finance() {
             </CardBody></Card>
           </div>
 
+          {/* Balance as-of sits ABOVE the tab strip: it scopes the Book the tabs
+              switch between, so it reads as a scope control, not a table option. */}
+          {tab === 'book' && (
+            <div className="flex items-center justify-end gap-2 mb-3">
+              <label className="text-xs text-muted-foreground">{t('finance.balanceAsOf')}</label>
+              <input
+                type="date"
+                value={asOf}
+                onChange={(e) => setAsOf(e.target.value)}
+                className="rounded-lg border border-border bg-background text-foreground px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+              />
+              {asOf && (
+                <button onClick={() => setAsOf('')} className="text-xs text-primary hover:underline cursor-pointer">
+                  {t('finance.backToLive')}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <SegmentedTabs
               value={tab}
@@ -857,20 +885,6 @@ export default function Finance() {
             <>
               {tab === 'book' && (
                 <>
-                <div className="flex items-center justify-end gap-2 mb-3">
-                  <label className="text-xs text-muted-foreground">{t('finance.balanceAsOf')}</label>
-                  <input
-                    type="date"
-                    value={asOf}
-                    onChange={(e) => setAsOf(e.target.value)}
-                    className="rounded-lg border border-border bg-background text-foreground px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
-                  />
-                  {asOf && (
-                    <button onClick={() => setAsOf('')} className="text-xs text-primary hover:underline cursor-pointer">
-                      {t('finance.backToLive')}
-                    </button>
-                  )}
-                </div>
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
                     <th className="px-5 py-3 text-start font-medium">{t('finance.unit')}</th>
@@ -948,7 +962,7 @@ export default function Finance() {
                   <tbody className="divide-y divide-slate-50">
                     {pExpenses.map((e) => (
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
-                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(e.expense_date), 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
                         <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
@@ -974,7 +988,7 @@ export default function Finance() {
                         but are excluded from every total and the downloaded report. */}
                     {vPayments.filter((p) => inRange(p.paid_on)).map((p) => (
                       <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
-                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(p.paid_on), 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(p.paid_on, 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
                           {p.paid_by === 'tenant' && <TenantTag label={tenantLabelFor(p.tenant_id, p.unit_id, p.paid_on)} />}
@@ -1012,7 +1026,7 @@ export default function Finance() {
                       const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
                       return (
                         <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
-                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{format(new Date(a.effective_date), 'MMM d, yyyy')}</td>
+                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(a.effective_date, 'MMM d, yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
                             {a.party === 'tenant' && <TenantTag label={tenantLabelFor(a.tenant_id, a.unit_id, a.effective_date)} />}
@@ -1187,7 +1201,7 @@ export default function Finance() {
               {[
                 { l: t('finance.amount'), v: money(Number(detailExpense.amount_usd)) },
                 { l: t('finance.category'), v: t(`finance.cats.${detailExpense.category}`) },
-                { l: t('finance.date'), v: format(new Date(detailExpense.expense_date), 'MMM d, yyyy') },
+                { l: t('finance.date'), v: fmtDate(detailExpense.expense_date, 'MMM d, yyyy') },
                 { l: t('finance.split'), v: detailExpense.building_id ? (blockName[detailExpense.building_id] ?? t('finance.aBlock')) : (detailExpense.compound_id ? t('finance.wholeCompound') : detailExpense.scope_type) },
               ].map((x) => (
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
@@ -1221,7 +1235,7 @@ export default function Finance() {
               {[
                 { l: t('finance.unit'), v: unitDisplay(detailPayment.unit_id) },
                 { l: t('finance.method'), v: t(`finance.methods.${detailPayment.method}`) },
-                { l: t('finance.date'), v: format(new Date(detailPayment.paid_on), 'MMM d, yyyy') },
+                { l: t('finance.date'), v: fmtDate(detailPayment.paid_on, 'MMM d, yyyy') },
                 { l: t('finance.note'), v: detailPayment.note || '—' },
               ].map((x) => (
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
@@ -1305,7 +1319,7 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
  *  saw the owner's dues and vice versa. Now a tenant sees only their own rows,
  *  an owner sees whichever bucket the toggle is on, and Combined tags each row
  *  with the party it falls on. */
-function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildingOf, isCurrentTenantOf }: {
+function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildingOf, isCurrentTenantOf, inPeriod }: {
   unitIds: string[];
   /** 'combined' | 'owner' | 'self:<id>' | 'cur:<buildingId>' | 'fmr:<buildingId>' */
   viewFor: (unitId: string) => string;
@@ -1313,6 +1327,7 @@ function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildin
   isCurrentTenant: (unitId: string, tenantId: string | null) => boolean;
   buildingOf: (unitId: string) => string;
   isCurrentTenantOf: (unitId: string, tenantId?: string | null) => boolean;
+  inPeriod: (d: Dues) => boolean;
 }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Dues[]>([]);
@@ -1324,6 +1339,7 @@ function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildin
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = rows.filter((d) => {
+    if (!inPeriod(d)) return false;
     const view = viewFor(d.unit_id);
     if (view === 'combined') return true;
     if (view === 'owner') return d.billed_to !== 'tenant';
@@ -1356,7 +1372,7 @@ function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildin
           return (
             <div key={d.id} className="flex items-center justify-between text-sm gap-3">
               <span className="text-muted-foreground min-w-0">
-                {d.period_label}{d.due_date ? ` · ${format(new Date(d.due_date), 'MMM d, yyyy')}` : ''}
+                {d.period_label}{d.due_date ? ` · ${fmtDate(d.due_date, 'MMM d, yyyy')}` : ''}
                 {d.kind === 'off_budget' && (
                   <span className="ms-1.5 text-xs text-muted-foreground/70">· {d.label || t('dues.offBudget')}</span>
                 )}
@@ -1404,7 +1420,7 @@ function StatementList({ charges, payments, adjustments = [], openings = [], ten
       <tbody className="divide-y divide-border">
         {rows.map((r, i) => (
           <tr key={i} className="hover:bg-muted/40">
-            <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{format(new Date(r.date), 'MMM d, yyyy')}</td>
+            <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{fmtDate(r.date, 'MMM d, yyyy')}</td>
             <td className="px-5 py-3 text-foreground">{r.label} <span className="text-muted-foreground text-xs">· {t('finance.unit')} {r.unit}</span>{r.tenant && <TenantTag label={r.tenant} />}</td>
             <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>

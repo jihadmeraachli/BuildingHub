@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm, Controller } from 'react-hook-form';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { Plus, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -178,7 +178,7 @@ export default function Issues() {
                       <span>•</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
                       <span>•</span>
-                      <span>{format(new Date(issue.created_at), 'MMM d, yyyy')}</span>
+                      <span>{fmtDate(issue.created_at, 'MMM d, yyyy')}</span>
                       {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
                     </div>
                     {issue.resolution_notes && <p className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>}

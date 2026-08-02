@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
@@ -142,7 +142,7 @@ export default function Dashboard() {
     // net opening + adjustments; tolerate an un-applied 0061 (carry = 0)
     const carry = carryRes.error ? 0 : Number((Array.isArray(carryRes.data) ? carryRes.data[0] : carryRes.data) ?? 0);
 
-    const labels = monthsRows.map((m) => format(new Date(m.month_start), 'MMM yy'));
+    const labels = monthsRows.map((m) => fmtDate(m.month_start, 'MMM yy'));
     const monthlyCollected = monthsRows.map((m) => Number(m.collected));
     const monthlySpent = monthsRows.map((m) => Number(m.spent));
 
@@ -273,7 +273,7 @@ export default function Dashboard() {
       tenantPaid: sum(pShown.filter((x) => isTenantRow(x.paid_by))),
       ownerBal, tenantBal, combined, viewerIsTenant, buckets,
       canSplit: !viewerIsTenant && buckets.length > 0,
-      asOfLabel: asOf ? format(asOf, 'MMM d, yyyy') : '',
+      asOfLabel: asOf ? fmtDate(asOf, 'MMM d, yyyy') : '',
       // per-unit balances for the portfolio cards, as of the same date
       perUnit: U.map((u) => ({
         id: u.id, label: u.label, buildingName: u.buildings?.name ?? '—',
@@ -605,13 +605,13 @@ function MeetingsCard({ meetings }: { meetings: Meeting[] }) {
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 <div className="shrink-0 text-center rounded-lg px-3 py-2 min-w-[52px] bg-primary/10">
-                  <p className="text-[10px] text-primary font-semibold uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
-                  <p className="text-xl font-bold text-primary leading-none">{format(new Date(m.meeting_date), 'd')}</p>
+                  <p className="text-[10px] text-primary font-semibold uppercase">{fmtDate(m.meeting_date, 'MMM')}</p>
+                  <p className="text-xl font-bold text-primary leading-none">{fmtDate(m.meeting_date, 'd')}</p>
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold truncate">{m.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(m.meeting_date), 'EEEE, MMM d, yyyy')}
+                    {fmtDate(m.meeting_date, 'EEEE, MMM d, yyyy')}
                     {m.meeting_time ? ` · ${m.meeting_time.slice(0, 5)}` : ''}
                   </p>
                 </div>

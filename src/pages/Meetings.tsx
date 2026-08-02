@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
-import { format } from 'date-fns';
+import { fmtDate } from '@/lib/dateFmt';
 import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X, Video, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -206,9 +206,9 @@ export default function Meetings() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex gap-4 items-start flex-1 cursor-pointer" onClick={() => setDetailMeeting(m)}>
                     <div className="flex-shrink-0 text-center bg-indigo-50 rounded-xl px-4 py-2 min-w-[64px]">
-                      <p className="text-xs text-indigo-500 font-medium uppercase">{format(new Date(m.meeting_date), 'MMM')}</p>
-                      <p className="text-2xl font-bold text-indigo-700 leading-none">{format(new Date(m.meeting_date), 'd')}</p>
-                      <p className="text-xs text-indigo-500">{format(new Date(m.meeting_date), 'yyyy')}</p>
+                      <p className="text-xs text-indigo-500 font-medium uppercase">{fmtDate(m.meeting_date, 'MMM')}</p>
+                      <p className="text-2xl font-bold text-indigo-700 leading-none">{fmtDate(m.meeting_date, 'd')}</p>
+                      <p className="text-xs text-indigo-500">{fmtDate(m.meeting_date, 'yyyy')}</p>
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900">{m.title}</p>
@@ -251,7 +251,7 @@ export default function Meetings() {
                           <div>
                             <p className="font-medium text-slate-900">{m.title}</p>
                             <p className="text-sm text-slate-500 mt-0.5">
-                              {format(new Date(m.meeting_date), 'MMMM d, yyyy')}
+                              {fmtDate(m.meeting_date, 'MMMM d, yyyy')}
                               {m.meeting_time && ` · ${m.meeting_time.slice(0, 5)}`}
                             </p>
                           </div>
@@ -412,7 +412,7 @@ export default function Meetings() {
         {detailMeeting && (
           <div className="space-y-4">
             <p className="text-sm text-slate-500">
-              {format(new Date(detailMeeting.meeting_date), 'EEEE, MMMM d, yyyy')}{detailMeeting.meeting_time ? ` · ${detailMeeting.meeting_time.slice(0, 5)}` : ''}
+              {fmtDate(detailMeeting.meeting_date, 'EEEE, MMMM d, yyyy')}{detailMeeting.meeting_time ? ` · ${detailMeeting.meeting_time.slice(0, 5)}` : ''}
             </p>
             {detailMeeting.meeting_url && (
               <a href={detailMeeting.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline">
