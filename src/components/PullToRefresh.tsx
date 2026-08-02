@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { isNativeApp } from '@/lib/biolock';
 
@@ -13,7 +13,7 @@ const MAX_PULL = 110;
 
 export function usePullToRefresh(scrollRef: React.RefObject<HTMLElement | null>, indicatorRef: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
-    if (!isNativeApp()) return;
+    if (!isNativeApp) return;
     const el = scrollRef.current;
     const ind = indicatorRef.current;
     if (!el || !ind) return;
@@ -79,7 +79,7 @@ export function usePullToRefresh(scrollRef: React.RefObject<HTMLElement | null>,
 
 /** The floating indicator — render inside a relatively-positioned scroll parent. */
 export function PullIndicator({ innerRef }: { innerRef: React.RefObject<HTMLDivElement | null> }) {
-  if (!isNativeApp()) return null;
+  if (!isNativeApp) return null;
   return (
     <div
       ref={innerRef}
