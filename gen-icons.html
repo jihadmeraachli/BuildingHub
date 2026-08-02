@@ -12,12 +12,19 @@
     display: flex; align-items: center; justify-content: center;
   }
   .mark {
-    background: linear-gradient(160deg, #7FE8DC 0%, #C9E8E2 55%, #F2FAF8 100%);
+    /* BRAND_GRADIENT — the in-app sidebar look Jey picked (deep forest crown
+       flowing into light sage), mirrors Logo.tsx's default variant. */
+    background: linear-gradient(160deg, #0F4A3F 0%, #3E7A6C 50%, #B9D2CB 100%);
     -webkit-mask-image: url(./public/logo-mask.png);
     mask-image: url(./public/logo-mask.png);
     -webkit-mask-size: contain; mask-size: contain;
     -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     -webkit-mask-position: center; mask-position: center;
+  }
+  /* Light mark for the EMAIL header only — the dark-crowned brand mark would
+     vanish against the teal (#0F4A3F) email banner. */
+  #emailLogo .mark {
+    background: linear-gradient(160deg, #7FE8DC 0%, #C9E8E2 55%, #F2FAF8 100%);
   }
   /* App icon: mark at 60% of tile. iOS rounds the corners itself. */
   #icon1024 { width: 1024px; height: 1024px; } #icon1024 .mark { width: 614px; height: 614px; }
