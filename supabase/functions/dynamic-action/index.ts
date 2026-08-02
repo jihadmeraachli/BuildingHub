@@ -50,8 +50,11 @@ function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: st
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;padding:40px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
-        <tr><td style="background:#0F4A3F;padding:20px 32px;">
-          <p style="margin:0;color:#fff;font-size:18px;font-weight:700;letter-spacing:0.12em;">ABNIYAH</p>
+        <tr><td style="background:#0F4A3F;padding:18px 32px;">
+          <table cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="vertical-align:middle;padding-right:10px;"><img src="https://abniyah.com/email-logo.png" width="26" height="26" alt="" style="display:block;border:0;" /></td>
+            <td style="vertical-align:middle;"><p style="margin:0;color:#fff;font-size:18px;font-weight:700;letter-spacing:0.12em;">ABNIYAH</p></td>
+          </tr></table>
         </td></tr>
         <tr><td style="padding:32px;">
           <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;font-weight:600;">${title}</h2>

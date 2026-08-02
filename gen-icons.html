@@ -6,7 +6,7 @@
   /* Icon renderer — the same technique Logo.tsx uses (gradient painted through
      the alpha mask), so icons are pixel-faithful to the in-app brand.
      Background = the login-screen gradient Jey picked as the reference look. */
-  body { margin: 0; background: #888; }
+  body { margin: 0; background: transparent; }
   .tile {
     background: linear-gradient(150deg, oklch(0.32 0.11 185) 0%, oklch(0.2 0.05 186) 45%, oklch(0.13 0.03 190) 100%);
     display: flex; align-items: center; justify-content: center;
@@ -26,6 +26,10 @@
   #icon180  { width: 180px;  height: 180px;  } #icon180  .mark { width: 108px; height: 108px; }
   /* Splash: quiet — small mark centered on the same gradient. */
   #splash   { width: 2732px; height: 2732px; } #splash .mark { width: 430px; height: 430px; }
+  /* Email header logo: mark only, TRANSPARENT background (light-gradient mark
+     for the dark teal email header). Shot with omitBackground. */
+  #emailLogo { width: 128px; height: 128px; background: none; }
+  #emailLogo .mark { width: 128px; height: 128px; }
 </style>
 </head>
 <body>
@@ -34,5 +38,6 @@
   <div class="tile" id="icon192"><div class="mark"></div></div>
   <div class="tile" id="icon180"><div class="mark"></div></div>
   <div class="tile" id="splash"><div class="mark"></div></div>
+  <div class="tile" id="emailLogo"><div class="mark"></div></div>
 </body>
 </html>

@@ -30,4 +30,7 @@ for (const [sel, out] of OUT) {
   await page.locator(sel).screenshot({ path: join(root, out) });
   console.log('wrote', out);
 }
+// Email header logo — transparent background (referenced by URL in emailHtml).
+await page.locator('#emailLogo').screenshot({ path: join(root, 'public/email-logo.png'), omitBackground: true });
+console.log('wrote public/email-logo.png');
 await browser.close();
