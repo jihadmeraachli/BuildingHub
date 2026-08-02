@@ -50,18 +50,18 @@ function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: st
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;padding:40px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
-        <tr><td style="background:#4f46e5;padding:20px 32px;">
-          <p style="margin:0;color:#fff;font-size:18px;font-weight:700;">BuildingHub</p>
+        <tr><td style="background:#0F4A3F;padding:20px 32px;">
+          <p style="margin:0;color:#fff;font-size:18px;font-weight:700;letter-spacing:0.12em;">ABNIYAH</p>
         </td></tr>
         <tr><td style="padding:32px;">
           <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;font-weight:600;">${title}</h2>
           ${bodyHtml}
           <div style="margin-top:28px;">
-            <a href="${ctaUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;">${ctaLabel}</a>
+            <a href="${ctaUrl}" style="display:inline-block;background:#0F4A3F;color:#fff;text-decoration:none;padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;">${ctaLabel}</a>
           </div>
         </td></tr>
         <tr><td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
-          <p style="margin:0;font-size:12px;color:#94a3b8;">You received this because you have email notifications enabled in BuildingHub.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">You received this because you have notifications enabled in Abniyah.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -264,7 +264,7 @@ function generateIcs(uid: string, title: string, meeting_date: string, meeting_t
   }
   const desc = summary ? `DESCRIPTION:${summary.replace(/[\r\n]+/g, '\\n')}` : null;
   return [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//BuildingHub//EN', 'CALSCALE:GREGORIAN', 'METHOD:REQUEST',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Abniyah//EN', 'CALSCALE:GREGORIAN', 'METHOD:REQUEST',
     'BEGIN:VEVENT', `UID:${uid}@buildinghub`, `DTSTAMP:${now}`, dtstart, dtend,
     `SUMMARY:${title}`, `LOCATION:${location}`, desc,
     `ORGANIZER;CN="${building.name}":mailto:${FROM_EMAIL}`, 'STATUS:CONFIRMED', 'END:VEVENT', 'END:VCALENDAR',
@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;">A new resident has registered and is awaiting your approval.</p>
            ${table(row('Name', esc(record.full_name)) + row('Apartment', esc(record.apartment_number ?? '—')) + row('Phone', esc(record.phone ?? '—')))}`,
           'Review Registration', `${APP_URL}/users`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 2. Resident approved → the resident
@@ -306,8 +306,8 @@ Deno.serve(async (req) => {
       await emailToUserIds([record.id], 'Your registration has been approved',
         emailHtml(`Welcome, ${esc(record.full_name)}!`,
           `<p style="color:#475569;font-size:14px;line-height:1.6;">Your registration for <strong>${esc(b?.name ?? 'your building')}</strong> has been approved. You can now log in.</p>`,
-          'Log In to BuildingHub', `${APP_URL}/`),
-        b?.name ?? 'BuildingHub');
+          'Log In to Abniyah', `${APP_URL}/`),
+        b?.name ?? 'Abniyah');
     }
 
     // 3. New issue → admins (excluding reporter)
@@ -319,7 +319,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new issue has been logged in <strong>${esc(b?.name ?? 'your building')}</strong>.</p>
            ${table(row('Title', esc(record.title)) + row('Priority', esc(PRIORITY_LABEL[record.priority] ?? record.priority)) + row('Location', esc(record.location ?? '—')) + (record.apartment_number ? row('Apartment', esc(record.apartment_number)) : '') + row('Description', esc(record.description ?? '—')))}`,
           'View Issue', `${APP_URL}/issues`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 3b. Issue resolved → reporter
@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;">${esc(record.title)}</p>
            ${record.resolution_notes ? table(row('Notes', esc(record.resolution_notes))) : ''}`,
           'View Issue', `${APP_URL}/issues`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 4. New charge (v3 finance) → the BILLED party only (owner or tenant)
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
            ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}
            ${b?.whish_number ? `<p style="color:#475569;font-size:14px;line-height:1.6;margin:12px 0 0;">You can pay directly through <strong>Whish</strong> to <strong>${esc(b.whish_number)}</strong>.</p>` : ''}`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
       const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(chargeRecipients, 'abniyah_new_charge',
         (name, lang) => {
@@ -357,12 +357,12 @@ Deno.serve(async (req) => {
     if (tbl === 'payments' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
       const payRecipients = await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
-      await emailToUserIds(payRecipients, 'Payment received, thank you',
+      await emailToUserIds(payRecipients, 'Payment received',
         emailHtml('Payment recorded',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">We've recorded your payment. Thank you.</p>
            ${table(row('Amount', money(record.amount_usd)) + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
       const { data: payUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(payRecipients, 'abniyah_payment_received',
         (name) => [name, money(record.amount_usd), payUnit?.label ?? '—', b?.name ?? '—']);
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment on your account was updated.</p>
            ${table(row('New amount', money(record.amount_usd)) + row('Date', record.paid_on))}`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 5c. Payment removed → the paying party only  (DELETE payloads carry old_record)
@@ -386,7 +386,7 @@ Deno.serve(async (req) => {
         emailHtml('Payment removed',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment of <strong>${money(old_record.amount_usd)}</strong> was removed from your account.</p>`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 5c-ii. Move-out offload (transfer) → BOTH the owner and the former tenant.
@@ -404,13 +404,13 @@ Deno.serve(async (req) => {
         emailHtml('Balance transferred to the owner account',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A former tenant moved out and their remaining balance was transferred to the owner account.</p>${detail}`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
       if (record.tenant_id) {
         await emailToUserIds([record.tenant_id], 'Your balance was transferred on move-out',
           emailHtml('Balance transferred to the unit owner',
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">On move-out, your remaining balance on this unit was transferred to the owner account.</p>${detail}`,
             'View My Account', `${APP_URL}/finance`),
-          b?.name ?? 'BuildingHub');
+          b?.name ?? 'Abniyah');
       }
     }
 
@@ -422,7 +422,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> are ready.</p>
            ${table(row('Amount due', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
       const { data: duesUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(await unitOwnerIds(record.unit_id), 'abniyah_dues_issued',
         (name, lang) => {
@@ -439,7 +439,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> were updated.</p>
            ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 5f. Dues removed → owner(s)
@@ -449,7 +449,7 @@ Deno.serve(async (req) => {
         emailHtml('Dues removed',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(old_record.period_label)}</strong> were removed.</p>`,
           'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
     }
 
     // 5g. Unit invitation (consent flow, 0053) → the invited person.
@@ -466,7 +466,7 @@ Deno.serve(async (req) => {
            ${table(row('Unit', esc(unit?.label ?? '—')) + row('Building', esc(b?.name ?? '—')) + row('As', esc(record.tenure)))}
            <p style="color:#64748b;font-size:13px;margin-top:16px;">Sign in and accept or decline the invitation on your dashboard.</p>`,
           'Review Invitation', `${APP_URL}/dashboard`),
-        b?.name ?? 'BuildingHub');
+        b?.name ?? 'Abniyah');
       await whatsappToUserIds([record.user_id], 'abniyah_unit_invite',
         (name) => [name, inviter?.full_name ?? 'A building admin', unit?.label ?? '—', b?.name ?? '—']);
     }
@@ -482,8 +482,8 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A meeting has been scheduled at <strong>${esc(b?.name ?? 'your building')}</strong>.</p>
            ${table(row('Date', esc(record.meeting_date)) + (record.meeting_time ? row('Time', esc(record.meeting_time.slice(0, 5))) : '') + joinRow + (record.summary ? row('Notes', esc(record.summary)) : ''))}
            <p style="color:#64748b;font-size:13px;margin-top:16px;">📎 A calendar invite (.ics) is attached.</p>`,
-          'View in BuildingHub', `${APP_URL}/meetings`),
-        b?.name ?? 'BuildingHub',
+          'View in Abniyah', `${APP_URL}/meetings`),
+        b?.name ?? 'Abniyah',
         ics ? [{ filename: 'meeting-invite.ics', content: toBase64(ics) }] : undefined);
     }
 
