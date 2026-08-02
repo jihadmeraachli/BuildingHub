@@ -9,6 +9,7 @@ import type { Organization } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -334,7 +335,7 @@ export default function Organizations() {
         <div className="space-y-4">
           <Input label={t('buildings.orgName')} value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} placeholder="Al Futtaim Property Management" />
           <Input label={t('buildings.orgEmail')} type="email" value={addForm.contact_email} onChange={e => setAddForm({ ...addForm, contact_email: e.target.value })} />
-          <Input label={t('buildings.orgPhone')} type="tel" value={addForm.contact_phone} onChange={e => setAddForm({ ...addForm, contact_phone: e.target.value })} />
+          <PhoneInput label={t('buildings.orgPhone')} value={addForm.contact_phone} onChange={(v) => setAddForm({ ...addForm, contact_phone: v })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setAddModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={add} disabled={!addForm.name.trim()}>{t('buildings.create')}</Button>
@@ -346,7 +347,7 @@ export default function Organizations() {
         <div className="space-y-4">
           <Input label={t('buildings.orgName')} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
           <Input label={t('buildings.orgEmail')} type="email" value={editForm.contact_email} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} />
-          <Input label={t('buildings.orgPhone')} type="tel" value={editForm.contact_phone} onChange={e => setEditForm({ ...editForm, contact_phone: e.target.value })} />
+          <PhoneInput label={t('buildings.orgPhone')} value={editForm.contact_phone} onChange={(v) => setEditForm({ ...editForm, contact_phone: v })} />
           <div className="flex justify-between gap-2 pt-1">
             <Button variant="danger" onClick={() => editOrg && remove(editOrg.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
             <div className="flex gap-2">

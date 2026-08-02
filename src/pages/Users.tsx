@@ -10,6 +10,7 @@ import type { Profile, UserStatus, Building, Grant, GrantRole, Organization } fr
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
@@ -845,12 +846,10 @@ export default function Users() {
             onChange={e => setInviteEmail(e.target.value)}
             placeholder="ahmad@example.com"
           />
-          <Input
+          <PhoneInput
             label={t('users.invitePhone')}
-            type="tel"
             value={invitePhone}
-            onChange={e => setInvitePhone(e.target.value)}
-            placeholder="+961 70 000 000"
+            onChange={setInvitePhone}
           />
 
           <div className="border-t border-border pt-4">
@@ -1120,12 +1119,10 @@ export default function Users() {
             value={editForm.full_name}
             onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
           />
-          <Input
+          <PhoneInput
             label={t('users.invitePhone')}
-            type="tel"
             value={editForm.phone}
-            onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
-            placeholder="+961 70 000 000"
+            onChange={(v) => setEditForm(f => ({ ...f, phone: v }))}
           />
 
           {/* Identity facts — visible, never editable here */}

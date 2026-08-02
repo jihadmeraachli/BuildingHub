@@ -13,6 +13,7 @@ import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
 import { isNativeApp, bioLockEnabled, setBioLockEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
 import { setLanguage } from '@/i18n';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -351,7 +352,7 @@ function SettingsInner() {
 
           <div className="space-y-4">
             <Input label={t('settings.fullName')} value={fullName} onChange={e => setFullName(e.target.value)} className="text-primary" />
-            <Input label={t('settings.phone')} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+961 …" className="text-primary" />
+            <PhoneInput label={t('settings.phone')} value={phone} onChange={setPhone} />
 
             {/* Read-only: your unit and access are set by your building admin. */}
             {profile?.apartment_number && (

@@ -10,6 +10,7 @@ import type { Building, Compound, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, SelectInput } from '@/components/ui/Input';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { LEBANON_CITIES, COUNTRIES } from '@/lib/locationData';
 import { Controller } from 'react-hook-form';
 import { SelectField, SelectItem } from '@/components/ui/Select';
@@ -645,7 +646,13 @@ export default function Buildings() {
             </SelectInput>
           </div>
           <Input label={t('buildings.contactEmail')} type="email" {...register('contact_email')} />
-          <Input label={t('buildings.contactPhone')} type="tel" {...register('contact_phone')} />
+          <Controller
+            name="contact_phone"
+            control={control}
+            render={({ field }) => (
+              <PhoneInput label={t('buildings.contactPhone')} value={field.value ?? ''} onChange={field.onChange} />
+            )}
+          />
           {(isPlatformAdmin || isOrgAdmin || isCompoundAdmin) && visibleCompounds.length > 0 && (
             <Controller name="compound_id" control={control} render={({ field }) => (
               <SelectField label={t('buildings.compound')} value={field.value || (isCompoundAdmin ? myCompoundIds[0] : '__none__')} onValueChange={v => field.onChange(v === '__none__' ? '' : v)}>
@@ -677,7 +684,7 @@ export default function Buildings() {
             </SelectInput>
           </div>
           <Input label={t('buildings.contactEmail')} type="email" value={ebForm.contact_email} onChange={e => setEbForm({ ...ebForm, contact_email: e.target.value })} />
-          <Input label={t('buildings.contactPhone')} type="tel" value={ebForm.contact_phone} onChange={e => setEbForm({ ...ebForm, contact_phone: e.target.value })} />
+          <PhoneInput label={t('buildings.contactPhone')} value={ebForm.contact_phone} onChange={(v) => setEbForm({ ...ebForm, contact_phone: v })} />
           <Input label={t('buildings.mapsLink')} value={ebForm.maps_url} onChange={e => setEbForm({ ...ebForm, maps_url: e.target.value })} />
           {isPlatformAdmin && organizations.length > 0 && (
             <SelectField label={t('nav.organizations')} value={ebForm.org_id || '__none__'} onValueChange={v => setEbForm({ ...ebForm, org_id: v === '__none__' ? '' : v })}>

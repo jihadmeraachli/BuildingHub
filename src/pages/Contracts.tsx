@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
 const SERVICES: ServiceType[] = ['elevator', 'generator', 'landscape', 'security', 'cleaning', 'water', 'internet', 'other'];
@@ -218,7 +219,7 @@ export default function Contracts() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('contracts.contactName')} value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
-            <Input label={t('contracts.contactPhone')} value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} />
+            <PhoneInput label={t('contracts.contactPhone')} value={form.contact_phone} onChange={(v) => setForm({ ...form, contact_phone: v })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('contracts.startDate')} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
