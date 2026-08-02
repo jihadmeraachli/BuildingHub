@@ -42,6 +42,12 @@ export default function Dues() {
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
   const canManage = isPlatformAdmin || !!entity?.buildingIds.some((id) => can('expense.manage', id));
+  /** Dues can only be ISSUED on a dues-mode entity. The reminder helpers
+   *  (get_overdue_dues, 0056/0070) skip arrears buildings entirely, so dues
+   *  raised in arrears mode would notify residents once and then never be
+   *  chased, while the arrears reminder keeps quoting a balance the dues never
+   *  touched. The DB already made this call; the UI now matches it. */
+  const duesMode = entity?.billingMode === 'dues';
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const blockName = Object.fromEntries(buildings.map((b) => [b.id, b.name]));
 
@@ -318,9 +324,13 @@ export default function Dues() {
               </SelectContent>
             </RadixSelect>
           )}
+          {/* Editing the plan stays open in arrears mode - configuring one before
+              flipping the switch is legitimate. ISSUING is what gets blocked:
+              get_overdue_dues() only reminds on 'dues' buildings, so dues raised
+              here would notify residents and then never be chased. */}
           {canManage && entity && <Button variant="secondary" onClick={openPlan}><Settings2 size={16} /> {plan ? t('dues.editPlan') : t('dues.setupPlan')}</Button>}
-          {canManage && entity && plan && <Button variant="secondary" onClick={() => { setObPeriod(''); setObOpen(true); }}><Receipt size={16} /> {t('dues.offBudgetAction')}</Button>}
-          {canManage && entity && plan && <Button onClick={() => { setGenPeriod(''); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
+          {canManage && entity && plan && duesMode && <Button variant="secondary" onClick={() => { setObPeriod(''); setObOpen(true); }}><Receipt size={16} /> {t('dues.offBudgetAction')}</Button>}
+          {canManage && entity && plan && duesMode && <Button onClick={() => { setGenPeriod(''); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
         </div>
       </div>
 
@@ -332,6 +342,11 @@ export default function Dues() {
               {t('dues.arrearsNote1', { kind: t(`register.nouns.${entity.kind}`, { defaultValue: entity.kind }) })}{' '}
               <Link to="/buildings" className="underline">{t('nav.buildings')}</Link>{' '}
               {t('dues.arrearsNote2')}
+              <span className="block mt-1.5 text-muted-foreground">
+                {t('dues.arrearsBlocked')}{' '}
+                {t('dues.arrearsOneOff')}{' '}
+                <Link to="/finance" className="underline">{t('nav.finance')}</Link>.
+              </span>
             </span>
           </p>
         </CardBody></Card>

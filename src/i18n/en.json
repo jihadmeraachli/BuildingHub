@@ -1135,7 +1135,9 @@
     "billToOwner": "Owners only",
     "billToTenant": "Tenants where leased",
     "billToOwnerHint": "For capital work on the property (roof, elevator, facade). Follows ownership, never the occupant.",
-    "billToTenantHint": "For a running cost that landed off-cycle, like a fuel surcharge. Same rule as the recurring budget: the tenant where a unit is leased, the owner where it is not."
+    "billToTenantHint": "For a running cost that landed off-cycle, like a fuel surcharge. Same rule as the recurring budget: the tenant where a unit is leased, the owner where it is not.",
+    "arrearsBlocked": "Issuing dues is turned off until it is switched.",
+    "arrearsOneOff": "To bill a one-time cost on an arrears building, record it as an expense and allocate it in"
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",
