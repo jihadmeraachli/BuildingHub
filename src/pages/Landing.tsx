@@ -138,10 +138,10 @@ export default function Landing() {
             backgroundClip: 'text',
           }}
         >
-          {t('auth.heroTitle1')} {t('auth.heroTitle2')}
+          {t('landing.heroTitle')}
         </h1>
         <p className="text-lg text-white/80 max-w-2xl mx-auto">
-          {t('auth.heroTagline')}
+          {t('landing.heroTagline')}
         </p>
         <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
           <a

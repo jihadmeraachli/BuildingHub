@@ -241,17 +241,9 @@ export default function Buildings() {
         ? buildings.filter(b => myBuildingIds.includes(b.id))
         : buildings.filter(b => anyBuildingIds.includes(b.id) || anyCompoundIds.includes(b.compound_id ?? ''));
 
-  // Single-building admin: skip the one-row table — open their building's
-  // details directly (once; closing the modal shows the row, not a reopen loop).
-  const autoOpened = useRef(false);
-  useEffect(() => {
-    if (autoOpened.current || !isBuildingAdminOnly || loading) return;
-    if (visibleBuildings.length === 1) {
-      autoOpened.current = true;
-      openEditB(visibleBuildings[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBuildingAdminOnly, loading, visibleBuildings.length]);
+  // NOTE (#70): single-building admins used to auto-open their building's edit
+  // modal here. Testers experienced landing in an unrequested edit form as a
+  // bug, so the page now always shows the normal list.
 
   const visibleCompounds = isOrgAdmin
     ? compounds.filter(c => myOrgIds.includes(c.org_id ?? ''))

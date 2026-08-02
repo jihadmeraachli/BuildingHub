@@ -20,8 +20,8 @@ import { SkeletonTable } from '@/components/ui/Skeleton';
 interface MiniProfile { id: string; full_name: string; apartment_number: string | null; }
 interface OwnerRow { id: string; user_id: string; unit_id: string; tenure: Tenure; }
 
-const occupancyColor: Record<Occupancy, 'green' | 'slate' | 'blue'> = {
-  occupied: 'green', vacant: 'slate', abroad: 'blue',
+const occupancyColor: Record<Occupancy, 'green' | 'yellow' | 'blue'> = {
+  occupied: 'green', vacant: 'yellow', abroad: 'blue',
 };
 
 export default function Structure() {
@@ -159,9 +159,15 @@ export default function Structure() {
       share_weight: Number(unitForm.share_weight) || 1,
       occupancy: unitForm.occupancy,
       opening_balance: Number.isFinite(ob) ? ob : 0,
-      opening_balance_date: ob !== 0 ? (unitForm.opening_balance_date || new Date().toISOString().slice(0, 10)) : null,
+      opening_balance_date: ob !== 0 ? unitForm.opening_balance_date : null,
     };
     if (!payload.label) return;
+    // Testing feedback (#64): duplicate labels confuse the book; the date of a
+    // carried-in balance must be explicit, not silently assumed.
+    const isDuplicate = units.some((u) =>
+      u.label.trim().toLowerCase() === payload.label.toLowerCase() && u.id !== unitModal.edit?.id);
+    if (isDuplicate) { toast.error(t('structure.duplicateLabel')); return; }
+    if (ob !== 0 && !unitForm.opening_balance_date) { toast.error(t('structure.openingDateRequired')); return; }
     if (unitModal.edit) {
       await supabase.from('units').update(payload).eq('id', unitModal.edit.id);
       // License toggle: apply the delta between current state and checkbox.
@@ -429,7 +435,18 @@ export default function Structure() {
               {groups.length === 0 ? (
                 <Card><CardBody><div className="text-center py-10">
                   <Users2 className="mx-auto text-primary mb-2" size={28} />
-                  <p className="text-sm text-muted-foreground">{t('structure.noGroups')}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{t('structure.noGroups')}</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-xs text-muted-foreground">{t('structure.quickGroups')}</span>
+                    {[t('structure.occupied'), t('structure.vacant')].map((name) => (
+                      <Button key={name} size="sm" variant="secondary" onClick={async () => {
+                        await supabase.from('groups').insert({ building_id: buildingId, name });
+                        loadAll();
+                      }}>
+                        <Plus size={13} /> {name}
+                      </Button>
+                    ))}
+                  </div>
                 </div></CardBody></Card>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -466,7 +483,9 @@ export default function Structure() {
             <SelectField label={t('structure.occupancy')} value={unitForm.occupancy} onValueChange={(v) => setUnitForm({ ...unitForm, occupancy: v as Occupancy })}>
               <SelectItem value="occupied">{t('structure.occupied')}</SelectItem>
               <SelectItem value="vacant">{t('structure.vacant')}</SelectItem>
-              <SelectItem value="abroad">{t('structure.abroad')}</SelectItem>
+              {/* 'abroad' retired from the picker (testing feedback #64); existing
+                  units keep their badge until edited. */}
+              {unitForm.occupancy === 'abroad' && <SelectItem value="abroad">{t('structure.abroad')}</SelectItem>}
             </SelectField>
           </div>
 
@@ -571,7 +590,7 @@ export default function Structure() {
           <Input label={t('structure.groupName')} value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder={t('structure.groupNamePlaceholder')} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setGroupModal(false)}>{t('common.cancel')}</Button>
-            <Button onClick={saveGroup}>{t('structure.create')}</Button>
+            <Button onClick={saveGroup}>{t('structure.createGroup')}</Button>
           </div>
         </div>
       </Modal>

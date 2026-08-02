@@ -214,12 +214,26 @@ export default function Register() {
             placeholder={t(`register.entityPlaceholder.${nounKey(role)}`)}
           />
           {needsCity && (
-            <Input
-              label={t('register.city')}
-              value={state.city}
-              onChange={e => set({ city: e.target.value })}
-              placeholder={t('register.cityPlaceholder')}
-            />
+            <>
+              <Input
+                label={t('register.city')}
+                value={state.city}
+                onChange={e => set({ city: e.target.value })}
+                placeholder={t('register.cityPlaceholder')}
+                list="lb-cities"
+              />
+              {/* Searchable suggestions (native datalist); free text still allowed. */}
+              <datalist id="lb-cities">
+                {['Beirut', 'Tripoli', 'Saida', 'Tyre', 'Jounieh', 'Zahle', 'Baalbek', 'Jbeil', 'Aley',
+                  'Nabatieh', 'Batroun', 'Zgharta', 'Bcharre', 'Amioun', 'Baabda', 'Antelias', 'Jal el Dib',
+                  'Dbayeh', 'Broummana', 'Beit Mery', 'Hazmieh', 'Furn el Chebbak', 'Achrafieh', 'Hamra',
+                  'Verdun', 'Ras Beirut', 'Dora', 'Bourj Hammoud', 'Zalka', 'Kaslik', 'Adma', 'Byblos',
+                  'Chekka', 'Halba', 'Hermel', 'Rashaya', 'Hasbaya', 'Jezzine', 'Marjayoun', 'Bint Jbeil',
+                  'Aanjar', 'Chtaura', 'Jib Jannine', 'Damour', 'Choueifat', 'Bchamoun', 'Aramoun'].map(c => (
+                    <option key={c} value={c} />
+                  ))}
+              </datalist>
+            </>
           )}
         </div>
       </>
@@ -227,6 +241,9 @@ export default function Register() {
   }
 
   function renderPricing() {
+    // Sanity cap per scope (testing feedback #63): a single building with
+    // thousands of units is a typo, not a customer.
+    const unitCap = state.type === 'building_admin' ? 300 : state.type === 'compound_admin' ? 2000 : 10000;
     return (
       <>
         <h2 className="text-xl font-bold text-foreground mb-1">{t('register.choosePlan')}</h2>
@@ -241,12 +258,14 @@ export default function Register() {
             <input
               type="number"
               min={1}
-              max={9999}
+              max={unitCap}
               value={state.unitCount}
-              onChange={e => set({ unitCount: Math.max(1, Number(e.target.value)) })}
+              onChange={e => set({ unitCount: Math.min(unitCap, Math.max(1, Number(e.target.value))) })}
               className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <span className="text-sm text-muted-foreground">{t('register.unitsWord')}</span>
+            <span className="text-sm text-muted-foreground">
+              {t('register.unitsWord')} <span className="text-xs opacity-70">· {t('register.upToUnits', { max: unitCap })}</span>
+            </span>
           </div>
         </div>
 
@@ -406,8 +425,8 @@ export default function Register() {
     setError('');
 
     if (step === 1) {
-      if (!state.fullName.trim()) { setError(t('register.fullNameRequired')); return; }
-      if (!state.email.trim()) { setError(t('register.emailRequired')); return; }
+      if (state.fullName.trim().length < 3) { setError(t('register.fullNameRequired')); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(state.email.trim())) { setError(t('register.emailInvalid')); return; }
       if (state.password.length < 8) { setError(t('auth.passwordTooShort')); return; }
       setStep(2);
       return;
@@ -472,7 +491,10 @@ export default function Register() {
               {t('register.confirmPost', { noun: noun(state.type) })}
             </p>
             <p className="text-xs text-muted-foreground mt-4">
-              {t('register.noEmailHint')}
+              {t('register.noEmailHint2')}{' '}
+              <a href="mailto:support@abniyah.com" className="underline text-primary hover:text-primary/80">
+                {t('register.contactTeam')}
+              </a>
             </p>
           </div>
         </div>
