@@ -41,6 +41,14 @@ const NAV_SECTIONS = [
 export default function Landing() {
   const { t, i18n } = useTranslation();
   const [activeSection, setActiveSection] = useState('');
+  const [showTop, setShowTop] = useState(false);
+
+  // Floating back-to-top arrow: appears once the visitor has scrolled a bit.
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 600);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     document.title = t('landing.docTitle');
@@ -283,6 +291,19 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Floating back-to-top arrow — fades in after the first scroll. */}
+      <button
+        type="button"
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        aria-label={t('landing.backToTop')}
+        title={t('landing.backToTop')}
+        className={`fixed bottom-6 end-6 z-50 w-11 h-11 rounded-full border border-white/25 bg-[oklch(0.2_0.05_186)]/80 backdrop-blur-md text-white flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 hover:bg-white/15 cursor-pointer ${
+          showTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+        }`}
+      >
+        <ArrowUp size={18} />
+      </button>
+
       {/* Footer — the brand ↔ legal-entity link lives here, publicly. */}
       <footer className="border-t border-white/10">
         <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -295,13 +316,6 @@ export default function Landing() {
           <span className="flex items-center gap-4 text-xs text-white/60">
             <a className="hover:text-white transition-colors" href="/privacy">{t('landing.privacy')}</a>
             <a className="hover:text-white transition-colors" href="/terms">{t('landing.terms')}</a>
-            <button
-              type="button"
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 hover:bg-white/15 px-2.5 py-1.5 transition-colors cursor-pointer"
-            >
-              <ArrowUp size={12} /> {t('landing.backToTop')}
-            </button>
           </span>
         </div>
       </footer>
