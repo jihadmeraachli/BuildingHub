@@ -136,14 +136,20 @@ export default function Finance() {
   const [dues, setDues] = useState<Dues[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
+  // Names ride along: a resident with units in several buildings needs their
+  // tenant buckets labelled per building, and `buildings` (managed) is empty
+  // for a pure resident.
   const [whishByBuilding, setWhishByBuilding] = useState<Record<string, string>>({});
+  const [nameByBuilding, setNameByBuilding] = useState<Record<string, string>>({});
   useEffect(() => {
     const ids = [...new Set(units.map((u) => u.building_id))];
-    if (!ids.length) { setWhishByBuilding({}); return; }
-    supabase.from('buildings').select('id, whish_number').in('id', ids).not('whish_number', 'is', null)
-      .then(({ data }) => setWhishByBuilding(
-        Object.fromEntries(((data ?? []) as { id: string; whish_number: string }[]).map((b) => [b.id, b.whish_number])),
-      ));
+    if (!ids.length) { setWhishByBuilding({}); setNameByBuilding({}); return; }
+    supabase.from('buildings').select('id, name, whish_number').in('id', ids)
+      .then(({ data }) => {
+        const rows = (data ?? []) as { id: string; name: string; whish_number: string | null }[];
+        setWhishByBuilding(Object.fromEntries(rows.filter((b) => b.whish_number).map((b) => [b.id, b.whish_number as string])));
+        setNameByBuilding(Object.fromEntries(rows.map((b) => [b.id, b.name])));
+      });
   }, [units]);
   const [unitGroups, setUnitGroups] = useState<{ group_id: string; unit_id: string }[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -296,6 +302,10 @@ export default function Finance() {
   if (period === 'year') range = { from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31, 23, 59, 59) };
   else if (period === 'month') { const [y, m] = monthValue.split('-').map(Number); range = { from: new Date(y, m - 1, 1), to: new Date(y, m, 0, 23, 59, 59) }; }
   const inRange = (d: string) => !range || (new Date(d) >= range.from && new Date(d) <= range.to);
+  // Last day of the selected period; null = all time. A filtered balance is the
+  // running balance ON that date, not a sum of the window (0033's as-of model).
+  const asOfDate = range?.to ?? null;
+  const asOfLabel = asOfDate ? format(asOfDate, 'MMM d, yyyy') : '';
   const periodLabel = period === 'month' ? new Date(`${monthValue}-01`).toLocaleString(undefined, { month: 'long', year: 'numeric' }) : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
 
   // voided charges/payments never count toward cash or the book
@@ -524,6 +534,15 @@ export default function Finance() {
     // The period filters the STATEMENT and the charged/paid totals. The balance
     // is deliberately computed from the UNFILTERED rows: "you owe" has to mean
     // what you owe right now, not what you happened to owe inside a window.
+    // Is this the unit's CURRENT tenant (active membership), or someone before?
+    const isCurTenant = (unitId: string, tid?: string | null) => !!tid && tenancy.some(
+      (m) => m.unit_id === unitId && m.user_id === tid && m.tenure === 'tenant' && !m.ended_at);
+
+    // A view is 'combined' | 'owner' | `cur:<buildingId>` | `fmr:<buildingId>`.
+    // Tenant buckets are scoped to a BUILDING so a resident with units in two
+    // buildings never sees one building's tenant mixed into the other's.
+    const viewBuilding = (view: string) => view.includes(':') ? view.split(':')[1] : null;
+
     const rowsForView = (u: Unit, view: string) => {
       // live = every non-voided row (drives the BALANCE)
       const cLive = charges.filter((c) => c.unit_id === u.id && !c.voided_at);
@@ -533,50 +552,100 @@ export default function Finance() {
       const cAll = cLive.filter((c) => inRange(c.charge_date));
       const pAll = pLive.filter((p) => inRange(p.paid_on));
       const aAll = aLive.filter((a) => inRange(a.effective_date));
-      const bal = computeUnitBalances(u, cLive, pLive, aLive);
-      const tenantBal = (tid: string) => round2n(
-        pLive.filter((x) => x.paid_by === 'tenant' && x.tenant_id === tid).reduce((s, x) => s + Number(x.amount_usd), 0)
-        - cLive.filter((x) => x.billed_to === 'tenant' && x.tenant_id === tid).reduce((s, x) => s + Number(x.amount_usd), 0)
-        + aLive.filter((x) => x.party === 'tenant' && x.tenant_id === tid).reduce((s, x) => s + adjustmentEffect(x.kind, Number(x.amount_usd)), 0));
+      // Balance AS OF the end of the selected period — a running balance on that
+      // date, not a sum of the window. With no period it is today's balance.
+      const bal = computeUnitBalances(u, cLive, pLive, aLive, asOfDate);
+      const upTo = (d: string) => !asOfDate || new Date(d) <= asOfDate;
+      const bucketBal = (want: (tid?: string | null) => boolean) => round2n(
+        pLive.filter((x) => x.paid_by === 'tenant' && want(x.tenant_id) && upTo(x.paid_on)).reduce((s, x) => s + Number(x.amount_usd), 0)
+        - cLive.filter((x) => x.billed_to === 'tenant' && want(x.tenant_id) && upTo(x.charge_date)).reduce((s, x) => s + Number(x.amount_usd), 0)
+        + aLive.filter((x) => x.party === 'tenant' && want(x.tenant_id) && upTo(x.effective_date)).reduce((s, x) => s + adjustmentEffect(x.kind, Number(x.amount_usd)), 0));
 
       if (view === 'combined') return { c: cAll, p: pAll, a: aAll, balance: bal.total };
       if (view === 'owner') return {
         c: cAll.filter((c) => c.billed_to !== 'tenant'), p: pAll.filter((p) => p.paid_by !== 'tenant'),
         a: aAll.filter((a) => a.party !== 'tenant'), balance: bal.owner };
-      // a specific tenant bucket
+
+      // tenant bucket — empty for units outside the bucket's building
+      // 'self:<id>' — a tenant viewing their own account: strictly their rows.
+      if (view.startsWith('self:')) {
+        const me = view.slice(5);
+        const mine = (tid?: string | null) => tid === me;
+        return {
+          c: cAll.filter((x) => x.billed_to === 'tenant' && mine(x.tenant_id)),
+          p: pAll.filter((x) => x.paid_by === 'tenant' && mine(x.tenant_id)),
+          a: aAll.filter((x) => x.party === 'tenant' && mine(x.tenant_id)),
+          balance: bucketBal(mine),
+        };
+      }
+      const wantCur = view.startsWith('cur:');
+      if (viewBuilding(view) !== u.building_id) return { c: [], p: [], a: [], balance: 0 };
+      const want = (tid?: string | null) => isCurTenant(u.id, tid) === wantCur;
       return {
-        c: cAll.filter((x) => x.billed_to === 'tenant' && x.tenant_id === view),
-        p: pAll.filter((x) => x.paid_by === 'tenant' && x.tenant_id === view),
-        a: aAll.filter((x) => x.party === 'tenant' && x.tenant_id === view),
-        balance: tenantBal(view),
+        c: cAll.filter((x) => x.billed_to === 'tenant' && want(x.tenant_id)),
+        p: pAll.filter((x) => x.paid_by === 'tenant' && want(x.tenant_id)),
+        a: aAll.filter((x) => x.party === 'tenant' && want(x.tenant_id)),
+        balance: bucketBal(want),
       };
     };
 
-    // toggle options for an owner, ordered current tenant(s) first, then formers
+    // Toggle options: Combined, Owner, then per building a current- and a
+    // former-tenant bucket. The building name is only shown when the resident
+    // actually spans several buildings — with one, it is noise.
     const ownedUnits = units.filter((u) => myOwnerUnitIds.includes(u.id));
-    const tenantOptions = Array.from(new Map(ownedUnits.flatMap((u) => tenantsOf(u.id)).map((x) => [x.id, x])).values())
-      .sort((a, b) => Number(a.ended) - Number(b.ended));
+    const ownedBuildingIds = [...new Set(ownedUnits.map((u) => u.building_id))];
+    const multiBuilding = ownedBuildingIds.length > 1;
+    const bucketLabel = (bid: string, current: boolean, names: string[]) => {
+      const base = tenantTitle(
+        current ? t('finance.currentTenant') : (names.length > 1 ? t('finance.formerTenants') : t('finance.formerTenant')),
+        names.join(', ') || null);
+      return multiBuilding ? `${nameByBuilding[bid] ?? ''} · ${base}` : base;
+    };
+    const tenantBuckets = ownedBuildingIds.flatMap((bid) => {
+      const bUnits = ownedUnits.filter((u) => u.building_id === bid);
+      const namesFor = (current: boolean) => Array.from(new Set(
+        bUnits.flatMap((u) => tenantsOf(u.id).filter((x) => x.ended !== current).map((x) => x.name))));
+      const curNames = namesFor(true);
+      const fmrNames = namesFor(false);
+      // a former bucket also exists when money is tagged to a departed tenant
+      const hasFmr = fmrNames.length > 0 || bUnits.some((u) =>
+        charges.some((c) => c.unit_id === u.id && c.billed_to === 'tenant' && !isCurTenant(u.id, c.tenant_id)));
+      return [
+        ...(curNames.length ? [{ key: `cur:${bid}`, label: bucketLabel(bid, true, curNames) }] : []),
+        ...(hasFmr ? [{ key: `fmr:${bid}`, label: bucketLabel(bid, false, fmrNames) }] : []),
+      ];
+    });
     const viewerIsTenantOnly = units.every((u) => myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id));
+
+    // A bucket the resident selected may not exist any more (they switched the
+    // building scope). Fall back to Combined rather than showing empty cards.
+    const effView = residentView !== 'combined' && residentView !== 'owner'
+      && !tenantBuckets.some((b) => b.key === residentView) ? 'combined' : residentView;
 
     const rBook = units.map((u) => {
       const viewerIsTenant = myTenantUnitIds.includes(u.id) && !myOwnerUnitIds.includes(u.id);
-      const view = viewerIsTenant ? (profile?.id ?? 'owner') : residentView;
+      // A tenant viewer is pinned to their OWN rows — never the unit's other
+      // current tenants, and never the owner's.
+      const view = viewerIsTenant ? `self:${profile?.id ?? ''}` : effView;
       const r = rowsForView(u, view);
       return {
         unit: u, view, viewerIsTenant, balance: r.balance,
         charged: r.c.reduce((s, c) => s + Number(c.amount_usd), 0),
         paid: r.p.reduce((s, p) => s + Number(p.amount_usd), 0),
         unitCharges: r.c, unitPayments: r.p, unitAdjustments: r.a,
+        // this unit's own tenants, so a multi-unit resident can tell the cards apart
+        curTenantNames: tenantsOf(u.id).filter((x) => !x.ended).map((x) => x.name),
       };
     });
-    const showToggle = !viewerIsTenantOnly && tenantOptions.length > 0;
+    const showToggle = !viewerIsTenantOnly && tenantBuckets.length > 0;
     return (
       <div>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('finance.myAccount')}</h1>
           <div className="flex items-center gap-2 flex-wrap">
           {/* Residents get the same period control as managers. It scopes the
-              statement and the charged/paid totals; the balance stays current. */}
+              statement rows AND the balance, which becomes the running balance
+              as of the last day of the period. */}
           <RadixSelect value={period} onValueChange={(v) => setPeriod(v as 'month' | 'year' | 'all')}>
             <SelectTrigger className="min-w-[130px]">
               <SelectValue />
@@ -591,10 +660,19 @@ export default function Finance() {
           {rBook.length > 0 && (
             <Button variant="secondary" size="sm" onClick={() => {
               const r = rBook[0];
-              // Combined → all buckets; a specific view → just that bucket.
-              const only = residentView === 'combined'
-                ? undefined
-                : new Set([r.viewerIsTenant ? (profile?.id ?? '') : residentView]);
+              // Combined → all buckets. Otherwise translate the selected view
+              // into the bucket keys buildUnitBuckets understands: 'owner', or
+              // the tenant ids behind a current/former bucket for THIS unit.
+              const tidsFor = (wantCur: boolean) => Array.from(new Set(
+                [...charges.filter((c) => c.unit_id === r.unit.id && c.billed_to === 'tenant').map((c) => c.tenant_id),
+                 ...payments.filter((p) => p.unit_id === r.unit.id && p.paid_by === 'tenant').map((p) => p.tenant_id),
+                 ...tenancy.filter((m) => m.unit_id === r.unit.id && m.tenure === 'tenant').map((m) => m.user_id)]
+                  .filter((id): id is string => !!id)
+                  .filter((id) => isCurTenant(r.unit.id, id) === wantCur)));
+              const only = r.view === 'combined' ? undefined
+                : r.view === 'owner' ? new Set(['owner'])
+                : r.view.startsWith('self:') ? new Set([profile?.id ?? ''])
+                : new Set(tidsFor(r.view.startsWith('cur:')));
               exportUnitStatement(
                 r.unit,
                 charges.filter((c) => c.unit_id === r.unit.id && !c.voided_at),
@@ -612,14 +690,15 @@ export default function Finance() {
           <p className="text-xs text-muted-foreground mb-4">{t('finance.periodHint')}</p>
         )}
 
-        {/* T6 + per-tenant buckets: owner picks Owner / a specific tenant / Combined */}
+        {/* Owner picks Combined / Owner / a building's current or former tenants.
+            Tenant buckets are per BUILDING so two buildings never comingle. */}
         {showToggle && (
           <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 mb-5 text-sm gap-0.5">
-            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'combined' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
-            <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${residentView === 'owner' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
-            {tenantOptions.map((tn) => (
-              <button key={tn.id} onClick={() => setResidentView(tn.id)} className={`px-3 py-1.5 rounded-md transition ${residentView === tn.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                {tenantTitle(tn.ended ? t('finance.formerTenant') : t('finance.currentTenant'), tn.name)}
+            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${effView === 'combined' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
+            <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${effView === 'owner' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
+            {tenantBuckets.map((tn) => (
+              <button key={tn.key} onClick={() => setResidentView(tn.key)} className={`px-3 py-1.5 rounded-md transition ${effView === tn.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {tn.label}
               </button>
             ))}
           </div>
@@ -631,9 +710,16 @@ export default function Finance() {
               <div>
                 <p className="text-sm text-muted-foreground">
                   {t('finance.unit')} {r.unit.label}
+                  {/* name the unit's own tenant when the account spans several */}
+                  {rBook.length > 1 && r.curTenantNames.length > 0 && (
+                    <span className="text-muted-foreground/70"> · {tenantTitle(t('finance.currentTenant'), r.curTenantNames.join(', '))}</span>
+                  )}
                 </p>
                 <p className={`text-3xl font-bold tnum ${r.balance < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.balance)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {r.balance < 0 ? t('finance.youOwe') : t('finance.creditBalance')}
+                  {asOfLabel && <> · {t('finance.asOf', { date: asOfLabel })}</>}
+                </p>
                 {r.balance < 0 && whishByBuilding[r.unit.building_id] && (
                   <p className="text-xs font-medium text-primary mt-1.5">
                     {t('finance.payViaWhish', { number: whishByBuilding[r.unit.building_id] })}
@@ -651,8 +737,10 @@ export default function Finance() {
           unitIds={myUnitIds}
           viewFor={(unitId) => {
             const viewerIsTenant = myTenantUnitIds.includes(unitId) && !myOwnerUnitIds.includes(unitId);
-            return viewerIsTenant ? (profile?.id ?? 'owner') : residentView;
+            return viewerIsTenant ? `self:${profile?.id ?? ''}` : effView;
           }}
+          buildingOf={(unitId) => units.find((u) => u.id === unitId)?.building_id ?? ''}
+          isCurrentTenantOf={isCurTenant}
           nameById={(id) => tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null}
           isCurrentTenant={(unitId, tenantId) => !!tenantId && tenancy.some(
             (m) => m.unit_id === unitId && m.user_id === tenantId && m.tenure === 'tenant' && !m.ended_at)}
@@ -1217,11 +1305,14 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
  *  saw the owner's dues and vice versa. Now a tenant sees only their own rows,
  *  an owner sees whichever bucket the toggle is on, and Combined tags each row
  *  with the party it falls on. */
-function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant }: {
+function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildingOf, isCurrentTenantOf }: {
   unitIds: string[];
+  /** 'combined' | 'owner' | 'self:<id>' | 'cur:<buildingId>' | 'fmr:<buildingId>' */
   viewFor: (unitId: string) => string;
   nameById: (id: string) => string | null;
   isCurrentTenant: (unitId: string, tenantId: string | null) => boolean;
+  buildingOf: (unitId: string) => string;
+  isCurrentTenantOf: (unitId: string, tenantId?: string | null) => boolean;
 }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Dues[]>([]);
@@ -1236,7 +1327,12 @@ function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant }: {
     const view = viewFor(d.unit_id);
     if (view === 'combined') return true;
     if (view === 'owner') return d.billed_to !== 'tenant';
-    return d.billed_to === 'tenant' && d.tenant_id === view;
+    if (d.billed_to !== 'tenant') return false;
+    // a tenant viewing their own account: strictly their own dues
+    if (view.startsWith('self:')) return d.tenant_id === view.slice(5);
+    // a building-scoped current/former bucket
+    if (buildingOf(d.unit_id) !== view.split(':')[1]) return false;
+    return isCurrentTenantOf(d.unit_id, d.tenant_id) === view.startsWith('cur:');
   }).slice(0, 8);
 
   if (!visible.length) return null;
