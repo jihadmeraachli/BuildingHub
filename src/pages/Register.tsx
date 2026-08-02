@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import { LICENSE_CAPS } from '@/lib/licenseCaps';
 import { useAuth } from '@/contexts/AuthContext';
 import { setLanguage } from '@/i18n';
 import { Input } from '@/components/ui/Input';
@@ -241,9 +242,8 @@ export default function Register() {
   }
 
   function renderPricing() {
-    // Sanity cap per scope (testing feedback #63): a single building with
-    // thousands of units is a typo, not a customer.
-    const unitCap = state.type === 'building_admin' ? 300 : state.type === 'compound_admin' ? 2000 : 10000;
+    // License cap per scope (0071, DB-enforced): mirror of license_cap() SQL.
+    const unitCap = LICENSE_CAPS[scopeType(state.type as AdminRole)];
     return (
       <>
         <h2 className="text-xl font-bold text-foreground mb-1">{t('register.choosePlan')}</h2>

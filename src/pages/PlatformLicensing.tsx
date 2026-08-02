@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { KeyRound, Wallet, Boxes, Receipt, CalendarPlus, FileText, Ban, Search } from 'lucide-react';
+import { licenseCap } from '@/lib/licenseCaps';
 
 const STATUS_BADGE: Record<Subscription['status'], { color: 'green' | 'yellow' | 'red' | 'slate'; label: string }> = {
   trial:     { color: 'yellow', label: 'Trial' },
@@ -59,6 +60,8 @@ export default function PlatformLicensing() {
   const [subStatus, setSubStatus] = useState<'all' | Subscription['status']>('all');
 
   // Modals
+  const [capSub, setCapSub] = useState<Subscription | null>(null);
+  const [capValue, setCapValue] = useState('');
   const [extendSub, setExtendSub] = useState<Subscription | null>(null);
   const [extendDays, setExtendDays] = useState(30);
   const [invoiceSub, setInvoiceSub] = useState<Subscription | null>(null);
@@ -117,6 +120,20 @@ export default function PlatformLicensing() {
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
+
+  async function doSetCap() {
+    if (!capSub) return;
+    setBusy('cap');
+    const override = capValue.trim() === '' ? null : Math.max(1, Number(capValue));
+    const { error } = await supabase.from('subscriptions')
+      .update({ cap_override: override }).eq('id', capSub.id);
+    setBusy('');
+    if (error) { toast.error(error.message); return; }
+    await logEvent(capSub.id, 'cap_override_set', { entity: entityName(capSub), cap_override: override });
+    toast.success(override === null ? 'Cap reset to the scope default' : `Cap set to ${override} licenses`);
+    setCapSub(null);
+    loadAll();
+  }
 
   async function doExtendTrial() {
     if (!extendSub || extendDays < 1) return;
@@ -331,6 +348,12 @@ export default function PlatformLicensing() {
                             {s.status !== 'cancelled' && (
                               <div className="flex justify-end gap-1.5">
                                 <Button
+                                  variant="outline" size="xs" title="License cap (0071)"
+                                  onClick={() => { setCapValue(s.cap_override != null ? String(s.cap_override) : ''); setCapSub(s); }}
+                                >
+                                  <KeyRound size={12} /> Cap
+                                </Button>
+                                <Button
                                   variant="outline" size="xs" title="Extend trial"
                                   onClick={() => { setExtendDays(30); setExtendSub(s); }}
                                 >
@@ -470,6 +493,36 @@ export default function PlatformLicensing() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ── License cap modal (0071) ── */}
+      <Modal open={!!capSub} onClose={() => setCapSub(null)} title="License cap" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Cap for <span className="font-medium text-foreground">{capSub ? entityName(capSub) : ''}</span>
+            {capSub ? ` — scope default is ${licenseCap(capSub.scope_type)} (${capSub.scope_type}). ` : '. '}
+            Leave empty to use the default.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="number" min={1}
+              value={capValue}
+              placeholder={capSub ? String(licenseCap(capSub.scope_type)) : ''}
+              onChange={e => setCapValue(e.target.value)}
+              className="w-28 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <span className="text-sm text-muted-foreground">licenses</span>
+          </div>
+          {capSub && capSub.license_count > (capValue.trim() === '' ? licenseCap(capSub.scope_type) : Number(capValue)) && (
+            <p className="text-xs text-amber-600">
+              Current count ({capSub.license_count}) is above this cap — existing licenses keep working; only further growth is blocked.
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setCapSub(null)}>Cancel</Button>
+            <Button loading={busy === 'cap'} onClick={doSetCap}>Save</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── Extend trial modal ── */}
       <Modal open={!!extendSub} onClose={() => setExtendSub(null)} title="Extend trial" size="sm">

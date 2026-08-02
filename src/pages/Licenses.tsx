@@ -14,6 +14,7 @@ import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } fr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { KeyRound, Plus, CalendarClock, Wallet, Boxes } from 'lucide-react';
+import { licenseCap } from '@/lib/licenseCaps';
 
 const STATUS_COLOR: Record<Subscription['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
   trial: 'yellow', active: 'green', past_due: 'red', cancelled: 'slate',
@@ -191,6 +192,12 @@ export default function Licenses() {
 
   async function addLicenses() {
     if (!sub || addCount < 1) return;
+    // Client mirror of the 0071 cap trigger — same numbers, friendlier message.
+    const cap = licenseCap(sub.scope_type, sub.cap_override);
+    if (sub.license_count + addCount > cap) {
+      toast.error(t('licensesPage.capReached', { cap }));
+      return;
+    }
     setAddSaving(true);
     const newCount = sub.license_count + addCount;
     const { error } = await supabase.from('subscriptions')
@@ -483,6 +490,14 @@ export default function Licenses() {
                 count: sub.license_count + addCount,
                 total: usd((sub.license_count + addCount) * sub.price_per_unit_cents),
                 period: periodWord(sub.plan),
+              })}
+            </p>
+          )}
+          {sub && (
+            <p className={`text-xs ${sub.license_count + addCount > licenseCap(sub.scope_type, sub.cap_override) ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {t('licensesPage.capHint', {
+                cap: licenseCap(sub.scope_type, sub.cap_override),
+                remaining: Math.max(0, licenseCap(sub.scope_type, sub.cap_override) - sub.license_count),
               })}
             </p>
           )}

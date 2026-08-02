@@ -385,6 +385,8 @@ export interface Subscription {
   current_period_start: string | null;
   current_period_end: string | null;
   license_count: number;
+  /** Platform-set cap override for legit outliers; null = license_cap(scope). (0071) */
+  cap_override?: number | null;
   price_per_unit_cents: number;
   billing_email: string | null;
   notes: string | null;
