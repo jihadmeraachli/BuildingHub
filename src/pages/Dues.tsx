@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight, Receipt } from 'lucide-react';
+import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight, Receipt, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import { computeUnitBalances } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
 import {
   tenancyHelpers, buildDuesRows, computeDuesGeneration,
-  type TenancyRow, type DuesGenRow, type OffBudgetSpec,
+  type TenancyRow, type DuesGenRow, type OffBudgetSpec, type OffBudgetBillTo,
 } from '@/lib/reportData';
 import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -75,9 +75,10 @@ export default function Dues() {
   const [genPeriod, setGenPeriod] = useState('');
   const [genDue, setGenDue] = useState(new Date().toISOString().slice(0, 10));
 
-  // off-budget assessment (C13) — owner-only, allocated across units
+  // special charge (C13) — one-time, allocated across units, off the plan cycle
   const [obOpen, setObOpen] = useState(false);
   const [obLabel, setObLabel] = useState('');
+  const [obBillTo, setObBillTo] = useState<OffBudgetBillTo>('owner');
   const [obMethod, setObMethod] = useState<DuesMethod>('by_shares');
   const [obTotal, setObTotal] = useState('');
   const [obCustom, setObCustom] = useState<Record<string, string>>({});
@@ -222,9 +223,9 @@ export default function Dues() {
 
   const obSpec: OffBudgetSpec | null = useMemo(() => (
     obLabel.trim()
-      ? { label: obLabel.trim(), method: obMethod, total: Number(obTotal) || 0, custom: num(obCustom) }
+      ? { label: obLabel.trim(), method: obMethod, total: Number(obTotal) || 0, custom: num(obCustom), billTo: obBillTo }
       : null
-  ), [obLabel, obMethod, obTotal, obCustom]);
+  ), [obLabel, obMethod, obTotal, obCustom, obBillTo]);
 
   const obPreview = useMemo(() => {
     if (!plan || !obSpec) return [];
@@ -538,10 +539,22 @@ export default function Dues() {
         </div>
       </Modal>
 
-      {/* Off-budget assessment modal (C13) — owner-only, allocated across units */}
+      {/* Special charge (C13) — one-time, owner-only, allocated across units.
+          The name is generic, so the owner-only rule is stated in the modal
+          rather than left to be inferred. */}
       <Modal open={obOpen} onClose={() => setObOpen(false)} title={t('dues.offBudgetTitle')} size="lg">
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{t('dues.offBudgetNote')}</p>
+          <div>
+            <SelectField label={t('dues.offBudgetBillTo')} value={obBillTo} onValueChange={(v) => setObBillTo(v as OffBudgetBillTo)}>
+              <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
+              <SelectItem value="tenant_where_leased">{t('dues.billToTenant')}</SelectItem>
+            </SelectField>
+            <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1.5">
+              <User size={13} className="shrink-0 mt-0.5" />
+              <span>{obBillTo === 'owner' ? t('dues.billToOwnerHint') : t('dues.billToTenantHint')}</span>
+            </p>
+          </div>
           <Input label={t('dues.offBudgetLabel')} value={obLabel} onChange={(e) => setObLabel(e.target.value)} placeholder={t('dues.offBudgetPlaceholder')} />
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('dues.period')} value={obPeriod} onChange={(e) => setObPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />

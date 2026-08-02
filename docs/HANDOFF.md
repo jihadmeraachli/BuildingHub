@@ -153,8 +153,15 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
 - **⚠️ DUES ARE PARTY-AWARE (2026-08-02, #61, migration 0070).** A plan now has
   **two pools**: `pool_amount` (the recurring budget — billed to the **tenant**
   where a unit is leased, to the owner otherwise) and `owner_pool_amount` (the
-  owner-only slice, 0 by default). Plus **one-time assessments** ("Add
-  assessment") — owner-billed, allocated across units, `kind='off_budget'`.
+  owner-only slice charged EVERY period, 0 by default). Plus one-time **special
+  charges** ("Add special charge") — allocated across units, off the plan's
+  period cycle, with their own due date, `kind='off_budget'`. **The plan's owner
+  pool recurs; a special charge fires once.** A special charge picks who pays:
+  **Owners only** (capital work — roof, elevator, facade — follows ownership) or
+  **Tenants where leased** (a running cost that landed off-cycle, e.g. a fuel
+  surcharge when oil doubles; same rule as the recurring budget, so it falls to
+  the owner on unleased units). Editing the plan is the WRONG tool for an
+  off-cycle charge: it changes every future period and still would not bill now.
   Two rules keep the numbers honest, both implemented in
   **`computeDuesGeneration()` in `src/lib/reportData.ts`**:
   1. **Carry-in is party-scoped** — owner carry = `−bal.owner`, tenant carry =
@@ -163,7 +170,7 @@ Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). S
   2. **Carry is consumed once per unit + period + party.** Dues never touch the
      balance ledger, so a second generation into the same period would apply the
      same carry twice. This is what makes "the carry applies to the sum of the
-     recurring and assessment amounts" hold even across separate runs.
+     recurring and special-charge amounts" hold even across separate runs.
   **Move-out needs no dues offload:** `end_membership()` (0065) credits the owner
   sub-ledger, so a departed tenant's balance lands in the OWNER's carry-in next
   period by itself. Historical dues keep their original `tenant_id` — that is the

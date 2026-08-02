@@ -182,7 +182,7 @@ export interface DuesPartyGroup {
   title: string;               // 'Owner' | 'Tenant · Nadia' | 'Former tenant · Rami'
   isFormer: boolean;
   base: number; carry: number; due: number;
-  lines: Dues[];               // recurring first, then off-budget assessments
+  lines: Dues[];               // recurring first, then one-time special charges
 }
 
 /** A unit's dues for one period: the total, plus its party sub-rows. */
@@ -288,12 +288,23 @@ export interface DuesGenPlan {
   ownerCustom: Record<string, number>;
 }
 
-/** A one-time assessment allocated across units, always billed to owners. */
+/** Who a special charge falls on.
+ *  - 'owner'              capital spend on the property (roof, elevator,
+ *                         facade). Follows ownership, never the occupant.
+ *  - 'tenant_where_leased' a running cost that landed off-cycle (a fuel
+ *                         surcharge when oil doubles, a generator top-up).
+ *                         Same rule as the recurring budget: the tenant where
+ *                         a unit is leased, the owner where it is not. */
+export type OffBudgetBillTo = 'owner' | 'tenant_where_leased';
+
+/** A one-time SPECIAL CHARGE allocated across units, outside the plan's period
+ *  cycle — for money the fund needs NOW rather than at the next generation. */
 export interface OffBudgetSpec {
   label: string;
   method: DuesMethod;
   total: number;
   custom: Record<string, number>;
+  billTo: OffBudgetBillTo;
 }
 
 export interface DuesGenRow {
@@ -318,7 +329,7 @@ export interface DuesGenInput {
   /** Does this unit+period already have a row for this party? If so the carry
    *  was already consumed and must not be applied twice. */
   carryConsumed: (unitId: string, party: Tenure) => boolean;
-  /** Generate the plan's recurring amounts (false = assessment-only run). */
+  /** Generate the plan's recurring amounts (false = special-charge-only run). */
   includeRecurring: boolean;
   offBudget?: OffBudgetSpec | null;
 }
@@ -341,47 +352,48 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
     const ownerSlice = includeRecurring ? allocate(plan.method, plan.ownerPoolAmount, plan.ownerCustom, u, units) : 0;
     const offBase    = offBudget ? allocate(offBudget.method, offBudget.total, offBudget.custom, u, units) : 0;
 
-    // --- tenant side: the recurring budget, only when the unit is leased ---
-    if (leased && includeRecurring) {
-      const consumed = carryConsumed(u.id, 'tenant');
-      const carry = isB2 || consumed ? 0 : round2(-bal.tenant);
-      const due   = isB2 ? recurring : Math.max(0, round2(recurring + carry));
-      if (due > 0 || recurring > 0) {
-        rows.push({ unit: u, party: 'tenant', tenantId, kind: 'recurring', label: null,
-                    base: recurring, carry, due });
-      }
-    }
-
-    // --- owner side: the owner slice, plus the recurring budget when NOT leased ---
-    // The owner can have two lines in one run (recurring + assessment) but only
-    // ONE carry-in. It is applied to the recurring line first, and whatever the
-    // recurring line cannot absorb spills onto the assessment, so the lines
-    // always sum to max(0, totalOwnerBase + carry) — "the carry applies to the
-    // sum". The carry is reported on whichever line actually absorbed it, so a
-    // reduced amount is never left looking unexplained.
-    const ownerRecurringBase = includeRecurring ? round2(ownerSlice + (leased ? 0 : recurring)) : 0;
-    const ownerConsumed = carryConsumed(u.id, 'owner');
-    const ownerCarry = isB2 || ownerConsumed ? 0 : round2(-bal.owner);
-
-    let carryLeft = ownerCarry;
+    // Build each party's lines first, then settle the carry ONCE per party.
+    // Which side a line lands on:
+    //   recurring budget  → tenant where leased, owner otherwise
+    //   owner slice       → always owner
+    //   special charge    → owner, or (billTo=tenant_where_leased) the same rule
+    //                       as the recurring budget
+    type Line = { kind: Dues['kind']; label: string | null; base: number };
+    const tenantLines: Line[] = [];
+    const ownerLines: Line[] = [];
 
     if (includeRecurring) {
-      const due = isB2 ? ownerRecurringBase : Math.max(0, round2(ownerRecurringBase + ownerCarry));
-      if (due > 0 || ownerRecurringBase > 0) {
-        rows.push({ unit: u, party: 'owner', tenantId: null, kind: 'recurring', label: null,
-                    base: ownerRecurringBase, carry: ownerCarry, due });
-        // whatever the recurring line absorbed no longer applies downstream
-        carryLeft = isB2 ? 0 : round2(ownerRecurringBase + ownerCarry - due);
-      }
+      if (leased) tenantLines.push({ kind: 'recurring', label: null, base: recurring });
+      ownerLines.push({ kind: 'recurring', label: null, base: round2(ownerSlice + (leased ? 0 : recurring)) });
+    }
+    if (offBudget) {
+      const toTenant = offBudget.billTo === 'tenant_where_leased' && leased;
+      (toTenant ? tenantLines : ownerLines)
+        .push({ kind: 'off_budget', label: offBudget.label, base: offBase });
     }
 
-    if (offBudget) {
-      const offDue = isB2 ? offBase : Math.max(0, round2(offBase + carryLeft));
-      if (offDue > 0 || offBase > 0) {
-        rows.push({ unit: u, party: 'owner', tenantId: null, kind: 'off_budget',
-                    label: offBudget.label, base: offBase, carry: carryLeft, due: offDue });
+    // A party can have two lines in one run (recurring + special charge) but only
+    // ONE carry-in. It is applied to the first line, and whatever that line
+    // cannot absorb spills onto the next, so the lines always sum to
+    // max(0, totalBase + carry) — "the carry applies to the sum". The carry is
+    // reported on whichever line actually absorbed it, so a reduced amount is
+    // never left looking unexplained. A line that comes to nothing is not
+    // emitted and does not consume the carry.
+    const settle = (party: Tenure, lines: Line[], partyBal: number, tid: string | null) => {
+      if (!lines.length) return;
+      const carry = isB2 || carryConsumed(u.id, party) ? 0 : round2(-partyBal);
+      let left = carry;
+      for (const l of lines) {
+        const due = isB2 ? l.base : Math.max(0, round2(l.base + left));
+        if (due <= 0 && l.base <= 0) continue;
+        rows.push({ unit: u, party, tenantId: party === 'tenant' ? tid : null,
+                    kind: l.kind, label: l.label, base: l.base, carry: left, due });
+        left = isB2 ? 0 : round2(l.base + left - due);
       }
-    }
+    };
+
+    settle('tenant', tenantLines, bal.tenant, tenantId);
+    settle('owner', ownerLines, bal.owner, null);
   }
 
   return rows;

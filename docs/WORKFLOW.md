@@ -234,15 +234,25 @@ a tenant's credit against an owner's obligation. So:
 
 - The plan's `pool_amount` is the recurring budget and is billed to the
   **tenant** where the unit is leased, to the **owner** otherwise. `owner_pool_amount`
-  is an owner-only slice on top, and one-time **assessments** (`kind='off_budget'`)
-  are always the owner's.
+  is an owner-only slice charged **every period** on top. One-time **special
+  charges** (`kind='off_budget'`) sit outside the period cycle entirely, for
+  money the fund needs *now*, and they choose a side:
+  - **Owners only** — capital work on the property (roof, elevator, facade).
+    Follows ownership, never the occupant.
+  - **Tenants where leased** — a running cost that landed off-cycle, e.g. a fuel
+    surcharge when oil doubles. Same rule as the recurring budget, so it falls
+    to the owner on an unleased unit.
+
+  The distinction is capital spend vs running cost, not one-time vs recurring.
+  Editing the plan is the wrong tool for an off-cycle charge: it would change
+  every future period and still not bill anyone today.
 - **Carry-in is party-scoped.** Owner carry = `−bal.owner`, tenant carry =
   `−bal.tenant`. A unit's pre-existing balance belongs to the owner, because
   `opening_balance` is owner by definition. A new tenant never inherits it.
 - **Carry is consumed once per unit + period + party.** Since dues do not move
   the balance, generating twice into one period would otherwise apply the same
   carry twice. This rule is what makes an owner's carry apply to the *sum* of
-  their recurring and assessment amounts rather than to each line.
+  their recurring and special-charge amounts rather than to each line.
 
 **Why dues are not "offloaded" on move-out.** The instinct is to transfer a
 departing tenant's dues to the owner, mirroring the balance offload. It is not
