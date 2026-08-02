@@ -69,6 +69,21 @@ export default function Dashboard() {
   // Residents get the same period control as managers (mirrors Finance).
   const [rPeriod, setRPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [rMonth, setRMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  // Manager period. Flows are summed inside it; positions (outstanding, fund)
+  // and counts (units, open issues) are taken AS OF its last day — see 0072.
+  const [mPeriod, setMPeriod] = useState<'month' | 'year' | 'all'>('all');
+  const [mMonth, setMMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const { mFrom, mTo } = useMemo(() => {
+    const now = new Date();
+    if (mPeriod === 'year') return { mFrom: iso(new Date(now.getFullYear(), 0, 1)), mTo: iso(new Date(now.getFullYear(), 11, 31)) };
+    if (mPeriod === 'month') {
+      const [y, m] = mMonth.split('-').map(Number);
+      return { mFrom: iso(new Date(y, m - 1, 1)), mTo: iso(new Date(y, m, 0)) };
+    }
+    return { mFrom: null as string | null, mTo: null as string | null };
+  }, [mPeriod, mMonth]);
+  const mAsOfLabel = mTo && mPeriod !== 'all' ? fmtDate(mTo, 'MMM d, yyyy') : '';
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
   // GLOBAL entity selection — picked once in the sidebar, applied everywhere.
@@ -89,7 +104,7 @@ export default function Dashboard() {
     if (isManager) loadManager();
     else if (myUnitIds.length) loadResident();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildingsLoading, idsKey, isManager, entityKey, blockFilters, residentUnitId]);
+  }, [buildingsLoading, idsKey, isManager, entityKey, blockFilters, residentUnitId, mFrom, mTo]);
 
   useEffect(() => {
     if (buildingsLoading) return;
@@ -112,13 +127,31 @@ export default function Dashboard() {
 
     // Server-side aggregation (0049): the DB answers with numbers, not rows —
     // no payload growth, no silent 1000-row truncation as history accumulates.
+    // The period goes DOWN to the RPCs (0072) for the same reason: filtering it
+    // here would mean fetching every row back, which is what 0049 removed.
+    // Until 0072 is applied the RPCs have no period parameters, and PostgREST
+    // answers "function not found" (PGRST202) rather than ignoring them — which
+    // would take the whole manager dashboard down between deploy and migration.
+    // So: try with the period, fall back to the un-filtered call.
+    const rpcWithPeriod = async (fn: string, withPeriod: Record<string, unknown>) => {
+      const res = await supabase.rpc(fn, { p_building_ids: inIds, ...withPeriod });
+      if (res.error?.code === 'PGRST202') {
+        const plain = await supabase.rpc(fn, { p_building_ids: inIds });
+        return { ...plain, degraded: !plain.error };
+      }
+      return { ...res, degraded: false };
+    };
     const [statsRes, monthlyRes, carryRes] = await Promise.all([
-      supabase.rpc('dashboard_stats', { p_building_ids: inIds }),
-      supabase.rpc('dashboard_monthly', { p_building_ids: inIds }),
+      rpcWithPeriod('dashboard_stats', { p_from: mFrom, p_to: mTo }),
+      rpcWithPeriod('dashboard_monthly', { p_to: mTo }),
       // T2: net carry (opening balances + adjustments) so the Fund balance
       // reflects units that joined with a balance (0061).
-      supabase.rpc('dashboard_carry', { p_building_ids: inIds }),
+      rpcWithPeriod('dashboard_carry', { p_to: mTo }),
     ]);
+    // Say so rather than showing all-time numbers under a period label.
+    if (statsRes.degraded && mPeriod !== 'all' && seq === loadSeq.current) {
+      toast.error(t('dashboard.periodNeedsMigration'));
+    }
 
     // Never render silent zeros on failure (e.g. migration 0049 not applied) —
     // say so, and keep whatever was on screen.
@@ -416,12 +449,29 @@ export default function Dashboard() {
               allLabel={t('finance.allBlocks')}
             />
           )}
+          <RadixSelect value={mPeriod} onValueChange={(v) => setMPeriod(v as 'month' | 'year' | 'all')}>
+            <SelectTrigger className="min-w-[130px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+              <SelectItem value="month">{t('finance.month')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
+          {mPeriod === 'month' && <MonthPicker value={mMonth} onChange={setMMonth} />}
         </div>
       </div>
 
+      {/* Says plainly which numbers moved with the filter and which are a
+          snapshot, so a position is never read as a period total. */}
+      {mAsOfLabel && (
+        <p className="text-xs text-muted-foreground -mt-3">
+          {t('dashboard.periodHint', { date: mAsOfLabel })}
+        </p>
+      )}
+
       {/* Hero card */}
       <HeroCard
-        label={t('dashboard.fundBalance')}
+        label={`${t('dashboard.fundBalance')}${mAsOfLabel ? ` · ${t('finance.asOf', { date: mAsOfLabel })}` : ''}`}
         amount={money(fund)}
         negative={fund < 0}
         pill={t('dashboard.percentCollected', { pct: collectionRate })}
@@ -432,12 +482,13 @@ export default function Dashboard() {
         ]}
       />
 
-      {/* Stat row */}
+      {/* Stat row. Outstanding / Units / Open issues are AS-OF snapshots (0072);
+          Billed is a flow inside the period. The suffix keeps that visible. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label={t('dashboard.outstanding')} value={money(agg.outstanding)} icon={AlertCircle}   accent="teal" />
+        <StatCard label={`${t('dashboard.outstanding')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`} value={money(agg.outstanding)} icon={AlertCircle}   accent="teal" />
         <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}      icon={TrendingUp}    accent="teal" />
-        <StatCard label={t('dashboard.units')}        value={String(agg.units)}      icon={Home}          accent="teal" />
-        <StatCard label={t('dashboard.openIssues')}   value={String(agg.openIssues)} icon={AlertTriangle} accent="teal" />
+        <StatCard label={`${t('dashboard.units')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}       value={String(agg.units)}      icon={Home}          accent="teal" />
+        <StatCard label={`${t('dashboard.openIssues')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}  value={String(agg.openIssues)} icon={AlertTriangle} accent="teal" />
       </div>
 
       {/* Charts */}

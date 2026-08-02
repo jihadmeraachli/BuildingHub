@@ -516,7 +516,9 @@
     "viewStatementDesc": "Charges & payments history",
     "pendingApprovals": "Pending Approvals",
     "unpaidBills": "Unpaid Bills",
-    "recentActivity": "Recent Activity"
+    "recentActivity": "Recent Activity",
+    "periodHint": "Collected, spent and billed cover the selected period. Fund balance, outstanding, units and open issues are the position as of {{date}}.",
+    "periodNeedsMigration": "The period filter needs a database update (migration 0072). Showing all-time figures."
   },
   "meetings": {
     "title": "Meetings",
