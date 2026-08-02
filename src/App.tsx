@@ -25,6 +25,7 @@ const Dashboard  = lazy(() => import('@/pages/Dashboard'));
 const GettingStarted = lazy(() => import('@/pages/GettingStarted'));
 const Meetings   = lazy(() => import('@/pages/Meetings'));
 const Finance    = lazy(() => import('@/pages/Finance'));
+const Reports    = lazy(() => import('@/pages/Reports'));
 const Dues       = lazy(() => import('@/pages/Dues'));
 const Structure  = lazy(() => import('@/pages/Structure'));
 const Inspections = lazy(() => import('@/pages/Inspections'));
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/meetings" element={<Meetings />} />
               <Route path="/finance" element={<Finance />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/dues" element={<Dues />} />
               <Route path="/structure" element={<Structure />} />
               <Route path="/inspections" element={<Inspections />} />

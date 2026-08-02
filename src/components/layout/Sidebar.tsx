@@ -15,7 +15,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
-  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket,
+  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { isDemoEmail, DEMO_ACCOUNTS } from '@/lib/demo';
@@ -97,6 +97,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/getting-started', label: t('nav.gettingStarted'), icon: Rocket, show: showGettingStarted },
     { to: '/dashboard',   label: t('nav.dashboard'),   icon: LayoutDashboard },
     { to: '/finance',     label: t('nav.finance'),      icon: Wallet },
+    { to: '/reports',     label: t('nav.reports'),       icon: FileBarChart2,  show: !residentLens && canAny('finance.view') },
     { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: !residentLens && (canStructure || canAny('finance.view')) },
     { to: '/issues',      label: t('nav.issues'),        icon: AlertTriangle },
     { to: '/meetings',    label: t('nav.meetings'),      icon: CalendarDays },

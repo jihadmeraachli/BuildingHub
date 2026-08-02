@@ -11,6 +11,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
+import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared } from '@/lib/reportData';
 import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -22,7 +23,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { MonthPicker } from '@/components/ui/MonthPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
-import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
+import { MiniBar } from '@/components/ui/Charts';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 const CATEGORIES: ExpenseCategory[] = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
@@ -228,17 +229,10 @@ export default function Finance() {
   // Two tenant signals (see owner-tenant-ledger memory):
   //  · active  → drives NEW-money form prompts (can only route to a current tenant)
   //  · ever    → drives the split display / sub-rows / reports (history stays split)
-  const activeTenantIds = useMemo(
-    () => new Set(tenancy.filter((m) => m.tenure === 'tenant' && !m.ended_at).map((m) => m.unit_id)),
-    [tenancy]);
-  const everTenantIds = useMemo(() => {
-    const s = new Set(tenancy.filter((m) => m.tenure === 'tenant').map((m) => m.unit_id));
-    // also any unit that carries tenant-attributed money, even if the membership is gone
-    charges.forEach((c) => { if (c.billed_to === 'tenant') s.add(c.unit_id); });
-    payments.forEach((p) => { if (p.paid_by === 'tenant') s.add(p.unit_id); });
-    adjustments.forEach((a) => { if (a.party === 'tenant') s.add(a.unit_id); });
-    return s;
-  }, [tenancy, charges, payments, adjustments]);
+  // Derivations live in lib/reportData (shared with the Reports tab, #62).
+  const th = useMemo(() => tenancyHelpers(tenancy, charges, payments, adjustments),
+    [tenancy, charges, payments, adjustments]);
+  const { activeTenantIds, nameById, activeTenantId } = th;
   const hasTenant = (uid: string) => activeTenantIds.has(uid);        // forms (active tenant)
   // display/split uses everTenantIds.has(unitId) directly (has or had a tenant)
 
@@ -251,61 +245,21 @@ export default function Finance() {
     const hit = periods.find((m) => new Date(m.created_at) <= d && (!m.ended_at || new Date(m.ended_at) >= d));
     return (hit ?? periods[periods.length - 1])?.profiles?.full_name ?? null;
   };
-  // Name of a specific tenant by their profile id (from any of their memberships).
-  const nameById = (id: string | null | undefined): string | null =>
-    id ? (tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null) : null;
   // The tag label for a tenant-attributed row: prefer the row's explicit
   // tenant_id (0066), fall back to whoever occupied the unit on that date.
   const tenantLabelFor = (tenant_id: string | null | undefined, unitId: string, date: string): string =>
     nameById(tenant_id) ?? tenantNameAt(unitId, date) ?? t('finance.tenantTag');
-  // the current (active) tenant of a unit — used to stamp tenant_id on new rows
-  const activeTenantId = (unitId: string): string | null =>
-    tenancy.find((m) => m.unit_id === unitId && m.tenure === 'tenant' && !m.ended_at)?.user_id ?? null;
   // every tenant a unit has had, oldest→newest, for per-tenant buckets/toggle
   const tenantsOf = (unitId: string) =>
     tenancy.filter((m) => m.unit_id === unitId && m.tenure === 'tenant')
       .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
       .map((m) => ({ id: m.user_id, name: m.profiles?.full_name ?? t('finance.tenant'), ended: !!m.ended_at }));
 
-  // Build the owner / current-tenant / former-tenant buckets for a unit's PDF
-  // statement (mirrors the Book + resident toggle). `only` restricts to a subset
-  // of bucket keys ('owner' | a tenant id); omit for the full combined statement.
-  const buildUnitBuckets = (u: Unit, cAll: Charge[], pAll: Payment[], aAll: Adjustment[], only?: Set<string>) => {
-    const bal = computeUnitBalances(u, cAll, pAll, aAll);
-    const sumAmt = (rows: { amount_usd: number }[]) => rows.reduce((s, r) => s + Number(r.amount_usd), 0);
-    const adjEff = (rows: Adjustment[]) => rows.reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
-    const round2n = (n: number) => Math.round(n * 100) / 100;
-    const wants = (k: string) => !only || only.has(k);
-    const buckets: import('@/lib/pdf').StatementBucket[] = [];
-    // Owner bucket (carries the opening balance).
-    if (wants('owner')) {
-      const oc = cAll.filter((c) => c.billed_to !== 'tenant');
-      const op = pAll.filter((p) => p.paid_by !== 'tenant');
-      const oa = aAll.filter((a) => a.party !== 'tenant');
-      const opening = Number(u.opening_balance) || 0;
-      if (oc.length || op.length || oa.length || opening !== 0 || bal.owner !== 0)
-        buckets.push({ key: 'owner', title: t('finance.owner'), balance: bal.owner, openingBalance: opening, charges: oc, payments: op, adjustments: oa });
-    }
-    // One bucket per tenant (active first, then formers).
-    const activeTid = activeTenantId(u.id);
-    const tids = Array.from(new Set([
-      ...cAll.filter((c) => c.billed_to === 'tenant').map((c) => c.tenant_id ?? '∅'),
-      ...pAll.filter((p) => p.paid_by === 'tenant').map((p) => p.tenant_id ?? '∅'),
-      ...aAll.filter((a) => a.party === 'tenant').map((a) => a.tenant_id ?? '∅'),
-    ])).sort((a, b) => (a === activeTid ? -1 : b === activeTid ? 1 : 0));
-    for (const tid of tids) {
-      if (!wants(tid)) continue;
-      const c = cAll.filter((x) => x.billed_to === 'tenant' && (x.tenant_id ?? '∅') === tid);
-      const p = pAll.filter((x) => x.paid_by === 'tenant' && (x.tenant_id ?? '∅') === tid);
-      const a = aAll.filter((x) => x.party === 'tenant' && (x.tenant_id ?? '∅') === tid);
-      if (!c.length && !p.length && !a.length) continue;
-      const isActive = tid !== '∅' && tid === activeTid;
-      const name = tid === '∅' ? t('finance.tenant') : (nameById(tid) ?? t('finance.tenant'));
-      buckets.push({ key: `tenant:${tid}`, title: `${isActive ? t('finance.tenant') : t('finance.formerTenant')} · ${name}`,
-        balance: round2n(sumAmt(p) - sumAmt(c) + adjEff(a)), charges: c, payments: p, adjustments: a });
-    }
-    return { buckets, combined: round2n(buckets.reduce((s, b) => s + b.balance, 0)) };
-  };
+  // Owner / current-tenant / former-tenant buckets for a unit's PDF statement.
+  // Logic lives in lib/reportData (shared with the Reports tab, #62).
+  const buildUnitBuckets = (u: Unit, cAll: Charge[], pAll: Payment[], aAll: Adjustment[], only?: Set<string>) =>
+    buildUnitBucketsShared(u, cAll, pAll, aAll, th,
+      { owner: t('finance.owner'), tenant: t('finance.tenant'), formerTenant: t('finance.formerTenant') }, only);
 
   // Owner's resident finance defaults to the Combined view (residentView's
   // initial state); they can switch to Owner / a specific tenant via the toggle.
@@ -344,58 +298,10 @@ export default function Finance() {
   const netP = round2(collectedP - billedP);
 
   // per-unit book. Balance folds in the opening balance and, when an "as of"
-  // date is set, only counts transactions up to that date (see computeBalance).
-  const book = useMemo(() => vUnits.map((u) => {
-    const uCharges = vCharges.filter((c) => c.unit_id === u.id);
-    const uPayments = vPayments.filter((p) => p.unit_id === u.id);
-    const uAdj = adjustments.filter((a) => a.unit_id === u.id);
-    const within = (d: string) => !asOf || new Date(d) <= new Date(asOf);
-    const liveC = uCharges.filter((c) => !c.voided_at && within(c.charge_date));
-    const liveP = uPayments.filter((p) => !p.voided_at && within(p.paid_on));
-    const sum = <X extends { amount_usd: number }>(rows: X[]) => rows.reduce((s, r) => s + Number(r.amount_usd), 0);
-    // per-party billed/paid so sub-rows can mirror the main row's columns
-    const ownerCharged = sum(liveC.filter((c) => c.billed_to !== 'tenant'));
-    const tenantCharged = sum(liveC.filter((c) => c.billed_to === 'tenant'));
-    const ownerPaid = sum(liveP.filter((p) => p.paid_by !== 'tenant'));
-    const tenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant'));
-    const charged = ownerCharged + tenantCharged;
-    const paid = ownerPaid + tenantPaid;
-    // adjustments change the balance but aren't billed/paid → their own column
-    const liveA = uAdj.filter((a) => !a.voided_at && within(a.effective_date));
-    const adjSum = <X extends { kind: AdjustmentKind; amount_usd: number }>(rows: X[]) =>
-      rows.reduce((s, a) => s + adjustmentEffect(a.kind, Number(a.amount_usd)), 0);
-    const ownerAdj = adjSum(liveA.filter((a) => a.party !== 'tenant'));
-    const tenantAdj = adjSum(liveA.filter((a) => a.party === 'tenant'));
-    const adj = ownerAdj + tenantAdj;
-    // Split the tenant sub-ledger into the CURRENT (live) tenant vs FORMER
-    // tenants, so the live tenant's row never absorbs a past tenant's lines.
-    const activeTid = activeTenantId(u.id);
-    const isCur = (tid: string | null | undefined) => !!activeTid && tid === activeTid;
-    const curTenantCharged = sum(liveC.filter((c) => c.billed_to === 'tenant' && isCur(c.tenant_id)));
-    const curTenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant' && isCur(p.tenant_id)));
-    const curTenantAdj = adjSum(liveA.filter((a) => a.party === 'tenant' && isCur(a.tenant_id)));
-    const curTenant = curTenantPaid - curTenantCharged + curTenantAdj;
-    const fmrTenantCharged = sum(liveC.filter((c) => c.billed_to === 'tenant' && !isCur(c.tenant_id)));
-    const fmrTenantPaid = sum(liveP.filter((p) => p.paid_by === 'tenant' && !isCur(p.tenant_id)));
-    const fmrTenantAdj = adjSum(liveA.filter((a) => a.party === 'tenant' && !isCur(a.tenant_id)));
-    const fmrTenant = fmrTenantPaid - fmrTenantCharged + fmrTenantAdj;
-    // names of the former tenants present in this view (for the row label)
-    const fmrTenantNames = Array.from(new Set(
-      [...liveC.filter((c) => c.billed_to === 'tenant' && !isCur(c.tenant_id)).map((c) => c.tenant_id),
-       ...liveP.filter((p) => p.paid_by === 'tenant' && !isCur(p.tenant_id)).map((p) => p.tenant_id),
-       ...liveA.filter((a) => a.party === 'tenant' && !isCur(a.tenant_id)).map((a) => a.tenant_id)]
-        .map((id) => nameById(id)).filter((n): n is string => !!n)));
-    const showFormer = fmrTenantCharged !== 0 || fmrTenantPaid !== 0 || fmrTenantAdj !== 0 || fmrTenant !== 0;
-    // T9: show the owner/tenant split when there's a LIVE tenant (always, even at
-    // $0), or the unit once had a tenant that still carries a non-zero balance
-    // (the leftover is what T10 offloads to the owner on move-out).
-    const bal = computeUnitBalances(u, uCharges, uPayments, uAdj, asOf || null);
-    const split = activeTenantIds.has(u.id) || (everTenantIds.has(u.id) && bal.tenant !== 0) || showFormer;
-    return { unit: u, charged, paid, adj, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, ownerAdj, tenantCharged, tenantPaid, tenantAdj,
-      hasActiveTenant: activeTenantIds.has(u.id), activeTenantName: nameById(activeTid),
-      curTenantCharged, curTenantPaid, curTenantAdj, curTenant,
-      fmrTenantCharged, fmrTenantPaid, fmrTenantAdj, fmrTenant, showFormer, fmrTenantNames };
-  }), [vUnits, vCharges, vPayments, adjustments, asOf, everTenantIds, activeTenantIds, tenancy]);
+  // date is set, only counts transactions up to that date. The row math lives
+  // in lib/reportData (shared with the Reports tab, #62).
+  const book = useMemo(() => buildBook(vUnits, vCharges, vPayments, adjustments, asOf || null, th),
+    [vUnits, vCharges, vPayments, adjustments, asOf, th]);
 
   // T1: the Outstanding KPI follows the TOP period filter (as of the end of the
   // selected period), like Collected/Billed next to it — NOT the Book tab's
@@ -415,31 +321,7 @@ export default function Finance() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vUnits, vCharges, vPayments, adjustments, period, monthValue]);
 
-  // category breakdown (charges → block-sliceable)
-  const breakdown = CATEGORIES.map((cat) => ({
-    label: t(`finance.cats.${cat}`),
-    value: round2(pCharges.filter((c) => c.category === cat).reduce((s, c) => s + Number(c.amount_usd), 0)),
-  })).filter((d) => d.value > 0);
-
-  // trend: collected (payments) vs billed (charges), granularity by period
-  const trend = useMemo(() => {
-    if (period === 'month') {
-      const [y, m] = monthValue.split('-').map(Number);
-      const days = new Date(y, m, 0).getDate();
-      const collected = new Array(days).fill(0); const billed = new Array(days).fill(0);
-      pPayments.forEach((p) => { collected[new Date(p.paid_on).getDate() - 1] += Number(p.amount_usd); });
-      pCharges.forEach((c) => { billed[new Date(c.charge_date).getDate() - 1] += Number(c.amount_usd); });
-      const labels = Array.from({ length: days }, (_, i) => (i === 0 || i === days - 1 || (i + 1) % 5 === 0 ? String(i + 1) : ''));
-      return { labels, collected: collected.map(round2), billed: billed.map(round2) };
-    }
-    const buckets = period === 'year'
-      ? Array.from({ length: 12 }, (_, k) => ({ key: `${now.getFullYear()}-${k}`, label: new Date(now.getFullYear(), k, 1).toLocaleString(undefined, { month: 'short' }), c: 0, b: 0 }))
-      : Array.from({ length: 12 }, (_, k) => { const d = new Date(now.getFullYear(), now.getMonth() - 11 + k, 1); return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString(undefined, { month: 'short' }), c: 0, b: 0 }; });
-    const find = (dt: string) => { const d = new Date(dt); return buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`); };
-    pPayments.forEach((p) => { const x = find(p.paid_on); if (x) x.c += Number(p.amount_usd); });
-    pCharges.forEach((c) => { const x = find(c.charge_date); if (x) x.b += Number(c.amount_usd); });
-    return { labels: buckets.map((x) => x.label), collected: buckets.map((x) => round2(x.c)), billed: buckets.map((x) => round2(x.b)) };
-  }, [period, monthValue, pPayments, pCharges]); // eslint-disable-line react-hooks/exhaustive-deps
+  // (charts moved: trends live on Dashboard, downloadable reports on Reports — #62)
 
   // units targeted by the current expense form
   const targetUnits = useMemo(() => {
@@ -593,26 +475,7 @@ export default function Finance() {
     }
   }
 
-  async function exportBuildingReport() {
-    try {
-      const { BuildingReportDoc, downloadPdf } = await import('@/lib/pdf');
-      const el = (
-        <BuildingReportDoc
-          entityName={entity?.name ?? ''}
-          period={periodLabel}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-          kpi={{ collected: collectedP, billed: billedP, outstanding }}
-          book={book}
-          expenses={pExpenses}
-          payments={pPayments.map((p) => ({ id: p.id, date: p.paid_on, unit: unitDisplay(p.unit_id), method: p.method, amount: Number(p.amount_usd) }))}
-        />
-      );
-      await downloadPdf(el, `report-${(entity?.name ?? 'building').replace(/\s+/g, '-')}-${period}.pdf`);
-    } catch (e) {
-      toast.error(t('finance.exportFailed', { defaultValue: 'Could not generate the report. Please refresh and try again.' }));
-      console.error('report export failed:', e);
-    }
-  }
+  // (the building report export moved to the Reports tab — #62)
 
   // ================= RESIDENT VIEW =================
   if (!isManager) {
@@ -781,20 +644,6 @@ export default function Finance() {
             <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} desc={t('finance.outstandingDesc')} />
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4 mb-6">
-            <Card className="lg:col-span-2"><CardBody>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-primary">{t('dashboard.collectedVsSpent')}</p>
-                <span className="text-xs text-muted-foreground">{periodLabel}{blockFilters.length === 1 ? ` · ${blockName[blockFilters[0]]}` : blockFilters.length > 1 ? ` · ${blockFilters.length} blocks` : ''}</span>
-              </div>
-              <TrendChart labels={trend.labels} series={[{ name: t('finance.collected'), color: '#10b981', data: trend.collected }, { name: t('finance.billed'), color: '#6366f1', data: trend.billed }]} />
-            </CardBody></Card>
-            <Card><CardBody>
-              <p className="text-sm font-semibold text-primary mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-muted-foreground text-xs">· {periodLabel}</span></p>
-              <Donut data={breakdown} centerLabel={t('finance.billed')} />
-            </CardBody></Card>
-          </div>
-
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <SegmentedTabs
               value={tab}
@@ -810,9 +659,6 @@ export default function Finance() {
                 (the calm primary) also lives on Book — that's where you see a
                 balance and take the money; never hide it behind a tab switch. */}
             <div className="flex gap-2">
-              {tab === 'book' && (
-                <Button variant="secondary" onClick={exportBuildingReport} disabled={!entity || units.length === 0}><Download size={16} /> {t('finance.exportReport')}</Button>
-              )}
               {canManageFinance && (
                 <>
                   {tab === 'adjustments' && (

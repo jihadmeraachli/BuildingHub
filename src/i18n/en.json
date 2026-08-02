@@ -60,6 +60,7 @@
     "organizations": "Organizations",
     "compounds": "Compounds",
     "config": "Configuration",
+    "reports": "Reports",
     "settings": "Settings",
     "notifications": "Notifications",
     "profile": "Profile",
@@ -241,6 +242,20 @@
     "reason": "Unlock Abniyah",
     "lockedTitle": "Abniyah is locked",
     "unlock": "Unlock"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Download statements and reports. More reports will land here over time.",
+    "period": "Period",
+    "specificMonth": "A specific month",
+    "buildingReport": "Building financial report",
+    "buildingReportDesc": "Collected, billed and outstanding for the period, the full per-unit book with owner and tenant splits, expenses and payments. The document your committee meeting wants on the table.",
+    "unitStatement": "Unit statement",
+    "unitStatementDesc": "One unit's complete account: owner and tenant buckets, opening balance, every charge, payment and adjustment, and the combined balance.",
+    "pickUnit": "Choose a unit…",
+    "pickUnitFirst": "Choose a unit first.",
+    "download": "Download PDF",
+    "exportFailed": "Could not generate the report. Please refresh and try again."
   },
   "feedback": {
     "button": "Send feedback",
