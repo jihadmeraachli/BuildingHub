@@ -12,6 +12,7 @@
     "upload": "Upload",
     "search": "Search",
     "noResults": "No matches",
+    "pickEntity": "Select a building or compound from the side menu to view this page.",
     "filter": "Filter",
     "status": "Status",
     "date": "Date",

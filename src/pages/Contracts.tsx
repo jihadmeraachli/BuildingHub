@@ -38,9 +38,10 @@ export default function Contracts() {
   const { can, isPlatformAdmin, profile } = useAuth();
   const { buildings } = useViewableBuildings();
   const entities = useEntities(buildings);
-  const [entityKey, setEntityKey] = useState('');
+  // GLOBAL entity selection (sidebar); '' = view across all viewable buildings
+  // (adding a contract still needs a specific entity picked).
+  const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState('');
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
@@ -56,14 +57,24 @@ export default function Contracts() {
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const blockName = Object.fromEntries(buildings.map((b) => [b.id, b.name]));
 
-  useEffect(() => { if (entity) load(); }, [entityKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (entity || buildings.length) load(); }, [entityKey, buildings.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load() {
-    if (!entity) return;
+    if (!entity && !buildings.length) return;
     setLoading(true);
-    const q = entity.kind === 'compound'
-      ? supabase.from('service_contracts').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`)
-      : supabase.from('service_contracts').select('*').eq('building_id', entity.id);
+    let q;
+    if (entity) {
+      q = entity.kind === 'compound'
+        ? supabase.from('service_contracts').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`)
+        : supabase.from('service_contracts').select('*').eq('building_id', entity.id);
+    } else {
+      // "All buildings": every block + every compound the user can see
+      const bIds = buildings.map((b) => b.id).join(',');
+      const cIds = entities.filter((e) => e.kind === 'compound').map((e) => e.id).join(',');
+      q = cIds
+        ? supabase.from('service_contracts').select('*').or(`compound_id.in.(${cIds}),building_id.in.(${bIds})`)
+        : supabase.from('service_contracts').select('*').in('building_id', buildings.map((b) => b.id));
+    }
     const { data } = await q.order('service');
     setRows((data as ServiceContract[]) ?? []);
     setLoading(false);
@@ -127,16 +138,7 @@ export default function Contracts() {
           <p className="text-sm text-muted-foreground mt-0.5">{t('contracts.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {entities.length > 1 && (
-            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
-              <SelectTrigger className="min-w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
-              </SelectContent>
-            </RadixSelect>
-          )}
+          {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
           {entity?.kind === 'compound' && multiBlock && (
             <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
               <SelectTrigger>

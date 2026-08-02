@@ -74,7 +74,8 @@ export default function Users() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const entities = useEntities(buildings); // compounds (grouping blocks) + standalone buildings
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [entityKey, setEntityKey] = useState<string>('');
+  // GLOBAL entity selection (sidebar); '' = people across all managed buildings.
+  const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>('all');
@@ -157,14 +158,13 @@ export default function Users() {
   const compoundEntities = entities.filter(e => e.kind === 'compound');
 
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
 
-  // Which blocks the people list covers.
+  // Which blocks the people list covers ('' entity = every managed building).
   const listBuildingIds = useMemo<string[]>(() => {
     if (!showBuildingSelector) return profile?.building_id ? [profile.building_id] : [];
     if (blockFilter) return [blockFilter];
-    return selEntity?.buildingIds ?? [];
-  }, [showBuildingSelector, profile?.building_id, blockFilter, selEntity]);
+    return selEntity?.buildingIds ?? entities.flatMap(e => e.buildingIds);
+  }, [showBuildingSelector, profile?.building_id, blockFilter, selEntity, entities]);
   const listKey = listBuildingIds.join(',');
 
   useEffect(() => {
@@ -527,24 +527,10 @@ export default function Users() {
         </div>
       </div>
 
-      {/* Compound-first: pick the compound (or standalone building), then optionally
-          narrow to one block. Same selector shape as Dashboard/Finance/Dues. */}
+      {/* Entity selection moved to the sidebar (global) — only the optional
+          block drill-down stays here. */}
       {showBuildingSelector && (
         <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <RadixSelect value={entityKey || '__none__'} onValueChange={v => setEntityKey(v === '__none__' ? '' : v)}>
-            <SelectTrigger className="min-w-[240px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {entities.length === 0 && <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>}
-              {entities.map(e => (
-                <SelectItem key={e.key} value={e.key}>
-                  {e.kind === 'compound' ? `▣ ${e.name}` : e.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </RadixSelect>
-
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
             <RadixSelect value={blockFilter || '__all__'} onValueChange={v => setBlockFilter(v === '__all__' ? '' : v)}>
               <SelectTrigger>

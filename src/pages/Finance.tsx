@@ -17,7 +17,6 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -107,9 +106,10 @@ export default function Finance() {
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }, [buildings, compounds]);
 
-  const [entityKey, setEntityKey] = useState('');
+  // GLOBAL entity selection (sidebar) — '' = "All buildings", which Finance
+  // can't aggregate across mixed entities: it shows a pick-one prompt instead.
+  const { entityKey } = useAuth();
   const [blockFilters, setBlockFilters] = useState<string[]>([]);
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
 
@@ -644,16 +644,7 @@ export default function Finance() {
           <p className="text-sm text-muted-foreground mt-0.5">{t('finance.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {entities.length > 1 && (
-            <SearchableSelect
-              className="min-w-[180px]"
-              value={entityKey}
-              onChange={setEntityKey}
-              searchPlaceholder={t('common.search')}
-              emptyText={t('common.noResults')}
-              options={entities.map((e) => ({ value: e.key, label: e.kind === 'compound' ? `▣ ${e.name}` : e.name }))}
-            />
-          )}
+          {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
           {entity?.kind === 'compound' && multiBlock && (
             <MultiSelect
               options={entity.blocks.map(b => ({ value: b.id, label: b.name }))}
@@ -678,7 +669,7 @@ export default function Finance() {
         </div>
       </div>
 
-      {!entity ? <Empty body={t('finance.noBuildings')} /> : (
+      {!entity ? <Empty body={entities.length ? t('common.pickEntity') : t('finance.noBuildings')} /> : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
             <Kpi label={t('finance.collected')} value={money(collectedP)} icon={TrendingUp} tone="emerald" hint={periodLabel} desc={t('finance.collectedDesc')} />

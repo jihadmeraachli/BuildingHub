@@ -12,7 +12,6 @@ import { supabase } from '@/lib/supabase';
 import type { Meeting, AdjustmentKind } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
-import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { PendingInvites } from '@/components/PendingInvites';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -58,16 +57,10 @@ export default function Dashboard() {
   const [myUnits, setMyUnits] = useState<{ id: string; label: string; buildingName: string; balance: number }[]>([]);
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
-  const [entityKey, setEntityKey] = useState('');
+  // GLOBAL entity selection — picked once in the sidebar, applied everywhere.
+  const { entityKey } = useAuth();
   const [blockFilters, setBlockFilters] = useState<string[]>([]);
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
-  // Platform admin gets NO "All buildings" mode: cross-tenant totals are
-  // meaningless for the operator and the most expensive query in the app —
-  // force one entity at a time.
-  useEffect(() => {
-    if (isPlatformAdmin && !entityKey && entities.length) setEntityKey(entities[0].key);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlatformAdmin, entityKey, entities]);
   const selEntity = entities.find((e) => e.key === entityKey) ?? null;
   const [coverage, setCoverage] = useState({ runwayMonths: 0, duesIssued: 0, duesPeriod: '' });
   const buildingIds = useMemo(() => buildings.map((b) => b.id), [buildings]);
@@ -310,19 +303,7 @@ export default function Dashboard() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
         <div className="flex items-center gap-2 flex-wrap">
-          {entities.length > 0 && (
-            <SearchableSelect
-              className="min-w-[160px]"
-              value={entityKey || '__all__'}
-              onChange={(v) => setEntityKey(v === '__all__' ? '' : v)}
-              searchPlaceholder={t('common.search')}
-              emptyText={t('common.noResults')}
-              options={[
-                ...(!isPlatformAdmin ? [{ value: '__all__', label: t('dashboard.allBuildings') }] : []),
-                ...entities.map((e) => ({ value: e.key, label: e.kind === 'compound' ? `▣ ${e.name}` : e.name })),
-              ]}
-            />
-          )}
+          {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
             <MultiSelect
               options={selEntity.blocks.map(b => ({ value: b.id, label: b.name }))}

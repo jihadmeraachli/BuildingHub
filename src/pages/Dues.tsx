@@ -35,9 +35,9 @@ export default function Dues() {
   const { can, isPlatformAdmin, profile } = useAuth();
   const { buildings } = useManagedBuildings();
   const entities = useEntities(buildings);
-  const [entityKey, setEntityKey] = useState('');
+  // GLOBAL entity selection (sidebar) — Dues needs one entity; '' shows a prompt.
+  const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState('');
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
@@ -303,16 +303,7 @@ export default function Dues() {
           <p className="text-sm text-muted-foreground mt-0.5">{t('dues.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {entities.length > 1 && (
-            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
-              <SelectTrigger className="min-w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `â–£ ${e.name}` : e.name}</SelectItem>)}
-              </SelectContent>
-            </RadixSelect>
-          )}
+          {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
           {entity?.kind === 'compound' && multiBlock && (
             <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
               <SelectTrigger>
@@ -352,7 +343,7 @@ export default function Dues() {
         </CardBody></Card>
       )}
 
-      {!entity ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('finance.noBuildings')}</p></CardBody></Card>
+      {!entity ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{entities.length ? t('common.pickEntity') : t('finance.noBuildings')}</p></CardBody></Card>
         : !plan ? (
           <Card><CardBody><div className="text-center py-10">
             <Wallet className="mx-auto text-primary mb-2" size={28} />

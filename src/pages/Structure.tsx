@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoEmail } from '@/lib/demo';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
+import { useEntities } from '@/lib/entities';
 import type { Unit, Group, Occupancy, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -36,6 +37,19 @@ export default function Structure() {
   useEffect(() => { supabase.from('compounds').select('id, name').then(({ data }) => setCompoundList((data as { id: string; name: string }[]) ?? [])); }, []);
   const [tab, setTab] = useState<'units' | 'groups'>('units');
 
+  // GLOBAL entity selection (sidebar): the in-page picker only drills into the
+  // selected entity's blocks ('' = every managed building, as before).
+  const { entityKey } = useAuth();
+  const entities = useEntities(buildings);
+  const selEntity = entities.find((e) => e.key === entityKey) ?? null;
+  const scopedBuildings = selEntity ? buildings.filter((b) => selEntity.buildingIds.includes(b.id)) : buildings;
+  useEffect(() => {
+    if (buildingId && !scopedBuildings.some((b) => b.id === buildingId)) {
+      setBuildingId(scopedBuildings[0]?.id ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityKey, scopedBuildings.length]);
+
   const [units, setUnits] = useState<Unit[]>([]);
   const [owners, setOwners] = useState<OwnerRow[]>([]);
   const [profiles, setProfiles] = useState<MiniProfile[]>([]);
@@ -58,10 +72,10 @@ export default function Structure() {
   const [groupName, setGroupName] = useState('');
   const [groupUnitsModal, setGroupUnitsModal] = useState<Group | null>(null);
 
-  // auto-select first building
+  // auto-select first building in scope
   useEffect(() => {
-    if (!buildingId && buildings.length) setBuildingId(buildings[0].id);
-  }, [buildings, buildingId]);
+    if (!buildingId && scopedBuildings.length) setBuildingId(scopedBuildings[0].id);
+  }, [scopedBuildings, buildingId]);
 
   const canManage = isPlatformAdmin || can('unit.manage', buildingId);
   // Read-only rendering for the public demo admin: units/shares/occupancy
@@ -297,19 +311,19 @@ export default function Structure() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('structure.title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t('structure.subtitle')}</p>
         </div>
-        {buildings.length > 1 && (
+        {scopedBuildings.length > 1 && (
           <RadixSelect value={buildingId} onValueChange={setBuildingId}>
             <SelectTrigger className="min-w-[220px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {compoundList.filter((c) => buildings.some((b) => b.compound_id === c.id)).map((c) => (
+              {compoundList.filter((c) => scopedBuildings.some((b) => b.compound_id === c.id)).map((c) => (
                 <SelectGroup key={c.id}>
                   <SelectLabel>{c.name}</SelectLabel>
-                  {buildings.filter((b) => b.compound_id === c.id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  {scopedBuildings.filter((b) => b.compound_id === c.id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectGroup>
               ))}
-              {buildings.filter((b) => !b.compound_id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              {scopedBuildings.filter((b) => !b.compound_id).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
           </RadixSelect>
         )}

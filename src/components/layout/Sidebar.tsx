@@ -7,6 +7,8 @@ import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } fr
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useManagedBuildings } from '@/lib/useManagedBuildings';
+import { useEntities } from '@/lib/entities';
 import { topRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -46,8 +48,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
 function SidebarContent({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const { user, profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId } = useAuth();
+  const { user, profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId, entityKey, setEntityKey } = useAuth();
   const location = useLocation();
+
+  // Global entity picker for the MANAGING lens (mirrors the My-home unit
+  // picker): select once here, every manager page follows.
+  const { buildings: managedBuildings } = useManagedBuildings();
+  const entities = useEntities(managedBuildings);
+  useEffect(() => {
+    if (!entities.length) return;
+    // single-entity admins lock onto their one entity; the platform admin gets
+    // no "All buildings" (cross-tenant totals are meaningless + expensive);
+    // stale persisted keys reset.
+    if (entities.length === 1 && entityKey !== entities[0].key) setEntityKey(entities[0].key);
+    else if (entityKey && !entities.some((e) => e.key === entityKey)) setEntityKey(isPlatformAdmin ? entities[0].key : '');
+    else if (isPlatformAdmin && !entityKey) setEntityKey(entities[0].key);
+  }, [entities, entityKey, setEntityKey, isPlatformAdmin]);
   const isDemo = isDemoEmail(user?.email);
   // The demo admin persona gets the structural pages too (read-only — every
   // edit control on them is capability-gated, and RLS blocks writes anyway).
@@ -164,6 +180,29 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
               { key: 'resident', label: t('nav.lensMyHome'), icon: Home },
             ]}
           />
+        </div>
+      )}
+
+      {/* Managing entity picker: choose once, applies to every page (like the
+          My-home unit picker below). Single-entity admins see their building
+          named — that's the "which building am I managing" answer. */}
+      {!residentLens && entities.length > 0 && (
+        <div className="px-2 pt-2">
+          <RadixSelect
+            value={entityKey || '__all__'}
+            onValueChange={(v) => setEntityKey(v === '__all__' ? '' : v)}
+            disabled={entities.length === 1}
+          >
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {entities.length > 1 && !isPlatformAdmin && <SelectItem value="__all__">{t('dashboard.allBuildings')}</SelectItem>}
+              {entities.map((e) => (
+                <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </RadixSelect>
         </div>
       )}
 

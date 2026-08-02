@@ -13,7 +13,7 @@ import { tenancyHelpers, buildBook, buildUnitBuckets, type TenancyRow } from '@/
 import type { Unit, Charge, Payment, Expense, Adjustment, Dues } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { SelectField, SelectItem } from '@/components/ui/Select';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
 /**
@@ -199,8 +199,8 @@ export default function Reports() {
   const { buildings } = useManagedBuildings();
   const entities = useEntities(buildings);
 
-  const [entityKey, setEntityKey] = useState('');
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
+  // GLOBAL entity selection (sidebar) — reports need one entity; '' shows a prompt.
+  const { entityKey } = useAuth();
   const entity = entities.find((e) => e.key === entityKey) ?? null;
 
   const [period, setPeriod] = useState<'all' | 'year' | 'month'>('all');
@@ -347,17 +347,12 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('reports.title')}</h1>
           <p className="text-sm text-slate-500 mt-0.5">{t('reports.subtitle')}</p>
         </div>
-        {entities.length > 1 && (
-          <RadixSelect value={entityKey} onValueChange={setEntityKey}>
-            <SelectTrigger className="min-w-[220px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.name}</SelectItem>)}
-            </SelectContent>
-          </RadixSelect>
-        )}
+        {/* Entity selection moved to the sidebar (global). */}
       </div>
 
-      {loading ? <SkeletonCards count={2} /> : (
+      {!entity ? (
+        <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{t('common.pickEntity')}</p></CardBody></Card>
+      ) : loading ? <SkeletonCards count={2} /> : (
         <div className="grid md:grid-cols-2 gap-4 max-w-4xl">
           {/* ── Building financial report ── */}
           <Card><CardBody>

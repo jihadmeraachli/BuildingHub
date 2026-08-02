@@ -48,6 +48,11 @@ interface AuthContextValue {
   /** '' = all my units; otherwise one unit id — filters the resident views (portfolio drill-down) */
   residentUnitId: string;
   setResidentUnitId: (unitId: string) => void;
+  /** GLOBAL managing-lens entity selection (mirrors the My-home unit picker):
+   *  '' = all buildings; otherwise a useEntities() key. Picked once in the
+   *  sidebar, applied by every manager page. Persisted per browser. */
+  entityKey: string;
+  setEntityKey: (key: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -74,6 +79,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setViewModeState(mode);
   }, []);
   const [residentUnitId, setResidentUnitId] = useState('');
+  // Global managing-lens entity selection ('' = all buildings) — sidebar picks,
+  // every manager page follows. Persisted so it survives reloads.
+  const [entityKey, setEntityKeyState] = useState(() => localStorage.getItem('abniyah_entity_key') ?? '');
+  const setEntityKey = useCallback((key: string) => {
+    localStorage.setItem('abniyah_entity_key', key);
+    setEntityKeyState(key);
+  }, []);
   // Which user the current grants/memberships state belongs to — token refreshes
   // for the SAME user must not flash the loading gate mid-session.
   const loadedForRef = useRef<string | null>(null);
@@ -288,6 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         manageableBuildingIds, myUnitIds, myOwnerUnitIds, myTenantUnitIds, needsLicense, mfaPending, accessReady,
         hasBothPersonas, viewMode, setViewMode, residentLens,
         residentUnitId: safeResidentUnitId, setResidentUnitId,
+        entityKey, setEntityKey,
       }}
     >
       {children}

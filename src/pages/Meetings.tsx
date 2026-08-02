@@ -40,15 +40,17 @@ export default function Meetings() {
   const [detailMeeting, setDetailMeeting] = useState<Meeting | null>(null);
   const [scheduleFiles, setScheduleFiles] = useState<File[]>([]);
   const [addFiles, setAddFiles] = useState<File[]>([]);
-  const [entityKey, setEntityKey] = useState('');
+  // GLOBAL entity selection (sidebar); '' = across all viewable buildings.
+  const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState('');
   const [createBuildingId, setCreateBuildingId] = useState('');
 
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
   const entity = entities.find((e) => e.key === entityKey) ?? null;
-  const multiBlock = (entity?.blocks.length ?? 0) > 1;
-  const effectiveBuildingIds = entity ? (blockFilter ? [blockFilter] : entity.buildingIds) : [];
+  const multiBlock = entity ? entity.blocks.length > 1 : buildings.length > 1;
+  const effectiveBuildingIds = entity
+    ? (blockFilter ? [blockFilter] : entity.buildingIds)
+    : (blockFilter ? [blockFilter] : buildings.map((b) => b.id));
   const idsKey = effectiveBuildingIds.join(',');
   const isManager = isPlatformAdmin || canAny('meeting.manage');
 
@@ -62,8 +64,8 @@ export default function Meetings() {
     supabase.from('profiles').select('*').in('building_id', effectiveBuildingIds).eq('status', 'active').order('full_name').then(({ data }) => setBuildingUsers(data ?? []));
   }, [idsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openSchedule() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''))); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]); setScheduleOpen(true); }
-  function openAdd() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''))); setSelectedAttendees([]); setAddFiles([]); setAddOpen(true); }
+  function openSchedule() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? buildings[0]?.id ?? ''))); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]); setScheduleOpen(true); }
+  function openAdd() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? buildings[0]?.id ?? ''))); setSelectedAttendees([]); setAddFiles([]); setAddOpen(true); }
 
   async function loadMeetings() {
     if (!effectiveBuildingIds.length) return;
@@ -151,28 +153,19 @@ export default function Meetings() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('meetings.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          {entities.length > 1 && (
-            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
-              <SelectTrigger className="min-w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `▣ ${e.name}` : e.name}</SelectItem>)}
-              </SelectContent>
-            </RadixSelect>
-          )}
-          {entity?.kind === 'compound' && multiBlock && (
+          {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
+          {multiBlock && (
             <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
-                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                {(entity?.blocks ?? buildings.map((b) => ({ id: b.id, name: b.name }))).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </RadixSelect>
           )}
-          {isManager && entity && (
+          {isManager && effectiveBuildingIds.length > 0 && (
             <>
               <Button variant="secondary" onClick={openAdd}><Plus size={16} /> {t('meetings.addMeeting')}</Button>
               <Button onClick={openSchedule}><CalendarPlus size={16} /> {t('meetings.scheduleMeeting')}</Button>
@@ -317,9 +310,9 @@ export default function Meetings() {
       {/* Schedule Meeting modal */}
       <Modal open={scheduleOpen} onClose={() => setScheduleOpen(false)} title={t('meetings.scheduleMeeting')}>
         <form onSubmit={scheduleForm.handleSubmit(onSchedule)} className="space-y-4">
-          {(entity?.blocks.length ?? 0) > 1 && (
+          {(entity ? entity.blocks : buildings).length > 1 && (
             <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
-              {entity!.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              {(entity?.blocks ?? buildings.map((b) => ({ id: b.id, name: b.name }))).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectField>
           )}
           <Input label={t('meetings.meetingTitle')} {...scheduleForm.register('title', { required: true })} />
@@ -371,9 +364,9 @@ export default function Meetings() {
       {/* Add Past Meeting modal */}
       <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedAttendees([]); setAddFiles([]); }} title={t('meetings.addRecord')} size="lg">
         <form onSubmit={addForm.handleSubmit(onAddMeeting)} className="space-y-4">
-          {(entity?.blocks.length ?? 0) > 1 && (
+          {(entity ? entity.blocks : buildings).length > 1 && (
             <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
-              {entity!.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              {(entity?.blocks ?? buildings.map((b) => ({ id: b.id, name: b.name }))).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectField>
           )}
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />

@@ -31,13 +31,16 @@ export default function Issues() {
   // Dual-persona lens: an admin browsing "My home" sees only their own issues.
   const isManager = (isPlatformAdmin || canAny('issue.view_all')) && !residentLens;
 
-  const [entityKey, setEntityKey] = useState('');
+  // GLOBAL entity selection (sidebar). '' = across ALL viewable buildings —
+  // issues aggregate cleanly, so no entity is required here.
+  const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState('');
-  useEffect(() => { if (!entityKey && entities.length) setEntityKey(entities[0].key); }, [entities, entityKey]);
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
   const entity = entities.find((e) => e.key === entityKey) ?? null;
-  const multiBlock = (entity?.blocks.length ?? 0) > 1;
-  const effectiveBuildingIds = useMemo(() => (entity ? (blockFilter ? [blockFilter] : entity.buildingIds) : []), [entity, blockFilter]);
+  const multiBlock = entity ? entity.blocks.length > 1 : buildings.length > 1;
+  const effectiveBuildingIds = useMemo(
+    () => (entity ? (blockFilter ? [blockFilter] : entity.buildingIds) : (blockFilter ? [blockFilter] : buildings.map((b) => b.id))),
+    [entity, blockFilter, buildings]);
   const idsKey = effectiveBuildingIds.join(',');
   const blockName = Object.fromEntries(buildings.map((b) => [b.id, b.name]));
 
@@ -112,31 +115,23 @@ export default function Issues() {
     setSelectedIssue(null); loadIssues();
   }
 
-  const blockOptions = entity?.blocks ?? [];
+  // Create modal + block filter fall back to every viewable building in "All" mode.
+  const blockOptions = entity?.blocks ?? buildings.map((b) => ({ id: b.id, name: b.name }));
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('issues.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          {entities.length > 1 && (
-            <RadixSelect value={entityKey} onValueChange={setEntityKey}>
-              <SelectTrigger className="min-w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {entities.map((e) => <SelectItem key={e.key} value={e.key}>{e.kind === 'compound' ? `â–£ ${e.name}` : e.name}</SelectItem>)}
-              </SelectContent>
-            </RadixSelect>
-          )}
-          {entity?.kind === 'compound' && multiBlock && (
+          {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
+          {multiBlock && (
             <RadixSelect value={blockFilter || '__all__'} onValueChange={(v) => setBlockFilter(v === '__all__' ? '' : v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">{t('finance.allBlocks')}</SelectItem>
-                {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                {blockOptions.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </RadixSelect>
           )}
