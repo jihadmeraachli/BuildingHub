@@ -123,7 +123,7 @@
         "example": "e.g. a gated community with blocks A, B, C"
       },
       "org_admin": {
-        "label": "Organisation Admin",
+        "label": "Organization Admin",
         "description": "You manage multiple properties under one company or management firm. Full visibility across all buildings and compounds.",
         "example": "e.g. a property management company overseeing 5 buildings"
       }
@@ -139,7 +139,7 @@
     "nounsTitle": {
       "building": "Building",
       "compound": "Compound",
-      "org": "Organisation"
+      "org": "Organization"
     },
     "aboutEntity": "About your {{noun}}",
     "entitySubtitle": "This is what your team and residents will see.",
@@ -417,7 +417,7 @@
       "trial": "Trial",
       "active": "Active",
       "past_due": "Past due",
-      "cancelled": "Cancelled"
+      "cancelled": "Canceled"
     },
     "invoiceStatuses": {
       "open": "Open",
@@ -699,7 +699,7 @@
       "accepted": "Accepted",
       "declined": "Declined",
       "expired": "Expired",
-      "cancelled": "Cancelled"
+      "cancelled": "Canceled"
     },
     "whatsappNeedsPhone": "{{name}} has no mobile number saved. Add their phone before enabling WhatsApp.",
     "channelRequired": "{{name}} must keep at least one notification channel (email or WhatsApp).",
@@ -971,7 +971,7 @@
     "voided": "Voided",
     "voidedBadge": "Voided",
     "voidTitle": "Void this record?",
-    "voidExplain": "{{item}} will be cancelled and excluded from the balance, but kept for the audit trail. This can't be undone from the app.",
+    "voidExplain": "{{item}} will be canceled and excluded from the balance, but kept for the audit trail. This can't be undone from the app.",
     "voidReason": "Reason (optional)",
     "voidReasonPlaceholder": "e.g. entered by mistake, wrong unit…",
     "leasedChargeTo": "Leased units — charge the",

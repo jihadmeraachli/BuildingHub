@@ -18,7 +18,7 @@ const STATUS_BADGE: Record<Subscription['status'], { color: 'green' | 'yellow' |
   trial:     { color: 'yellow', label: 'Trial' },
   active:    { color: 'green',  label: 'Active' },
   past_due:  { color: 'red',    label: 'Past due' },
-  cancelled: { color: 'slate',  label: 'Cancelled' },
+  cancelled: { color: 'slate',  label: 'Canceled' },
 };
 
 const INVOICE_BADGE: Record<Invoice['status'], { color: 'green' | 'yellow' | 'slate'; label: string }> = {
@@ -276,7 +276,7 @@ export default function PlatformLicensing() {
                       <SelectItem value="trial">Trial</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="past_due">Past due</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="cancelled">Canceled</SelectItem>
                     </SelectContent>
                   </RadixSelect>
                   <div className="relative">
