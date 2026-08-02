@@ -193,6 +193,18 @@ html, body {
     outline-color: var(--ring);
   }
 
+  /* Pull-to-refresh indicator (native iOS shell, #69) */
+  .ptr-indicator.ptr-armed {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  .ptr-indicator.ptr-spinning svg {
+    animation: ptr-spin 800ms linear infinite;
+  }
+  @keyframes ptr-spin {
+    to { transform: rotate(360deg); }
+  }
+
   /* Native <select>: teal accent replaces browser-default blue */
   .dark select {
     background-color: var(--popover);

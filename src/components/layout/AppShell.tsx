@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoEmail } from '@/lib/demo';
+import { usePullToRefresh, PullIndicator } from '@/components/PullToRefresh';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
@@ -12,6 +13,11 @@ export function AppShell() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isDemo = isDemoEmail(user?.email);
+
+  // Pull-to-refresh in the native iOS shell (#69) — no-op on web.
+  const mainRef = useRef<HTMLElement | null>(null);
+  const ptrRef = useRef<HTMLDivElement | null>(null);
+  usePullToRefresh(mainRef, ptrRef);
 
   // Demo visitors who convert must not carry the demo session into /register.
   async function startTrial() {
@@ -34,7 +40,8 @@ export function AppShell() {
           </div>
         )}
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-6">
+        <main ref={mainRef} className="relative flex-1 overflow-y-auto p-4 lg:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-6">
+          <PullIndicator innerRef={ptrRef} />
           <Outlet />
         </main>
       </div>
