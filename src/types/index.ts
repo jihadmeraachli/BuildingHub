@@ -367,6 +367,18 @@ export interface ServiceContract {
   created_at: string;
 }
 
+// Building directory (migration 0073): free-text title + name + phone.
+export interface BuildingContact {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  title: string;
+  name: string;
+  phone: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 // ── Licensing (migration 0031) ───────────────────────────────
 
 export type SubscriptionPlan = 'monthly' | 'annual';

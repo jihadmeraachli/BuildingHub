@@ -30,6 +30,7 @@ const Dues       = lazy(() => import('@/pages/Dues'));
 const Structure  = lazy(() => import('@/pages/Structure'));
 const Inspections = lazy(() => import('@/pages/Inspections'));
 const Contracts  = lazy(() => import('@/pages/Contracts'));
+const BuildingContacts = lazy(() => import('@/pages/BuildingContacts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
 const Users      = lazy(() => import('@/pages/Users'));
 const Security   = lazy(() => import('@/pages/Security'));
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="/structure" element={<Structure />} />
               <Route path="/inspections" element={<Inspections />} />
               <Route path="/contracts" element={<Contracts />} />
+              <Route path="/contacts" element={<BuildingContacts />} />
               <Route path="/issues" element={<Issues />} />
               <Route path="/users" element={<Users />} />
               <Route path="/security" element={<Security />} />

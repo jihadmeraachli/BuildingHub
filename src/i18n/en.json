@@ -53,6 +53,7 @@
     "import": "Import",
     "inspections": "Inspections",
     "contracts": "Contracts",
+    "contactsDir": "Contacts",
     "dues": "Dues",
     "people": "People",
     "issues": "Issues",
@@ -1074,6 +1075,33 @@
       "quarterly": "Quarterly",
       "yearly": "Yearly",
       "one_time": "One-time"
+    }
+  },
+  "bcontacts": {
+    "title": "Contacts",
+    "subtitle": "Who to call in your building.",
+    "add": "Add Contact",
+    "edit": "Edit Contact",
+    "roleTitle": "Role / title",
+    "rolePlaceholder": "e.g. Electrician",
+    "name": "Name",
+    "phone": "Mobile number",
+    "empty": "No contacts yet. Your building admin adds them here.",
+    "emptyAdmin": "No contacts yet. Add the committee leader, the natour, the electrician, whoever the building calls.",
+    "fromContracts": "From service contracts",
+    "manageInContracts": "Manage in Contracts",
+    "contractBadge": "Contract",
+    "confirmDelete": "Delete this contact?",
+    "suggest": {
+      "committee": "Committee leader",
+      "natour": "Concierge (natour)",
+      "electrician": "Electrician",
+      "plumber": "Plumber (sankare)",
+      "painter": "Painter",
+      "generator": "Generator (moteur)",
+      "contractor": "Contractor",
+      "security": "Security",
+      "finance": "Finance contact"
     }
   },
   "dues": {

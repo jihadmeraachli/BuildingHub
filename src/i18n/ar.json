@@ -55,6 +55,7 @@
     "issues": "المشكلات",
     "inspections": "الفحوصات",
     "contracts": "العقود",
+    "contactsDir": "جهات الاتصال",
     "dues": "الرسوم",
     "users": "المستخدمون",
     "buildings": "المباني",
@@ -1082,6 +1083,33 @@
       "quarterly": "ربع سنوي",
       "yearly": "سنوي",
       "one_time": "مرة واحدة"
+    }
+  },
+  "bcontacts": {
+    "title": "جهات الاتصال",
+    "subtitle": "بمن تتصل في مبناك.",
+    "add": "إضافة جهة اتصال",
+    "edit": "تعديل جهة الاتصال",
+    "roleTitle": "الدور / الصفة",
+    "rolePlaceholder": "مثال: الكهربائي",
+    "name": "الاسم",
+    "phone": "رقم الموبايل",
+    "empty": "لا توجد جهات اتصال بعد. مدير المبنى يضيفها هنا.",
+    "emptyAdmin": "لا توجد جهات اتصال بعد. أضف رئيس اللجنة والناطور والكهربائي وكل من يتصل به المبنى.",
+    "fromContracts": "من عقود الخدمات",
+    "manageInContracts": "الإدارة في العقود",
+    "contractBadge": "عقد",
+    "confirmDelete": "حذف جهة الاتصال هذه؟",
+    "suggest": {
+      "committee": "رئيس لجنة المبنى",
+      "natour": "الناطور",
+      "electrician": "الكهربائي",
+      "plumber": "السنكري",
+      "painter": "الدهّان",
+      "generator": "صاحب الموتير",
+      "contractor": "المقاول",
+      "security": "الأمن",
+      "finance": "المسؤول المالي"
     }
   },
   "dues": {
