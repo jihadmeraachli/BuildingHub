@@ -29,7 +29,7 @@ _Last reviewed: 2026-07-26_
 | `RESEND_API_KEY`, `FROM_EMAIL`, `APP_URL` | Supabase → Edge Functions → secrets | `dynamic-action` (notification emails). ⚠️ `FROM_EMAIL` must be on a domain VERIFIED in the same Resend account as the key — mismatch = silent 403, no emails (happened 2026-07-26 with the legacy `tatawwor.com` sender). Use `notifications@abniyah.com` |
 | Resend SMTP (host `smtp.resend.com`, user `resend`, password = sending-scope API key) | Supabase → Project Settings → Auth → SMTP | Auth emails (confirm/reset/invite) |
 | `ANTHROPIC_API_KEY` | Supabase → Edge Functions → secrets | AI import functions |
-| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_LANG` (optional) | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** (WhatsApp dormant until both set) | `dynamic-action` WhatsApp sends. Token = permanent System User token (24h temp token dies silently). See docs/WHATSAPP_SETUP.md |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_PER_LANG`, `WHATSAPP_LANG` (legacy) | Supabase → Edge Functions → secrets — ✅ **SET and sending** (verified 2026-08-03: charges/payments deliver on WhatsApp). `WHATSAPP_PER_LANG=1` is live, so each recipient gets ONE message in their `preferred_language`. | `dynamic-action` + `send-reminders` WhatsApp sends. Token = permanent System User token (24h temp token dies silently). ⚠️ Template param counts are FROZEN — see docs/WHATSAPP_SETUP.md Part 2b before changing any message. |
 | `CRON_SECRET` | Supabase → Edge Functions → secrets | `send-reminders` (cron auth) |
 | `WEBHOOK_SECRET` | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** | `dynamic-action` forgery check (armed only once set; also add `x-webhook-secret` header on every Database Webhook) |
 | Beta access code(s) | DB table `beta_access_codes` (SQL editor to manage) | Beta gate screen |
@@ -38,8 +38,8 @@ _Last reviewed: 2026-07-26_
 
 | Piece | Deploy method |
 |---|---|
-| SQL migrations `0002`–`0070` | By hand: SQL Editor, paste + run (no automated runner). Shared DB — run once |
-| Edge functions: `dynamic-action`, `invite-user`, `send-reminders`, `ai-expense-import`, `ai-pdf-import`, `ai-import-mapping` (`notify` = legacy, superseded) | Dashboard → Edge Functions → paste from `supabase/functions/<name>/index.ts` → Deploy |
+| SQL migrations `0002`–`0082` | By hand: SQL Editor, paste + run (no automated runner). Shared DB — run once |
+| Edge functions: `dynamic-action`, `invite-user`, `send-reminders`, `file-feedback`, `ai-expense-import`, `ai-pdf-import`, `ai-import-mapping` (`notify` = legacy, superseded) | Dashboard → Edge Functions → function → **Code** tab → ⌘A, paste from `supabase/functions/<name>/index.ts`, **Deploy updates**. ⚠️ The editor's contents ARE the deployed code — ⌘A ⌘C inside it copies the OLD version, so pasting that back "redeploys" the same thing forever (cost ~1h on 2026-08-03). Copy from the repo, then check the line count matches before deploying. |
 | Database Webhooks (profiles, issues, meetings, charges, payments, dues, membership_invites, **adjustments** → POST `dynamic-action`) | Dashboard → Database → Webhooks. ⚠️ adjustments INSERT added 2026-08-02 for move-out offload emails (dynamic-action §5c-ii) — copy an existing webhook's config (e.g. charges), change table to `adjustments`, events to Insert only. |
 | Auth settings: Confirm email ON, custom SMTP, redirect URLs (`app.abniyah.com/register`, `/set-password`, pages.dev + localhost variants) | Dashboard → Authentication |
 
