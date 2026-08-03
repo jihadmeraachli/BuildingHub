@@ -1111,6 +1111,18 @@
       "one_time": "One-time"
     }
   },
+  "help": {
+    "title": "Help",
+    "intro": "Hi! I know Abniyah inside out. Ask me anything about using the app.",
+    "placeholder": "Ask a question...",
+    "send": "Send",
+    "error": "Sorry, I could not answer right now. Please try again, or use Send feedback in the side menu.",
+    "disclaimer": "AI assistant. It can make mistakes. For bugs use Send feedback in the side menu.",
+    "suggest1": "How do I record an expense?",
+    "suggest2": "How do I invite a resident?",
+    "suggest3": "How do dues work?",
+    "suggest4": "How do I report an issue?"
+  },
   "bcontacts": {
     "title": "Contacts",
     "subtitle": "Who to call in your building.",
