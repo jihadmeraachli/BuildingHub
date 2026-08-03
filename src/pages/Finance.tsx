@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
 import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle } from '@/lib/reportData';
-import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure } from '@/types';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -60,7 +60,7 @@ function allocate(amount: number, units: Unit[], method: AllocationMethod, custo
   return units.map((u, i) => ({ unit_id: u.id, amount: rounded[i] }));
 }
 
-interface Entity { key: string; kind: 'compound' | 'building'; id: string; name: string; buildingIds: string[]; blocks: { id: string; name: string }[]; }
+interface Entity { key: string; kind: 'compound' | 'building'; id: string; name: string; buildingIds: string[]; blocks: { id: string; name: string }[]; billingMode: BillingMode; }
 
 type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
@@ -97,11 +97,12 @@ export default function Finance() {
     const byCompound: Record<string, typeof buildings> = {};
     for (const b of buildings) {
       if (b.compound_id) (byCompound[b.compound_id] ??= []).push(b);
-      else out.push({ key: `b:${b.id}`, kind: 'building', id: b.id, name: b.name, buildingIds: [b.id], blocks: [{ id: b.id, name: b.name }] });
+      else out.push({ key: `b:${b.id}`, kind: 'building', id: b.id, name: b.name, buildingIds: [b.id], blocks: [{ id: b.id, name: b.name }], billingMode: b.billing_mode ?? 'arrears' });
     }
     for (const [cid, blocks] of Object.entries(byCompound)) {
-      const name = compounds.find((c) => c.id === cid)?.name ?? 'Compound';
-      out.push({ key: `c:${cid}`, kind: 'compound', id: cid, name, buildingIds: blocks.map((b) => b.id), blocks: blocks.map((b) => ({ id: b.id, name: b.name })) });
+      const comp = compounds.find((c) => c.id === cid);
+      // the compound governs its blocks, same cascade as effective_billing_mode()
+      out.push({ key: `c:${cid}`, kind: 'compound', id: cid, name: comp?.name ?? 'Compound', buildingIds: blocks.map((b) => b.id), blocks: blocks.map((b) => ({ id: b.id, name: b.name })), billingMode: comp?.billing_mode ?? 'arrears' });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }, [buildings, compounds]);
@@ -134,6 +135,11 @@ export default function Finance() {
   /** Dues for the loaded units — listed on exported statements under the party
    *  they fall on (0070). Obligations, never part of the balance. */
   const [dues, setDues] = useState<Dues[]>([]);
+  // Ad-hoc arrears collection (0076)
+  const [reqOpen, setReqOpen] = useState(false);
+  const [reqLabel, setReqLabel] = useState('');
+  const [reqDays, setReqDays] = useState('7');
+  const [reqBusy, setReqBusy] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
   // Names ride along: a resident with units in several buildings needs their
@@ -747,6 +753,16 @@ export default function Finance() {
           // dues are dated obligations — a period hides the ones outside it
           inPeriod={(d) => d.due_date ? inRange(d.due_date) : period === 'all'}
         />
+        <ResidentRequestsCard
+          unitIds={myUnitIds}
+          viewFor={(unitId) => {
+            const viewerIsTenant = myTenantUnitIds.includes(unitId) && !myOwnerUnitIds.includes(unitId);
+            return viewerIsTenant ? `self:${profile?.id ?? ''}` : effView;
+          }}
+          buildingOf={(unitId) => units.find((u) => u.id === unitId)?.building_id ?? ''}
+          unitLabel={Object.fromEntries(units.map((u) => [u.id, u.label]))}
+          payments={payments}
+        />
         <StatementList
           charges={rBook.flatMap(r => r.unitCharges)}
           payments={rBook.flatMap(r => r.unitPayments)}
@@ -864,6 +880,14 @@ export default function Finance() {
                   )}
                   {(tab === 'expenses' || tab === 'book') && (
                     <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
+                  )}
+                  {/* Arrears has no billing cycle: the admin asks for money when
+                      it is needed, which is also how a one-off big expense gets
+                      settled. Dues issue their own request when generated. */}
+                  {tab === 'book' && entity && entity.billingMode !== 'dues' && (
+                    <Button variant="secondary" onClick={() => setReqOpen(true)} disabled={units.length === 0}>
+                      <Send size={16} /> {t('finance.requestPayment')}
+                    </Button>
                   )}
                   {(tab === 'book' || tab === 'payments') && (
                     <Button variant="tinted" onClick={openPayment} disabled={units.length === 0}>
@@ -1161,6 +1185,32 @@ export default function Finance() {
       </Modal>
 
       {/* Payment modal */}
+      <RequestPaymentModal
+        open={reqOpen}
+        onClose={() => setReqOpen(false)}
+        book={book}
+        entityName={entity?.name ?? ''}
+        busy={reqBusy}
+        label={reqLabel} setLabel={setReqLabel}
+        days={reqDays} setDays={setReqDays}
+        t={t}
+        onIssue={async () => {
+          if (!entity) return;
+          setReqBusy(true);
+          const { error } = await supabase.rpc('request_payment', {
+            p_scope_type: entity.kind,
+            p_scope_id: entity.id,
+            p_label: reqLabel.trim() || null,
+            p_due_days: Number(reqDays) || null,
+          });
+          setReqBusy(false);
+          if (error) { toast.error(error.message); return; }
+          toast.success(t('finance.requestIssued'));
+          setReqOpen(false); setReqLabel('');
+          loadScope();
+        }}
+      />
+
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title={editingPaymentId ? t('finance.editPayment') : t('finance.recordPayment')}>
         <div className="space-y-4">
           <SelectField label={t('finance.unit')} value={payForm.unit_id || '__none__'} onValueChange={(v) => setPayForm({ ...payForm, unit_id: v === '__none__' ? '' : v })}>
@@ -1314,6 +1364,155 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
     </div></CardBody></Card>
   );
 }
+
+/** Preview + issue an arrears payment request. The preview is the same rule the
+ *  RPC applies (every party currently in arrears), so what is shown is what is
+ *  asked for. */
+function RequestPaymentModal({ open, onClose, book, entityName, onIssue, busy, label, setLabel, days, setDays, t }: {
+  open: boolean; onClose: () => void;
+  book: { unit: Unit; owner: number; tenant: number; split: boolean; activeTenantName: string | null }[];
+  entityName: string;
+  onIssue: () => void; busy: boolean;
+  label: string; setLabel: (v: string) => void;
+  days: string; setDays: (v: string) => void;
+  t: (k: string, o?: Record<string, unknown>) => string;
+}) {
+  const lines = book.flatMap((r) => [
+    ...(r.owner < 0 ? [{ unit: r.unit, party: t('finance.owner'), amount: -r.owner }] : []),
+    ...(r.tenant < 0 ? [{ unit: r.unit, party: r.activeTenantName ? `${t('finance.currentTenant')}: ${r.activeTenantName}` : t('finance.tenant'), amount: -r.tenant }] : []),
+  ]);
+  const total = lines.reduce((s, l) => s + l.amount, 0);
+  const due = new Date(Date.now() + (Number(days) || 7) * 864e5);
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('finance.requestPayment')} size="lg">
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">{t('finance.requestPaymentNote')}</p>
+        <Input label={t('finance.requestLabel')} value={label} onChange={(e) => setLabel(e.target.value)}
+               placeholder={t('finance.requestLabelPlaceholder')} />
+        <div>
+          <SelectField label={t('buildings.dueDays')} value={days} onValueChange={setDays}>
+            {[3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
+              <SelectItem key={d} value={String(d)}>{t('buildings.dueDaysN', { count: d })}</SelectItem>
+            ))}
+          </SelectField>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t('finance.requestDueBy', { date: fmtDate(due, 'MMM d, yyyy') })}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="px-3 py-2 bg-secondary/50 text-xs font-medium text-muted-foreground flex justify-between">
+            <span>{entityName}</span>
+            <span className="tnum">{t('finance.requestTotal', { count: lines.length, amount: money(total) })}</span>
+          </div>
+          <div className="max-h-56 overflow-y-auto divide-y divide-border/60">
+            {lines.length === 0
+              ? <p className="text-sm text-muted-foreground text-center py-6">{t('finance.requestNobodyOwes')}</p>
+              : lines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between px-3 py-1.5 text-sm">
+                  <span className="text-foreground">{l.unit.label}
+                    <span className="text-muted-foreground/70"> · {l.party}</span></span>
+                  <span className="font-semibold text-foreground tnum">{money(l.amount)}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={onIssue} loading={busy} disabled={lines.length === 0}>{t('finance.requestIssue')}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Open payment requests, listed ONE BY ONE rather than summed (0076).
+ *
+ * A request is a snapshot: "you owed $500 on 1 Aug". If charges land after it,
+ * the balance moves but the request does not — so a single merged number would
+ * leave a resident unable to explain why the two disagree mid-cycle. Each row
+ * shows what was asked, what has been paid against it since, and what is left.
+ */
+function ResidentRequestsCard({ unitIds, viewFor, buildingOf, unitLabel, payments }: {
+  unitIds: string[];
+  viewFor: (unitId: string) => string;
+  buildingOf: (unitId: string) => string;
+  unitLabel: Record<string, string>;
+  payments: Payment[];
+}) {
+  const { t } = useTranslation();
+  const [lines, setLines] = useState<(PaymentRequestLine & { request: PaymentRequest })[]>([]);
+  const key = unitIds.join(',');
+  useEffect(() => {
+    if (!unitIds.length) { setLines([]); return; }
+    supabase.from('payment_request_lines')
+      .select('*, request:payment_requests(*)')
+      .in('unit_id', unitIds)
+      .is('cancelled_at', null)
+      .then(({ data }) => setLines((data as unknown as (PaymentRequestLine & { request: PaymentRequest })[]) ?? []));
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Paid by this line's party since the request went out — the settlement rule
+   *  from request_line_outstanding(), mirrored so the screen matches the cron. */
+  const paidSince = (l: PaymentRequestLine & { request: PaymentRequest }) =>
+    payments.filter((p) =>
+      p.unit_id === l.unit_id && !p.voided_at && p.paid_on >= l.request.requested_on
+      && (l.party === 'tenant'
+        ? p.paid_by === 'tenant' && (!l.tenant_id || p.tenant_id === l.tenant_id)
+        : p.paid_by !== 'tenant'))
+      .reduce((s, p) => s + Number(p.amount_usd), 0);
+
+  const visible = lines
+    .map((l) => ({ l, left: Math.max(0, Math.round((Number(l.amount_requested) - paidSince(l)) * 100) / 100) }))
+    .filter(({ l, left }) => {
+      if (left <= 0) return false;                       // settled: stop showing it
+      const view = viewFor(l.unit_id);
+      if (view === 'combined') return true;
+      if (view === 'owner') return l.party === 'owner';
+      if (view.startsWith('self:')) return l.party === 'tenant' && l.tenant_id === view.slice(5);
+      if (buildingOf(l.unit_id) !== view.split(':')[1]) return false;
+      return view.startsWith('cur:') ? l.party === 'tenant' : l.party === 'owner';
+    })
+    .sort((a, b) => a.l.request.due_date.localeCompare(b.l.request.due_date));
+
+  if (!visible.length) return null;
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <Card className="mb-4"><CardBody>
+      <p className="text-sm font-semibold text-primary mb-3">{t('finance.requestsTitle')}</p>
+      <div className="space-y-2.5">
+        {visible.map(({ l, left }) => {
+          const paid = Math.round((Number(l.amount_requested) - left) * 100) / 100;
+          const overdue = l.request.due_date < today;
+          return (
+            <div key={l.id} className="text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-foreground min-w-0">
+                  {l.request.label || t('finance.requestDefaultLabel')}
+                  <span className="text-muted-foreground/70"> · {unitLabel[l.unit_id] ?? ''}</span>
+                </span>
+                <span className="font-semibold text-foreground tnum shrink-0">{money(left)}</span>
+              </div>
+              <p className={`text-xs ${overdue ? 'text-red-500 dark:text-red-300' : 'text-muted-foreground'}`}>
+                {overdue
+                  ? t('finance.requestOverdue', { date: fmtDate(l.request.due_date, 'MMM d, yyyy') })
+                  : t('finance.requestDueBy', { date: fmtDate(l.request.due_date, 'MMM d, yyyy') })}
+                {' · '}
+                {t('finance.requestAsked', { amount: money(Number(l.amount_requested)), date: fmtDate(l.request.requested_on, 'MMM d') })}
+                {paid > 0 && <> · {t('finance.requestPaidSoFar', { amount: money(paid) })}</>}
+                {l.offloaded_from_tenant_id && <> · {t('finance.requestFromFormerTenant')}</>}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-3">{t('finance.requestsHint')}</p>
+    </CardBody></Card>
+  );
+}
+
 /** Resident dues, filtered by the same lens as the statement (0070).
  *  Before the party split this listed every dues row on the unit, so a tenant
  *  saw the owner's dues and vice versa. Now a tenant sees only their own rows,

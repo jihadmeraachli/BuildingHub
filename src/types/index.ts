@@ -21,13 +21,8 @@ export interface Building {
   /** Legacy single-day reminder (1-28); superseded by the schedule below but
    *  kept in sync by set_reminder_schedule(). null = off. */
   reminder_day: number | null;
-  /** Reminder schedule (0076). A cycle with a payment window: notice goes out,
-   *  daily reminders until due, weekly while overdue. Compound value wins. */
-  reminder_frequency?: 'off' | 'weekly' | 'monthly' | 'quarterly' | null;
-  reminder_notice_day?: number | null;
-  reminder_weekday?: number | null;
-  reminder_month_of_quarter?: number | null;
-  reminder_grace_days?: number | null;
+  /** Days residents get to pay after a payment request (0076). Compound wins. */
+  payment_due_days?: number | null;
   /** Whish account (mobile number) residents can pay to; null = not offered. (0059) */
   whish_number: string | null;
   created_at: string;
@@ -162,12 +157,8 @@ export interface Compound {
   country: string;
   billing_mode: BillingMode;
   org_id: string | null;
-  /** Reminder schedule (0076) — governs every block, like billing_mode. */
-  reminder_frequency?: 'off' | 'weekly' | 'monthly' | 'quarterly' | null;
-  reminder_notice_day?: number | null;
-  reminder_weekday?: number | null;
-  reminder_month_of_quarter?: number | null;
-  reminder_grace_days?: number | null;
+  /** Days to pay (0076) — governs every block, like billing_mode. */
+  payment_due_days?: number | null;
   created_at: string;
 }
 
@@ -452,4 +443,35 @@ export interface SubscriptionEvent {
   actor_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+}
+
+/** An ad-hoc arrears collection (0076). Dues need no equivalent: a dues row
+ *  already IS a request — amount, due date, party, tenant. */
+export interface PaymentRequest {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  label: string | null;
+  requested_on: string;
+  due_date: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** One party's share of a request. `amount_requested` is a SNAPSHOT of what
+ *  they owed when it was issued — charges that land later belong to the next
+ *  request, so paying this figure settles it however the balance has moved. */
+export interface PaymentRequestLine {
+  id: string;
+  request_id: string;
+  unit_id: string;
+  building_id: string;
+  party: Tenure;
+  tenant_id: string | null;
+  amount_requested: number;
+  /** set when a move-out reassigned this line to the owner (0065 + 0076) */
+  offloaded_from_tenant_id: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  request?: PaymentRequest;
 }
