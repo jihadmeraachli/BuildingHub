@@ -31,6 +31,11 @@ const beirutPeriod = () => {
   const d = beirutNow();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
+/** Beirut calendar day — the reminders_sent dedup key since 0076. */
+const beirutToday = () => {
+  const d = beirutNow();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 // ── Email ────────────────────────────────────────────────────────────────────
 function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
@@ -200,9 +205,14 @@ Deno.serve(async (req) => {
     async function remindUnit(
       unitId: string, buildingId: string, unitLabel: string, buildingName: string,
       owed: number, ownerIds: string[], party: 'owner' | 'tenant' = 'owner',
+      ctx: { forPeriodEnd?: string | null; dueDate?: string | null; isOverdue?: boolean } = {},
     ) {
+      // sent_on is the dedup key since 0076 — reminders now repeat DAILY across
+      // a payment window, so a per-month key would swallow every send after the
+      // first. It is passed explicitly rather than left to the column default.
       const { error } = await admin.from('reminders_sent').insert({
-        unit_id: unitId, building_id: buildingId, period: beirutPeriod(), amount_usd: owed, party,
+        unit_id: unitId, building_id: buildingId, period: beirutPeriod(),
+        sent_on: beirutToday(), amount_usd: owed, party,
       });
       if (error) {
         if (error.code === '23505') { skippedDup++; return; }
@@ -210,13 +220,27 @@ Deno.serve(async (req) => {
         return;
       }
       const amount = `$${owed.toFixed(2)}`;
-      const subject = `Payment reminder: ${buildingName}, unit ${unitLabel}`;
+      const dayFmt = (d?: string | null) =>
+        d ? new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+      // Name the period being settled — the amount is quoted AS OF its close, so
+      // saying which period it is keeps the number and the wording honest.
+      const forPeriod = ctx.forPeriodEnd ? ` as of <strong>${dayFmt(ctx.forPeriodEnd)}</strong>` : '';
+      const byWhen = ctx.isOverdue
+        ? `<p style="color:#b91c1c;font-size:14px;line-height:1.6;">This payment is now <strong>past due</strong>${ctx.dueDate ? ` (was due ${dayFmt(ctx.dueDate)})` : ''}.</p>`
+        : ctx.dueDate
+          ? `<p style="color:#475569;font-size:14px;line-height:1.6;">Please settle it by <strong>${dayFmt(ctx.dueDate)}</strong>.</p>`
+          : '';
+
+      const subject = ctx.isOverdue
+        ? `Payment overdue: ${buildingName}, unit ${unitLabel}`
+        : `Payment reminder: ${buildingName}, unit ${unitLabel}`;
       const html = emailHtml(
-        'Outstanding balance',
+        ctx.isOverdue ? 'Payment overdue' : 'Outstanding balance',
         `<p style="color:#475569;font-size:14px;line-height:1.6;">
           A friendly reminder: unit <strong>${unitLabel}</strong> at <strong>${buildingName}</strong>
-          has an outstanding balance of <strong style="color:#dc2626;">${amount}</strong>.
+          has an outstanding balance of <strong style="color:#dc2626;">${amount}</strong>${forPeriod}.
         </p>
+        ${byWhen}
         ${whishMap[buildingId]
           ? `<p style="color:#475569;font-size:14px;line-height:1.6;">
               You can pay directly through <strong>Whish</strong> to <strong>${whishMap[buildingId]}</strong>.
@@ -230,12 +254,14 @@ Deno.serve(async (req) => {
       const whishNote = whishMap[buildingId] ? ` Pay via Whish: ${whishMap[buildingId]}.` : '';
       for (const uid of ownerIds) {
         await deliverEmail(uid, subject, html);
+        // ⚠️ param count frozen at 4 (+ payLine) — wording changed, structure did not
         await deliverWhatsApp(uid, 'abniyah_payment_reminder',
           (name, lang) => {
             const base = [name, amount, unitLabel, buildingName];
             return WHATSAPP_PER_LANG ? [...base, payLine(lang, whishMap[buildingId])] : base;
           });
-        await deliverInApp(uid, buildingId, 'Payment reminder',
+        await deliverInApp(uid, buildingId,
+          ctx.isOverdue ? 'Payment overdue' : 'Payment reminder',
           `Unit ${unitLabel}, ${buildingName}: outstanding balance of ${amount}.${whishNote} Details in Finance.`);
       }
     }
@@ -244,12 +270,15 @@ Deno.serve(async (req) => {
     type OverdueUnit = {
       unit_id: string; unit_label: string; building_id: string;
       building_name: string; balance_usd: number; owner_user_ids: string[];
+      // 0076: which period is being settled, and where we are in its window
+      period_end?: string | null; due_date?: string | null; is_overdue?: boolean;
     };
     const { data: overdueUnits, error: ouErr } = await admin.rpc('get_overdue_units');
     if (ouErr) errors.push(`get_overdue_units: ${ouErr.message}`);
     for (const row of (overdueUnits as OverdueUnit[] ?? [])) {
       await remindUnit(row.unit_id, row.building_id, row.unit_label, row.building_name,
-        Number(row.balance_usd), row.owner_user_ids ?? []);
+        Number(row.balance_usd), row.owner_user_ids ?? [], 'owner',
+        { forPeriodEnd: row.period_end, dueDate: row.due_date, isOverdue: row.is_overdue });
     }
 
     // ── 2. Dues buildings: latest overdue dues per PARTY, minus that party's
@@ -260,12 +289,15 @@ Deno.serve(async (req) => {
       building_name: string; period_label: string; due_date: string;
       amount_due: number; owner_user_ids: string[];
       party?: 'owner' | 'tenant'; tenant_id?: string | null; tenant_name?: string | null;
+      is_overdue?: boolean;
     };
     const { data: overdueDues, error: odErr } = await admin.rpc('get_overdue_dues');
     if (odErr) errors.push(`get_overdue_dues: ${odErr.message}`);
     for (const row of (overdueDues as OverdueDue[] ?? [])) {
+      // dues carry their own due_date; the period being settled IS that dues row
       await remindUnit(row.unit_id, row.building_id, row.unit_label, row.building_name,
-        Number(row.amount_due), row.owner_user_ids ?? [], row.party ?? 'owner');
+        Number(row.amount_due), row.owner_user_ids ?? [], row.party ?? 'owner',
+        { dueDate: row.due_date, isOverdue: row.is_overdue });
     }
 
     // ── 3. Inspection reminders → admins (email only, Mondays to avoid spam) ─

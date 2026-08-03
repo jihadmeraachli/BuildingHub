@@ -18,8 +18,16 @@ export interface Building {
   compound_id: string | null;
   billing_mode: BillingMode;
   is_active: boolean;
-  /** Day of month (1-28) for the automated payment reminder; null = off. */
+  /** Legacy single-day reminder (1-28); superseded by the schedule below but
+   *  kept in sync by set_reminder_schedule(). null = off. */
   reminder_day: number | null;
+  /** Reminder schedule (0076). A cycle with a payment window: notice goes out,
+   *  daily reminders until due, weekly while overdue. Compound value wins. */
+  reminder_frequency?: 'off' | 'weekly' | 'monthly' | 'quarterly' | null;
+  reminder_notice_day?: number | null;
+  reminder_weekday?: number | null;
+  reminder_month_of_quarter?: number | null;
+  reminder_grace_days?: number | null;
   /** Whish account (mobile number) residents can pay to; null = not offered. (0059) */
   whish_number: string | null;
   created_at: string;
@@ -154,6 +162,12 @@ export interface Compound {
   country: string;
   billing_mode: BillingMode;
   org_id: string | null;
+  /** Reminder schedule (0076) — governs every block, like billing_mode. */
+  reminder_frequency?: 'off' | 'weekly' | 'monthly' | 'quarterly' | null;
+  reminder_notice_day?: number | null;
+  reminder_weekday?: number | null;
+  reminder_month_of_quarter?: number | null;
+  reminder_grace_days?: number | null;
   created_at: string;
 }
 

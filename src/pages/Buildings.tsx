@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { fmtDate } from '@/lib/dateFmt';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Building, Compound, Organization } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -199,6 +200,8 @@ export default function Buildings() {
     contact_email: '', contact_phone: '', maps_url: '',
     compound_id: '', billing_mode: 'arrears', is_active: true, org_id: '',
     reminder_day: '', whish_number: '',
+    reminder_frequency: 'off', reminder_notice_day: '1', reminder_weekday: '1',
+    reminder_month_of_quarter: '1', reminder_grace_days: '7',
   });
 
   const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<FormData>();
@@ -383,6 +386,11 @@ export default function Buildings() {
       billing_mode: b.billing_mode, is_active: b.is_active,
       org_id: orgByBuilding[b.id] ?? '',
       reminder_day: b.reminder_day != null ? String(b.reminder_day) : '',
+      reminder_frequency: b.reminder_frequency ?? (b.reminder_day != null ? 'monthly' : 'off'),
+      reminder_notice_day: String(b.reminder_notice_day ?? b.reminder_day ?? 1),
+      reminder_weekday: String(b.reminder_weekday ?? 1),
+      reminder_month_of_quarter: String(b.reminder_month_of_quarter ?? 1),
+      reminder_grace_days: String(b.reminder_grace_days ?? 7),
       whish_number: b.whish_number ?? '',
     });
     setEditB(b);
@@ -396,9 +404,24 @@ export default function Buildings() {
       contact_phone: ebForm.contact_phone || null, maps_url: ebForm.maps_url || null,
       compound_id: ebForm.compound_id || null, billing_mode: ebForm.billing_mode,
       is_active: ebForm.is_active,
-      reminder_day: ebForm.reminder_day ? Number(ebForm.reminder_day) : null,
+
       whish_number: ebForm.whish_number.trim() || null,
     }).eq('id', editB.id);
+
+    // The reminder schedule goes through its own RPC (0076): it needs only
+    // `charge.manage`, so a finance role can run collections without also
+    // gaining the power to rename or deactivate the building.
+    const freq = ebForm.reminder_frequency || 'off';
+    const { error: schedErr } = await supabase.rpc('set_reminder_schedule', {
+      p_scope_type: 'building',
+      p_scope_id: editB.id,
+      p_frequency: freq,
+      p_notice_day: freq === 'monthly' || freq === 'quarterly' ? Number(ebForm.reminder_notice_day) : null,
+      p_weekday: freq === 'weekly' ? Number(ebForm.reminder_weekday) : null,
+      p_moq: freq === 'quarterly' ? Number(ebForm.reminder_month_of_quarter) : null,
+      p_grace_days: freq === 'off' ? null : Number(ebForm.reminder_grace_days),
+    });
+    if (schedErr) toast.error(schedErr.message);
 
     if (isPlatformAdmin) {
       await supabase.from('org_buildings').delete().eq('building_id', editB.id);
@@ -704,18 +727,77 @@ export default function Buildings() {
               <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
             </SelectField>
           )}
-          <div>
+          {/* Reminders (0076) — a billing cycle with a payment window, not a
+              single-day nag. Notice goes out, residents get DAILY reminders
+              until the due date, then weekly while overdue. */}
+          <div className="rounded-xl border border-border p-3 space-y-3">
+            <p className="text-sm font-medium text-foreground">{t('buildings.remindersTitle')}</p>
+
             <SelectField
-              label={t('buildings.reminderDay')}
-              value={ebForm.reminder_day || '__off__'}
-              onValueChange={v => setEbForm({ ...ebForm, reminder_day: v === '__off__' ? '' : v })}
+              label={t('buildings.reminderFrequency')}
+              value={ebForm.reminder_frequency || 'off'}
+              onValueChange={v => setEbForm({ ...ebForm, reminder_frequency: v })}
             >
-              <SelectItem value="__off__">{t('buildings.reminderOff')}</SelectItem>
-              {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(d => (
-                <SelectItem key={d} value={d}>{t('buildings.reminderOnDay', { day: d })}</SelectItem>
-              ))}
+              <SelectItem value="off">{t('buildings.reminderOff')}</SelectItem>
+              <SelectItem value="weekly">{t('buildings.freqWeekly')}</SelectItem>
+              <SelectItem value="monthly">{t('buildings.freqMonthly')}</SelectItem>
+              <SelectItem value="quarterly">{t('buildings.freqQuarterly')}</SelectItem>
             </SelectField>
-            <p className="text-xs text-muted-foreground mt-1">{t('buildings.reminderHint')}</p>
+
+            {ebForm.reminder_frequency === 'weekly' && (
+              <SelectField
+                label={t('buildings.reminderWeekday')}
+                value={ebForm.reminder_weekday || '1'}
+                onValueChange={v => setEbForm({ ...ebForm, reminder_weekday: v })}
+              >
+                {[0, 1, 2, 3, 4, 5, 6].map(d => (
+                  <SelectItem key={d} value={String(d)}>
+                    {fmtDate(new Date(2026, 7, 2 + d), 'EEEE')}
+                  </SelectItem>
+                ))}
+              </SelectField>
+            )}
+
+            {ebForm.reminder_frequency === 'quarterly' && (
+              <SelectField
+                label={t('buildings.reminderMonthOfQuarter')}
+                value={ebForm.reminder_month_of_quarter || '1'}
+                onValueChange={v => setEbForm({ ...ebForm, reminder_month_of_quarter: v })}
+              >
+                <SelectItem value="1">{t('buildings.moq1')}</SelectItem>
+                <SelectItem value="2">{t('buildings.moq2')}</SelectItem>
+                <SelectItem value="3">{t('buildings.moq3')}</SelectItem>
+              </SelectField>
+            )}
+
+            {(ebForm.reminder_frequency === 'monthly' || ebForm.reminder_frequency === 'quarterly') && (
+              <SelectField
+                label={t('buildings.reminderNoticeDay')}
+                value={ebForm.reminder_notice_day || '1'}
+                onValueChange={v => setEbForm({ ...ebForm, reminder_notice_day: v })}
+              >
+                {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(d => (
+                  <SelectItem key={d} value={d}>{t('buildings.reminderOnDay', { day: d })}</SelectItem>
+                ))}
+              </SelectField>
+            )}
+
+            {ebForm.reminder_frequency !== 'off' && (
+              <div>
+                <SelectField
+                  label={t('buildings.reminderGrace')}
+                  value={ebForm.reminder_grace_days || '7'}
+                  onValueChange={v => setEbForm({ ...ebForm, reminder_grace_days: v })}
+                >
+                  {Array.from({ length: 29 }, (_, i) => String(i)).map(d => (
+                    <SelectItem key={d} value={d}>{t('buildings.reminderGraceDays', { count: Number(d) })}</SelectItem>
+                  ))}
+                </SelectField>
+                <p className="text-xs text-muted-foreground mt-1">{t('buildings.reminderWindowHint')}</p>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">{t('buildings.reminderHint')}</p>
           </div>
           <div>
             <Input
