@@ -157,12 +157,31 @@ export default function Dues() {
   const num = (r: Record<string, string>) =>
     Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Number(v) || 0]));
 
-  /** Has this unit+period+party already been generated? If so its carry-in was
-   *  already consumed and must not be applied a second time (0070). */
-  function carryConsumedIn(period: string) {
+  /** Carry-in already applied in OUTSTANDING dues for this unit+party.
+   *
+   *  Dues never move the balance ledger, so arrears stay on the books after a
+   *  due is issued and the next generation would bill them again: 1East owing
+   *  796.08 was asked 250+796.08 on one special charge and 250+796.08 on the
+   *  next — 2,092.16 against a real 1,296.08.
+   *
+   *  Only the CARRY portion is netted off, not the whole outstanding amount:
+   *  that figure also contains the earlier row's own base, which is a separate
+   *  amount still genuinely owed. Paying clears the row and moves the balance,
+   *  so the carry comes back into play by itself. */
+  const carryApplied = useMemo(() => {
+    const paidSince = (unitId: string, party: Tenure, since: string, tenantId: string | null) =>
+      payments
+        .filter((p) => p.unit_id === unitId && !p.voided_at && p.created_at >= since
+          && (party === 'tenant'
+            ? p.paid_by === 'tenant' && (!tenantId || p.tenant_id === tenantId)
+            : p.paid_by !== 'tenant'))
+        .reduce((s, p) => s + Number(p.amount_usd), 0);
     return (unitId: string, party: Tenure) =>
-      items.some((d) => d.unit_id === unitId && d.period_label === period && d.billed_to === party);
-  }
+      items
+        .filter((d) => d.unit_id === unitId && d.billed_to === party)
+        .filter((d) => Number(d.amount_due) - paidSince(unitId, party, d.created_at, d.tenant_id) > 0)
+        .reduce((s, d) => s + Number(d.carry_in), 0);
+  }, [items, payments]);
 
   function openPlan() {
     if (plan) {
@@ -222,7 +241,7 @@ export default function Dues() {
     return computeDuesGeneration({
       units, plan: genPlan, balances: balanceOf,
       activeTenantId: th.activeTenantId,
-      carryConsumed: carryConsumedIn(genPeriod.trim()),
+      carryApplied,
       includeRecurring: true,
     });
   }, [plan, units, genPlan, balanceOf, th, genPeriod, items]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -238,7 +257,7 @@ export default function Dues() {
     return computeDuesGeneration({
       units, plan: genPlan, balances: balanceOf,
       activeTenantId: th.activeTenantId,
-      carryConsumed: carryConsumedIn(obPeriod.trim()),
+      carryApplied,
       includeRecurring: false,
       offBudget: obSpec,
     });

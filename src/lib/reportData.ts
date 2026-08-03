@@ -169,12 +169,13 @@ export function buildUnitBuckets(
 //   1. CARRY IS PARTY-SCOPED. Owner carry = −bal.owner, tenant carry =
 //      −bal.tenant. A unit's pre-existing balance sits on the owner side
 //      (opening_balance is owner by definition), so it never lands on a tenant.
-//   2. CARRY IS CONSUMED ONCE per unit + period + party. Dues never touch the
-//      balance ledger, so generating twice into the same period would apply the
-//      same carry twice. When a party already has a row in the period, the next
-//      one gets carry 0 — which is what makes "the carry applies to the sum of
-//      the recurring and the off-budget amounts" true even when they are
-//      generated in separate runs.
+//   2. CARRY IS CONSUMED ONCE, UNTIL IT IS PAID. Dues never touch the balance
+//      ledger, so the arrears stay on the books after a due is issued and every
+//      later generation would re-bill them. Each generation therefore subtracts
+//      the carry ALREADY applied in outstanding dues. Two special charges
+//      against 796.08 of arrears ask 250+796.08 then 250+0 — not 796.08 twice.
+//      Paying clears the outstanding rows and moves the balance, so the next
+//      generation picks up whatever is genuinely still owed.
 //
 // Move-out needs no dues offload: end_membership() (0065) credits the owner
 // sub-ledger, so the departed tenant's balance lands in the OWNER's carry-in
@@ -334,9 +335,14 @@ export interface DuesGenInput {
   /** The unit's ACTIVE tenant, or null. Only a tenant who is currently there
    *  can be billed the recurring budget. */
   activeTenantId: (unitId: string) => string | null;
-  /** Does this unit+period already have a row for this party? If so the carry
-   *  was already consumed and must not be applied twice. */
-  carryConsumed: (unitId: string, party: Tenure) => boolean;
+  /** Carry-in ALREADY applied in outstanding (unpaid) dues for this party,
+   *  signed the same way as carry (positive = arrears billed). Dues never move
+   *  the balance ledger, so without subtracting this every new generation
+   *  re-bills the same arrears: a unit owing 796.08 asked for 250+796.08 on one
+   *  special charge and 250+796.08 again on the next. Subtracting the whole
+   *  outstanding amount would overshoot — that includes the earlier row's own
+   *  base — so it is specifically the carry portion that must be netted off. */
+  carryApplied: (unitId: string, party: Tenure) => number;
   /** Generate the plan's recurring amounts (false = special-charge-only run). */
   includeRecurring: boolean;
   offBudget?: OffBudgetSpec | null;
@@ -347,7 +353,7 @@ export interface DuesGenInput {
  * generate modal and the rows actually inserted come from the same call.
  */
 export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
-  const { units, plan, balances, activeTenantId, carryConsumed, includeRecurring, offBudget } = input;
+  const { units, plan, balances, activeTenantId, carryApplied, includeRecurring, offBudget } = input;
   const isB2 = plan.planType === 'b2';
   const rows: DuesGenRow[] = [];
 
@@ -389,7 +395,8 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
     // emitted and does not consume the carry.
     const settle = (party: Tenure, lines: Line[], partyBal: number, tid: string | null) => {
       if (!lines.length) return;
-      const carry = isB2 || carryConsumed(u.id, party) ? 0 : round2(-partyBal);
+      // arrears not yet billed = what they owe, less what open dues already ask
+      const carry = isB2 ? 0 : round2(-partyBal - carryApplied(u.id, party));
       let left = carry;
       for (const l of lines) {
         const due = isB2 ? l.base : Math.max(0, round2(l.base + left));
