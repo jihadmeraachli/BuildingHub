@@ -886,11 +886,11 @@ export default function Finance() {
                   {(tab === 'expenses' || tab === 'book') && (
                     <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
                   )}
-                  {/* The admin asks for money when it is needed - including in
-                      DUES mode, where a large one-off still has to be settled
-                      outside the dues cycle (0080). Routine balance-chasing is
-                      what dues already do; this is the deliberate ask. */}
-                  {tab === 'book' && entity && (
+                  {/* ARREARS only (0081). A prepay building sits in credit, so a
+                      ledger-based request finds nobody — and where it does find
+                      arrears, the outstanding dues are already collecting them.
+                      A dues one-off is Generate dues with the true-up off. */}
+                  {tab === 'book' && entity && entity.billingMode !== 'dues' && (
                     <Button variant="secondary" onClick={() => setReqOpen(true)} disabled={units.length === 0}>
                       <Send size={16} /> {t('finance.requestPayment')}
                     </Button>
