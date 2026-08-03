@@ -21,9 +21,18 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
 const priorityColor: Record<IssuePriority, 'slate' | 'yellow' | 'red'> = { low: 'slate', medium: 'yellow', urgent: 'red' };
 const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = { open: 'orange', in_progress: 'blue', resolved: 'green' };
 
+/** Which language a free-text blob is (mostly) written in — Arabic script
+ *  past ~30% of its letters means Arabic. */
+function langOf(s: string): 'ar' | 'en' {
+  const arabic = (s.match(/[؀-ۿ]/g) ?? []).length;
+  const letters = s.replace(/[\s\d\p{P}]/gu, '').length || 1;
+  return arabic / letters > 0.3 ? 'ar' : 'en';
+}
+
 export default function Issues() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, profile, canAny, isPlatformAdmin, residentLens, memberships, residentUnitId } = useAuth();
+  const uiLang: 'ar' | 'en' = i18n.language.startsWith('ar') ? 'ar' : 'en';
   const isDemo = isDemoEmail(user?.email);
   const { buildings } = useViewableBuildings();
   const entities = useEntities(buildings);
@@ -60,6 +69,29 @@ export default function Issues() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
   const [createBuildingId, setCreateBuildingId] = useState('');
   const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
+
+  // Per-issue description translation (MyMemory, free & keyless — good enough
+  // for beta). Fetched once, then the button toggles translated <-> original.
+  const [xl, setXl] = useState<Record<string, { text: string; shown: boolean }>>({});
+  const [translating, setTranslating] = useState('');
+
+  async function toggleTranslate(issue: Issue) {
+    const cur = xl[issue.id];
+    if (cur) { setXl((p) => ({ ...p, [issue.id]: { ...cur, shown: !cur.shown } })); return; }
+    setTranslating(issue.id);
+    try {
+      const source = langOf(issue.description);
+      // MyMemory caps q at ~500 bytes; Arabic is 2 bytes/char in UTF-8.
+      const q = issue.description.slice(0, source === 'ar' ? 220 : 440);
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${source}|${uiLang}`);
+      const j = await res.json();
+      const text: string | undefined = j?.responseData?.translatedText;
+      if (!res.ok || !text) throw new Error(j?.responseDetails ?? 'empty');
+      setXl((p) => ({ ...p, [issue.id]: { text, shown: true } }));
+    } catch {
+      toast.error(t('issues.translationFailed'));
+    } finally { setTranslating(''); }
+  }
 
   // "Logging issue for" — the FIRST question (Jey's design): the common area,
   // or one of the reporter's own units. Managers pick any unit of the block.
@@ -228,7 +260,20 @@ export default function Issues() {
                       <Badge color={priorityColor[issue.priority]}>{t(`issues.priorities.${issue.priority}`)}</Badge>
                       <Badge color={statusColor[issue.status]}>{t(`issues.statuses.${issue.status}`)}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">{issue.description}</p>
+                    <div className="mb-2">
+                      <p dir="auto" className="text-sm text-muted-foreground">{xl[issue.id]?.shown ? xl[issue.id].text : issue.description}</p>
+                      {issue.description && langOf(issue.description) !== uiLang && (
+                        <button
+                          onClick={() => toggleTranslate(issue)}
+                          disabled={translating === issue.id}
+                          className="text-xs text-primary hover:underline cursor-pointer disabled:opacity-50 mt-0.5"
+                        >
+                          {translating === issue.id ? '…'
+                            : xl[issue.id]?.shown ? t('issues.showOriginal')
+                            : uiLang === 'ar' ? t('issues.translateAr') : t('issues.translateEn')}
+                        </button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{issue.location}</span>
                       {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}

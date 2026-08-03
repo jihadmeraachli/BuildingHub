@@ -17,6 +17,7 @@ _Last reviewed: 2026-07-26_
 | **Meta (WhatsApp Cloud API)** | WhatsApp notifications (charges, payments, dues, unit invitations) via `dynamic-action`; pre-approved templates; per-message billing (~$0.014 utility/Lebanon) | business.facebook.com portfolio + developers.facebook.com app + dedicated sender number (SIM — can never be reused in the WhatsApp app) | 🟡 Medium | WhatsApp channel stops; email unaffected. Setup: docs/WHATSAPP_SETUP.md |
 | **Domain registrar** | Ownership of `abniyah.com` (DNS is delegated to Cloudflare) | *(fill in: where the domain is registered + renewal date)* | 🔴 Total if it lapses | Domain expiry = site + all email dead |
 | **Google Fonts** | Sora / Inter / Poppins webfonts at runtime | fonts.googleapis.com (no account) | 🟢 Low | Fonts fall back to system; cosmetic only |
+| **MyMemory (Translated.net)** | Issue-description translation button (en↔ar), called straight from the browser | api.mymemory.translated.net (no account, no key; anonymous free tier ~5k chars/day per IP) | 🟢 Low | Translate button errors with a toast; nothing else affected. Swap to a paid/LLM translator if usage outgrows the free tier |
 
 ## Secrets & configuration — where they live
 
