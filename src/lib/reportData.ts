@@ -169,13 +169,15 @@ export function buildUnitBuckets(
 //   1. CARRY IS PARTY-SCOPED. Owner carry = −bal.owner, tenant carry =
 //      −bal.tenant. A unit's pre-existing balance sits on the owner side
 //      (opening_balance is owner by definition), so it never lands on a tenant.
-//   2. CARRY IS CONSUMED ONCE, UNTIL IT IS PAID. Dues never touch the balance
-//      ledger, so the arrears stay on the books after a due is issued and every
-//      later generation would re-bill them. Each generation therefore subtracts
-//      the carry ALREADY applied in outstanding dues. Two special charges
-//      against 796.08 of arrears ask 250+796.08 then 250+0 — not 796.08 twice.
-//      Paying clears the outstanding rows and moves the balance, so the next
-//      generation picks up whatever is genuinely still owed.
+//   2. AN OUTSTANDING DUE ABSORBS THE CARRY. Dues never touch the balance
+//      ledger, so arrears stay visible after a due already collects them, and a
+//      part-payment shows up as credit that is not really credit. A new ask
+//      therefore clamps both against what is still outstanding:
+//          carry = max(0, −L − D) − max(0, L − D)
+//      L = the party's ledger balance (+ = credit), D = unpaid issued dues.
+//      Q1 of 2000 outstanding with 200 expensed adds NO carry — the 2000 is
+//      already collecting that 200. Paying 1000 of it does not create credit
+//      either, because 1000 is still owed.
 //
 // Move-out needs no dues offload: end_membership() (0065) credits the owner
 // sub-ledger, so the departed tenant's balance lands in the OWNER's carry-in
@@ -335,14 +337,13 @@ export interface DuesGenInput {
   /** The unit's ACTIVE tenant, or null. Only a tenant who is currently there
    *  can be billed the recurring budget. */
   activeTenantId: (unitId: string) => string | null;
-  /** Carry-in ALREADY applied in outstanding (unpaid) dues for this party,
-   *  signed the same way as carry (positive = arrears billed). Dues never move
-   *  the balance ledger, so without subtracting this every new generation
-   *  re-bills the same arrears: a unit owing 796.08 asked for 250+796.08 on one
-   *  special charge and 250+796.08 again on the next. Subtracting the whole
-   *  outstanding amount would overshoot — that includes the earlier row's own
-   *  base — so it is specifically the carry portion that must be netted off. */
-  carryApplied: (unitId: string, party: Tenure) => number;
+  /** Amount still owed on dues ALREADY issued to this party (unpaid portion).
+   *
+   *  Dues never touch the balance ledger, so an outstanding due does two things
+   *  the ledger cannot show: it already collects arrears that are still sitting
+   *  on the ledger, and it makes a part-payment look like credit. Both have to
+   *  be cancelled out or a new ask double-bills. */
+  outstandingDues: (unitId: string, party: Tenure) => number;
   /** Generate the plan's recurring amounts (false = special-charge-only run). */
   includeRecurring: boolean;
   offBudget?: OffBudgetSpec | null;
@@ -353,7 +354,7 @@ export interface DuesGenInput {
  * generate modal and the rows actually inserted come from the same call.
  */
 export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
-  const { units, plan, balances, activeTenantId, carryApplied, includeRecurring, offBudget } = input;
+  const { units, plan, balances, activeTenantId, outstandingDues, includeRecurring, offBudget } = input;
   const isB2 = plan.planType === 'b2';
   const rows: DuesGenRow[] = [];
 
@@ -395,8 +396,14 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
     // emitted and does not consume the carry.
     const settle = (party: Tenure, lines: Line[], partyBal: number, tid: string | null) => {
       if (!lines.length) return;
-      // arrears not yet billed = what they owe, less what open dues already ask
-      const carry = isB2 ? 0 : round2(-partyBal - carryApplied(u.id, party));
+      // An outstanding ask absorbs arrears AND masks apparent credit, so both
+      // are clamped against it:
+      //   max(0, −L − D)  arrears NOT already covered by an outstanding ask
+      //   max(0,  L − D)  credit beyond everything outstanding (genuine prepay)
+      // Only the uncovered part of either reaches the new ask.
+      const D = outstandingDues(u.id, party);
+      const carry = isB2 ? 0
+        : round2(Math.max(0, -partyBal - D) - Math.max(0, partyBal - D));
       let left = carry;
       for (const l of lines) {
         const due = isB2 ? l.base : Math.max(0, round2(l.base + left));

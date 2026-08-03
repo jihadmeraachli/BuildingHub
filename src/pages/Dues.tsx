@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight, Receipt, User } from 'lucide-react';
+import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import { computeUnitBalances } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
 import {
   tenancyHelpers, buildDuesRows, computeDuesGeneration,
-  type TenancyRow, type DuesGenRow, type OffBudgetSpec, type OffBudgetBillTo,
+  type TenancyRow, type DuesGenRow,
 } from '@/lib/reportData';
 import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -81,15 +81,6 @@ export default function Dues() {
   const [genPeriod, setGenPeriod] = useState('');
   const [genDue, setGenDue] = useState(new Date().toISOString().slice(0, 10));
 
-  // special charge (C13) — one-time, allocated across units, off the plan cycle
-  const [obOpen, setObOpen] = useState(false);
-  const [obLabel, setObLabel] = useState('');
-  const [obBillTo, setObBillTo] = useState<OffBudgetBillTo>('owner');
-  const [obMethod, setObMethod] = useState<DuesMethod>('by_shares');
-  const [obTotal, setObTotal] = useState('');
-  const [obCustom, setObCustom] = useState<Record<string, string>>({});
-  const [obPeriod, setObPeriod] = useState('');
-  const [obDue, setObDue] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => { if (entity) load(); }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -157,18 +148,15 @@ export default function Dues() {
   const num = (r: Record<string, string>) =>
     Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Number(v) || 0]));
 
-  /** Carry-in already applied in OUTSTANDING dues for this unit+party.
+  /** Unpaid portion of dues ALREADY issued to this unit+party.
    *
-   *  Dues never move the balance ledger, so arrears stay on the books after a
-   *  due is issued and the next generation would bill them again: 1East owing
-   *  796.08 was asked 250+796.08 on one special charge and 250+796.08 on the
-   *  next — 2,092.16 against a real 1,296.08.
-   *
-   *  Only the CARRY portion is netted off, not the whole outstanding amount:
-   *  that figure also contains the earlier row's own base, which is a separate
-   *  amount still genuinely owed. Paying clears the row and moves the balance,
-   *  so the carry comes back into play by itself. */
-  const carryApplied = useMemo(() => {
+   *  Dues never touch the balance ledger, so an outstanding due both collects
+   *  arrears that still sit on the ledger AND makes a part-payment look like
+   *  credit. computeDuesGeneration clamps the carry against this so neither is
+   *  billed twice. Settlement uses the same test as get_overdue_dues — that
+   *  party's payments since the row was issued — so the screen and the
+   *  reminder cron agree. */
+  const outstandingDues = useMemo(() => {
     const paidSince = (unitId: string, party: Tenure, since: string, tenantId: string | null) =>
       payments
         .filter((p) => p.unit_id === unitId && !p.voided_at && p.created_at >= since
@@ -179,8 +167,8 @@ export default function Dues() {
     return (unitId: string, party: Tenure) =>
       items
         .filter((d) => d.unit_id === unitId && d.billed_to === party)
-        .filter((d) => Number(d.amount_due) - paidSince(unitId, party, d.created_at, d.tenant_id) > 0)
-        .reduce((s, d) => s + Number(d.carry_in), 0);
+        .reduce((s, d) => s + Math.max(0,
+          Number(d.amount_due) - paidSince(unitId, party, d.created_at, d.tenant_id)), 0);
   }, [items, payments]);
 
   function openPlan() {
@@ -241,27 +229,12 @@ export default function Dues() {
     return computeDuesGeneration({
       units, plan: genPlan, balances: balanceOf,
       activeTenantId: th.activeTenantId,
-      carryApplied,
+      outstandingDues,
       includeRecurring: true,
     });
   }, [plan, units, genPlan, balanceOf, th, genPeriod, items]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const obSpec: OffBudgetSpec | null = useMemo(() => (
-    obLabel.trim()
-      ? { label: obLabel.trim(), method: obMethod, total: Number(obTotal) || 0, custom: num(obCustom), billTo: obBillTo }
-      : null
-  ), [obLabel, obMethod, obTotal, obCustom, obBillTo]);
 
-  const obPreview = useMemo(() => {
-    if (!plan || !obSpec) return [];
-    return computeDuesGeneration({
-      units, plan: genPlan, balances: balanceOf,
-      activeTenantId: th.activeTenantId,
-      carryApplied,
-      includeRecurring: false,
-      offBudget: obSpec,
-    });
-  }, [plan, units, genPlan, balanceOf, th, obPeriod, obSpec, items]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toRows(gen: DuesGenRow[], period: string, due: string) {
     return gen.map((r) => ({
@@ -282,16 +255,6 @@ export default function Dues() {
     setSaving(false); setGenOpen(false); load();
   }
 
-  async function generateOffBudget() {
-    if (!entity || !plan || !obSpec || !obPeriod.trim()) return;
-    setSaving(true);
-    const rows = toRows(obPreview, obPeriod.trim(), obDue);
-    if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { toast.error(error.message); setSaving(false); return; } }
-    toast.success(t('dues.generated'));
-    setSaving(false); setObOpen(false);
-    setObLabel(''); setObTotal(''); setObCustom({});
-    load();
-  }
 
   async function removeItem(id: string) {
     if (!confirm('Delete this dues item?')) return;
@@ -339,7 +302,6 @@ export default function Dues() {
               get_overdue_dues() only reminds on 'dues' buildings, so dues raised
               here would notify residents and then never be chased. */}
           {canManage && entity && <Button variant="secondary" onClick={openPlan}><Settings2 size={16} /> {plan ? t('dues.editPlan') : t('dues.setupPlan')}</Button>}
-          {canManage && entity && plan && duesMode && <Button variant="secondary" onClick={() => { setObPeriod(''); setObOpen(true); }}><Receipt size={16} /> {t('dues.offBudgetAction')}</Button>}
           {canManage && entity && plan && duesMode && <Button onClick={() => { setGenPeriod(''); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
         </div>
       </div>
@@ -564,57 +526,6 @@ export default function Dues() {
         </div>
       </Modal>
 
-      {/* Special charge (C13) — one-time, owner-only, allocated across units.
-          The name is generic, so the owner-only rule is stated in the modal
-          rather than left to be inferred. */}
-      <Modal open={obOpen} onClose={() => setObOpen(false)} title={t('dues.offBudgetTitle')} size="lg">
-        <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">{t('dues.offBudgetNote')}</p>
-          <div>
-            <SelectField label={t('dues.offBudgetBillTo')} value={obBillTo} onValueChange={(v) => setObBillTo(v as OffBudgetBillTo)}>
-              <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
-              <SelectItem value="tenant_where_leased">{t('dues.billToTenant')}</SelectItem>
-            </SelectField>
-            <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1.5">
-              <User size={13} className="shrink-0 mt-0.5" />
-              <span>{obBillTo === 'owner' ? t('dues.billToOwnerHint') : t('dues.billToTenantHint')}</span>
-            </p>
-          </div>
-          <Input label={t('dues.offBudgetLabel')} value={obLabel} onChange={(e) => setObLabel(e.target.value)} placeholder={t('dues.offBudgetPlaceholder')} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label={t('dues.period')} value={obPeriod} onChange={(e) => setObPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
-            <Input label={t('dues.dueDate')} type="date" value={obDue} onChange={(e) => setObDue(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField label={t('dues.method')} value={obMethod} onValueChange={(v) => setObMethod(v as DuesMethod)}>
-              {METHODS.map((m) => <SelectItem key={m} value={m}>{t(`dues.methods.${m}`)}</SelectItem>)}
-            </SelectField>
-            {obMethod !== 'custom' && (
-              <Input label={t('dues.offBudgetTotal')} type="number" step="0.01" min="0" value={obTotal} onChange={(e) => setObTotal(e.target.value)} />
-            )}
-          </div>
-          {obMethod === 'custom' && (
-            <div>
-              <label className="text-sm font-medium text-foreground">{t('dues.customAmounts')}</label>
-              <div className="mt-1.5 max-h-48 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
-                {units.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                    <span className="text-foreground truncate">{unitLabel(u.id)}</span>
-                    <input type="number" step="0.01" min="0" value={obCustom[u.id] ?? ''} placeholder="0.00"
-                      onChange={(e) => setObCustom({ ...obCustom, [u.id]: e.target.value })}
-                      className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <GenPreview rows={obPreview} isB2={isB2} unitLabel={unitLabel} th={th} labels={labels} t={t} />
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="secondary" onClick={() => setObOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={generateOffBudget} loading={saving} disabled={!obLabel.trim() || !obPeriod.trim()}>{t('dues.generate')}</Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
