@@ -1211,7 +1211,11 @@
     "applyTrueUp": "Apply the arrears true-up",
     "trueUpOnHint": "Each unit is asked its base adjusted for what it already owes or has paid ahead. Use this for a normal period.",
     "trueUpOffHint": "Every unit is asked the full amount, even one sitting on credit. Use this to collect an unbudgeted cost now — the credit is absorbed by the next trued-up period.",
-    "flatAskNote": "Flat ask: the full amount is charged to every unit, regardless of its balance."
+    "flatAskNote": "Flat ask: the full amount is charged to every unit, regardless of its balance.",
+    "owedTitle": "Outstanding by unit",
+    "acrossPeriods": "across {{count}} periods",
+    "paidSoFar": "{{amount}} paid",
+    "owedHint": "What each party still owes across every open period — the same figure the reminders chase. Paid amounts are that party's payments since their oldest open period."
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",

@@ -10,7 +10,7 @@ import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeUnitBalances } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
 import {
-  tenancyHelpers, buildDuesRows, computeDuesGeneration,
+  tenancyHelpers, buildDuesRows, computeDuesGeneration, tenantTitle,
   type TenancyRow, type DuesGenRow,
 } from '@/lib/reportData';
 import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure } from '@/types';
@@ -272,6 +272,41 @@ export default function Dues() {
     return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
   };
 
+  /** What each unit still owes ACROSS every open period.
+   *
+   *  The table below is per period, and in dues mode the ledger balance answers
+   *  a different question — dues never touch it — so without this there is
+   *  nowhere to see a unit's actual position. Settlement matches
+   *  get_overdue_dues (0082): the party's dues are one running account, billed
+   *  since the oldest open row less that party's payments since then, so this
+   *  shows exactly what the reminders chase. */
+  const owedByUnit = useMemo(() => {
+    type Row = { unitId: string; party: Tenure; tenantId: string | null;
+                 billed: number; paid: number; owed: number; periods: number };
+    const acc = new Map<string, Row & { since: string }>();
+    for (const d of vItems) {
+      const key = `${d.unit_id}|${d.billed_to}|${d.tenant_id ?? ''}`;
+      const r = acc.get(key) ?? { unitId: d.unit_id, party: d.billed_to, tenantId: d.tenant_id,
+                                  billed: 0, paid: 0, owed: 0, periods: 0, since: d.created_at };
+      r.billed += Number(d.amount_due);
+      r.periods += 1;
+      if (d.created_at < r.since) r.since = d.created_at;
+      acc.set(key, r);
+    }
+    const out = Array.from(acc.values()).map((r) => {
+      const paid = payments
+        .filter((p) => p.unit_id === r.unitId && !p.voided_at && p.created_at >= r.since
+          && (r.party === 'tenant'
+            ? p.paid_by === 'tenant' && (!r.tenantId || p.tenant_id === r.tenantId)
+            : p.paid_by !== 'tenant'))
+        .reduce((s, p) => s + Number(p.amount_usd), 0);
+      return { ...r, paid, owed: Math.max(0, Math.round((r.billed - paid) * 100) / 100) };
+    }).filter((r) => r.owed > 0);
+    out.sort((a, b) => (unitLabel(a.unitId)).localeCompare(unitLabel(b.unitId), undefined, { numeric: true })
+      || (a.party === 'owner' ? -1 : 1));
+    return out;
+  }, [vItems, payments]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /** Unit + period totals with owner / tenant sub-rows (0070). */
   const duesGroups = useMemo(
     () => buildDuesRows(vItems, units, th, labels),
@@ -347,6 +382,38 @@ export default function Dues() {
               <p className="text-xs text-muted-foreground mt-2">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
             </CardBody></Card>
 
+            {!loading && owedByUnit.length > 0 && (
+              <Card className="mb-4"><CardBody>
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-sm font-semibold text-foreground">{t('dues.owedTitle')}</p>
+                  <p className="text-sm font-semibold text-foreground tnum">
+                    {money(owedByUnit.reduce((s, r) => s + r.owed, 0))}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  {owedByUnit.map((r) => (
+                    <div key={`${r.unitId}|${r.party}|${r.tenantId ?? ''}`}
+                         className="flex items-center justify-between text-sm gap-3">
+                      <span className="text-foreground min-w-0">
+                        {unitLabel(r.unitId)}
+                        <span className="text-muted-foreground/70">
+                          {' · '}
+                          {r.party === 'owner'
+                            ? labels.owner
+                            : tenantTitle(
+                                r.tenantId && r.tenantId === th.activeTenantId(r.unitId) ? labels.tenant : labels.formerTenant,
+                                r.tenantId ? th.nameById(r.tenantId) : null)}
+                          {r.periods > 1 && ` · ${t('dues.acrossPeriods', { count: r.periods })}`}
+                          {r.paid > 0 && ` · ${t('dues.paidSoFar', { amount: money(r.paid) })}`}
+                        </span>
+                      </span>
+                      <span className="font-semibold text-foreground tnum shrink-0">{money(r.owed)}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">{t('dues.owedHint')}</p>
+              </CardBody></Card>
+            )}
             {loading ? <SkeletonTable rows={5} cols={6} />
               : vItems.length === 0 ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{t('dues.noDues')}</p></CardBody></Card>
               : (
