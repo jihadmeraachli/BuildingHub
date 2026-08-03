@@ -31,10 +31,25 @@ function langOf(s: string): 'ar' | 'en' {
 
 export default function Issues() {
   const { t, i18n } = useTranslation();
-  const { user, profile, canAny, isPlatformAdmin, residentLens, memberships, residentUnitId } = useAuth();
+  const { user, profile, canAny, isPlatformAdmin, residentLens, memberships, residentUnitId, manageableBuildingIds } = useAuth();
   const uiLang: 'ar' | 'en' = i18n.language.startsWith('ar') ? 'ar' : 'en';
   const isDemo = isDemoEmail(user?.email);
-  const { buildings } = useViewableBuildings();
+  const { buildings: viewable } = useViewableBuildings();
+
+  // Dual-persona lens: an admin browsing "My home" sees only their own issues.
+  const isManager = (isPlatformAdmin || canAny('issue.view_all')) && !residentLens;
+
+  // Lens-scoping (#72): Managing shows only buildings the person MANAGES; a
+  // building where they merely own an apartment belongs to the My-home lens.
+  // useViewableBuildings unions both, so cut it down per lens here.
+  const memberIds = useMemo(
+    () => new Set(memberships.map((m) => m.unit?.building_id).filter(Boolean)),
+    [memberships]);
+  const buildings = useMemo(() => (
+    isManager
+      ? (isPlatformAdmin ? viewable : viewable.filter((b) => manageableBuildingIds.includes(b.id)))
+      : viewable.filter((b) => memberIds.has(b.id))
+  ), [isManager, isPlatformAdmin, viewable, manageableBuildingIds, memberIds]);
   const entities = useEntities(buildings);
 
   // Units the person belongs to (active memberships) — what they may log for.
@@ -44,9 +59,6 @@ export default function Issues() {
       .map((m) => m.unit)
       .filter((u): u is NonNullable<typeof u> => !!u && !seen.has(u.id) && (seen.add(u.id), true));
   }, [memberships]);
-
-  // Dual-persona lens: an admin browsing "My home" sees only their own issues.
-  const isManager = (isPlatformAdmin || canAny('issue.view_all')) && !residentLens;
 
   // GLOBAL entity selection (sidebar). '' = across ALL viewable buildings —
   // issues aggregate cleanly, so no entity is required here.
