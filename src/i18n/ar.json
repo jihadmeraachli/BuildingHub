@@ -594,6 +594,8 @@
     "title": "المشكلات",
     "pickBuilding": "اختر مبنى/بلوكاً",
     "logIssue": "تسجيل مشكلة جديدة",
+    "loggingFor": "تسجيل المشكلة عن",
+    "commonArea": "المساحات المشتركة",
     "issueTitle": "عنوان المشكلة",
     "description": "الوصف",
     "location": "الموقع في المبنى",

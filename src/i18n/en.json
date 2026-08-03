@@ -586,6 +586,8 @@
     "title": "Issues",
     "pickBuilding": "Pick a building/block",
     "logIssue": "Log New Issue",
+    "loggingFor": "Logging issue for",
+    "commonArea": "Common area",
     "issueTitle": "Issue Title",
     "description": "Description",
     "location": "Location in building",

@@ -79,6 +79,7 @@ export interface BillingEntry {
 export interface Issue {
   id: string;
   building_id: string;
+  unit_id: string | null;
   reported_by: string;
   title: string;
   description: string;

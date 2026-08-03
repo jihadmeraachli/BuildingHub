@@ -23,10 +23,18 @@ const statusColor: Record<IssueStatus, 'orange' | 'blue' | 'green'> = { open: 'o
 
 export default function Issues() {
   const { t } = useTranslation();
-  const { user, profile, canAny, isPlatformAdmin, residentLens } = useAuth();
+  const { user, profile, canAny, isPlatformAdmin, residentLens, memberships, residentUnitId } = useAuth();
   const isDemo = isDemoEmail(user?.email);
   const { buildings } = useViewableBuildings();
   const entities = useEntities(buildings);
+
+  // Units the person belongs to (active memberships) — what they may log for.
+  const myUnits = useMemo(() => {
+    const seen = new Set<string>();
+    return memberships
+      .map((m) => m.unit)
+      .filter((u): u is NonNullable<typeof u> => !!u && !seen.has(u.id) && (seen.add(u.id), true));
+  }, [memberships]);
 
   // Dual-persona lens: an admin browsing "My home" sees only their own issues.
   const isManager = (isPlatformAdmin || canAny('issue.view_all')) && !residentLens;
@@ -53,8 +61,13 @@ export default function Issues() {
   const [createBuildingId, setCreateBuildingId] = useState('');
   const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
 
+  // "Logging issue for" — the FIRST question (Jey's design): the common area,
+  // or one of the reporter's own units. Managers pick any unit of the block.
+  // Values: '__common__' (manager), 'c:<buildingId>' (resident common), '<unitId>'.
+  const [loggingFor, setLoggingFor] = useState('__common__');
+
   const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<{
-    title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList;
+    title: string; description: string; location: string; priority: IssuePriority; photos: FileList;
   }>();
   const { register: registerUpdate, handleSubmit: handleUpdate, setValue, control: controlUpdate } = useForm<{ status: IssueStatus; resolution_notes: string }>();
 
@@ -77,14 +90,48 @@ export default function Issues() {
     setLoading(false);
   }
 
+  // Resident options: common area per building they live in + their units.
+  const residentOptions = useMemo(() => {
+    const bIds = [...new Set(myUnits.map((u) => u.building_id))];
+    const multi = bIds.length > 1;
+    const opts: { value: string; label: string }[] = bIds.map((bid) => ({
+      value: `c:${bid}`,
+      label: multi ? `${t('issues.commonArea')} · ${blockName[bid] ?? ''}` : t('issues.commonArea'),
+    }));
+    for (const u of myUnits) opts.push({ value: u.id, label: multi ? `${u.label} · ${blockName[u.building_id] ?? ''}` : u.label });
+    return opts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myUnits, buildings, t]);
+
   function openCreate() {
-    const def = blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''));
-    setCreateBuildingId(def);
+    if (isManager) {
+      const def = blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''));
+      setCreateBuildingId(def);
+      setLoggingFor('__common__');
+    } else {
+      setLoggingFor(residentOptions[0]?.value ?? '');
+    }
     setModalOpen(true);
   }
 
-  async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; apartment_number: string; photos: FileList }) {
-    const buildingId = createBuildingId;
+  async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; photos: FileList }) {
+    let buildingId = '';
+    let unitId: string | null = null;
+    let aptLabel = '';
+    if (isManager) {
+      buildingId = createBuildingId;
+      if (loggingFor !== '__common__') {
+        unitId = loggingFor;
+        aptLabel = units.find((u) => u.id === loggingFor)?.label ?? '';
+      }
+    } else if (loggingFor.startsWith('c:')) {
+      buildingId = loggingFor.slice(2);
+    } else {
+      const u = myUnits.find((x) => x.id === loggingFor);
+      unitId = u?.id ?? null;
+      buildingId = u?.building_id ?? '';
+      aptLabel = u?.label ?? '';
+    }
     if (!buildingId) { toast.error(t('issues.pickBuilding')); return; }
     const photoUrls: string[] = [];
     if (data.photos?.length) {
@@ -98,7 +145,10 @@ export default function Issues() {
       building_id: buildingId, reported_by: profile?.id, title: data.title, description: data.description,
       location: data.location, priority: data.priority, photo_urls: photoUrls,
     };
-    if (data.apartment_number?.trim()) payload.apartment_number = data.apartment_number.trim();
+    // Omitted when null so common-area logging keeps working on a DB that has
+    // not run 0074 yet (unknown column would reject the whole insert).
+    if (unitId) payload.unit_id = unitId;
+    if (aptLabel) payload.apartment_number = aptLabel;
     const { error } = await supabase.from('issues').insert(payload);
     if (error) { toast.error(`Could not log issue: ${error.message}`); return; }
     toast.success(t('issues.issueLogged'));
@@ -117,6 +167,14 @@ export default function Issues() {
 
   // Create modal + block filter fall back to every viewable building in "All" mode.
   const blockOptions = entity?.blocks ?? buildings.map((b) => ({ id: b.id, name: b.name }));
+
+  // My-home unit picker (sidebar): drill the list down to that unit's issues
+  // plus its building's common-area issues.
+  const vIssues = useMemo(() => {
+    if (!residentLens || !residentUnitId) return issues;
+    const ub = memberships.find((m) => m.unit_id === residentUnitId)?.unit?.building_id;
+    return issues.filter((i) => i.unit_id === residentUnitId || (!i.unit_id && i.building_id === ub));
+  }, [issues, residentLens, residentUnitId, memberships]);
 
   return (
     <div>
@@ -151,17 +209,17 @@ export default function Issues() {
               <SelectItem value="resolved">{t('issues.statuses.resolved')}</SelectItem>
             </SelectContent>
           </RadixSelect>
-          {entity && !isDemo && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
+          {!isDemo && (isManager ? !!entity : myUnits.length > 0) && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
         </div>
       </div>
 
-      {!entity ? (
+      {effectiveBuildingIds.length === 0 ? (
         <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('finance.noBuildings')}</p></CardBody></Card>
       ) : loading ? <SkeletonCards count={3} />
-        : issues.length === 0 ? <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
+        : vIssues.length === 0 ? <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('issues.noIssues')}</p></CardBody></Card>
         : (
           <div className="space-y-3">
-            {issues.map((issue) => (
+            {vIssues.map((issue) => (
               <Card key={issue.id}><CardBody>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -174,9 +232,10 @@ export default function Issues() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>{issue.location}</span>
                       {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}
-                      {issue.apartment_number && <><span>•</span><span>Apt {issue.apartment_number}</span></>}
                       <span>•</span>
-                      <span>{t('issues.reportedBy')}: {issue.reporter?.full_name} ({issue.reporter?.apartment_number})</span>
+                      <span>{issue.apartment_number ? `Apt ${issue.apartment_number}` : t('issues.commonArea')}</span>
+                      <span>•</span>
+                      <span>{t('issues.reportedBy')}: {issue.reporter?.full_name}{issue.reporter?.apartment_number ? ` (${issue.reporter.apartment_number})` : ''}</span>
                       <span>•</span>
                       <span>{fmtDate(issue.created_at, 'MMM d, yyyy')}</span>
                       {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
@@ -196,9 +255,21 @@ export default function Issues() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('issues.logIssue')} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {blockOptions.length > 1 && (
-            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={setCreateBuildingId}>
+          {isManager && blockOptions.length > 1 && (
+            <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={(v) => { setCreateBuildingId(v); setLoggingFor('__common__'); }}>
               {blockOptions.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
+          )}
+          {/* The first question: common area, or a unit. Residents only see
+              their own units — logging for the neighbors is not a thing. */}
+          {isManager ? (
+            <SelectField label={t('issues.loggingFor')} value={loggingFor} onValueChange={setLoggingFor}>
+              <SelectItem value="__common__">{t('issues.commonArea')}</SelectItem>
+              {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>)}
+            </SelectField>
+          ) : (
+            <SelectField label={t('issues.loggingFor')} value={loggingFor} onValueChange={setLoggingFor}>
+              {residentOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
             </SelectField>
           )}
           <Input label={t('issues.issueTitle')} {...register('title', { required: true })} />
@@ -206,17 +277,7 @@ export default function Issues() {
             <label className="text-sm font-medium text-muted-foreground">{t('issues.description')}</label>
             <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...register('description', { required: true })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label={t('issues.location')} {...register('location', { required: true })} />
-            {units.length > 0 && (
-              <Controller name="apartment_number" control={control} render={({ field }) => (
-                <SelectField label={t('billing.apartment')} value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
-                  <SelectItem value="__none__">&#8212;</SelectItem>
-                  {units.map((u) => <SelectItem key={u.id} value={u.label}>{u.label}</SelectItem>)}
-                </SelectField>
-              )} />
-            )}
-          </div>
+          <Input label={t('issues.location')} {...register('location', { required: true })} />
           <Controller name="priority" control={control} rules={{ required: true }} render={({ field }) => (
             <SelectField label={t('issues.priority')} value={field.value ?? 'low'} onValueChange={field.onChange}>
               <SelectItem value="low">{t('issues.priorities.low')}</SelectItem>
