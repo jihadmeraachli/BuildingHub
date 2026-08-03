@@ -1033,7 +1033,10 @@
     "requestTotal": "{{count}} to ask · {{amount}}",
     "requestNobodyOwes": "Nobody is in arrears right now.",
     "requestIssue": "Send request",
-    "requestIssued": "Payment request sent"
+    "requestIssued": "Payment request sent",
+    "requestReplacesOpen": "This replaces the open request for this building. The previous one is cancelled and the payment window starts again from today.",
+    "requestNoRecipient": "nobody to notify",
+    "requestNoRecipientHint": "{{count}} line(s) have no resident attached to the unit, so the amount is recorded but no one is notified. Assign an owner in Structure if that is not intended."
   },
   "inspections": {
     "title": "Inspections",

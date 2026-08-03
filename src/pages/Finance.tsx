@@ -140,6 +140,7 @@ export default function Finance() {
   const [reqLabel, setReqLabel] = useState('');
   const [reqDays, setReqDays] = useState('7');
   const [reqBusy, setReqBusy] = useState(false);
+  const [openRequestLines, setOpenRequestLines] = useState<PaymentRequestLine[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   // building_id → Whish account (0059) — shown to residents who owe money.
   // Names ride along: a resident with units in several buildings needs their
@@ -220,9 +221,13 @@ export default function Finance() {
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
       // dues ride along so an exported statement lists the party's obligations
       // next to its ledger (0070)
-      const { data: dus } = await supabase.from('dues').select('*').in('unit_id', ids);
+      const [{ data: dus }, { data: prl }] = await Promise.all([
+        supabase.from('dues').select('*').in('unit_id', ids),
+        supabase.from('payment_request_lines').select('*').in('unit_id', ids).is('cancelled_at', null),
+      ]);
       setDues((dus as Dues[]) ?? []);
-    } else { setUnitGroups([]); setTenancy([]); setDues([]); }
+      setOpenRequestLines((prl as PaymentRequestLine[]) ?? []);
+    } else { setUnitGroups([]); setTenancy([]); setDues([]); setOpenRequestLines([]); }
     setLoading(false);
   }
 
@@ -1191,6 +1196,9 @@ export default function Finance() {
         book={book}
         entityName={entity?.name ?? ''}
         busy={reqBusy}
+        hasRecipient={(unitId, party) => tenancy.some(
+          (m) => m.unit_id === unitId && !m.ended_at && m.tenure === party)}
+        hasOpen={openRequestLines.length > 0}
         label={reqLabel} setLabel={setReqLabel}
         days={reqDays} setDays={setReqDays}
         t={t}
@@ -1368,26 +1376,36 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
 /** Preview + issue an arrears payment request. The preview is the same rule the
  *  RPC applies (every party currently in arrears), so what is shown is what is
  *  asked for. */
-function RequestPaymentModal({ open, onClose, book, entityName, onIssue, busy, label, setLabel, days, setDays, t }: {
+function RequestPaymentModal({ open, onClose, book, entityName, onIssue, busy, label, setLabel, days, setDays, hasRecipient, hasOpen, t }: {
   open: boolean; onClose: () => void;
   book: { unit: Unit; owner: number; tenant: number; split: boolean; activeTenantName: string | null }[];
   entityName: string;
   onIssue: () => void; busy: boolean;
   label: string; setLabel: (v: string) => void;
   days: string; setDays: (v: string) => void;
+  hasRecipient: (unitId: string, party: 'owner' | 'tenant') => boolean;
+  hasOpen: boolean;
   t: (k: string, o?: Record<string, unknown>) => string;
 }) {
+  // A line with nobody attached is still a real debt, but it reaches no one —
+  // request_payment bills any unit in arrears whether or not it has residents.
   const lines = book.flatMap((r) => [
-    ...(r.owner < 0 ? [{ unit: r.unit, party: t('finance.owner'), amount: -r.owner }] : []),
-    ...(r.tenant < 0 ? [{ unit: r.unit, party: r.activeTenantName ? `${t('finance.currentTenant')}: ${r.activeTenantName}` : t('finance.tenant'), amount: -r.tenant }] : []),
+    ...(r.owner < 0 ? [{ unit: r.unit, party: t('finance.owner'), amount: -r.owner,
+                         reachable: hasRecipient(r.unit.id, 'owner') }] : []),
+    ...(r.tenant < 0 ? [{ unit: r.unit, party: r.activeTenantName ? `${t('finance.currentTenant')}: ${r.activeTenantName}` : t('finance.tenant'), amount: -r.tenant,
+                         reachable: hasRecipient(r.unit.id, 'tenant') }] : []),
   ]);
   const total = lines.reduce((s, l) => s + l.amount, 0);
+  const unreachable = lines.filter((l) => !l.reachable).length;
   const due = new Date(Date.now() + (Number(days) || 7) * 864e5);
 
   return (
     <Modal open={open} onClose={onClose} title={t('finance.requestPayment')} size="lg">
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">{t('finance.requestPaymentNote')}</p>
+        {hasOpen && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">{t('finance.requestReplacesOpen')}</p>
+        )}
         <Input label={t('finance.requestLabel')} value={label} onChange={(e) => setLabel(e.target.value)}
                placeholder={t('finance.requestLabelPlaceholder')} />
         <div>
@@ -1411,12 +1429,20 @@ function RequestPaymentModal({ open, onClose, book, entityName, onIssue, busy, l
               : lines.map((l, i) => (
                 <div key={i} className="flex items-center justify-between px-3 py-1.5 text-sm">
                   <span className="text-foreground">{l.unit.label}
-                    <span className="text-muted-foreground/70"> · {l.party}</span></span>
+                    <span className="text-muted-foreground/70"> · {l.party}</span>
+                    {!l.reachable && (
+                      <span className="text-amber-600 dark:text-amber-400"> · {t('finance.requestNoRecipient')}</span>
+                    )}</span>
                   <span className="font-semibold text-foreground tnum">{money(l.amount)}</span>
                 </div>
               ))}
           </div>
         </div>
+        {unreachable > 0 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {t('finance.requestNoRecipientHint', { count: unreachable })}
+          </p>
+        )}
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
           <Button onClick={onIssue} loading={busy} disabled={lines.length === 0}>{t('finance.requestIssue')}</Button>
