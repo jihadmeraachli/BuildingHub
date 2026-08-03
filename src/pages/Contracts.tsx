@@ -45,6 +45,12 @@ export default function Contracts() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
+  // Category + status filters (#51). Status derives from end_date exactly like
+  // the card badges: expired = past end, expiring = within 30 days, active =
+  // the rest (no end date counts as active).
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'expiring' | 'expired'>('');
+
   const [rows, setRows] = useState<ServiceContract[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -80,7 +86,15 @@ export default function Contracts() {
     setLoading(false);
   }
 
-  const vRows = rows.filter((r) => !blockFilter || r.building_id === blockFilter);
+  const statusOf = (r: ServiceContract): 'active' | 'expiring' | 'expired' => {
+    if (!r.end_date) return 'active';
+    const days = Math.ceil((new Date(r.end_date).getTime() - Date.now()) / 86400000);
+    return days < 0 ? 'expired' : days <= 30 ? 'expiring' : 'active';
+  };
+  const vRows = rows.filter((r) =>
+    (!blockFilter || r.building_id === blockFilter)
+    && (!serviceFilter || r.service === serviceFilter)
+    && (!statusFilter || statusOf(r) === statusFilter));
 
   function openNew() { setEditId(null); setForm(newForm()); setFile(null); setOpen(true); }
   function openEdit(r: ServiceContract) {
@@ -150,6 +164,26 @@ export default function Contracts() {
               </SelectContent>
             </RadixSelect>
           )}
+          <RadixSelect value={serviceFilter || '__all__'} onValueChange={(v) => setServiceFilter(v === '__all__' ? '' : v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t('contracts.allServices')}</SelectItem>
+              {SERVICES.map((s) => <SelectItem key={s} value={s}>{t(`contracts.services.${s}`)}</SelectItem>)}
+            </SelectContent>
+          </RadixSelect>
+          <RadixSelect value={statusFilter || '__all__'} onValueChange={(v) => setStatusFilter(v === '__all__' ? '' : v as 'active' | 'expiring' | 'expired')}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t('contracts.allStatuses')}</SelectItem>
+              <SelectItem value="active">{t('contracts.active')}</SelectItem>
+              <SelectItem value="expiring">{t('contracts.expiresSoon')}</SelectItem>
+              <SelectItem value="expired">{t('contracts.expired')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
           {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('contracts.add')}</Button>}
         </div>
       </div>
