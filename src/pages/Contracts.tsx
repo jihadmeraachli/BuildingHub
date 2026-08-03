@@ -19,17 +19,17 @@ import { Modal } from '@/components/ui/Modal';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
-const SERVICES: ServiceType[] = ['elevator', 'generator', 'landscape', 'security', 'cleaning', 'water', 'internet', 'other'];
+const SERVICES: ServiceType[] = ['elevator', 'generator', 'landscape', 'security', 'cleaning', 'water', 'internet', 'maintenance', 'other'];
 const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly', 'one_time'];
 const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 type Form = {
-  service: ServiceType; provider_name: string; contact_name: string; contact_phone: string;
+  service: ServiceType; service_other: string; provider_name: string; contact_name: string; contact_phone: string;
   start_date: string; end_date: string; amount: string; billing_cycle: BillingCycle; notes: string;
   scope: 'all' | 'block'; block_id: string;
 };
 const newForm = (): Form => ({
-  service: 'elevator', provider_name: '', contact_name: '', contact_phone: '',
+  service: 'elevator', service_other: '', provider_name: '', contact_name: '', contact_phone: '',
   start_date: '', end_date: '', amount: '', billing_cycle: 'monthly', notes: '', scope: 'all', block_id: '',
 });
 
@@ -100,7 +100,7 @@ export default function Contracts() {
   function openEdit(r: ServiceContract) {
     setEditId(r.id); setFile(null);
     setForm({
-      service: r.service, provider_name: r.provider_name, contact_name: r.contact_name ?? '', contact_phone: r.contact_phone ?? '',
+      service: r.service, service_other: r.service_other ?? '', provider_name: r.provider_name, contact_name: r.contact_name ?? '', contact_phone: r.contact_phone ?? '',
       start_date: r.start_date ?? '', end_date: r.end_date ?? '', amount: r.amount_usd != null ? String(r.amount_usd) : '',
       billing_cycle: r.billing_cycle ?? 'monthly', notes: r.notes ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '',
     });
@@ -113,13 +113,18 @@ export default function Contracts() {
     const attachment_url = file ? await uploadFile('attachments', `${entity.id}/contracts`, file) : null;
     const compound_id = entity.kind === 'compound' ? entity.id : null;
     const building_id = entity.kind === 'building' ? entity.id : (form.scope === 'block' ? form.block_id : null);
+    // Sent only when it carries or clears a value, so saves keep working on a
+    // DB that has not run 0075 yet.
+    const serviceOther = form.service === 'other' ? form.service_other.trim() || null : null;
     const base: Record<string, unknown> = {
-      service: form.service, provider_name: form.provider_name.trim(), contact_name: form.contact_name.trim() || null,
+      service: form.service,
+      provider_name: form.provider_name.trim(), contact_name: form.contact_name.trim() || null,
       contact_phone: form.contact_phone.trim() || null, start_date: form.start_date || null, end_date: form.end_date || null,
       amount_usd: form.amount ? Number(form.amount) : null, billing_cycle: form.billing_cycle, notes: form.notes.trim() || null,
       building_id, compound_id,
     };
     if (attachment_url) base.attachment_url = attachment_url;
+    if (serviceOther !== null || (editId && rows.find((r) => r.id === editId)?.service_other)) base.service_other = serviceOther;
     const { error } = editId
       ? await supabase.from('service_contracts').update(base).eq('id', editId)
       : await supabase.from('service_contracts').insert({ ...base, created_by: profile?.id });
@@ -135,13 +140,16 @@ export default function Contracts() {
     load();
   }
 
-  function expiryBadge(end: string | null) {
-    if (!end) return null;
-    const days = Math.ceil((new Date(end).getTime() - Date.now()) / 86400000);
-    if (days < 0) return <Badge color="red">{t('contracts.expired')}</Badge>;
-    if (days <= 30) return <Badge color="yellow">{t('contracts.expiresSoon')}</Badge>;
-    return null;
+  // Status is always shown, so an admin sees at a glance what lapsed: a
+  // contract flips to Expired on its own the day after end_date.
+  function statusBadge(r: ServiceContract) {
+    const s = statusOf(r);
+    if (s === 'expired') return <Badge color="red">{t('contracts.expired')}</Badge>;
+    if (s === 'expiring') return <Badge color="yellow">{t('contracts.expiresSoon')}</Badge>;
+    return <Badge color="green">{t('contracts.active')}</Badge>;
   }
+  const svcLabel = (r: ServiceContract) =>
+    r.service === 'other' && r.service_other ? r.service_other : t(`contracts.services.${r.service}`);
   const scopeLabel = (r: ServiceContract) => r.building_id ? (blockName[r.building_id] ?? t('finance.aBlock')) : (r.compound_id ? t('finance.wholeCompound') : '');
 
   return (
@@ -200,7 +208,7 @@ export default function Contracts() {
               <Card key={r.id}><CardBody>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <Badge color="indigo">{t(`contracts.services.${r.service}`)}</Badge>
+                    <span className="inline-flex items-center gap-1.5"><Badge color="indigo">{svcLabel(r)}</Badge>{statusBadge(r)}</span>
                     <h3 className="font-semibold text-foreground mt-2">{r.provider_name}</h3>
                     {scopeLabel(r) && <p className="text-[11px] text-muted-foreground mt-0.5">{scopeLabel(r)}</p>}
                   </div>
@@ -220,7 +228,6 @@ export default function Contracts() {
                   {(r.start_date || r.end_date) && (
                     <p className="text-xs text-muted-foreground flex items-center gap-2">
                       {r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}
-                      {expiryBadge(r.end_date)}
                     </p>
                   )}
                   {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
@@ -239,6 +246,14 @@ export default function Contracts() {
             </SelectField>
             <Input label={t('contracts.provider')} value={form.provider_name} onChange={(e) => setForm({ ...form, provider_name: e.target.value })} />
           </div>
+          {form.service === 'other' && (
+            <Input
+              label={t('contracts.otherService')}
+              placeholder={t('contracts.otherServicePlaceholder')}
+              value={form.service_other}
+              onChange={(e) => setForm({ ...form, service_other: e.target.value })}
+            />
+          )}
           {entity?.kind === 'compound' && (
             <div className="grid grid-cols-2 gap-3">
               <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>

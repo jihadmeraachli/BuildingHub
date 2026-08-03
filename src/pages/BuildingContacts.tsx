@@ -198,7 +198,7 @@ export default function BuildingContacts() {
                   <Card key={r.id}><CardBody>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-foreground">{t(`contracts.services.${r.service}`)}</h3>
+                        <h3 className="font-semibold text-foreground">{r.service === 'other' && r.service_other ? r.service_other : t(`contracts.services.${r.service}`)}</h3>
                         {scopeLabel(r) && <p className="text-[11px] text-muted-foreground mt-0.5">{scopeLabel(r)}</p>}
                       </div>
                       <Badge color="indigo">{t('bcontacts.contractBadge')}</Badge>

@@ -347,7 +347,7 @@ export interface Inspection {
   created_at: string;
 }
 
-export type ServiceType = 'elevator' | 'generator' | 'landscape' | 'security' | 'cleaning' | 'water' | 'internet' | 'other';
+export type ServiceType = 'elevator' | 'generator' | 'landscape' | 'security' | 'cleaning' | 'water' | 'internet' | 'maintenance' | 'other';
 export type BillingCycle = 'monthly' | 'quarterly' | 'yearly' | 'one_time';
 
 export interface ServiceContract {
@@ -355,6 +355,7 @@ export interface ServiceContract {
   building_id: string | null;
   compound_id: string | null;
   service: ServiceType;
+  service_other: string | null;
   provider_name: string;
   contact_name: string | null;
   contact_phone: string | null;

@@ -1077,6 +1077,8 @@
     "viewDoc": "عرض العقد",
     "expired": "منتهٍ",
     "expiresSoon": "ينتهي قريباً",
+    "otherService": "حدّد الخدمة",
+    "otherServicePlaceholder": "مثال: مكافحة الحشرات",
     "services": {
       "elevator": "المصعد",
       "generator": "المولّد",
@@ -1085,6 +1087,7 @@
       "cleaning": "التنظيف",
       "water": "المياه",
       "internet": "الإنترنت",
+      "maintenance": "الصيانة",
       "other": "أخرى"
     },
     "cycles": {
