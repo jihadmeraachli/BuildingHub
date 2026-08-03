@@ -66,6 +66,15 @@ export default function Dues() {
   const [unitGroups, setUnitGroups] = useState<{ group_id: string; unit_id: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  /** Point-in-time view: dues issued by this date, settled by payments up to
+   *  it. '' = live. Uses created_at on both sides so the as-of view runs on the
+   *  same clock as the settlement rule rather than mixing issue and value
+   *  dates. */
+  const [asOf, setAsOf] = useState('');
+  const upTo = useMemo(() => {
+    const cut = asOf ? new Date(`${asOf}T23:59:59`) : null;
+    return (iso: string) => !cut || new Date(iso) <= cut;
+  }, [asOf]);
 
   // plan form
   const [planOpen, setPlanOpen] = useState(false);
@@ -180,17 +189,17 @@ export default function Dues() {
   const outstandingDues = useMemo(() => {
     const paidSince = (unitId: string, party: Tenure, since: string, tenantId: string | null) =>
       payments
-        .filter((p) => p.unit_id === unitId && !p.voided_at && p.created_at >= since
+        .filter((p) => p.unit_id === unitId && !p.voided_at && p.created_at >= since && upTo(p.created_at)
           && (party === 'tenant'
             ? p.paid_by === 'tenant' && (!tenantId || p.tenant_id === tenantId)
             : p.paid_by !== 'tenant'))
         .reduce((s, p) => s + Number(p.amount_usd), 0);
     return (unitId: string, party: Tenure) =>
       items
-        .filter((d) => d.unit_id === unitId && d.billed_to === party)
+        .filter((d) => d.unit_id === unitId && d.billed_to === party && upTo(d.created_at))
         .reduce((s, d) => s + Math.max(0,
           Number(d.amount_due) - paidSince(unitId, party, d.created_at, d.tenant_id)), 0);
-  }, [items, payments]);
+  }, [items, payments, upTo]);
 
   function openPlan() {
     if (plan) {
@@ -297,7 +306,7 @@ export default function Dues() {
     load();
   }
 
-  const vItems = items.filter((d) => !blockFilter || d.building_id === blockFilter);
+  const vItems = items.filter((d) => (!blockFilter || d.building_id === blockFilter) && upTo(d.created_at));
   const unitLabel = (uid: string) => {
     const u = units.find((x) => x.id === uid); if (!u) return '—';
     return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
@@ -326,7 +335,7 @@ export default function Dues() {
     }
     const out = Array.from(acc.values()).map((r) => {
       const paid = payments
-        .filter((p) => p.unit_id === r.unitId && !p.voided_at && p.created_at >= r.since
+        .filter((p) => p.unit_id === r.unitId && !p.voided_at && p.created_at >= r.since && upTo(p.created_at)
           && (r.party === 'tenant'
             ? p.paid_by === 'tenant' && (!r.tenantId || p.tenant_id === r.tenantId)
             : p.paid_by !== 'tenant'))
@@ -336,7 +345,7 @@ export default function Dues() {
     out.sort((a, b) => (unitLabel(a.unitId)).localeCompare(unitLabel(b.unitId), undefined, { numeric: true })
       || (a.party === 'owner' ? -1 : 1));
     return out;
-  }, [vItems, payments]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [vItems, payments, upTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Unit + period totals with owner / tenant sub-rows (0070). */
   const duesGroups = useMemo(
@@ -413,10 +422,23 @@ export default function Dues() {
               <p className="text-xs text-muted-foreground mt-2">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
             </CardBody></Card>
 
+            <div className="flex items-center justify-end gap-2 mb-3">
+              <label className="text-xs text-muted-foreground">{t('dues.asOfLabel')}</label>
+              <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)}
+                className="rounded-lg border border-border bg-background text-foreground px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
+              {asOf && (
+                <button onClick={() => setAsOf('')} className="text-xs text-primary hover:underline cursor-pointer">
+                  {t('finance.backToLive')}
+                </button>
+              )}
+            </div>
             {!loading && owedByUnit.length > 0 && (
               <Card className="mb-4"><CardBody>
                 <div className="flex items-baseline justify-between mb-3">
-                  <p className="text-sm font-semibold text-foreground">{t('dues.owedTitle')}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {t('dues.owedTitle')}
+                    {asOf && <span className="text-muted-foreground font-normal"> · {t('finance.asOf', { date: fmtDate(asOf, 'MMM d, yyyy') })}</span>}
+                  </p>
                   <p className="text-sm font-semibold text-foreground tnum">
                     {money(owedByUnit.reduce((s, r) => s + r.owed, 0))}
                   </p>

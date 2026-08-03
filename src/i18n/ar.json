@@ -1231,7 +1231,8 @@
     "scopeUnits": "وحدات محددة",
     "group": "المجموعة",
     "pickUnits": "الوحدات",
-    "pickUnitsHint": "{{count}} محددة. يوزَّع المبلغ على هذه الوحدات فقط."
+    "pickUnitsHint": "{{count}} محددة. يوزَّع المبلغ على هذه الوحدات فقط.",
+    "asOfLabel": "الوضع حتى"
   },
   "invites": {
     "title": "دعوة: وحدة {{unit}}، {{building}}",

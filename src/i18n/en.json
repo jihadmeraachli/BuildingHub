@@ -1223,7 +1223,8 @@
     "scopeUnits": "Selected units",
     "group": "Group",
     "pickUnits": "Units",
-    "pickUnitsHint": "{{count}} selected. The amount is split across these only."
+    "pickUnitsHint": "{{count}} selected. The amount is split across these only.",
+    "asOfLabel": "Position as of"
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",
