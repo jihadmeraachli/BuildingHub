@@ -346,6 +346,12 @@ export interface DuesGenInput {
   outstandingDues: (unitId: string, party: Tenure) => number;
   /** Generate the plan's recurring amounts (false = special-charge-only run). */
   includeRecurring: boolean;
+  /** Apply the arrears true-up? Default true — a normal period nets the party's
+   *  position. Turn it OFF to raise a FLAT ask: an unbudgeted cost (fuel
+   *  doubling mid-quarter) has to be collected in full even from a unit sitting
+   *  on credit, because the cash is needed now. The credit is not lost — the
+   *  next trued-up period absorbs it. b2 plans are always flat. */
+  applyTrueUp?: boolean;
   offBudget?: OffBudgetSpec | null;
 }
 
@@ -355,6 +361,7 @@ export interface DuesGenInput {
  */
 export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
   const { units, plan, balances, activeTenantId, outstandingDues, includeRecurring, offBudget } = input;
+  const applyTrueUp = input.applyTrueUp !== false;
   const isB2 = plan.planType === 'b2';
   const rows: DuesGenRow[] = [];
 
@@ -402,7 +409,7 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
       //   max(0,  L − D)  credit beyond everything outstanding (genuine prepay)
       // Only the uncovered part of either reaches the new ask.
       const D = outstandingDues(u.id, party);
-      const carry = isB2 ? 0
+      const carry = isB2 || !applyTrueUp ? 0
         : round2(Math.max(0, -partyBal - D) - Math.max(0, partyBal - D));
       let left = carry;
       for (const l of lines) {

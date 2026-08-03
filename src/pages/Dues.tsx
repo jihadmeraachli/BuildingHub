@@ -80,6 +80,9 @@ export default function Dues() {
   const [genOpen, setGenOpen] = useState(false);
   const [genPeriod, setGenPeriod] = useState('');
   const [genDue, setGenDue] = useState(new Date().toISOString().slice(0, 10));
+  // ON = a normal period, netted against each party's position. OFF = a flat
+  // ask for an unbudgeted cost, collected in full even from units in credit.
+  const [genTrueUp, setGenTrueUp] = useState(true);
 
 
   useEffect(() => { if (entity) load(); }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -231,8 +234,9 @@ export default function Dues() {
       activeTenantId: th.activeTenantId,
       outstandingDues,
       includeRecurring: true,
+      applyTrueUp: genTrueUp,
     });
-  }, [plan, units, genPlan, balanceOf, th, genPeriod, items]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan, units, genPlan, balanceOf, th, genPeriod, items, genTrueUp]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -517,7 +521,19 @@ export default function Dues() {
             <Input label={t('dues.period')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
           </div>
-          <p className="text-xs text-muted-foreground">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
+          {!isB2 && (
+            <label className="flex items-start gap-2.5 cursor-pointer rounded-xl border border-border p-3">
+              <input type="checkbox" checked={genTrueUp} onChange={(e) => setGenTrueUp(e.target.checked)}
+                className="mt-0.5 accent-primary" />
+              <span>
+                <span className="text-sm font-medium text-foreground">{t('dues.applyTrueUp')}</span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  {genTrueUp ? t('dues.trueUpOnHint') : t('dues.trueUpOffHint')}
+                </span>
+              </span>
+            </label>
+          )}
+          <p className="text-xs text-muted-foreground">{isB2 ? t('dues.flatFeeNote') : (genTrueUp ? t('dues.reconcileNote') : t('dues.flatAskNote'))}</p>
           <GenPreview rows={preview} isB2={isB2} unitLabel={unitLabel} th={th} labels={labels} t={t} />
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setGenOpen(false)}>{t('common.cancel')}</Button>
