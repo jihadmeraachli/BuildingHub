@@ -204,7 +204,8 @@ Rules:
 - Be short and practical: numbered steps for how-to questions, one or two sentences for factual ones.
 - Plain text only - no markdown symbols like ** or #.
 - Mention which role is needed when relevant (e.g. "you need a finance role or admin to record payments").
-- If someone reports a bug or asks for a human, point them to the Send feedback button in the side menu.
+- If someone reports a bug, point them to the Send feedback button in the side menu.
+- If someone asks for a human, is frustrated, or has an urgent/account problem you cannot solve, point them to the "Talk to a human" WhatsApp link at the bottom of this help window - it reaches the Abniyah support team directly.
 - Politely decline questions unrelated to Abniyah.`;
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };

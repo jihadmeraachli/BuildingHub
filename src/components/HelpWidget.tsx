@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HelpCircle, Send, Sparkles } from 'lucide-react';
+import { HelpCircle, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -121,7 +121,18 @@ export function HelpWidget() {
               <Send size={15} />
             </Button>
           </form>
-          <p className="text-[10px] text-muted-foreground/70 mt-2">{t('help.disclaimer')}</p>
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <p className="text-[10px] text-muted-foreground/70">{t('help.disclaimer')}</p>
+            {/* Human escalation: straight to the support WhatsApp. */}
+            <a
+              href={`https://wa.me/96178995443?text=${encodeURIComponent(t('help.humanPrefill'))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+            >
+              <MessageCircle size={12} /> {t('help.human')}
+            </a>
+          </div>
         </div>
       </Modal>
     </>

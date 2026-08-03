@@ -1121,7 +1121,9 @@
     "suggest1": "How do I record an expense?",
     "suggest2": "How do I invite a resident?",
     "suggest3": "How do dues work?",
-    "suggest4": "How do I report an issue?"
+    "suggest4": "How do I report an issue?",
+    "human": "Talk to a human",
+    "humanPrefill": "Hello, I need help with Abniyah."
   },
   "bcontacts": {
     "title": "Contacts",
