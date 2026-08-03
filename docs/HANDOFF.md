@@ -100,6 +100,14 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0071 | `0071_license_caps.sql` | *(Jihad)* License caps per account type (building 50 / compound 250 / org 2500) + `subscriptions.cap_override`, enforced by trigger. |
 | 0070 | `0070_dues_party.sql` | **Dues become party-aware (#61).** `dues.billed_to`/`tenant_id`/`kind`/`label`; `dues_plans.owner_pool_amount` + `dues_unit_amounts.owner_amount` (the owner-only slice). Dues notify triggers rebuilt on the 0067 pattern — they previously fanned to EVERY membership with no `ended_at` filter, so moved-out tenants got current dues notices. `reminders_sent` gains `party` and its unique index widens to `(unit, period, party)` — without it the owner's and tenant's reminders for the same unit collide and the second is silently dropped as a duplicate. `get_overdue_dues()` rebuilt per unit PER PARTY (party-scoped recipients, party-scoped payment offset, and it now sums a party's rows in the latest overdue period so an assessment beside a recurring due is not hidden). Backfills every existing row to `billed_to='owner'`, `kind='recurring'` — unit-level meant owner, so nothing already generated changes meaning. **⚠️ Run this together with the `send-reminders` + `dynamic-action` redeploys** (see §4). |
 
+| 0076 | `0076_payment_requests.sql` | **Reminders become obligation-driven.** `payment_requests` + `payment_request_lines` (arrears, party-aware, snapshot amounts); `payment_due_days` on buildings/compounds; `effective_obligation_party()`; per-DAY dedup on `reminders_sent`. |
+| 0077 | `0077_payment_request_notify.sql` | Issuing a request notifies the billed party (bell). Email/WhatsApp via the `payment_request_lines` INSERT webhook. |
+| 0078 | `0078_payment_request_webhook.sql` | ⚠️ **DO NOT RUN** — that webhook was created in the dashboard. Kept as the SQL reference only. |
+| 0079 | `0079_request_replaces_open.sql` | A new request cancels the open one (two live requests billed the same balance twice) + flags units with nobody to notify. |
+| 0080 | `0080_request_any_mode.sql` | `reminders_sent` dedup gains `source` — a request and dues can fall due the same day and must not silence each other. |
+| 0081 | `0081_request_arrears_only.sql` | Requests are arrears-only again. A prepay building sits in credit so a ledger-based request finds nobody; where it finds arrears, outstanding dues already collect them. |
+| 0082 | `0082_chase_all_dues.sql` | Chase EVERY unpaid dues period, not just the latest. |
+
 ### Key idea: the access ladder (0026 + 0027)
 ```
 platform_admin 100  the operator (profiles.is_platform_admin) — god-mode
@@ -119,6 +127,46 @@ block in the compound. **`grants` is the only source of management access;
 
 ### Key idea: charges carry the block
 Every `charge` stores both `unit_id` **and** `building_id` (the unit's block). So the **compound book** and **per-block slice** both fall out automatically, and **a unit's balance is identical** whether viewed at compound or block level.
+
+
+### ⚠️ THE MONEY MODEL AFTER 2026-08-03 (read before touching dues or reminders)
+
+**Dues are obligations, not ledger entries.** A dues row writes nothing to
+charges/payments/adjustments, so the balance does NOT move when one is issued.
+Only a payment moves it. Every bug we hit today came from forgetting that.
+
+**An outstanding due absorbs the carry.** With `L` = the party's ledger balance
+(+ = credit) and `D` = their unpaid issued dues:
+
+```
+carry = max(0, −L − D) − max(0, L − D)
+```
+
+An outstanding ask already collects arrears that are still visible on the
+ledger, AND makes a part-payment look like credit. Both are clamped against it.
+Without this a second ask re-bills the same arrears (observed: 1East asked
+2,092.16 against a real 1,296.08). Lives in `computeDuesGeneration()`
+(`src/lib/reportData.ts`) with a test suite covering every case.
+
+**Generation is per-run, not per-plan.** Scope (all/group/units), basis, who
+pays (tenants-where-leased vs owners-only), amounts, and the **arrears true-up
+toggle** are all chosen when generating. True-up OFF = a flat ask that collects
+in full even from a unit in credit — the only way to raise cash mid-period in a
+prepay building, since everyone is prepaid and a ledger-based request finds
+nobody.
+
+**Payment requests are ARREARS-only** (0081), snapshot what each party owes when
+issued, and are settled by payments since — charges landing later belong to the
+NEXT request. A new request supersedes the open one.
+
+**History keeps the tenant's name; open obligations follow the money.** A
+departed tenant's dues keep their `tenant_id` for the former-tenant view, but
+`effective_obligation_party()` resolves chasing AND settlement to the owner —
+otherwise nobody is reminded and the owner's payment never clears it.
+
+**Reminders**: daily to the due date, weekly after, per (unit, day, party,
+source). Every unpaid period is chased, summed into one reminder dated from the
+oldest.
 
 ---
 
