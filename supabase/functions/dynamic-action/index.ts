@@ -235,12 +235,17 @@ async function buildingAdminIds(buildingId: string): Promise<string[]> {
 /** send the same email to a set of users, honoring their notify_email preference */
 async function emailToUserIds(ids: string[], subject: string, html: string, fromName?: string, attachments?: Attachment[]) {
   const uniq = [...new Set(ids)];
-  if (!uniq.length) return;
+  // Every outcome is logged. This used to discard sendEmail()'s error string,
+  // so a Resend rejection, an opted-out recipient or an empty id list all
+  // looked identical from the dashboard: a boot, a shutdown, and no email.
+  if (!uniq.length) { console.log(`[email] "${subject}" — no recipients`); return; }
   const { data: profs } = await supabase.from('profiles').select('id, notify_email').in('id', uniq);
   for (const p of (profs ?? []) as { id: string; notify_email: boolean }[]) {
-    if (!p.notify_email) continue;
+    if (!p.notify_email) { console.log(`[email] skip ${p.id} — notify_email off`); continue; }
     const email = await getUserEmail(p.id);
-    if (email) await sendEmail(email, subject, html, fromName, attachments);
+    if (!email) { console.log(`[email] skip ${p.id} — no auth email`); continue; }
+    const err = await sendEmail(email, subject, html, fromName, attachments);
+    console.log(err ? `[email] FAILED ${email}: ${err}` : `[email] sent ${email} — "${subject}"`);
   }
 }
 
@@ -289,6 +294,9 @@ Deno.serve(async (req) => {
     }
 
     const { type, table: tbl, record, old_record } = await req.json();
+    // names the payload, so a webhook landing on a handler that does not exist
+    // is visible instead of looking like a no-op boot
+    console.log(`[hook] ${tbl}.${type}`);
 
     // 1. New resident registered → admins
     if (tbl === 'profiles' && type === 'INSERT' && record.status === 'pending' && record.building_id) {
