@@ -43,6 +43,11 @@ export default function Inspections() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
+  // Time filter (#51): scoped on the inspection date, filtered client-side —
+  // an entity's inspection list is small.
+  const [period, setPeriod] = useState<'all' | 'year' | 'month'>('all');
+  const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
+
   const [rows, setRows] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -78,7 +83,11 @@ export default function Inspections() {
     setLoading(false);
   }
 
-  const vRows = rows.filter((r) => !blockFilter || r.building_id === blockFilter);
+  const inPeriod = (d: string) =>
+    period === 'all' ? true
+    : period === 'year' ? new Date(d).getFullYear() === new Date().getFullYear()
+    : d.startsWith(monthValue);
+  const vRows = rows.filter((r) => (!blockFilter || r.building_id === blockFilter) && inPeriod(r.inspection_date));
 
   function openNew() { setEditId(null); setForm(newForm()); setFile(null); setOpen(true); }
   function openEdit(r: Inspection) {
@@ -135,6 +144,22 @@ export default function Inspections() {
                 {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
               </SelectContent>
             </RadixSelect>
+          )}
+          <RadixSelect value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+              <SelectItem value="month">{t('reports.specificMonth')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
+          {period === 'month' && (
+            <input
+              type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
+              className="rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
           )}
           {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('inspections.add')}</Button>}
         </div>
