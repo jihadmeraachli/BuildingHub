@@ -101,7 +101,7 @@ export interface Notification {
   id: string;
   user_id: string;
   building_id: string;
-  type: 'new_issue' | 'issue_update' | 'new_billing' | 'new_meeting' | 'user_approved' | 'charge_issued' | 'payment_received' | 'dues_issued' | 'dues_updated' | 'dues_removed';
+  type: 'new_issue' | 'issue_update' | 'new_billing' | 'new_meeting' | 'user_approved' | 'charge_issued' | 'payment_received' | 'dues_issued' | 'dues_updated' | 'dues_removed' | 'payment_requested';
   title: string;
   body: string;
   is_read: boolean;

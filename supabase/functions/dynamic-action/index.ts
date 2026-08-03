@@ -469,6 +469,38 @@ Deno.serve(async (req) => {
         b?.name ?? 'Abniyah');
     }
 
+    // 5f-ii. Payment request issued (0076/0077) → the billed party only.
+    //   Needs a Database Webhook on `payment_request_lines` INSERT, or only the
+    //   in-app bell fires (same footgun as the adjustments webhook).
+    //   ⚠️ Reuses abniyah_payment_reminder — param count stays 5 with payLine.
+    if (tbl === 'payment_request_lines' && type === 'INSERT') {
+      const { data: pr } = await supabase.from('payment_requests')
+        .select('label, due_date').eq('id', record.request_id).single();
+      const b = await getBuilding(record.building_id);
+      const { data: prUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
+      // a line offloaded to the owner must reach the owner, not a departed tenant
+      const { data: effParty } = await supabase.rpc('effective_obligation_party', {
+        p_unit: record.unit_id, p_billed_to: record.party, p_tenant: record.tenant_id,
+      });
+      const party = effParty === 'tenant' ? 'tenant' : 'owner';
+      const to = await unitPartyIds(record.unit_id, party, record.tenant_id);
+      const amount = money(record.amount_requested);
+      const what = pr?.label ? esc(pr.label) : 'Outstanding balance';
+      await emailToUserIds(to, `Payment requested: ${b?.name ?? 'Abniyah'}, unit ${prUnit?.label ?? ''}`,
+        emailHtml('Payment requested',
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">
+             <strong>${what}</strong> — unit <strong>${esc(prUnit?.label ?? '')}</strong> has
+             <strong style="color:#dc2626;">${amount}</strong> to settle.</p>
+           ${table(row('Amount', amount) + (pr?.due_date ? row('Due by', esc(pr.due_date)) : ''))}`,
+          'View My Account', `${APP_URL}/finance`),
+        b?.name ?? 'Abniyah');
+      await whatsappToUserIds(to, 'abniyah_payment_reminder',
+        (name, lang) => {
+          const base = [name, amount, prUnit?.label ?? '—', b?.name ?? '—'];
+          return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
+        });
+    }
+
     // 5g. Unit invitation (consent flow, 0053) → the invited person.
     //     Membership is only created when they accept in the app.
     if (tbl === 'membership_invites' && type === 'INSERT' && record.status === 'pending') {
