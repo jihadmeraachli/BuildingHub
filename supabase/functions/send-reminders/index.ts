@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
     async function remindUnit(
       unitId: string, buildingId: string, unitLabel: string, buildingName: string,
       owed: number, ownerIds: string[], party: 'owner' | 'tenant' = 'owner',
-      ctx: { forPeriodEnd?: string | null; dueDate?: string | null; isOverdue?: boolean } = {},
+      ctx: { forPeriodEnd?: string | null; dueDate?: string | null; isOverdue?: boolean; source?: 'arrears' | 'dues' } = {},
     ) {
       // sent_on is the dedup key since 0076 — reminders now repeat DAILY across
       // a payment window, so a per-month key would swallow every send after the
@@ -213,6 +213,9 @@ Deno.serve(async (req) => {
       const { error } = await admin.from('reminders_sent').insert({
         unit_id: unitId, building_id: buildingId, period: beirutPeriod(),
         sent_on: beirutToday(), amount_usd: owed, party,
+        // part of the dedup key since 0080: a one-off request and unpaid dues
+        // can both fall due on the same day and must not silence each other
+        source: ctx.source ?? 'arrears',
       });
       if (error) {
         if (error.code === '23505') { skippedDup++; return; }
@@ -278,7 +281,7 @@ Deno.serve(async (req) => {
     for (const row of (overdueUnits as OverdueUnit[] ?? [])) {
       await remindUnit(row.unit_id, row.building_id, row.unit_label, row.building_name,
         Number(row.balance_usd), row.owner_user_ids ?? [], 'owner',
-        { forPeriodEnd: row.period_end, dueDate: row.due_date, isOverdue: row.is_overdue });
+        { dueDate: row.due_date, isOverdue: row.is_overdue, source: 'arrears' });
     }
 
     // ── 2. Dues buildings: latest overdue dues per PARTY, minus that party's
@@ -297,7 +300,7 @@ Deno.serve(async (req) => {
       // dues carry their own due_date; the period being settled IS that dues row
       await remindUnit(row.unit_id, row.building_id, row.unit_label, row.building_name,
         Number(row.amount_due), row.owner_user_ids ?? [], row.party ?? 'owner',
-        { dueDate: row.due_date, isOverdue: row.is_overdue });
+        { dueDate: row.due_date, isOverdue: row.is_overdue, source: 'dues' });
     }
 
     // ── 3. Inspection reminders → admins (email only, Mondays to avoid spam) ─

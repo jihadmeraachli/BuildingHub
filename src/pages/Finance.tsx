@@ -886,10 +886,11 @@ export default function Finance() {
                   {(tab === 'expenses' || tab === 'book') && (
                     <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
                   )}
-                  {/* Arrears has no billing cycle: the admin asks for money when
-                      it is needed, which is also how a one-off big expense gets
-                      settled. Dues issue their own request when generated. */}
-                  {tab === 'book' && entity && entity.billingMode !== 'dues' && (
+                  {/* The admin asks for money when it is needed - including in
+                      DUES mode, where a large one-off still has to be settled
+                      outside the dues cycle (0080). Routine balance-chasing is
+                      what dues already do; this is the deliberate ask. */}
+                  {tab === 'book' && entity && (
                     <Button variant="secondary" onClick={() => setReqOpen(true)} disabled={units.length === 0}>
                       <Send size={16} /> {t('finance.requestPayment')}
                     </Button>
