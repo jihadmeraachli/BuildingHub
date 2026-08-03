@@ -203,7 +203,7 @@ export default function BuildingContacts() {
                       </div>
                       <Badge color="indigo">{t('bcontacts.contractBadge')}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">{r.provider_name}{r.contact_name ? ` — ${r.contact_name}` : ''}</p>
+                    <p className="text-sm text-muted-foreground mt-2">{r.provider_name}{r.contact_name ? ` · ${r.contact_name}` : ''}</p>
                     {r.contact_phone && (
                       <a href={telHref(r.contact_phone)} dir="ltr" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mt-1">
                         <Phone size={13} /> {r.contact_phone}
