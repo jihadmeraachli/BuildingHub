@@ -11,9 +11,9 @@ import { computeUnitBalances } from '@/lib/balance';
 import { useEntities } from '@/lib/entities';
 import {
   tenancyHelpers, buildDuesRows, computeDuesGeneration, tenantTitle,
-  type TenancyRow, type DuesGenRow,
+  type TenancyRow, type DuesGenRow, type OffBudgetBillTo,
 } from '@/lib/reportData';
-import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure } from '@/types';
+import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure, Group } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -62,6 +62,8 @@ export default function Dues() {
   // ended memberships included, so a unit whose tenant left still resolves that
   // tenant's name on their historical dues rows (0070)
   const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [unitGroups, setUnitGroups] = useState<{ group_id: string; unit_id: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -83,6 +85,18 @@ export default function Dues() {
   // ON = a normal period, netted against each party's position. OFF = a flat
   // ask for an unbudgeted cost, collected in full even from units in credit.
   const [genTrueUp, setGenTrueUp] = useState(true);
+  // Who the run's pool falls on, and how much — both default to the plan but
+  // are per-run, so an off-cycle ask (fuel to tenants, capital to owners) does
+  // not need the plan edited and put back afterwards.
+  const [genBillTo, setGenBillTo] = useState<OffBudgetBillTo>('tenant_where_leased');
+  const [genPool, setGenPool] = useState('');
+  // Allocation for THIS run: which units, and on what basis. Defaults to the
+  // whole entity on the plan's basis, so a normal period is unchanged.
+  const [genMethod, setGenMethod] = useState<DuesMethod>('by_shares');
+  const [genScope, setGenScope] = useState<'all' | 'group' | 'units'>('all');
+  const [genGroupId, setGenGroupId] = useState('');
+  const [genUnitIds, setGenUnitIds] = useState<string[]>([]);
+  const [genOwnerPool, setGenOwnerPool] = useState('');
 
 
   useEffect(() => { if (entity) load(); }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,13 +123,17 @@ export default function Dues() {
     setPlan(planRow);
     const ids = ((u as Unit[]) ?? []).map((x) => x.id);
     if (ids.length) {
-      const [{ data: d }, { data: mem }] = await Promise.all([
+      const [{ data: d }, { data: mem }, { data: g }, { data: ug }] = await Promise.all([
         supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false }),
         supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', ids),
+        supabase.from('groups').select('*').in('building_id', blocks).order('name'),
+        supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
       ]);
       setItems((d as DuesItem[]) ?? []);
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
-    } else { setItems([]); setTenancy([]); }
+      setGroups((g as Group[]) ?? []);
+      setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
+    } else { setItems([]); setTenancy([]); setGroups([]); setUnitGroups([]); }
     if (planRow && planRow.method === 'custom') {
       const { data: ca } = await supabase.from('dues_unit_amounts').select('unit_id, amount, owner_amount').eq('plan_id', planRow.id);
       const rows = (ca as { unit_id: string; amount: number; owner_amount: number }[]) ?? [];
@@ -216,27 +234,40 @@ export default function Dues() {
 
   const isB2 = plan?.plan_type === 'b2';
 
+  /** Units this run targets. Allocation divides across THESE only, so an
+   *  equal split over a group is a split over that group, not the building. */
+  const genUnits = useMemo(() => {
+    const scoped = units.filter((u) => !blockFilter || u.building_id === blockFilter);
+    if (genScope === 'group') {
+      const ids = new Set(unitGroups.filter((x) => x.group_id === genGroupId).map((x) => x.unit_id));
+      return scoped.filter((u) => ids.has(u.id));
+    }
+    if (genScope === 'units') return scoped.filter((u) => genUnitIds.includes(u.id));
+    return scoped;
+  }, [units, blockFilter, genScope, genGroupId, genUnitIds, unitGroups]);
+
   const genPlan = useMemo(() => ({
-    method: (plan?.method ?? 'by_shares') as DuesMethod,
+    method: genMethod,
     planType: (plan?.plan_type ?? 'b1') as DuesPlanType,
-    poolAmount: Number(plan?.pool_amount) || 0,
-    ownerPoolAmount: Number(plan?.owner_pool_amount) || 0,
+    poolAmount: genPool === '' ? (Number(plan?.pool_amount) || 0) : (Number(genPool) || 0),
+    ownerPoolAmount: genOwnerPool === '' ? (Number(plan?.owner_pool_amount) || 0) : (Number(genOwnerPool) || 0),
     custom: num(customAmounts),
     ownerCustom: num(ownerCustomAmounts),
-  }), [plan, customAmounts, ownerCustomAmounts]);
+  }), [plan, customAmounts, ownerCustomAmounts, genPool, genOwnerPool, genMethod]);
 
   /** Preview and insert come from the same pure call, so what the manager sees
    *  is exactly what gets written. */
   const preview = useMemo(() => {
     if (!plan) return [];
     return computeDuesGeneration({
-      units, plan: genPlan, balances: balanceOf,
+      units: genUnits, plan: genPlan, balances: balanceOf,
       activeTenantId: th.activeTenantId,
       outstandingDues,
       includeRecurring: true,
       applyTrueUp: genTrueUp,
+      recurringBillTo: genBillTo,
     });
-  }, [plan, units, genPlan, balanceOf, th, genPeriod, items, genTrueUp]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan, genUnits, genPlan, balanceOf, th, genPeriod, items, genTrueUp, genBillTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -341,7 +372,7 @@ export default function Dues() {
               get_overdue_dues() only reminds on 'dues' buildings, so dues raised
               here would notify residents and then never be chased. */}
           {canManage && entity && <Button variant="secondary" onClick={openPlan}><Settings2 size={16} /> {plan ? t('dues.editPlan') : t('dues.setupPlan')}</Button>}
-          {canManage && entity && plan && duesMode && <Button onClick={() => { setGenPeriod(''); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
+          {canManage && entity && plan && duesMode && <Button onClick={() => { setGenPeriod(''); setGenTrueUp(true); setGenBillTo('tenant_where_leased'); setGenMethod(plan?.method ?? 'by_shares'); setGenScope('all'); setGenGroupId(''); setGenUnitIds([]); setGenPool(String(Number(plan?.pool_amount) || 0)); setGenOwnerPool(String(Number(plan?.owner_pool_amount) || 0)); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
         </div>
       </div>
 
@@ -588,6 +619,55 @@ export default function Dues() {
             <Input label={t('dues.period')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label={t('dues.scope')} value={genScope} onValueChange={(v) => setGenScope(v as 'all' | 'group' | 'units')}>
+              <SelectItem value="all">{t('dues.scopeAll')}</SelectItem>
+              {groups.length > 0 && <SelectItem value="group">{t('dues.scopeGroup')}</SelectItem>}
+              <SelectItem value="units">{t('dues.scopeUnits')}</SelectItem>
+            </SelectField>
+            <SelectField label={t('dues.method')} value={genMethod} onValueChange={(v) => setGenMethod(v as DuesMethod)}>
+              {METHODS.map((m) => <SelectItem key={m} value={m}>{t(`dues.methods.${m}`)}</SelectItem>)}
+            </SelectField>
+          </div>
+          {genScope === 'group' && (
+            <SelectField label={t('dues.group')} value={genGroupId} onValueChange={setGenGroupId}>
+              {groups.map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectField>
+          )}
+          {genScope === 'units' && (
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('dues.pickUnits')}</label>
+              <div className="mt-1.5 max-h-40 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
+                {units.filter((u) => !blockFilter || u.building_id === blockFilter).map((u) => (
+                  <label key={u.id} className="flex items-center gap-2.5 px-3 py-1.5 text-sm cursor-pointer">
+                    <input type="checkbox" className="accent-primary"
+                      checked={genUnitIds.includes(u.id)}
+                      onChange={(e) => setGenUnitIds((prev) =>
+                        e.target.checked ? [...prev, u.id] : prev.filter((x) => x !== u.id))} />
+                    <span className="text-foreground">{unitLabel(u.id)}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{t('dues.pickUnitsHint', { count: genUnitIds.length })}</p>
+            </div>
+          )}
+          <div>
+            <SelectField label={t('dues.billTo')} value={genBillTo} onValueChange={(v) => setGenBillTo(v as OffBudgetBillTo)}>
+              <SelectItem value="tenant_where_leased">{t('dues.billToTenant')}</SelectItem>
+              <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
+            </SelectField>
+            <p className="text-xs text-muted-foreground mt-1">
+              {genBillTo === 'owner' ? t('dues.billToOwnerHint') : t('dues.billToTenantHint')}
+            </p>
+          </div>
+          {genMethod !== 'custom' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Input label={t('dues.pool')} type="number" step="0.01" min="0"
+                     value={genPool} onChange={(e) => setGenPool(e.target.value)} />
+              <Input label={t('dues.ownerPool')} type="number" step="0.01" min="0"
+                     value={genOwnerPool} onChange={(e) => setGenOwnerPool(e.target.value)} />
+            </div>
+          )}
           {!isB2 && (
             <label className="flex items-start gap-2.5 cursor-pointer rounded-xl border border-border p-3">
               <input type="checkbox" checked={genTrueUp} onChange={(e) => setGenTrueUp(e.target.checked)}

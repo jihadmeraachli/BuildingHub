@@ -299,7 +299,7 @@ export interface DuesGenPlan {
   ownerCustom: Record<string, number>;
 }
 
-/** Who a special charge falls on.
+/** Who an amount falls on.
  *  - 'owner'              capital spend on the property (roof, elevator,
  *                         facade). Follows ownership, never the occupant.
  *  - 'tenant_where_leased' a running cost that landed off-cycle (a fuel
@@ -346,6 +346,11 @@ export interface DuesGenInput {
   outstandingDues: (unitId: string, party: Tenure) => number;
   /** Generate the plan's recurring amounts (false = special-charge-only run). */
   includeRecurring: boolean;
+  /** Who the RECURRING pool falls on. Default 'tenant_where_leased' — the
+   *  running budget is the occupant's. Switch to 'owner' for a generation that
+   *  is capital work: it follows ownership, never the occupant. The plan's
+   *  owner-only pool is always the owner's either way. */
+  recurringBillTo?: OffBudgetBillTo;
   /** Apply the arrears true-up? Default true — a normal period nets the party's
    *  position. Turn it OFF to raise a FLAT ask: an unbudgeted cost (fuel
    *  doubling mid-quarter) has to be collected in full even from a unit sitting
@@ -362,6 +367,7 @@ export interface DuesGenInput {
 export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
   const { units, plan, balances, activeTenantId, outstandingDues, includeRecurring, offBudget } = input;
   const applyTrueUp = input.applyTrueUp !== false;
+  const recurringBillTo = input.recurringBillTo ?? 'tenant_where_leased';
   const isB2 = plan.planType === 'b2';
   const rows: DuesGenRow[] = [];
 
@@ -385,8 +391,11 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
     const ownerLines: Line[] = [];
 
     if (includeRecurring) {
-      if (leased) tenantLines.push({ kind: 'recurring', label: null, base: recurring });
-      ownerLines.push({ kind: 'recurring', label: null, base: round2(ownerSlice + (leased ? 0 : recurring)) });
+      // the recurring pool follows the tenant only when the run says so AND the
+      // unit is actually leased; otherwise it is the owner's
+      const recurringToTenant = recurringBillTo === 'tenant_where_leased' && leased;
+      if (recurringToTenant) tenantLines.push({ kind: 'recurring', label: null, base: recurring });
+      ownerLines.push({ kind: 'recurring', label: null, base: round2(ownerSlice + (recurringToTenant ? 0 : recurring)) });
     }
     if (offBudget) {
       const toTenant = offBudget.billTo === 'tenant_where_leased' && leased;

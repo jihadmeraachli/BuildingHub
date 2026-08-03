@@ -1204,8 +1204,8 @@
     "offBudgetBillTo": "Who pays it",
     "billToOwner": "Owners only",
     "billToTenant": "Tenants where leased",
-    "billToOwnerHint": "For capital work on the property (roof, elevator, facade). Follows ownership, never the occupant.",
-    "billToTenantHint": "For a running cost that landed off-cycle, like a fuel surcharge. Same rule as the recurring budget: the tenant where a unit is leased, the owner where it is not.",
+    "billToOwnerHint": "Charged to owners regardless of who lives there. Use for capital work, which follows ownership.",
+    "billToTenantHint": "The running budget follows the occupant: the tenant where a unit is leased, the owner where it is not.",
     "arrearsBlocked": "Issuing dues is turned off until it is switched.",
     "arrearsOneOff": "To bill a one-time cost on an arrears building, record it as an expense and allocate it in",
     "applyTrueUp": "Apply the arrears true-up",
@@ -1215,7 +1215,15 @@
     "owedTitle": "Outstanding by unit",
     "acrossPeriods": "across {{count}} periods",
     "paidSoFar": "{{amount}} paid",
-    "owedHint": "What each party still owes across every open period — the same figure the reminders chase. Paid amounts are that party's payments since their oldest open period."
+    "owedHint": "What each party still owes across every open period — the same figure the reminders chase. Paid amounts are that party's payments since their oldest open period.",
+    "billTo": "Who pays it",
+    "scope": "Applies to",
+    "scopeAll": "All units",
+    "scopeGroup": "A group",
+    "scopeUnits": "Selected units",
+    "group": "Group",
+    "pickUnits": "Units",
+    "pickUnitsHint": "{{count}} selected. The amount is split across these only."
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",
