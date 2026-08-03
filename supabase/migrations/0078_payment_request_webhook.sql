@@ -1,44 +1,40 @@
 -- ============================================================
 -- 0078_payment_request_webhook.sql
--- Database Webhook for payment requests → dynamic-action (email + WhatsApp).
+-- ⚠️ ALREADY DONE VIA THE DASHBOARD (2026-08-03) — DO NOT RUN.
 --
--- Supabase moved the Webhooks page (Database → Webhooks became
--- Integrations → Database Webhooks), so here it is as SQL instead. A
--- "Database Webhook" is nothing more than a trigger calling
--- supabase_functions.http_request() — exactly what the UI generates. Same
--- shape as 0017, which did this for dues.
+-- The payment-request webhook was created in the UI as a "Supabase Edge
+-- Functions" webhook on `payment_request_lines` INSERT → dynamic-action.
+-- Running this file as well would put a SECOND trigger on the same table and
+-- every request would notify residents TWICE.
 --
--- The in-app bell does NOT need this (that is the trigger in 0077); this is
--- only what makes the EMAIL and WhatsApp go out when a request is issued.
+-- Kept only as the reference for how to recreate it in SQL (e.g. rebuilding the
+-- project from scratch), the same way 0017 documents the dues webhooks. Check
+-- before running:
 --
--- BEFORE RUNNING: replace <ANON_KEY> below with the project's anon public key.
---   Dashboard → Project Settings → API → "anon public"
---   (the same value as VITE_SUPABASE_ANON_KEY in .env.local)
--- The anon key is public-safe — it is what the UI puts here too.
---
--- INSERT only: a request is issued once. Edits and cancellations do not notify.
--- Safe to re-run.
--- ============================================================
-
-DROP TRIGGER IF EXISTS notify_payment_request_insert ON public.payment_request_lines;
-CREATE TRIGGER notify_payment_request_insert
-AFTER INSERT ON public.payment_request_lines
-FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request(
-  'https://miyrsnlpftybmudiuhbi.supabase.co/functions/v1/dynamic-action',
-  'POST',
-  '{"Content-Type":"application/json","Authorization":"Bearer <ANON_KEY>"}',
-  '{}',
-  '5000'
-);
-
--- ============================================================
--- Verify it exists:
 --   SELECT tgname FROM pg_trigger
 --    WHERE tgrelid = 'public.payment_request_lines'::regclass AND NOT tgisinternal;
---   -- expect: trg_notify_payment_request (the bell, 0077)
---   --         notify_payment_request_insert (this webhook)
 --
--- Then issue a request and check Edge Functions → dynamic-action → Logs.
--- No log line at all = the webhook did not fire (wrong key or trigger missing).
--- A log line but no email = look at the recipient's notify_email / channels.
+--   trg_notify_payment_request     = the in-app bell (0077)
+--   anything else                  = the webhook already exists, STOP
+--
+-- Where the page moved: Database → Webhooks is now Integrations → Database
+-- Webhooks. Choosing type "Supabase Edge Functions" fills the URL and auth in
+-- for you, which is why the UI route is the easy one.
+--
+-- NOTE ON AUTH: dynamic-action does NOT check an Authorization header. Its only
+-- gate is the optional `x-webhook-secret` (index.ts), which is inert until
+-- WEBHOOK_SECRET is set — see DEPENDENCIES.md, still unset. The existing
+-- charges/payments/dues webhooks carry no auth header either. An earlier draft
+-- of this file told you to add a Bearer token; that was wrong.
 -- ============================================================
+
+-- DROP TRIGGER IF EXISTS notify_payment_request_insert ON public.payment_request_lines;
+-- CREATE TRIGGER notify_payment_request_insert
+-- AFTER INSERT ON public.payment_request_lines
+-- FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request(
+--   'https://miyrsnlpftybmudiuhbi.supabase.co/functions/v1/dynamic-action',
+--   'POST',
+--   '{"Content-Type":"application/json"}',
+--   '{}',
+--   '5000'
+-- );
