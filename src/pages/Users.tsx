@@ -111,6 +111,7 @@ export default function Users() {
   const [addUserFinding, setAddUserFinding] = useState(false);
   const [addUserBuildingId, setAddUserBuildingId] = useState('');
   const [addUserUnits, setAddUserUnits] = useState<{ id: string; label: string }[]>([]);
+  const [addUserUnitsLoading, setAddUserUnitsLoading] = useState(false);
   const [addUserUnitId, setAddUserUnitId] = useState('');
   const [addUserTenure, setAddUserTenure] = useState<'owner' | 'tenant'>('owner');
   const [addUserSaving, setAddUserSaving] = useState(false);
@@ -449,11 +450,31 @@ export default function Users() {
     setAddUserFound(row ? { id: row.user_id, name: row.full_name } : 'notfound');
   }
 
+  /** Units for the chosen building (#65). Keyed on the modal being OPEN as well
+   *  as the building, because two things broke it otherwise:
+   *  1. Re-opening the modal cleared the list but re-set the same building id,
+   *     so this effect never re-ran and the picker stayed empty ("no units").
+   *  2. `buildings` can still be loading when the modal is opened — a
+   *     single-building admin then gets no picker AND no auto-selection, so
+   *     nothing ever resolves. Resolving it here covers the late arrival. */
   useEffect(() => {
-    if (!addUserBuildingId) { setAddUserUnits([]); setAddUserUnitId(''); return; }
+    if (!addUserModal) return;
+    if (!addUserBuildingId) {
+      if (buildings.length === 1) setAddUserBuildingId(buildings[0].id);
+      else { setAddUserUnits([]); setAddUserUnitId(''); }
+      return;
+    }
+    let cancelled = false;
+    setAddUserUnitsLoading(true);
     supabase.from('units').select('id, label').eq('building_id', addUserBuildingId).order('label')
-      .then(({ data }) => setAddUserUnits((data as { id: string; label: string }[]) ?? []));
-  }, [addUserBuildingId]);
+      .then(({ data }) => {
+        if (cancelled) return;
+        setAddUserUnits((data as { id: string; label: string }[]) ?? []);
+        setAddUserUnitsLoading(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addUserModal, addUserBuildingId, buildings.length]);
 
   async function addAbniyahUser() {
     if (!addUserFound || addUserFound === 'notfound' || !addUserUnitId) return;
@@ -1058,7 +1079,9 @@ export default function Users() {
               )}
 
               {addUserBuildingId && (
-                addUserUnits.length === 0 ? (
+                addUserUnitsLoading ? (
+                  <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+                ) : addUserUnits.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t('users.addExistingNoUnits')}</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
