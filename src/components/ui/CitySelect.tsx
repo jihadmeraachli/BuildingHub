@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LEBANON_CITIES } from '@/lib/locationData';
+import { LEBANON_CITIES, LEBANON_PLACES, normalizePlace } from '@/lib/locationData';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
@@ -35,18 +35,26 @@ export function CitySelect({
   const isLegacy = !!value && !LEBANON_CITIES.includes(value);
 
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const pool = isLegacy ? [value, ...LEBANON_CITIES] : LEBANON_CITIES;
-    if (!q) return pool.slice(0, MAX_SHOWN);
+    const q = normalizePlace(query);
+    if (!q) {
+      const head = LEBANON_CITIES.slice(0, MAX_SHOWN);
+      return isLegacy ? [value, ...head] : head;
+    }
+    // Name matches rank above alias-only matches, and a prefix above a
+    // mid-word hit, so "zahle" surfaces Zahlé before "Beit ez Zahlé".
     const starts: string[] = [];
     const contains: string[] = [];
-    for (const c of pool) {
-      const lc = c.toLowerCase();
-      if (lc.startsWith(q)) starts.push(c);
-      else if (lc.includes(q)) contains.push(c);
+    const viaAlias: string[] = [];
+    for (const p of LEBANON_PLACES) {
+      const n = normalizePlace(p.name);
+      if (n.startsWith(q)) starts.push(p.label);
+      else if (n.includes(q)) contains.push(p.label);
+      else if (p.aliases.some(a => a.startsWith(q) || a.includes(q))) viaAlias.push(p.label);
       if (starts.length >= MAX_SHOWN) break;
     }
-    return [...starts, ...contains].slice(0, MAX_SHOWN);
+    const hits = [...starts, ...contains, ...viaAlias];
+    if (isLegacy && normalizePlace(value).includes(q)) hits.unshift(value);
+    return [...new Set(hits)].slice(0, MAX_SHOWN);
   }, [query, isLegacy, value]);
 
   return (

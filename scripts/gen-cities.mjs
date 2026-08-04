@@ -69,28 +69,75 @@ const SUPPLEMENT = [
 
 const KEEP = new Set(['PPL', 'PPLA', 'PPLA2', 'PPLA3', 'PPLC', 'PPLX', 'PPLL', 'PPLS']);
 
+/** Search key: lowercase, accents stripped, punctuation flattened. Makes
+ *  "Zahle" match "Zahlé" and "achrafieh" match "El Achrafiyé". */
+const norm = (s) => s.normalize('NFD').replace(/[̀-ًͯ-ْ]/g, '')
+  .toLowerCase().replace(/[’'`\-.]/g, '').replace(/\s+/g, ' ').trim();
+
+const isLatin = (s) => /^[\p{Script=Latin}\p{N}\s'’`\-.()]+$/u.test(s);
+const isArabic = (s) => /\p{Script=Arabic}/u.test(s);
+
+// The old hand-curated list is the spelling Lebanese users actually type and
+// what existing records already store, so it wins over GeoNames' French
+// transliteration ("Achrafieh", not "El Achrafiyé").
+const PREFERRED = ['Achrafieh', 'Hamra', 'Verdun', 'Badaro', 'Gemmayzeh', 'Mar Mikhael', 'Sodeco',
+  'Ras Beirut', 'Raouche', 'Moussaitbeh', 'Mazraa', 'Ain Mreisseh', 'Zahle', 'Tripoli', 'Jounieh',
+  'Baalbek', 'Aley', 'Antelias', 'Baabda', 'Bikfaya', 'Broummana', 'Beit Mery', 'Bsalim', 'Chekka',
+  'Chiyah', 'Chtaura', 'Dbayeh', 'Dekwaneh', 'Ehden', 'Fanar', 'Ghazir', 'Hasbaya', 'Hermel',
+  'Jdeideh', 'Jezzine', 'Khiam', 'Mansourieh', 'Marjeyoun', 'Nabatieh', 'Naccache', 'Sarba',
+  'Zalka', 'Zgharta', 'Zouk Mikael', 'Bourj Hammoud', 'Bint Jbeil', 'Anjar', 'Enfe', 'Bcharre'];
+const preferredByNorm = new Map(PREFERRED.map(p => [norm(p), p]));
+
 const rows = [];
 const seen = new Set();
 for (const line of readFileSync(join(work, 'LB.txt'), 'utf8').split('\n')) {
   const f = line.split('\t');
   if (f.length < 15) continue;
-  const name = f[1]?.trim();
+  let name = f[1]?.trim();
   if (f[6] !== 'P' || !KEEP.has(f[7]) || !name) continue;
+  const ascii = (f[2] ?? '').trim();
+  const alts = (f[3] ?? '').split(',').map(s => s.trim()).filter(Boolean);
+
+  // Search terms: every Latin spelling GeoNames knows, plus one Arabic form so
+  // the Arabic UI can be searched in Arabic. Normalised and deduped.
+  const latin = [name, ascii, ...alts.filter(isLatin)];
+  const arabic = alts.find(isArabic);
+
+  // Adopt the familiar spelling as the display name when we know one.
+  for (const cand of latin) {
+    const pref = preferredByNorm.get(norm(cand));
+    if (pref) { name = pref; break; }
+  }
+
+  // Alternate spellings are only worth their bundle weight for places someone
+  // might actually type a variant of — inhabited places and administrative
+  // seats. The ~3,000 unpopulated hamlets carry the name alone; accent-
+  // insensitive matching still finds them.
+  const worthAliases = Number(f[14] || 0) > 0 || /^PPL[AC]/.test(f[7]);
+  let aliases = [];
+  if (worthAliases) {
+    const keys = new Set(latin.map(norm).filter(Boolean));
+    keys.delete(norm(name));
+    aliases = [...keys].slice(0, 3);
+    if (arabic) aliases.push(norm(arabic));
+  }
+
   const gov = govByCode.get(f[10]) ?? '';
   const key = `${name}|${gov}`;
   if (seen.has(key)) continue;
   seen.add(key);
-  rows.push({ name, gov });
+  rows.push({ name, gov, aliases });
 }
 
 for (const [name, gov] of SUPPLEMENT) {
   const key = `${name}|${gov}`;
   if (seen.has(key)) continue;
-  // Skip only if GeoNames already has this exact name somewhere — the
-  // supplement exists to fill gaps, not to create near-duplicates.
-  if (rows.some(r => r.name.toLowerCase() === name.toLowerCase())) continue;
+  // Skip if GeoNames already covers this place under any spelling — the
+  // supplement fills gaps, it must not create near-duplicates.
+  const n = norm(name);
+  if (rows.some(r => norm(r.name) === n || r.aliases.includes(n))) continue;
   seen.add(key);
-  rows.push({ name, gov });
+  rows.push({ name, gov, aliases: [] });
 }
 
 // A bare name is stored as-is when it is unique country-wide; otherwise the
@@ -107,7 +154,9 @@ for (const r of rows) if (!byLabel.has(r.label)) byLabel.set(r.label, r);
 const out = [...byLabel.values()].sort((a, b) => a.label.localeCompare(b.label, 'en'));
 
 const govs = [...new Set(out.map(r => r.gov).filter(Boolean))].sort();
-const packed = out.map(r => `${r.name}|${r.gov ? govs.indexOf(r.gov) : ''}`).join('\n');
+const packed = out
+  .map(r => `${r.name}|${r.gov ? govs.indexOf(r.gov) : ''}|${(r.aliases ?? []).join(';')}`)
+  .join('\n');
 
 const existing = readFileSync('src/lib/locationData.ts', 'utf8');
 const countries = existing.split('export const COUNTRIES')[1];
@@ -131,19 +180,24 @@ export interface LebanonPlace {
   name: string;
   /** Mohafaza. Empty for the handful GeoNames leaves unassigned. */
   governorate: string;
+  /** Normalised alternate spellings, search only (never displayed). Lets
+   *  "achrafieh" find "Achrafieh" and Arabic queries find Latin names. */
+  aliases: string[];
 }
 
 const GOVERNORATES = ${JSON.stringify(govs)};
 
-/** name|governorateIndex, one per line — compact on purpose (bundle size). */
+/** name|governorateIndex|alias;alias — compact on purpose (bundle size). */
 const PACKED = \`${packed}\`;
 
 export const LEBANON_PLACES: LebanonPlace[] = PACKED.split('\\n').map(line => {
-  const sep = line.lastIndexOf('|');
-  const name = line.slice(0, sep);
-  const gi = line.slice(sep + 1);
-  const governorate = gi === '' ? '' : GOVERNORATES[Number(gi)];
-  return { name, governorate, label: name, };
+  const [name, gi, alias] = line.split('|');
+  return {
+    name,
+    governorate: gi === '' ? '' : GOVERNORATES[Number(gi)],
+    label: name,
+    aliases: alias ? alias.split(';') : [],
+  };
 });
 
 // Re-apply the duplicate rule at runtime so label stays in sync with the data.
@@ -158,6 +212,12 @@ export const LEBANON_PLACES: LebanonPlace[] = PACKED.split('\\n').map(line => {
 
 /** Canonical values only — what gets stored on a building/compound/profile. */
 export const LEBANON_CITIES: string[] = LEBANON_PLACES.map(p => p.label);
+
+/** Normalise a query the same way the aliases were built, so accents,
+ *  apostrophes and case never decide whether a place is findable. */
+export const normalizePlace = (s: string): string =>
+  s.normalize('NFD').replace(/[\\u0300-\\u036f\\u064b-\\u0652]/g, '')
+    .toLowerCase().replace(/[’'\`\\-.]/g, '').replace(/\\s+/g, ' ').trim();
 
 export const COUNTRIES${countries}`;
 
