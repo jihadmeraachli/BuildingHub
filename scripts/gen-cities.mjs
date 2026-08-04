@@ -109,16 +109,21 @@ for (const line of readFileSync(join(work, 'LB.txt'), 'utf8').split('\n')) {
     if (pref) { name = pref; break; }
   }
 
-  // Alternate spellings are only worth their bundle weight for places someone
-  // might actually type a variant of — inhabited places and administrative
-  // seats. The ~3,000 unpopulated hamlets carry the name alone; accent-
-  // insensitive matching still finds them.
+  // EVERY normalised spelling, kept for de-duplication only. GeoNames often
+  // carries the same place twice ("Achrafieh" and "El Achrafiyé"); without
+  // matching on the full spelling set they survive as visible duplicates.
+  const keys = new Set(latin.map(norm).filter(Boolean));
+
+  // Alternate spellings are only worth their bundle weight at RUNTIME for
+  // places someone might type a variant of — inhabited places and
+  // administrative seats. The ~3,000 unpopulated hamlets carry the name alone;
+  // accent-insensitive matching still finds them.
   const worthAliases = Number(f[14] || 0) > 0 || /^PPL[AC]/.test(f[7]);
   let aliases = [];
   if (worthAliases) {
-    const keys = new Set(latin.map(norm).filter(Boolean));
-    keys.delete(norm(name));
-    aliases = [...keys].slice(0, 3);
+    const emit = new Set(keys);
+    emit.delete(norm(name));
+    aliases = [...emit].slice(0, 3);
     if (arabic) aliases.push(norm(arabic));
   }
 
@@ -126,7 +131,41 @@ for (const line of readFileSync(join(work, 'LB.txt'), 'utf8').split('\n')) {
   const key = `${name}|${gov}`;
   if (seen.has(key)) continue;
   seen.add(key);
-  rows.push({ name, gov, aliases });
+  rows.push({ name, gov, aliases, keys, preferred: preferredByNorm.has(norm(name)) });
+}
+
+// Collapse rows that are the same place under different spellings. Two rows in
+// the same governorate that share ANY normalised spelling are one place — keep
+// the familiar name where we have one, else the shorter label.
+{
+  const byGov = new Map();
+  for (const r of rows) {
+    if (!byGov.has(r.gov)) byGov.set(r.gov, []);
+    byGov.get(r.gov).push(r);
+  }
+  const dropped = new Set();
+  for (const group of byGov.values()) {
+    const claim = new Map(); // normalised spelling -> winning row
+    for (const r of group) {
+      let target = null;
+      for (const k of r.keys) if (claim.has(k)) { target = claim.get(k); break; }
+      if (target && target !== r) {
+        // Merge into the winner, preferring the familiar spelling.
+        if (r.preferred && !target.preferred) {
+          target.name = r.name;
+          target.preferred = true;
+        }
+        for (const k of r.keys) { target.keys.add(k); if (!claim.has(k)) claim.set(k, target); }
+        for (const a of r.aliases) if (!target.aliases.includes(a)) target.aliases.push(a);
+        target.aliases = target.aliases.filter(a => a !== norm(target.name)).slice(0, 4);
+        dropped.add(r);
+        continue;
+      }
+      for (const k of r.keys) if (!claim.has(k)) claim.set(k, r);
+    }
+  }
+  if (dropped.size) console.log(`merged ${dropped.size} duplicate spellings`);
+  for (let i = rows.length - 1; i >= 0; i--) if (dropped.has(rows[i])) rows.splice(i, 1);
 }
 
 for (const [name, gov] of SUPPLEMENT) {
@@ -135,9 +174,9 @@ for (const [name, gov] of SUPPLEMENT) {
   // Skip if GeoNames already covers this place under any spelling — the
   // supplement fills gaps, it must not create near-duplicates.
   const n = norm(name);
-  if (rows.some(r => norm(r.name) === n || r.aliases.includes(n))) continue;
+  if (rows.some(r => r.keys.has(n))) continue;
   seen.add(key);
-  rows.push({ name, gov, aliases: [] });
+  rows.push({ name, gov, aliases: [], keys: new Set([n]), preferred: true });
 }
 
 // A bare name is stored as-is when it is unique country-wide; otherwise the

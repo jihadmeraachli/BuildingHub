@@ -26,7 +26,6 @@ const GOVERNORATES = ["Akkar","Baalbek-Hermel","Beirut","Bekaa","Mount Lebanon",
 
 /** name|governorateIndex|alias;alias — compact on purpose (bundle size). */
 const PACKED = `‘Ayn Āhilah|1|
-‘Ayn al Muraysá|2|
 ‘Ayn Ḩammānā|4|
 Aâba|6|
 Aabadiyé|4|
@@ -34,7 +33,6 @@ Aabadiyé ej Jdidé|4|
 Aabay|4|
 Aabbâ|5|
 Aabbâssîyé|7|
-Aabboûd|4|
 Aabdilli|6|
 Aabdîne|6|
 Aabeïdat|4|
@@ -48,13 +46,11 @@ Aadchît|5|
 Aadchît el Qoussaïr|5|
 Aadchit El Qsair||
 Aadloûn|7|
-Aadoui|6|
 Aadouiyé|0|
 Aafsdîq|6|
 Aaïdmoun|0|
 Aaïmâr|6|
 Aaind es Siré|4|
-Aaïntoûra|4|
 Aaïntoûrîne|6|
 Aaïta ez Zott|5|
 Aaïtanît|3|aitanit;aitanite;aitaneet;عيتنيت
@@ -62,12 +58,9 @@ Aaitit||
 Aaïyat|0|
 Aajaltoûn|4|aajeltoun;ajaltoun;ajeltoun;عجلتون
 Aakfor|6|
-Aakkar el Aatiqa|0|
 Aaley ej Jdidé|4|
-Aâlîtâ|4|
 Aalma|6|
 Aalma ech Chaab|7|alma assab;alma aschschab;alma ashshab;علما الشعب
-Aalmâne|4|
 Aalmâne|5|
 Aalmâne ed Daïaa|4|
 Aalmât|4|
@@ -79,7 +72,6 @@ Aammîq|4|
 Aamra|5|
 Aamra|6|
 Aamrane|7|
-Aamroussiyé|4|
 Aamzît|1|
 Aâna|3|
 Aanbâl|4|
@@ -91,9 +83,7 @@ Aanqoûn|7|
 Aaouâdé|0|
 Aaoukar|4|
 Aaoura|6|
-Aaqabé|4|
 Aaqabet Haïroûna|6|
-Aaqbé|6|
 Aaqbet Sebaail|6|
 Aaqlaïn|4|
 Aaqline|4|
@@ -104,7 +94,6 @@ Aarab Jourmnaya|0|
 Aarab Salîm|5|
 Aarab Tabbâya|7|
 Aaraïya|4|
-Aaramoun|4|
 Aaramoûn|4|
 Aaramta|7|
 Aarasta|4|
@@ -119,7 +108,6 @@ Aarjess|6|
 Aarkaba|6|
 Aarnâba|7|
 Aarsâl|1|arsal;irsal;عرسال
-Aartez|6|
 Aassaïmoût|6|
 Aâssoûn|6|
 Aatrîne|4|
@@ -143,11 +131,8 @@ Abou Samra|6|
 Abū Ḩammād|6|
 Achamssîyé|7|
 Achrafieh|2|
-Adleih|2|
-Adlieh|2|
 Adma|4|
 Adma et Defné|4|
-Adonis|4|
 Adonîs|4|
 Afqa|4|
 Afqa|6|
@@ -172,7 +157,6 @@ Aïn Drâfîl|4|
 Ain Ebel|5|ain ibel;ain ibil;ain ibl;عين إبل
 Aïn ed Dâra|4|
 Aïn ed Debbiyé|4|
-Aïn ed Deïr|4|
 Aïn ed Delb|7|
 Aïn ed Delbé|4|
 Aïn ed Dobb|4|
@@ -192,7 +176,6 @@ Aïn el Ghmîqa|3|
 Aïn el Ghouaïbé|4|
 Aïn el Halazoûn|4|
 Aïn el Hânoût|4|
-Aïn el Hâour|4|
 Aïn el Hiloué|7|
 Aïn el Kharroûbé|4|
 Aïn el Laboué|3|
@@ -203,14 +186,10 @@ Aïn el Mentné|5|
 Aïn el Qabou|4|
 Aïn el Qachoûaa|4|
 Aïn el Qadah|4|
-Ain el Tineh|2|
 Aïn en Nasb|4|
 Aïn er Râha|6|
 Ain er Remmané|4|
 Aïn er Rîhâné|4|
-Aïn er Rîhâni|4|
-Aïn er Roummané|4|
-Aïn es Safsâf|4|
 Aïn es Saïdé|4|
 Aïn es Salîb|4|
 Aïn es Sghaïri|4|
@@ -236,7 +215,6 @@ Aïn Jarfa|5|
 Aïn Jouaïya|4|
 Aïn Jraïn|4|
 Aïn Kfâa|4|
-Aïn Kfar Zabad|3|
 Aïn Ksoûr|4|
 Aïn Majdalaïne|7|
 Aïn Mouaffaq|4|
@@ -252,7 +230,6 @@ Aïn Qatâya|4|
 Aïn Qénia|5|
 Aïn Qlaïâa|4|
 Aïn Qouna|4|
-Aïn Saadé|4|
 Aïn Saoufar|4|
 Aïn Tanta|5|
 Aïn Tinta|0|
@@ -275,7 +252,6 @@ Aïtou|6|
 Akroum|0|
 Al ‘Anbarī|4|
 Al ‘Arīḑ|5|
-Al ‘Ayn|4|
 Al ‘Ullayqah|0|
 Al ‘Uwaynāt|0|
 Al Aazariyé|2|
@@ -283,19 +259,13 @@ Al Ghazālah|4|
 Al Ghuwayyāt|4|
 Al Ḩadath|4|
 Al Ḩamrā’|0|
-Al Ḩārah|4|
 Al Hikmeh|2|
 Al Ḩumayrah|0|
-Al Judaydah|4|
 Al Khirbah|5|
-Al Makhāḑah|4|
 Al Marfa’|2|
-Al Marj|4|
-Al Mazra‘ah|4|
 Al Mraysah|4|
 Al Mudawwar|2|
 Al Muḩaydithah|4|
-Al Muşayţbah|2|
 Al Qanţarah|1|
 Al Qurayţah|1|
 Al Rachidine|2|
@@ -312,7 +282,6 @@ Anâne|7|
 Anjar|3|aanjar;andzhar;ayncar;عنجر
 Ansariyeh||
 Antelias|4|
-Ar Rawshah|2|
 Ar Rayḩānīyah|6|
 Ar Ru’ays|0|
 Ard Bou Torbey|6|
@@ -324,12 +293,10 @@ Arnoun|5|
 Arsoûn|4|
 Arzaï|7|
 Arzoûn|7|
-As Şawwānah|4|
 Aş Şayfī|2|
 As Suwaydah|4|
 Ash Sharshār|4|
 Asloût|6|
-Asnoûn|6|
 Assia|6|
 Assoûba|6|
 Ayta Al Jabal||
@@ -345,7 +312,6 @@ Baalchmay|4|
 Baalchmay ej Jdîdé|4|
 Baaloûl|3|
 Baaouarta|4|
-Baasir|4|
 Baassîr|4|
 Baatâra|4|
 Baawerta|4|
@@ -355,7 +321,6 @@ Bab Idriss|2|
 Bâb Mâréaa|3|
 Bachoura|2|
 Badaro|2|
-Badbhoûn|6|
 Baddé|4|
 Baddoûaa|0|
 Bâdîne|4|
@@ -376,11 +341,9 @@ Balloûné|4|
 Baloûh|4|
 Bâne|6|
 Baqâata|4|
-Baqaoun el Faouqa|4|
 Baqaoun et Tahta|4|
 Baraachît|5|
 Barbara|0|
-Barbir|2|
 Barghoûn|6|
 Bârich|7|
 Barja|4|
@@ -391,12 +354,9 @@ Basbînâ|6|
 Basloûqît|6|
 Basta el Faouqa|2|
 Basta et Tahta|2|
-Basta Fawka|2|
-Basta Tahta|2|
 Bâter ech Choûf|4|
 Batha|4|
 Batha|6|
-Batloûn|4|
 Bâtoulây|7|
 Batrakiyé|2|
 Batroûmîne|6|
@@ -451,7 +411,6 @@ Beït Aallâm|1|
 Beït Aallaou|1|
 Beït Aaoukar|6|
 Beït Aatmâne|6|
-Beït Abou Ishâq|6|
 Beït Ali Adraa|0|
 Beït Ayoûb|0|
 Beït Bakkour|6|
@@ -459,7 +418,6 @@ Beït Barakat|0|
 Beït Chabâb|4|
 Beït Châhîne|4|
 Beït Châma|1|
-Beït Chlâla|6|
 Beït Choûlît|6|
 Beït Daoud|0|
 Beït Dâoud|6|
@@ -499,7 +457,6 @@ Beït Qnâti|6|
 Beït Radouâne|6|
 Beït Yahoun|5|
 Beït Yoûnis|0|
-Beït Zakhoûr|3|
 Beït Zoûd|6|
 Béjjé|4|
 Bekhaaz|4|
@@ -510,7 +467,6 @@ Benouâté|7|
 Benouâti|4|
 Bentâael|4|
 Berbâra|3|
-Berhalioûn|6|
 Berqâyel|0|
 Bersaïssa|4|
 Berti|7|
@@ -523,7 +479,6 @@ Bezbina|0|
 Bhabboûch|6|
 Bhaïri|4|
 Bhâla|4|
-Bhamdoun|4|bhamdourn;bhamdun;bihamdun
 Bhamdoûn el Mhatta|4|bagamdun;bahamdun;bhamdoun;بحمدون
 Bhannîne|6|
 Bhannîne|7|
@@ -634,7 +589,6 @@ Braïssé|1|
 Brâmîyé et Tahta|7|
 Brârîkha|6|
 Brâya|6|
-Brih|4|
 Brîh|4|
 Brîssât|6|
 Brîtel|1|braytal;breetal;breitan
@@ -701,7 +655,6 @@ Chaouié|4|
 Châouiet ez Zoummâr|4|
 Chaqra|5|
 Charbila|0|
-Charbîne|1|
 Chareaa Chalé Suisse|4|
 Chareaa el Aïn|4|
 Chareaa el Anouar|4|
@@ -711,7 +664,6 @@ Chareaa Khalil Saaïd|4|
 Châroûn|4|
 Chartoûn|4|
 Chatila|2|
-Châtîne|6|
 Chbaïl|7|
 Chebrqiyé|3|
 Chehabiyé|7|
@@ -723,7 +675,6 @@ Chekka|6|
 Chemhaarîne|4|
 Chemlâne|4|
 Chemlîkh|4|
-Chemmîs|4|
 Chenan Aaïr|4|
 Cherîne|4|
 Chhîm|4|
@@ -751,7 +702,6 @@ Chouâta|4|
 Chouît|4|
 Choukîne|5|
 Choûrît|4|
-Chqaïf|4|
 Chqaïq et Tahta|4|
 Chqîf Btalloûn|4|
 Chtaura|3|
@@ -769,7 +719,6 @@ Dahr Aïn el Haour|4|
 Dahr Badrîs|4|
 Dahr Choûrâne|7|
 Dahr ech Chqîf|4|
-Dahr ed Douaïr|4|
 Dahr ej Jardaoun|6|
 Dahr El Aaqline|4|
 Dahr el Ahmar|3|
@@ -868,7 +817,6 @@ Dfoûn|4|
 Dhoûr Broummâna|4|
 Dhoûr Darb es Sîm|7|
 Dhoûr ech Choueïr|4|
-Dhour el Aabadiyé|4|
 Dhoûr el Aabâdîyé|4|
 Dibbîne|5|
 Dîk el Mehdi|4|
@@ -878,11 +826,8 @@ Diria|6|
 Dlaïbé|4|
 Dlebta|4|
 Dmalsâ|4|
-Dmît ej Jouânîyé|4|
 Dmît el Berrânîyé|4|
 Doha|4|
-Dora|4|
-Douaïr ed Debbîyé|4|
 Douaïr el Hâra|4|
 Douane|1|
 Douane|4|
@@ -897,7 +842,6 @@ Ech Chaara|4|
 Ech Chabboûq|4|
 Ech Châghoûr|4|
 Ech Chahar|4|
-Ech Châhhara|4|
 Ech Châhoût|4|
 Ech Châhoûta|7|
 Ech Chakhroûb|4|
@@ -906,12 +850,8 @@ Ech Chalqa|4|
 Ech Chaouâkîr|7|
 Ech Chaouâlîq|4|
 Ech Châoui|4|
-Ech Châouié|4|
 Ech Châouiyé|4|
-Ech Châouîyé|4|
 Ech Charbîné|4|
-Ech Charbïne|4|
-Ech Chârbîne|4|
 Ech Charoui|4|
 Ech Charqîyé|4|
 Ech Charqîyé|5|
@@ -919,7 +859,6 @@ Ech Chattoûh|4|
 Ech Chebbânîyé|4|
 Ech Chehâhîr|4|
 Ech Chehâl|4|
-Ech Chéhâra|4|
 Ech Chehhâra|4|
 Ech Cheïkh Aaïâch|0|
 Ech Cheïkh Mohammed|0|
@@ -931,7 +870,6 @@ Ech Chmaliyé|1|
 Ech Chmîs|4|
 Ech Chmîs|6|
 Ech Chouaïfât|4|
-Ech Chouâya|4|
 Ech Choueïr|4|
 Ech Choûmara|7|
 Ech Choûmé|5|
@@ -951,7 +889,6 @@ Ed Dahr|4|
 Ed Dahr|6|
 Ed Dahr|7|
 Ed Dahrât|1|
-Ed Daïâa|4|
 Ed Daïaa|1|
 Ed Daïaa|4|
 Ed Daïaa|6|
@@ -977,7 +914,6 @@ Ed Dghâlé|6|
 Ed Dhaïbîyé|6|
 Ed Dhaïra|7|
 Ed Dikermâne|7|
-Ed Dîmâne|6|
 Ed Dinnaïbé|1|
 Ed Diqâr|6|
 Ed Dkârîne|4|
@@ -986,7 +922,6 @@ Ed Douaïr|5|
 Ed Douaïr|6|
 Ed Douâouîr|6|
 Ed Douâr|4|
-Ed Doueïr|4|
 Ed Doûqa|4|
 Ed Dqârîne|4|
 Eddé|4|
@@ -1002,9 +937,7 @@ EJ Jâhlîyé|4|
 Ej Jaouz|1|
 Ej Jaouzé|3|
 Ej Jazâyer|5|
-Ej Jdaïdé|4|
 Ej Jdaïdé|7|
-Ej Jdîdé|0|
 Ej Jeitaoui|2|
 Ej Jemmaïzé|4|
 Ej Jendi|6|
@@ -1022,8 +955,6 @@ Ej Jouaniat|4|
 Ej Jouaniyé|4|
 Ej Jouar|4|
 Ej Joura|4|
-Ej Joûra|4|
-Ej Jraïd|4|
 Ejbaa|6|
 El Aabboûdîyé|0|
 El Aabdé|0|
@@ -1072,13 +1003,11 @@ El Aasbé|6|
 El Aataïqa|4|
 El Aatchâné|4|
 El Aayoun|0|
-El Aayoûn|4|
 El Aayroûn|4|
 El Aazâq|4|
 El Aazéqa|6|
 El Aazîbé|5|
 El Aazr|4|
-El Aazra|4|
 El Aazzoûnîyé|4|
 El Abdini|4|
 El Achrafîyé|7|
@@ -1104,7 +1033,6 @@ El Bahsâss|6|
 El Bahsâssa|4|
 El Baïdar|4|
 El Baïdar|5|
-El Baïyad|4|
 El Baïyâd|5|
 El Baïyâdât|5|
 El Baïyâra|3|
@@ -1116,7 +1044,6 @@ El Baqoûl|1|
 El Baqsi|4|
 El Baraké|1|
 El Barbîs|7|
-El Bardé|0|
 El Bâred|4|
 El Barghach|1|
 El Bâroûk|4|
@@ -1140,20 +1067,15 @@ El Bîré|0|
 El Bîré|3|
 El Bîré|4|
 El Birké|5|
-El Bîyâd|4|
-El Biyâd|4|
 El Biyâd|7|
+El Bîyâd|4|
 El Biyâda|3|
 El Bïyâda|7|
-El Blât|4|
 El Blât|6|
-El Blata|7|
 El Blâta|4|
 El Blâta|7|
 El Blayet|4|
-El Boqaa|4|
 El Borj|0|
-El Borj|4|
 El Borj|6|
 El Borjeïn|4|
 El Bouaïb|4|
@@ -1165,7 +1087,6 @@ El Boustâne|4|
 El Bouwab|0|
 El Bqaïaa|6|
 El Braïj|4|
-El Brâmîyé|7|
 El Breïj|1|
 El Bsâtîne|4|
 El Cabbouchiyé|2|
@@ -1183,18 +1104,15 @@ El Farch|4|
 El Fardîs|5|
 El Fasqîne|4|
 El Fethâné|4|
-El Fîdâr|4|
 El Firdaous|4|
 El Fkhaïte|4|
 El Forn|4|
-El Fouâr|6|
 El Fourzol|3|
 El Frâdîs|6|
 El Fraïdîs|0|
 El Fraïdîs|4|
 El Fraïké|4|
 El Franjé|7|
-El Ftâhât|6|
 El Ftaïhât|4|
 El Ftêhât|4|
 El Ghâbât|4|
@@ -1202,9 +1120,7 @@ El Ghabbatîyé|7|
 El Ghabbît|4|
 El Ghabe|2|
 El Ghâbé|3|
-El Ghâbé|4|
 El Ghabîyé|4|
-El Ghaboun|4|
 El Ghaïda|4|
 El Ghandoûrîyé|4|
 El Ghawaya|0|
@@ -1223,9 +1139,8 @@ El Haffé|4|
 El Haïssa|0|
 El Hajjé|7|
 El Halzoûn|4|
-El Hamrâ|6|
 El Hamra|4|
-El Hamra|6|
+El Hamrâ|6|
 El Haouta|7|
 El Hâoûz|1|
 El Haqlé|4|
@@ -1238,7 +1153,6 @@ El Hâra|7|
 El Harâqîne|4|
 El Harâyeq|3|
 El Harf|4|
-El Harf|6|
 El Harf|7|
 El Harqâne|4|
 El Harqât|3|
@@ -1251,7 +1165,6 @@ El Hebbâq|4|
 El Hedd|0|
 El Hefâïr|1|
 El Héloué|4|
-El Hemi|4|
 El Hemmâr|3|
 El Heqr|6|
 El Héri|6|
@@ -1259,7 +1172,6 @@ El Hichi|0|
 El Hima|4|
 El Hlâlîyé|4|
 El Hlâlîyé|7|
-El Hmaïra|0|
 El Hmâssiyât|4|
 El Hnoûd|6|
 El Homsîyé|7|
@@ -1281,7 +1193,6 @@ El Hsâr|4|
 El Hsoûn|4|
 El Izaa|2|
 El Izzîyé|7|
-El Jaâyel|4|
 El Jaouzâl|1|
 El Jarmaq|7|
 El Joubânîyé|1|
@@ -1293,7 +1204,6 @@ El Karak|3|
 El Karantina|2|
 El Karnîch|6|
 El Kerdi|6|
-El Kfoûr|4|
 El Kfoûr|5|
 El Khâldîyé|6|
 El Khalel|4|
@@ -1302,7 +1212,6 @@ El Khalouât|4|
 El Khanâdeq|7|
 El Khânoûq|4|
 El Kharâyeb|1|
-El Kharâyeb|4|
 El Kharâyeb|7|
 El Khârbé|4|
 El Kharroûb|6|
@@ -1318,24 +1227,19 @@ El Khouâkh|1|
 El Khouziyé|4|
 El Khraïbé|1|
 El Khraïbé|4|
-El Khraïbé|5|
 El Khraïbé|7|
 El Khraïzé|6|
 El Kleile||
-El Knaïssé|4|
-El Kneïssé|0|
 El Kneïssé|4|
 El Knissé|0|
 El Kouâchra|0|
 El Krâhné|0|
 El Kroum|4|
-El Ksâr|4|
 El Ksâra|6|
 El Ksâyer|4|
 El Ktaïfé|5|
 El Lâhbîyé|4|
 El Laouzé|1|
-El Laqloûq|4|
 El Louaïzé|4|
 El Louaïzé|7|
 El Loûbié|7|
@@ -1376,12 +1280,9 @@ El Malloûlé|6|
 El Mamboûkh|4|
 El Mamlaha|5|
 El Manara|2|
-El Manâzîl|4|
 El Manqalbé|4|
-El Mansoûrîyé|4|
 El Mansouriyet|4|
 El Mantara|4|
-El Mantra|4|
 El Manzalé|5|
 El Manzlé|4|
 El Manzlé|6|
@@ -1402,7 +1303,6 @@ El Markaz|6|
 El Marmagha|1|
 El Marmah|4|
 El Masbak|6|
-El Mashrah|4|
 El Maslakh|2|
 El Maslakh|4|
 El Maslakh|6|
@@ -1414,8 +1314,6 @@ El Massiaf|4|
 El Matmoûra|7|
 El Mayâs|5|
 El Mazâbil|7|
-El Mazraa|4|
-El Mazraâ|4|
 El Mazraah|0|
 El Mbâr Kîyé|0|
 El Mchété|4|
@@ -1449,12 +1347,10 @@ El Mhanbar|5|
 El Mhatta|3|
 El Mîdâne|4|
 El Midâne|3|
-El Midâne|4|
 El Midâne|6|
 El Midâne|7|
 El Mihti|6|
 El Millâha|3|
-El Mina|6|
 El Mîna|4|
 El Mîna|6|
 El Minchîyé|7|
@@ -1465,10 +1361,8 @@ El Mkaïdês|4|
 El Mlâzeq|7|
 El Mnaïtra|4|
 El Mnâzîl|4|
-El Mogheïri|4|
 El Moghrâq|6|
 El Moqrâq|1|
-El Moughaïré|4|
 El Moukhâda|4|
 El Moukhtâra|4|
 El Mounsé|0|
@@ -1479,9 +1373,7 @@ El Mrâdîyé|4|
 El Mradsine|4|
 El Mraïjât|3|
 El Mraïjât|4|
-El Mraïjé|4|
 El Mrâji|6|
-El Mrayjate|4|
 El Mrayjé|4|
 El Mroûj|4|
 El Mroûj|5|
@@ -1504,7 +1396,6 @@ El Mzârib|4|
 El Ouaar|3|
 El Ouâdi|3|
 El Ouâdi|4|
-El Ouâdi|6|
 El Ouaqf|1|
 El Ouaqf|7|
 El Ouardâni|7|
@@ -1513,12 +1404,10 @@ El Ouardiyé|2|
 El Ouardîyé|7|
 El Ouata||
 El Ouata|2|
-El Ouata|4|
 El Ouata|6|
 El Ouata|7|
 El Ouatâyâ|6|
 El Ouatié|6|
-El Oueinâte|4|
 El Ouzaaï|4|
 El Pissine|4|
 El Qâa|1|
@@ -1531,13 +1420,10 @@ El Qacha|4|
 El Qachâya|4|
 El Qâdrîyé|6|
 El Qaïssarîyé|4|
-El Qalaâ|4|
-El Qalaa|4|
 El Qalaa|6|
 El Qalaa|7|
 El Qalamoûn|6|
 El Qammoûaâ|4|
-El Qâmoûaa|4|
 El Qanâter|4|
 El Qanâyé|7|
 El Qandaoûli|7|
@@ -1555,7 +1441,6 @@ El Qass|0|
 El Qass|4|
 El Qatâî|7|
 El Qâteaa|4|
-El Qâteaa|6|
 El Qâtia|6|
 El Qâtiaa|3|
 El Qatlabé|0|
@@ -1631,7 +1516,6 @@ En Nqîri|5|
 En Nqoûr|4|
 Enfe|6|
 Er Rabatîyé|7|
-Er Rabié|4|
 Er Raboué|4|
 Er Radout|4|
 Er Rafîd|3|
@@ -1646,12 +1530,9 @@ Er Ramtânîyé|3|
 Er Rânsîyé|0|
 Er Raouda|0|
 Er Raouda|4|
-Er Rîhâné|4|
 Er Rihaniye|4|
-Er Rîhanîyé|6|
 Er Rîhânîyé|0|
 Er Rjoûm|7|
-Er Rmaïlé|4|
 Er Rmaïlîyé|4|
 Er Rmeïl|2|
 Er Rouaïmé|0|
@@ -1682,7 +1563,6 @@ Es Sâlhâni|5|
 Es Salhîyé|4|
 Es Salomé|4|
 Es Sammâqîyé|0|
-Es Saouané|5|
 Es Saoûâné|5|
 Es Saouêné|4|
 Es Saoumaa|4|
@@ -1698,7 +1578,6 @@ Es Seffaï|4|
 Es Semqânîyé|4|
 Es Sfarjlé|4|
 Es Sfenté|7|
-Es Sfiné|0|
 Es Sfîré|6|
 Es Sheïmé|4|
 Es Shoûm|4|
@@ -1718,7 +1597,6 @@ Es Snoûbar|6|
 Es Snoubra|2|
 Es Souaïdîyé|1|
 Es Souaïssé|0|
-Es Souâné|4|
 Es Souâqi|6|
 Es Soultânîyé|5|
 Es Sraïj|3|
@@ -1742,7 +1620,6 @@ Et Terbîâa|6|
 Et Tiri|5|
 Et Tleïl|0|
 Et Touârîaa|4|
-Ez Zaaïtriyé|4|
 Ez Zaaïtrîyé|4|
 Ez Zaaroûra|3|
 Ez Zaaroûrîyé|4|
@@ -1760,7 +1637,6 @@ Ez Zighrîne|4|
 Ez Zillaïqât|4|
 Ez Ziré|0|
 Ez Zîré|1|
-Ez Ziré|4|
 Ez Zîré|4|
 Ez Zîré|6|
 Ez Zouârîb|0|
@@ -1786,7 +1662,6 @@ Fdâr et Tahta|4|
 Fehta|6|
 Fékehé|1|
 Ferhet|4|
-Fghâl|4|
 Fîaa|6|
 Fîssâne|1|
 Fîyâdîyé|6|
@@ -1806,9 +1681,7 @@ Fsaqîne|4|
 Fsīqīn|0|
 Ftâh ech Choûha|4|
 Ftaïhât el Qarqoûf|4|
-Furn Al Hayek|2|
 Furn el Chebbak|2|
-Furn el Hayek|2|
 Gemmayzeh|2|
 Gend|1|
 Ghâboun|4|
@@ -1822,7 +1695,6 @@ Ghassaniyeh||
 Ghazieh|7|al ghaziyah;el ghaziye;el rhaziye;الغازية
 Ghazir|4|
 Ghazzé|3|
-Ghbâlé|4|
 Ghbâlîne|4|
 Ghidrâs|4|
 Ghîyoûta|6|
@@ -1856,7 +1728,6 @@ Haï Aïn el Jaâyel|4|
 Haï Beït Aakl|4|
 Haï Beït Aatîyé|6|
 Haï Beït Aazâr|4|
-Haï Beït Aghnâtios|6|
 Haï Beït Bou Nâder|4|
 Haï Beït ech Chnaari|6|
 Haï Beït el Hajj|4|
@@ -1867,7 +1738,6 @@ Haï ech Chabboûq|4|
 Haï ech Châmi|4|
 Haï ech Chaoûaya|4|
 Haï ech Charfé|4|
-Haï ech Chmîs|4|
 Haï ed Dâher|1|
 Haï ed Dahlîz|4|
 Haï ed Dahr|4|
@@ -1875,7 +1745,6 @@ Haï ed Daïaa|4|
 Haï ed Dâra|4|
 Haï ed Dhaïni|3|
 Haï ej Jameaa|1|
-Haï ej Jameaa|4|
 Haï ej Jamia|4|
 Haï ej Jâmia|3|
 Haï ej Jdîd|4|
@@ -1900,7 +1769,6 @@ Haï el Faouqa|4|
 Haï el Fghâli|6|
 Haï el Haqlé|4|
 Haï el Kanâyes|4|
-Haï el Knissé|4|
 Haï el Knîssé|4|
 Haï el Laïlaki|4|
 Haï el Massbagha|4|
@@ -1925,7 +1793,6 @@ Haï es Saïdé|4|
 Haï es Saikouni|4|
 Haï es Sellom|4|
 Haï es Sensâl|4|
-Haï es Sindiané|4|
 Haï es Sindiâné|4|
 Haï es Snaoubar|4|
 Haï et Tahta|4|
@@ -1945,7 +1812,6 @@ Haï Mâr Eliâs|3|
 Haï Mâr Eliâs|4|
 Haï Mâr Estefâne|4|
 Haï Mâr Faouqa|4|
-Haï Mâr Jerios|4|
 Haï Mâr Jerjos|4|
 Haï Mâr Jeryos|4|
 Haï Mâr Mtânios|4|
@@ -1978,10 +1844,8 @@ Haïzouq|0|
 Hâkoûr|0|
 Hâlât|4|
 Halba|0|aakar;akkar;halbe;حلبا
-Halbata|1|
 Halioune El Faouqa|4|
 Halioune Et Tahta|4|
-Halioûnet el Faouqa|4|
 Halioûnet et Tahta|4|
 Halloûssîyet el Faouqa|7|
 Halloûssîyet et Tahta|7|
@@ -2025,13 +1889,11 @@ Haql Sâfī|4|
 Haqlet el Baïda|6|
 Haqlet el Heya|4|
 Haqlet el Kbîré|4|
-Haqlet es Saïyed|4|
 Haqlet et Tîné|4|
 Haqlît|6|
 Ḩārat al Kanīsah|4|
 Ḩārat al Mawārinah|4|
 Ḩārat ash Shaykh|4|
-Ḩārat Ḩamzah|4|
 Harbata|1|
 Harboûna|6|
 Harcha|4|
@@ -2067,16 +1929,13 @@ Haret el Badaoui|4|
 Hâret el Baklîl|6|
 Hâret el Bayâder|7|
 Haret el Béllané|4|
-Hâret el Bellâne|4|
 Hâret el Biyâder|5|
 Haret el Botm|4|
 Hâret el Boustâne|4|
+Haret el Faouqa|6|
 Hâret el Faouqâ|3|
 Hâret el Faouqa|1|
-Haret el Faouqa|4|
 Hâret el Faouqa|4|
-Haret el Faouqa|6|
-Hâret el Faouqa|6|
 Haret el Feghaliyé|4|
 Haret el Fikâni|3|
 Haret el Ghaouarni|4|
@@ -2097,7 +1956,6 @@ Hâret el Ouata|4|
 Hâret el Qâdi|4|
 Haret el Qalaa|6|
 Hâret el Qarn|6|
-Haret el Qobbé|4|
 Haret el Qobliyé|1|
 Hâret en Nâamé|4|
 Hâret en Nabaa|7|
@@ -2111,12 +1969,9 @@ Haret es Saïdé|4|
 Haret es Sidri|5|
 Haret es Sitt|4|
 Haret esh Sharqiyé|0|
-Hâret et Tahtâ|3|
-Hâret et Tahta|3|
-Haret et Tahta|4|
-Hâret et Tahta|4|
 Haret et Tahta|6|
-Hâret et Tahta|6|
+Hâret et Tahta|3|
+Hâret et Tahta|4|
 Haret et Tine|4|
 Haret Farah|4|
 Hâret Hamzé|4|
@@ -2125,7 +1980,6 @@ Haret Hreïk|4|
 Hâret Jandal|4|
 Hâret Sakhr|4|
 Haret Sâlem|4|
-Harf|4|
 Harf Ardé|6|
 Ḩarf as Sīm|0|
 Harf el Aakaïs|4|
@@ -2137,7 +1991,6 @@ Harhraïya|4|
 Hârîbi|5|
 Hâriîs|5|
 Harîssa|4|
-Harîssa|6|
 Hâroûf|5|
 Haroûn|4|
 Hart Fakhr ed Dine|4|
@@ -2166,7 +2019,6 @@ Hay el Maslakh|4|
 Hay el Maslakh|5|
 Hay el Qaleaa|4|
 Hay en Nabaa|4|
-Hay en Nahr|4|
 Hay en Nozha|4|
 Hay er Rahoué|4|
 Hay es Semmaqa|4|
@@ -2208,7 +2060,6 @@ Hortaala|1|
 Hoshmosh|3|
 Hosn Aâr|4|
 Hosna|4|
-Hosrâyel|4|
 Hotel Dieu|2|
 Houla|5|
 Houmâl|4|
@@ -2267,13 +2118,10 @@ Jbâa ech Choûf|4|
 Jbâl el Botm|7|
 Jdaidé|7|
 Jdaïdé|1|
-Jdaïdé|4|
 Jdaïdet Barqâcha|6|
-Jdaïdet ech Choûf|4|
-Jdaidet el Matn|4|al judaydah;djedeide;el debiyeh;الجديدة
+Jdaïdet ech Choûf|4|al judaydah;djedeide;el debiyeh;الجديدة
 Jdaïdet el Qaïtaa|0|
 Jdaïdet Ghazîr|4|
-Jdeïdé|0|
 Jdîta|3|
 Jebaa|1|
 Jebb Farah|3|
@@ -2299,7 +2147,6 @@ Jisr al Qâdi|4|
 Jisr el Hajar|4|
 Jisr el Misri|4|
 Jisr Nahr Ibrâhîm|4|
-Jiyeh|4|
 Jlaïssi|4|
 Jloûl ech Chouaikh|7|
 Jmaïjmé|5|
@@ -2321,7 +2168,6 @@ Joûret Arsoûn|4|
 Joûret Bedrâne|4|
 Joûret ed Darb|4|
 Joûret ed Dardoûr|4|
-Jouret el Ballout|4|
 Joûret el Balloût|4|
 Joûret el Ghada|4|
 Jouret el Khouri|0|
@@ -2347,20 +2193,16 @@ Kafr Dabash|1|
 Kafr Haboū|6|
 Kafra|4|
 Kafra|5|
-Kafraiya|3|
-Kafraïya|6|
 Kaftoûn|6|
 Kahhalé|4|
 Kaïfoun|4|
 Kaitouly||
 Kalkha|0|
 Kâmed el Lôz|3|
-Kantari|2|
 Kaoukaba|5|
 Kaoutariet es Siyâd|7|
 Kaoutariyet Al Siyad||
 Karakol|4|
-Karantina|2|
 Karkha|7|
 Karm Aaqaïl|1|
 Karm al Mahr|6|
@@ -2371,7 +2213,6 @@ Karm ez Zaïtoun|2|
 Karm Houâch|7|
 Karm Saddé|6|
 Karm Zebdine|0|
-Kaslik|4|
 Kasslik|4|
 Kawkabā Bū ‘Arab|3|
 Kefraïya|3|
@@ -2412,7 +2253,6 @@ Kfar Hamel|4|
 Kfar Haoura|6|
 Kfar Harra|0|
 Kfar Hâta|6|
-Kfar Hâtâ|6|
 Kfar Hatna|6|
 Kfar Hatta|7|
 Kfar Hazîr|6|
@@ -2443,7 +2283,6 @@ Kfar Roummâne|5|
 Kfar Sâlé|4|
 Kfar Sâroûn|6|
 Kfar Selouâne|4|
-Kfar Sghâb|6|
 Kfar Shouba|5|kafr shuba;kfr shwba;كفر شوبا
 Kfar Sîr|5|
 Kfar Siyâdâ|4|
@@ -2463,8 +2302,6 @@ Kfardenîs|3|
 Kfarfou|6|
 Kfarmechkî|3|
 Kfaroué|5|
-Kfarsâroûn|6|
-Kfarshima|4|
 Kfartaï|4|
 Kfifâne|6|
 Kfoûn|4|
@@ -2473,7 +2310,6 @@ Khaab|4|
 Khaabîya|4|
 Khabtoûra|6|
 Khaldah|4|
-Khaldé|4|
 Khallet Abou Haïdar|7|
 Khallet el Mtaïn|4|
 Khallet Im Sleïmane|3|
@@ -2495,7 +2331,6 @@ Kharâyeb el Aaqabé|1|
 Khartoûm|7|
 Khawjā Bustān|0|
 Khazzâne Saoufar|4|
-Kherbet Aïn el Qanâter|7|
 Kherbet ed Douaïr|7|
 Khirbat ‘Ayn al Qanāţir|7|
 Khirbat al Jurd|0|
@@ -2526,7 +2361,6 @@ Knaïssé|0|
 Knaïssé|7|
 Knaïsset Ouâdi en Naïra|1|
 Kneïssé|1|
-Korraïti|1|
 Kouaïkhât|0|
 Koubba|6|
 Koûchâ|0|
@@ -2549,13 +2383,11 @@ Ksâr el Aabed|3|
 Ksâr el Hanach|3|
 Ksâr el Mechrqé|4|
 Ksâr-ech-Chidiâq|4|
-Ksāra|7|
 Ksâra|3|
 Ksâra|7|
 Ksâret Dahr ech Chîr|6|
 Labbūna|7|
 Laboué|1|
-Laïlaké|4|
 Lâla|3|
 Lâssa|4|
 Lebaâ|7|
@@ -2616,7 +2448,6 @@ Maknounîyé|7|
 Maksé|3|
 Malaab|2|
 Malhoûn|4|
-Manara|2|
 Mansoûra|3|
 Manzoûl el Farâyes|4|
 Maqial el Qalaa|1|
@@ -2631,7 +2462,6 @@ Mâr Chaînâ|6|
 Mar Doumit|6|
 Mâr Doûmit|4|
 Mar Elias|2|
-Mar Eliâs|4|
 Mâr Eliâs|3|
 Mâr Eliâs|4|
 Mâr Mâma|6|
@@ -2645,10 +2475,8 @@ Mâr Mqîne|4|
 Mār Nahrā|4|
 Mar Nqoula|2|
 Mar Sarkis|0|
-Mar Taqla|4|
 Mâr Taqla|4|
 Mâr Toûma|0|
-Mar Youssef|4|
 Mâr Yoûssef|6|
 Mār Yūsuf|4|
 Marāḩ ‘Abbās|1|
@@ -2725,7 +2553,6 @@ Mazraat ech Choûf|4|
 Mazraat ed Dahr|4|
 Mazraat ed Dallîl|1|
 Mazraat ed Daoudîyé|7|
-Mazraat ed Dâoudîyé|7|
 Mazraat ed Dhoûr|1|
 Mazraat ej Jaouïk|6|
 Mazraat ej Jmayel|4|
@@ -2813,7 +2640,6 @@ Mchaïtîyé|1|
 Mchâté|7|
 Mchîkha|4|
 Mdâmît|4|
-Mdaouara|4|
 Mdoûkha|3|
 Méchâne|4|
 Mechhlêne|4|
@@ -2844,7 +2670,6 @@ Mhaïbib|5|
 Mhaïdsé|4|
 Mhall en Nabaa|6|
 Mhârbîyé|7|
-Mhatta|4|
 Michmich|0|
 Mîdane|4|
 Mighrāqah|7|
@@ -2881,7 +2706,6 @@ Moustachfa er Roum|2|
 Moûta|6|
 Mqaïblé|0|
 Mqoufti|4|
-Mrâh Aabbâs|1|
 Mrah Aakkar|0|
 Mrâh Aali Mehdi Aallaou|1|
 Mrâh Abou Chdîd|7|
@@ -2920,7 +2744,6 @@ Mrâh el Aarab|1|
 Mrâh el Aassi|1|
 Mrâh el Aataïbé|1|
 Mrâh el Ahmar|1|
-Mrâh el Aouja|1|
 Mrâh el Balloût|1|
 Mrâh el Biyâd|1|
 Mrâh el Blâta|1|
@@ -2936,7 +2759,6 @@ Mrâh el Harîqa|1|
 Mrah el Khaoukh|0|
 Mrâh el Khaoukh|1|
 Mrâh el Mahlisé|1|
-Mrâh el Mahlîssi|1|
 Mrâh el Mechmechi|1|
 Mrâh el Mechref|1|
 Mrâh el Mîr|4|
@@ -2972,7 +2794,6 @@ Mrâh Soukkar|1|
 Mrâh Torhonn|1|
 Mrâh Yâssîne|1|
 Mrâh Zouaïtîni|1|
-Mraïjé|4|
 Mraymîs|3|
 Mreijeh|4|
 Mrouj|6|
@@ -3022,7 +2843,6 @@ Nasrîyé|1|
 Nâsrîyé|3|
 Nîha|3|
 Nîha|4|
-Nîha|6|
 Nîha|7|
 Nimrîne|6|
 Nor Adana|4|
@@ -3068,7 +2888,6 @@ Ouâdi Qannoûbîne|6|
 Ouâdi Tâli|4|
 Ouajh el Hajar|6|
 Ouastani|7|
-Ouata|4|
 Ouata Barra|6|
 Ouata ej Jaouz|4|
 Ouata el Bène|4|
@@ -3099,7 +2918,6 @@ Qabaaït|0|
 Qabb Eliâs|3|
 Qabr es Sindiâne|6|
 Qabr Shmūn|4|
-Qabrchmoun|4|
 Qabrikha|5|
 Qachlaq|0|
 Qaïtoûlé|7|
@@ -3124,7 +2942,6 @@ Qâna|7|cana;kana;kanao;قانا
 Qanât Bakîsh|4|
 Qandoûla|6|
 Qannābat Brummānā|4|
-Qannabé|4|
 Qantara|5|
 Qantari|2|
 Qaouzah|5|
@@ -3160,7 +2977,6 @@ Qennârît|7|
 Qeryâqoûs|4|
 Qilaa el Yatoun|4|
 Qilaa Shamma|4|
-Qirtada|4|
 Qiyâa|7|
 Qlâa el Borj|6|
 Qlaïaât|4|
@@ -3169,7 +2985,6 @@ Qmaïra|4|
 Qmatiyé|4|
 Qnaïouer|6|
 Qnât|6|
-Qobrous|4|
 Qommol|3|
 Qoraïtem|2|
 Qoraytem|2|
@@ -3195,7 +3010,6 @@ Qtâlé|4|
 Qtâlé|7|
 Qubruş|4|
 Ra's al-Misri|7|
-Ra’s Bayrūt|2|
 Ra’s Māmā|4|
 Raachîne|4|
 Râai es Sâleh|4|
@@ -3238,7 +3052,6 @@ Râs el Laouzé|7|
 Râs el Marj|4|
 Râs el Metn|4|
 Râs el Mroûj|4|
-Ras el Nabaa|2|
 Ras en Nabaa|2|
 Râs Kîfa|6|
 Râs Masqa ech Chimâlîyé|6|
@@ -3272,7 +3085,6 @@ Rmâh|0|
 Rmaïla|6|
 Rmaïlé|4|
 Rmaych|5|
-Rmeil|2|
 Rouaïssât Salîma|4|
 Rouaïssat Saoufar|4|
 Rouaïssé|4|
@@ -3280,7 +3092,6 @@ Rouaïsset el Balloût|4|
 Rouaïsset en Noaamane|4|
 Rouaïsset Qoubbeyaa|4|
 Roûm|7|
-Roumié|4|
 Roûmîne|5|
 Roumiyé|4|
 Saadîne|0|
@@ -3317,7 +3128,6 @@ Saloumi|2|
 Sanaallah|6|
 Sanâya|7|
 Sanayeaa|2|
-Sanayeh|2|
 Sannîne|4|
 Sannoûr|4|
 Saoualha|0|
@@ -3365,7 +3175,6 @@ Sfâray|7|
 Sfayla|4|
 Sfenta|7|
 Sghâr|6|
-Shaïlé|4|
 Shaïli|4|
 Shanbouq|0|
 Shaqdouf|0|
@@ -3387,7 +3196,6 @@ Sin el Fil|4|
 Sinaiyet ej Jmaïliyé|4|
 Sindianet Zeïdane|0|
 Sinn el Fil|4|
-Sioufi|2|
 Sîr ed Danniyé|6|sir ad dinniyah;syr aldnyt;سير الضنية
 Sîr el Gharbiyé|5|
 Sîrâne|4|
@@ -3398,7 +3206,6 @@ Slaïyeb Bchaalé|6|
 Slaïyeb Râm|6|
 Slat|4|
 Smâr Jbaïl|6|
-Snoubra|2|
 Sodeco|2|
 Sohmor|3|
 Sollom|7|
@@ -3406,11 +3213,9 @@ Sotlay|4|
 Souane||
 Souâq es Safsâf|4|
 Soukkara|7|
-Soultâne Yaaqoûb|3|
 Soultâne Yaaqoûb et Tahta|3|
 Souq el Firi|4|
 Souq el Gharb|4|
-Sourat|6|
 Soûrât|6|
 Srahmoul|4|
 Srâr|0|
@@ -3424,9 +3229,7 @@ Taanâyel|3|
 Taazaniyé|4|
 Tabarja|4|
 Tâchaa|0|
-Tahouitet el Ghadir|4|
 Tahouitet el Ghadîr|4|
-Tahouitit el Ghadîr|4|
 Taht el Qalaa|4|
 Taḩwīţat an Nahr|4|
 Taïr Debbé|7|
@@ -3496,7 +3299,6 @@ Tîrâne|6|
 Touaïri|7|
 Touaïté|3|
 Touaïté|4|
-Toulâ|6|
 Toûla|6|
 Toûlîne|5|
 Toultâta|3|
@@ -3512,7 +3314,6 @@ Unesco|2|
 Verdun|2|
 Wādī Shuḩrūr as Suflá|4|
 Wardaniye|4|
-Wata Msaytbeh|2|
 West Bekaa|3|
 Woussiyat|4|
 Yahchoûch|4|
@@ -3555,7 +3356,6 @@ Zaqzouq|0|
 Zaraaoûn|4|
 Zarâyeb Choukr|1|
 Zardeq|4|
-Zarif|2|
 Zebdîne|4|
 Zebdîne|5|
 Zebdol|3|
@@ -3579,7 +3379,6 @@ Zighrîne et Tahte|1|
 Zokak el Blat|2|
 Zouainé|4|
 Zouaïtîni|4|
-Zoummar|4|
 Zoummâr|4|
 Zouq el Bacha|0|
 Zouq el Faouqa|0|
