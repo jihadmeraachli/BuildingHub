@@ -97,24 +97,33 @@ is invoked.
 ```bash
 git pull
 npm install        # only when dependencies changed
-npm run build
-npx cap sync ios
+npm run build      # ⚠️ NOT optional — this is what puts the new app in the binary
+npx cap sync ios   # ⚠️ copies dist/ into the iOS project
 npx cap open ios
 ```
+
+⚠️ **Skipping `npm run build` + `npx cap sync ios` ships the PREVIOUS web app
+under a new build number**, and nothing warns you — the upload succeeds and the
+testers see no change. If a build seems not to contain your work, this is why.
+
 Then in Xcode:
-1. Toolbar target → **Any iOS Device (arm64)**.
-2. Menu **Product → Archive**.
-3. When the Organizer window opens → **Distribute App → App Store Connect →
+1. Target **App** → **General** → **Identity** → increment **Build** (3 → 4 →
+   …). App Store Connect rejects a build number it has already seen, so this is
+   required every upload. Bump **Version** (1.0 → 1.1) only for a
+   user-meaningful release; the build number alone is enough for TestFlight.
+2. Toolbar target → **Any iOS Device (arm64)**.
+3. Menu **Product → Archive**.
+4. When the Organizer window opens → **Distribute App → App Store Connect →
    Upload** (defaults are fine).
-4. **appstoreconnect.apple.com** → Apps → Abniyah (first time: create the app
+5. **appstoreconnect.apple.com** → Apps → Abniyah (first time: create the app
    record — name `Abniyah`, bundle id `com.abniyah.app`, SKU `abniyah`) →
    **TestFlight** tab.
-5. The build appears after ~10 min of processing. Answer the export-compliance
+6. The build appears after ~10 min of processing. Answer the export-compliance
    question (uses standard HTTPS encryption only → **exempt**).
-6. **Internal testers** (you + Ahmad, up to 100): instant, no review.
+7. **Internal testers** (you + Ahmad, up to 100): instant, no review.
    **External testers** (your beta users, up to 10,000): needs a light
    TestFlight review, usually ~1 day the first time.
-7. Testers install the **TestFlight** app from the App Store and accept your
+8. Testers install the **TestFlight** app from the App Store and accept your
    invite (email or public link).
 
 ⚠️ Remember: the web app is **bundled** into the binary. A web change deployed
