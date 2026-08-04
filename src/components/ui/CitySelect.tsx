@@ -31,6 +31,14 @@ export function CitySelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
+  // Shown as muted secondary text, never stored. Lebanon reuses place names
+  // freely — without this, Achrafieh (Beirut) and El Achrafîyé (South) look
+  // like the same entry listed twice.
+  const govByLabel = useMemo(
+    () => new Map(LEBANON_PLACES.map(p => [p.label, p.governorate])),
+    [],
+  );
+
   // A legacy/unknown value stays valid — never silently drop what is on record.
   const isLegacy = !!value && !LEBANON_CITIES.includes(value);
 
@@ -89,8 +97,11 @@ export function CitySelect({
               <CommandEmpty>{t('common.noCityMatch')}</CommandEmpty>
               {shown.map((c) => (
                 <CommandItem key={c} value={c} onSelect={() => { onChange(c); setOpen(false); setQuery(''); }}>
-                  <Check className={cn('size-4', c === value ? 'opacity-100' : 'opacity-0')} />
-                  {c}
+                  <Check className={cn('size-4 shrink-0', c === value ? 'opacity-100' : 'opacity-0')} />
+                  <span className="truncate">{c}</span>
+                  {govByLabel.get(c) && (
+                    <span className="ms-auto shrink-0 text-xs text-muted-foreground">{govByLabel.get(c)}</span>
+                  )}
                 </CommandItem>
               ))}
             </CommandList>
