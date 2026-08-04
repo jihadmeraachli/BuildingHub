@@ -80,13 +80,27 @@ launch** — cold start or first open after a device restart — and NOT when yo
 merely switch away and come back. The earlier behaviour re-locked on every
 backgrounding, which made routine app switching tedious.
 
-It gates the *saved session*: Supabase keeps you signed in on the device, so
-without it the app opens straight into a building's finances for whoever holds
-the phone. It does **not** replace the password after an explicit sign-out —
-that would mean stashing a credential in the Keychain (a second native plugin),
-and signing out should genuinely mean signing out. "Use my password instead" on
-the gate signs out and falls back to the normal login form, so a failed or
-broken Face ID is never a dead end.
+"Use my password instead" on the gate signs out and falls back to the normal
+login form, so a failed or broken Face ID is never a dead end.
+
+### The session lives in the Keychain (second plugin, 2026-08-04)
+
+Swiping the app away used to lose the session entirely — WKWebView
+localStorage did not survive termination — so on reopening there was nothing
+for Face ID to unlock and the password had to be retyped. The Supabase session
+is now stored via **`@aparajita/capacitor-secure-storage`** (iOS Keychain),
+which does survive termination and device restarts.
+
+- Access level `whenPasscodeSetThisDeviceOnly`: readable only while the device
+  is unlocked, only on a device that has a passcode, and never restored onto a
+  different device from a backup.
+- **Web is untouched** — the adapter is only wired up when
+  `Capacitor.isNativePlatform()`, so browsers keep Supabase's own localStorage.
+- Every Keychain call falls back to localStorage on failure. A storage problem
+  degrades to the old behaviour rather than locking anyone out.
+- **No extra Xcode step** for this one — plain Keychain access needs no
+  entitlement or usage description. `npm install` + `npx cap sync ios` is
+  enough. (The Face ID usage description above is still required.)
 
 ⚠️ Re-add this row any time you delete and regenerate the `ios/` folder
 (`npx cap add ios` starts fresh). Without it, iOS kills the app when Face ID
