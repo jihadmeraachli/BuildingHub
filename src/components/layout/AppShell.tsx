@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoEmail } from '@/lib/demo';
 import { usePullToRefresh, PullIndicator } from '@/components/PullToRefresh';
+import { BioPrompt } from '@/components/BioPrompt';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
@@ -44,6 +45,8 @@ export function AppShell() {
           <PullIndicator innerRef={ptrRef} />
           <Outlet />
         </main>
+        {/* Native only, self-hiding: offers Face ID once, just after signing in. */}
+        <BioPrompt />
       </div>
     </div>
   );
