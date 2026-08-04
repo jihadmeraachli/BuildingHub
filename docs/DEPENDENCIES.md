@@ -14,10 +14,39 @@ _Last reviewed: 2026-07-26_
 | **GitHub** | Source of truth for code (private repo), roadmap board, deploy trigger for Cloudflare Pages | `jihadmeraachli/BuildingHub` · collaborator: AhmadYamoutTat | 🟠 High — no deploys without it | Site keeps running; no updates possible |
 | **Resend** | ALL outbound email, two channels: (1) Supabase Auth SMTP (confirmation/reset/invite emails), (2) app notifications via `dynamic-action` function | resend.com — domain verified for sending | 🟠 High | Nobody can register/reset password; notifications stop. App itself keeps working |
 | **Anthropic** | AI document import (`ai-expense-import`, `ai-pdf-import`, `ai-import-mapping`) + in-app AI help assistant (`help-chat`, Claude Haiku + prompt caching, well under a cent per question) | console.anthropic.com API key | 🟡 Medium | AI import + help assistant fail; everything else unaffected |
+| **Microsoft 365** | **Inbound** email for `abniyah.com` (set up 2026-08-04). Shared mailbox `support@abniyah.com` (alias `abniyah-support`) with `notifications@`/`info@`/`help@` as aliases — the in-app help panel points users here. Same tenant also hosts tatawwor.com. | admin.microsoft.com / admin.exchange.microsoft.com | 🟡 Medium | Support email stops arriving; the app itself and all OUTBOUND email keep working (different system — see the DNS split below) |
 | **Meta (WhatsApp Cloud API)** | WhatsApp notifications (charges, payments, dues, unit invitations) via `dynamic-action`; pre-approved templates; per-message billing (~$0.014 utility/Lebanon) | business.facebook.com portfolio + developers.facebook.com app + dedicated sender number (SIM — can never be reused in the WhatsApp app) | 🟡 Medium | WhatsApp channel stops; email unaffected. Setup: docs/WHATSAPP_SETUP.md |
 | **Domain registrar** | Ownership of `abniyah.com` (DNS is delegated to Cloudflare) | *(fill in: where the domain is registered + renewal date)* | 🔴 Total if it lapses | Domain expiry = site + all email dead |
 | **Google Fonts** | Sora / Inter / Poppins webfonts at runtime | fonts.googleapis.com (no account) | 🟢 Low | Fonts fall back to system; cosmetic only |
 | **MyMemory (Translated.net)** | Issue-description translation button (en↔ar), called straight from the browser | api.mymemory.translated.net (no account, no key; anonymous free tier ~5k chars/day per IP) | 🟢 Low | Translate button errors with a toast; nothing else affected. Swap to a paid/LLM translator if usage outgrows the free tier |
+
+## 📧 DNS mail split for `abniyah.com` — DO NOT DELETE THE `send.` RECORDS
+
+Inbound and outbound mail are two independent systems sharing one domain. Deleting
+the wrong record breaks the app silently (no registration, no password reset, no
+notifications) with nothing in the UI to explain why.
+
+| Record | Points at | Owns | Touch it? |
+|---|---|---|---|
+| `abniyah.com` MX | `*.mail.protection.outlook.com` | **Inbound** — mail TO support@abniyah.com etc. | Microsoft 365 manages |
+| `abniyah.com` TXT (SPF) | `v=spf1 include:spf.protection.outlook.com -all` | Authorizes Microsoft to send as the root | Exactly ONE root SPF — two = both invalid |
+| `send.abniyah.com` MX | `feedback-smtp.eu-west-1.amazonses.com` | **Outbound** — Resend bounce handling | 🚫 **NEVER DELETE** |
+| `send.abniyah.com` TXT | `v=spf1 include:amazonses.com ~all` | Authorizes Resend to send | 🚫 **NEVER DELETE** |
+| `resend._domainkey.abniyah.com` TXT | long DKIM key | Signs every app email | 🚫 **NEVER DELETE** |
+
+Why the split is safe: SPF is checked against the *envelope* domain, which for Resend
+is `send.abniyah.com`, so the root SPF belonging to Microsoft doesn't affect it. DKIM
+signs as `d=abniyah.com`, which is what aligns for the recipient.
+
+**History (2026-08-04):** `abniyah.com` briefly used Cloudflare Email Routing to forward
+support@ into the Microsoft tenant. Every forwarded message was quarantined by Microsoft's
+anti-phishing policy — forwarding breaks the sender check by design, so mail arrives looking
+spoofed and vanishes into a quarantine invisible from Outlook. Fixed by pointing MX straight
+at Microsoft (no forwarding hop). **Don't reintroduce mail forwarding into an M365 tenant.**
+
+Verified working after the migration: a password-reset email (Supabase Auth → Resend →
+`@abniyah.com`) delivered normally, and inbound mail to `support@abniyah.com` lands in the
+shared mailbox.
 
 ## Secrets & configuration — where they live
 
