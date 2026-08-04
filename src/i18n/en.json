@@ -244,9 +244,11 @@
     }
   },
   "bio": {
-    "reason": "Unlock Abniyah",
-    "lockedTitle": "Abniyah is locked",
-    "unlock": "Unlock"
+    "reason": "Sign in to Abniyah",
+    "lockedTitle": "Sign in with Face ID to continue.",
+    "failed": "That didn't work. Try again, or sign in with your password.",
+    "unlock": "Sign in with Face ID",
+    "usePassword": "Use my password instead"
   },
   "reports": {
     "title": "Reports",
@@ -1270,11 +1272,11 @@
     "notifyWhatsapp": "WhatsApp me",
     "whatsappNeedsPhone": "Save your mobile number first. WhatsApp needs somewhere to reach you.",
     "deviceSecurity": "Security on this device",
-    "bioLockLabel": "Require Face ID / biometrics to open Abniyah",
-    "bioLockHint": "Locks the app whenever you leave it. Uses this device's Face ID, Touch ID or passcode; your account and other devices are unaffected.",
+    "bioLockLabel": "Sign in with Face ID",
+    "bioLockHint": "Open Abniyah with Face ID, Touch ID or your device passcode instead of typing your password. Asked once when you open the app, including after restarting your phone, and not every time you switch away. Signing out still requires your password next time.",
     "bioUnavailable": "Face ID / biometrics aren't set up on this device.",
-    "bioEnabled": "App lock enabled.",
-    "bioDisabled": "App lock disabled.",
+    "bioEnabled": "Face ID sign-in enabled.",
+    "bioDisabled": "Face ID sign-in disabled.",
     "bioFailed": "Authentication didn't complete. Nothing changed.",
     "channelRequired": "Keep at least one notification channel on (email or WhatsApp), otherwise building notices can't reach you.",
     "changePhoto": "Change photo",

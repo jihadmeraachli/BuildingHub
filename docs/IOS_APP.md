@@ -61,18 +61,32 @@ In Xcode:
    first time, approve the developer cert on the phone
    (Settings → General → VPN & Device Management).
 
-## Face ID app lock (one-time native step)
+## Face ID sign-in (one-time native step)
 
-The app-lock feature (Settings → "Security on this device") uses the
-`@aparajita/capacitor-biometric-auth` plugin. After pulling code that includes
-it, run `npm install` and `npx cap sync ios` as usual — plus ONE manual step,
-because the `ios/` project isn't committed:
+Settings → "Sign in with Face ID" uses the `@aparajita/capacitor-biometric-auth`
+plugin. After pulling code that includes it, run `npm install` and
+`npx cap sync ios` as usual — plus ONE manual step, because the `ios/` project
+isn't committed:
 
 1. Xcode → blue **App** project → target **App** → **Info** tab.
 2. Add a new row: key **"Privacy - Face ID Usage Description"**
    (`NSFaceIDUsageDescription`), value: `Abniyah uses Face ID to protect your building data.`
-3. Build & run. Toggle the lock in the app's Settings, background the app,
-   reopen — Face ID prompt should appear.
+3. Build & run, turn the toggle on, then **fully quit the app** (swipe it away
+   in the app switcher) and reopen — the Face ID prompt should appear before
+   any app content. Restarting the phone should behave the same.
+
+**What it does (changed 2026-08-04, #55):** the prompt fires once **per
+launch** — cold start or first open after a device restart — and NOT when you
+merely switch away and come back. The earlier behaviour re-locked on every
+backgrounding, which made routine app switching tedious.
+
+It gates the *saved session*: Supabase keeps you signed in on the device, so
+without it the app opens straight into a building's finances for whoever holds
+the phone. It does **not** replace the password after an explicit sign-out —
+that would mean stashing a credential in the Keychain (a second native plugin),
+and signing out should genuinely mean signing out. "Use my password instead" on
+the gate signs out and falls back to the normal login form, so a failed or
+broken Face ID is never a dead end.
 
 ⚠️ Re-add this row any time you delete and regenerate the `ios/` folder
 (`npx cap add ios` starts fresh). Without it, iOS kills the app when Face ID

@@ -11,7 +11,7 @@ import { isDemoEmail } from '@/lib/demo';
 import { uploadFile } from '@/lib/upload';
 import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
-import { isNativeApp, bioLockEnabled, setBioLockEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
+import { isNativeApp, bioLoginEnabled, setBioLoginEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
 import { setLanguage } from '@/i18n';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
@@ -42,9 +42,9 @@ function SettingsInner() {
   const [notifyWhatsapp, setNotifyWhatsapp] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // ---- device app lock (native app only) ----
+  // ---- Face ID sign-in (native app only) ----
   const [bioAvail, setBioAvail] = useState(false);
-  const [bioOn, setBioOn] = useState(() => bioLockEnabled());
+  const [bioOn, setBioOn] = useState(() => bioLoginEnabled());
   const [bioBusy, setBioBusy] = useState(false);
   useEffect(() => { if (isNativeApp) bioAvailable().then(setBioAvail); }, []);
 
@@ -55,7 +55,7 @@ function SettingsInner() {
     const ok = await bioAuthenticate(t('bio.reason'));
     setBioBusy(false);
     if (!ok) { toast.error(t('settings.bioFailed')); return; }
-    setBioLockEnabled(on);
+    setBioLoginEnabled(on);
     setBioOn(on);
     toast.success(on ? t('settings.bioEnabled') : t('settings.bioDisabled'));
   }

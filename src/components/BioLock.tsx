@@ -1,65 +1,100 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Fingerprint } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { Button } from '@/components/ui/Button';
-import { isNativeApp, bioLockEnabled, bioAuthenticate } from '@/lib/biolock';
+import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
 
 /**
- * Native-app lock screen: when the user has enabled it in Settings, the app
- * locks every time it goes to the background and asks for Face ID / Touch ID
- * (device passcode fallback) on return. The app stays mounted underneath —
- * the overlay only hides it — so unlocking is instant and loses no state.
+ * Face ID sign-in gate for the native app (#55).
+ *
+ * Runs ONCE per launch — cold start, or the first open after a device restart.
+ * Backgrounding the app does not re-lock it; that was the old behaviour and it
+ * made every app switch a Face ID prompt.
+ *
+ * Only gates when there is actually a saved session to protect. Signed out,
+ * the login screen is already the gate, so we skip straight through rather
+ * than asking for a face to reveal a password form.
  */
+type Status = 'checking' | 'locked' | 'open';
+
 export function BioLock({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const [locked, setLocked] = useState(() => bioLockEnabled());
+  const [status, setStatus] = useState<Status>(
+    () => (isNativeApp && bioLoginEnabled() ? 'checking' : 'open'),
+  );
   const [prompting, setPrompting] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // Is there a session worth protecting? Reads the persisted session directly —
+  // this sits outside AuthProvider, so there is no context to lean on.
+  useEffect(() => {
+    if (status !== 'checking') return;
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setStatus(data.session ? 'locked' : 'open');
+    });
+    return () => { cancelled = true; };
+  }, [status]);
 
   const unlock = useCallback(async () => {
     if (prompting) return;
     setPrompting(true);
     const ok = await bioAuthenticate(t('bio.reason'));
     setPrompting(false);
-    if (ok) setLocked(false);
+    if (ok) setStatus('open');
+    else setFailed(true);
   }, [prompting, t]);
 
-  // Re-lock whenever the app is backgrounded (iOS app switcher, home screen).
+  // Prompt as soon as we know the app is locked.
   useEffect(() => {
-    if (!isNativeApp) return;
-    const onVis = () => {
-      if (document.visibilityState === 'hidden' && bioLockEnabled()) setLocked(true);
-    };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
+    if (status === 'locked' && document.visibilityState === 'visible') unlock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  /** Escape hatch: sign out and fall back to email + password. Without this a
+   *  failed or unavailable Face ID would be a dead end on the user's own app. */
+  const usePassword = useCallback(async () => {
+    await supabase.auth.signOut();
+    setStatus('open');
   }, []);
 
-  // Prompt automatically the moment we lock / launch locked.
-  useEffect(() => {
-    if (locked && document.visibilityState === 'visible') unlock();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locked]);
-
-  return (
-    <>
-      {children}
-      {locked && (
-        <div
-          className="fixed inset-0 z-[1000] flex flex-col items-center justify-center gap-6 bg-background"
-          style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <Logo size={36} />
-            <Wordmark className="text-base text-foreground" />
-          </div>
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Fingerprint size={30} className="text-primary" />
-          </div>
-          <p className="text-sm text-muted-foreground">{t('bio.lockedTitle')}</p>
-          <Button onClick={unlock} loading={prompting}>{t('bio.unlock')}</Button>
+  // Nothing rendered underneath until Face ID passes — the whole point is that
+  // the session is not visible to whoever is holding the phone.
+  if (status !== 'open') {
+    return (
+      <div
+        className="fixed inset-0 z-[1000] flex flex-col items-center justify-center gap-6 bg-background px-8"
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <Logo size={36} />
+          <Wordmark className="text-base text-foreground" />
         </div>
-      )}
-    </>
-  );
+        {status === 'locked' && (
+          <>
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Fingerprint size={30} className="text-primary" />
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              {failed ? t('bio.failed') : t('bio.lockedTitle')}
+            </p>
+            <div className="flex flex-col items-center gap-3">
+              <Button onClick={unlock} loading={prompting}>{t('bio.unlock')}</Button>
+              <button
+                onClick={usePassword}
+                className="text-xs text-muted-foreground hover:text-foreground underline cursor-pointer"
+              >
+                {t('bio.usePassword')}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
