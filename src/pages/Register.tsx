@@ -6,6 +6,7 @@ import { LICENSE_CAPS } from '@/lib/licenseCaps';
 import { useAuth } from '@/contexts/AuthContext';
 import { setLanguage } from '@/i18n';
 import { Input } from '@/components/ui/Input';
+import { CitySelect } from '@/components/ui/CitySelect';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
@@ -214,27 +215,11 @@ export default function Register() {
             onChange={e => set({ entityName: e.target.value })}
             placeholder={t(`register.entityPlaceholder.${nounKey(role)}`)}
           />
+          {/* Same picker as Buildings/Compounds — free text here was the main
+              source of inconsistent city values (0060-era records have
+              "beirut", "Beirut" and "Bayrut" all meaning one place). */}
           {needsCity && (
-            <>
-              <Input
-                label={t('register.city')}
-                value={state.city}
-                onChange={e => set({ city: e.target.value })}
-                placeholder={t('register.cityPlaceholder')}
-                list="lb-cities"
-              />
-              {/* Searchable suggestions (native datalist); free text still allowed. */}
-              <datalist id="lb-cities">
-                {['Beirut', 'Tripoli', 'Saida', 'Tyre', 'Jounieh', 'Zahle', 'Baalbek', 'Jbeil', 'Aley',
-                  'Nabatieh', 'Batroun', 'Zgharta', 'Bcharre', 'Amioun', 'Baabda', 'Antelias', 'Jal el Dib',
-                  'Dbayeh', 'Broummana', 'Beit Mery', 'Hazmieh', 'Furn el Chebbak', 'Achrafieh', 'Hamra',
-                  'Verdun', 'Ras Beirut', 'Dora', 'Bourj Hammoud', 'Zalka', 'Kaslik', 'Adma', 'Byblos',
-                  'Chekka', 'Halba', 'Hermel', 'Rashaya', 'Hasbaya', 'Jezzine', 'Marjayoun', 'Bint Jbeil',
-                  'Aanjar', 'Chtaura', 'Jib Jannine', 'Damour', 'Choueifat', 'Bchamoun', 'Aramoun'].map(c => (
-                    <option key={c} value={c} />
-                  ))}
-              </datalist>
-            </>
+            <CitySelect label={t('register.city')} value={state.city} onChange={v => set({ city: v })} />
           )}
         </div>
       </>

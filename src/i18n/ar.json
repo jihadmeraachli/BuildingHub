@@ -2,6 +2,9 @@
   "common": {
     "appName": "BuildingHub",
     "loading": "جارٍ التحميل...",
+    "selectCity": "اختر مدينة أو منطقة",
+    "searchCity": "اكتب للبحث...",
+    "noCityMatch": "لا يوجد مكان مطابق.",
     "save": "حفظ",
     "cancel": "إلغاء",
     "delete": "حذف",

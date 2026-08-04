@@ -11,7 +11,8 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, SelectInput } from '@/components/ui/Input';
 import { PhoneInput } from '@/components/ui/PhoneInput';
-import { LEBANON_CITIES, COUNTRIES } from '@/lib/locationData';
+import { COUNTRIES } from '@/lib/locationData';
+import { CitySelect } from '@/components/ui/CitySelect';
 import { Controller } from 'react-hook-form';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
@@ -648,10 +649,14 @@ export default function Buildings() {
           <Input label={t('buildings.name')} {...register('name', { required: true })} />
           <Input label={t('buildings.address')} {...register('address', { required: true })} />
           <div className="grid grid-cols-2 gap-3">
-            <SelectInput label={t('buildings.city')} {...register('city', { required: true })}>
-              <option value="">— {t('buildings.city')} —</option>
-              {LEBANON_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </SelectInput>
+            <Controller
+              name="city"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <CitySelect label={t('buildings.city')} value={field.value ?? ''} onChange={field.onChange} />
+              )}
+            />
             <SelectInput label={t('buildings.country')} defaultValue="Lebanon" {...register('country', { required: true })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
             </SelectInput>
@@ -686,10 +691,7 @@ export default function Buildings() {
           <Input label={t('buildings.name')} value={ebForm.name} onChange={e => setEbForm({ ...ebForm, name: e.target.value })} />
           <Input label={t('buildings.address')} value={ebForm.address} onChange={e => setEbForm({ ...ebForm, address: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <SelectInput label={t('buildings.city')} value={ebForm.city} onChange={e => setEbForm({ ...ebForm, city: e.target.value })}>
-              <option value="">— {t('buildings.city')} —</option>
-              {LEBANON_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </SelectInput>
+            <CitySelect label={t('buildings.city')} value={ebForm.city} onChange={v => setEbForm({ ...ebForm, city: v })} />
             <SelectInput label={t('buildings.country')} value={ebForm.country} onChange={e => setEbForm({ ...ebForm, country: e.target.value })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
             </SelectInput>

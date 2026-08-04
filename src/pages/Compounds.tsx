@@ -10,7 +10,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, SelectInput } from '@/components/ui/Input';
 import { SelectField, SelectItem } from '@/components/ui/Select';
-import { LEBANON_CITIES, COUNTRIES } from '@/lib/locationData';
+import { COUNTRIES } from '@/lib/locationData';
+import { CitySelect } from '@/components/ui/CitySelect';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -379,10 +380,7 @@ export default function Compounds() {
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} placeholder="Marina Gardens" />
           <div className="grid grid-cols-2 gap-3">
-            <SelectInput label={t('buildings.city')} value={addForm.city} onChange={e => setAddForm({ ...addForm, city: e.target.value })}>
-              <option value="">— {t('buildings.city')} —</option>
-              {LEBANON_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </SelectInput>
+            <CitySelect label={t('buildings.city')} value={addForm.city} onChange={v => setAddForm({ ...addForm, city: v })} />
             <SelectInput label={t('buildings.country')} value={addForm.country} onChange={e => setAddForm({ ...addForm, country: e.target.value })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
             </SelectInput>
@@ -399,10 +397,7 @@ export default function Compounds() {
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <SelectInput label={t('buildings.city')} value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })}>
-              <option value="">— {t('buildings.city')} —</option>
-              {LEBANON_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </SelectInput>
+            <CitySelect label={t('buildings.city')} value={editForm.city} onChange={v => setEditForm({ ...editForm, city: v })} />
             <SelectInput label={t('buildings.country')} value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
             </SelectInput>
