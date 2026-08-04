@@ -6,6 +6,7 @@ import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { Button } from '@/components/ui/Button';
 import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
+import { loadDevicePrefs } from '@/lib/devicePrefs';
 
 /**
  * Face ID sign-in gate for the native app (#55).
@@ -22,20 +23,25 @@ type Status = 'checking' | 'locked' | 'open';
 
 export function BioLock({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<Status>(
-    () => (isNativeApp && bioLoginEnabled() ? 'checking' : 'open'),
-  );
+  // Always start by checking on native: the Face ID preference lives in the
+  // Keychain and reading it is async, so we cannot decide synchronously here.
+  const [status, setStatus] = useState<Status>(() => (isNativeApp ? 'checking' : 'open'));
   const [prompting, setPrompting] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  // Is there a session worth protecting? Reads the persisted session directly —
-  // this sits outside AuthProvider, so there is no context to lean on.
   useEffect(() => {
     if (status !== 'checking') return;
     let cancelled = false;
-    supabase.auth.getSession().then(({ data }) => {
+    (async () => {
+      // Load prefs FIRST — everything downstream reads them synchronously.
+      await loadDevicePrefs();
+      if (cancelled) return;
+      if (!bioLoginEnabled()) { setStatus('open'); return; }
+      // Only gate when there is a session worth protecting. This sits outside
+      // AuthProvider, so read the persisted session directly.
+      const { data } = await supabase.auth.getSession();
       if (!cancelled) setStatus(data.session ? 'locked' : 'open');
-    });
+    })();
     return () => { cancelled = true; };
   }, [status]);
 

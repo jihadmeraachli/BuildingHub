@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
+import { getPref, setPref, removePref, PREF_BIO_LOGIN } from '@/lib/devicePrefs';
 
 /**
  * Face ID / Touch ID sign-in for the native app (#55).
@@ -18,17 +19,17 @@ import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
  *
  * Preference is per device, in localStorage.
  */
-// Legacy key name: kept so devices that had the old app lock enabled keep
-// their preference instead of silently losing it.
-const KEY = 'abniyah_biolock';
-
 export const isNativeApp = Capacitor.isNativePlatform();
 
-export const bioLoginEnabled = () => isNativeApp && localStorage.getItem(KEY) === '1';
+// The preference lives in the Keychain, NOT localStorage: iOS clears web
+// storage when the app is terminated, so a localStorage flag meant the app
+// forgot Face ID was enabled on every relaunch — precisely the launch this
+// feature exists for. Reads assume loadDevicePrefs() has already resolved.
+export const bioLoginEnabled = () => isNativeApp && getPref(PREF_BIO_LOGIN) === '1';
 
 export const setBioLoginEnabled = (on: boolean) => {
-  if (on) localStorage.setItem(KEY, '1');
-  else localStorage.removeItem(KEY);
+  if (on) setPref(PREF_BIO_LOGIN, '1');
+  else removePref(PREF_BIO_LOGIN);
 };
 
 export async function bioAvailable(): Promise<boolean> {

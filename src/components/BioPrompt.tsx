@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import {
   isNativeApp, bioAvailable, bioAuthenticate, bioLoginEnabled, setBioLoginEnabled,
 } from '@/lib/biolock';
+import { getPref, setPref, PREF_BIO_ASKED } from '@/lib/devicePrefs';
 
 /**
  * Offers Face ID sign-in once, just after the user has signed in on the native
@@ -19,7 +20,8 @@ import {
  * that reappears every login is worse than no prompt at all. Settings stays
  * the way back in for anyone who changes their mind.
  */
-const ASKED_KEY = 'abniyah_bio_asked';
+// In devicePrefs (Keychain on iOS), not localStorage — otherwise closing the
+// app forgets the decline and the prompt returns on every launch.
 
 export function BioPrompt() {
   const { t } = useTranslation();
@@ -31,11 +33,11 @@ export function BioPrompt() {
     if (!isNativeApp || !user) return;
     if (isDemoEmail(user.email)) return;              // demo personas are read-only
     if (bioLoginEnabled()) return;                    // already on
-    if (localStorage.getItem(ASKED_KEY) === '1') return;
+    if (getPref(PREF_BIO_ASKED) === '1') return;
     bioAvailable().then((ok) => { if (ok) setOpen(true); });
   }, [user]);
 
-  function remember() { localStorage.setItem(ASKED_KEY, '1'); }
+  function remember() { setPref(PREF_BIO_ASKED, '1'); }
 
   async function enable() {
     setBusy(true);

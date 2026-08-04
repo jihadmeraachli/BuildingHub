@@ -102,6 +102,15 @@ which does survive termination and device restarts.
   entitlement or usage description. `npm install` + `npx cap sync ios` is
   enough. (The Face ID usage description above is still required.)
 
+⚠️ **Anything that must survive the app closing goes in `src/lib/devicePrefs.ts`,
+never `localStorage`.** iOS clears the web view's storage on termination. The
+first cut of this feature put the session in the Keychain but left the "Face ID
+is on" flag in localStorage, so relaunching forgot the setting, skipped the
+gate and fell back to the password screen — the exact launch the feature exists
+for. The remembered email and the "already offered Face ID" flag had the same
+bug. `devicePrefs` reads are synchronous against a cache that
+`loadDevicePrefs()` fills, and `BioLock` awaits it before deciding anything.
+
 ⚠️ Re-add this row any time you delete and regenerate the `ios/` folder
 (`npx cap add ios` starts fresh). Without it, iOS kills the app when Face ID
 is invoked.

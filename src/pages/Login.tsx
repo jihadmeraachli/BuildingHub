@@ -12,6 +12,7 @@ import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { setLanguage } from '@/i18n';
 import { Globe, ArrowLeft, Mail, Smartphone } from 'lucide-react';
+import { getPref, setPref, PREF_LAST_EMAIL } from '@/lib/devicePrefs';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -21,9 +22,9 @@ const loginSchema = z.object({
 type LoginData = z.infer<typeof loginSchema>;
 type Mode = 'login' | 'forgot' | 'forgot-sent' | 'mfa';
 
-/** Last address signed in on this device. Convenience only — no password, and
- *  it survives sign-out deliberately, which is the whole point. */
-const LAST_EMAIL_KEY = 'abniyah_last_email';
+// The remembered address lives in devicePrefs (Keychain on iOS), not
+// localStorage — iOS clears web storage when the app is closed, which is
+// exactly when remembering it matters.
 
 export default function Login() {
   const { t, i18n } = useTranslation();
@@ -40,7 +41,7 @@ export default function Login() {
   // the password — so a returning user types one field instead of two.
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: localStorage.getItem(LAST_EMAIL_KEY) ?? '' },
+    defaultValues: { email: getPref(PREF_LAST_EMAIL) ?? '' },
   });
 
   // A password-only session on a 2FA account gets bounced here by ProtectedRoute —
@@ -61,7 +62,7 @@ export default function Login() {
     setError('');
     const { data: signInData, error } = await supabase.auth.signInWithPassword(data);
     if (error) { setError(t('auth.invalidCredentials')); return; }
-    localStorage.setItem(LAST_EMAIL_KEY, data.email.trim());
+    setPref(PREF_LAST_EMAIL, data.email.trim());
     // 2FA enrolled? Then the password only gets us to aal1 — ask for the code.
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
