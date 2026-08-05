@@ -141,6 +141,34 @@ alongside the existing email and WhatsApp on the same events.
 ⚠️ Re-add both after any `npx cap add ios` regeneration, like the Face ID usage
 description and Associated Domains.
 
+### The AppDelegate relay (the one that is easy to miss)
+
+Capacitor's generated `AppDelegate.swift` does **not** forward Apple's
+registration callbacks to the plugin, and the push plugin needs you to add them
+by hand. Without them iOS registers normally, Apple returns the device token to
+the native layer, and it stops there — JavaScript sees neither a token nor an
+error, just silence. Add inside the `AppDelegate` class in
+`ios/App/App/AppDelegate.swift`:
+
+```swift
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+}
+
+func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+}
+```
+
+Check with `grep -n "RemoteNotifications" ios/App/App/AppDelegate.swift` — no
+output means it is missing. ⚠️ Re-add after any `npx cap add ios` regeneration.
+
+**`aps-environment` in `ios/App/App/App.entitlements` must read `production`**
+for TestFlight and the App Store. Xcode writes `development` there and re-adding
+the Push Notifications capability resets it. `development` on a distribution
+build is a signing mismatch; the cost is that running straight from Xcode onto a
+device then needs it flipped back.
+
 **Apple side (already done):** App ID `com.abniyah.app` has Push Notifications
 enabled, and an APNs key exists — Key ID `222WU36W5N`, Team ID `8PHJEU7CDL`,
 scoped to **Sandbox & Production**. That last choice matters: TestFlight and the
