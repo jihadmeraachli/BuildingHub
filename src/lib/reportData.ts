@@ -484,3 +484,41 @@ export function buildBudgetVsActual(
     totalActual: r2(rows.reduce((s, r) => s + r.actual, 0)),
   };
 }
+
+// ============================================================
+// PAYMENT REQUEST LINES (0088). What each party is asked for, optionally AS OF
+// a date: the balance at the cutoff, net of payments dated after it — someone
+// who owed 500 on July 31 and paid 300 on August 2 is asked 200. Charges after
+// the cutoff are exactly what the as-of excludes. Mirrors request_payment() in
+// SQL so the preview IS the request.
+// ============================================================
+export interface RequestLinePreview {
+  unit: Unit;
+  party: Tenure;
+  tenantId: string | null;
+  amount: number;
+}
+
+export function requestLinesAsOf(
+  units: Unit[], charges: Charge[], payments: Payment[], adjustments: Adjustment[],
+  th: TenancyHelpers, asOf: string | null,
+): RequestLinePreview[] {
+  const out: RequestLinePreview[] = [];
+  for (const u of units) {
+    const c = charges.filter((x) => x.unit_id === u.id && !x.voided_at);
+    const p = payments.filter((x) => x.unit_id === u.id && !x.voided_at);
+    const a = adjustments.filter((x) => x.unit_id === u.id && !x.voided_at);
+    const bal = computeUnitBalances(u, c, p, a, asOf || null);
+    const paidAfter = (party: Tenure) => !asOf ? 0 :
+      p.filter((x) => x.paid_on > asOf
+          && (party === 'tenant' ? x.paid_by === 'tenant' : x.paid_by !== 'tenant'))
+        .reduce((s, x) => s + Number(x.amount_usd), 0);
+    for (const party of ['owner', 'tenant'] as Tenure[]) {
+      const owed = round2(-(party === 'owner' ? bal.owner : bal.tenant) - paidAfter(party));
+      if (owed > 0) {
+        out.push({ unit: u, party, tenantId: party === 'tenant' ? th.activeTenantId(u.id) : null, amount: owed });
+      }
+    }
+  }
+  return out;
+}

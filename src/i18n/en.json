@@ -1077,7 +1077,10 @@
     "amountLbp": "Amount (LBP)",
     "lbpRate": "Rate (LL per USD)",
     "totalUsd": "Total",
-    "lbpNeedsRate": "Enter the LBP exchange rate to convert the LBP amount."
+    "lbpNeedsRate": "Enter the LBP exchange rate to convert the LBP amount.",
+    "requestAsOf": "Request balances as of",
+    "requestAsOfHint": "Asks what was owed on {{date}}, minus anything paid since. Charges after that date wait for the next request.",
+    "requestAsOfLive": "Leave empty to request today's balances."
   },
   "inspections": {
     "title": "Inspections",
