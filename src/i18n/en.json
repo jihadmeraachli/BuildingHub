@@ -1383,5 +1383,31 @@
     "mfaDisabledToast": "Two-factor authentication disabled",
     "mfaInvalidCode": "That code didn't work. Try again",
     "mfaDisableConfirm": "Turn off two-factor authentication? Your account will then be protected by your password only."
+  },
+  "metering": {
+    "tab": "Metering",
+    "newCycle": "New cycle",
+    "noCycles": "No cycles recorded yet.",
+    "noMetered": "No metered expense types.",
+    "noMeteredHint": "Mark generator or water as metered in the building settings:",
+    "period": "Period",
+    "opening": "Opening stock",
+    "boughtQty": "Quantity bought",
+    "boughtUsd": "Cost of purchase (USD)",
+    "closing": "Closing stock",
+    "stockTitle": "Stock (fuel / water)",
+    "stockMath": "Consumed {{consumed}} at an average {{unitCost}} each = {{total}} to allocate.",
+    "readingsTitle": "Meter readings",
+    "commonAreas": "Common areas",
+    "start": "Start",
+    "end": "End",
+    "commonSplit": "Split the common areas",
+    "consumed": "used",
+    "commonShort": "common",
+    "previewHead": "Per unit at {{rate}} per unit of consumption",
+    "warnings": "Some readings go backwards or the stock math is negative - those rows were clamped to zero. Double-check before finalizing.",
+    "nothingToPost": "Nothing to post: the cycle computes to zero.",
+    "posted": "Cycle finalized - {{amount}} posted as an expense with per-unit charges.",
+    "finalize": "Finalize & post expense"
   }
 }

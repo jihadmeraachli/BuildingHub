@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send, Gauge } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { MultiSelect } from '@/components/ui/MultiSelect';
+import { MeteringPanel } from '@/components/MeteringPanel';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { MonthPicker } from '@/components/ui/MonthPicker';
@@ -116,7 +117,7 @@ export default function Finance() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
 
-  const [tab, setTab] = useState<'book' | 'expenses' | 'payments' | 'adjustments'>('book');
+  const [tab, setTab] = useState<'book' | 'expenses' | 'payments' | 'adjustments' | 'metering'>('book');
   // Book "as of" date — empty = today/live. Lets you pull a statement position
   // at a past date (e.g. year-end). Only affects the Book tab. (0033)
   const [asOf, setAsOf] = useState<string>('');
@@ -952,6 +953,7 @@ export default function Finance() {
                 { key: 'expenses', label: t('finance.expenses'), icon: Receipt },
                 { key: 'payments', label: t('finance.payments'), icon: HandCoins },
                 { key: 'adjustments', label: t('finance.adjustments'), icon: Scale },
+                { key: 'metering', label: t('metering.tab'), icon: Gauge },
               ]}
             />
             {/* Contextual toolbar: each tab shows ITS action. Record Payment
@@ -993,6 +995,17 @@ export default function Finance() {
             </div></CardBody></Card>
           ) : loading ? <SkeletonTable rows={6} cols={5} /> : (
             <>
+              {tab === 'metering' && entity && (
+                <MeteringPanel
+                  entity={{ kind: entity.kind, id: entity.id, name: entity.name }}
+                  units={units}
+                  canManage={canManageFinance}
+                  hasTenant={hasTenant}
+                  activeTenantId={activeTenantId}
+                  profileId={profile?.id}
+                  onPosted={loadScope}
+                />
+              )}
               {tab === 'book' && (
                 <>
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
