@@ -814,7 +814,13 @@
     "searchResults": "{{count}} of {{total}} buildings",
     "dueDays": "Days to pay",
     "dueDaysN": "{{count}} days",
-    "dueDaysHint": "How long residents get after a payment request is sent. Also prefills the due date when dues are generated."
+    "dueDaysHint": "How long residents get after a payment request is sent. Also prefills the due date when dues are generated.",
+    "expenseTypes": "Expense types",
+    "expenseTypesHint": "The categories expenses and budget lines pick from. Add as many as the building needs; mark generator or water as metered to record readings for them.",
+    "metered": "Metered",
+    "typeDisable": "Disable",
+    "typeEnable": "Enable",
+    "newTypePlaceholder": "e.g. Fuel, Gardening, Elevator maintenance"
   },
   "structure": {
     "title": "Structure",

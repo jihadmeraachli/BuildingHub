@@ -6,7 +6,8 @@ import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X, Chevr
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Building, Compound, Organization } from '@/types';
+import { useExpenseTypes } from '@/lib/expenseTypes';
+import type { Building, Compound, Organization, ExpenseType } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, SelectInput } from '@/components/ui/Input';
@@ -733,6 +734,15 @@ export default function Buildings() {
             </SelectField>
             <p className="text-xs text-muted-foreground mt-1">{t('buildings.dueDaysHint')}</p>
           </div>
+          {/* Expense types (0085): the building's own catalog. Expenses, budget
+              lines and metering all pick from it. A block inside a compound
+              manages the COMPOUND's catalog — it governs, like billing_mode. */}
+          {editB && (
+            <ExpenseTypesManager
+              scopeKind={editB.compound_id ? 'compound' : 'building'}
+              scopeId={editB.compound_id ?? editB.id}
+            />
+          )}
           <div>
             <Input
               label={t('buildings.whishNumber')}
@@ -785,6 +795,70 @@ export default function Buildings() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+/** The building's expense catalog: add, rename-free (name is identity), toggle
+ *  metered, deactivate. Deactivation hides a type from pickers without touching
+ *  the expenses already filed under it. */
+function ExpenseTypesManager({ scopeKind, scopeId }: { scopeKind: 'compound' | 'building'; scopeId: string }) {
+  const { t } = useTranslation();
+  const { types, reload } = useExpenseTypes(scopeKind, scopeId);
+  const [newName, setNewName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    const name = newName.trim();
+    if (!name) return;
+    setBusy(true);
+    const { error } = await supabase.from('expense_types').insert({
+      building_id: scopeKind === 'building' ? scopeId : null,
+      compound_id: scopeKind === 'compound' ? scopeId : null,
+      name, sort_order: 100,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    setNewName(''); reload();
+  }
+
+  async function patch(id: string, fields: Partial<ExpenseType>) {
+    const { error } = await supabase.from('expense_types').update(fields).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    reload();
+  }
+
+  return (
+    <div className="rounded-xl border border-border p-3">
+      <p className="text-sm font-medium text-foreground">{t('buildings.expenseTypes')}</p>
+      <p className="text-xs text-muted-foreground mt-0.5 mb-2">{t('buildings.expenseTypesHint')}</p>
+      <div className="max-h-44 overflow-y-auto divide-y divide-border/60 mb-2">
+        {types.map((ty) => (
+          <div key={ty.id} className={cn('flex items-center justify-between gap-2 py-1.5 text-sm', !ty.active && 'opacity-50')}>
+            <span className="text-foreground truncate">{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</span>
+            <span className="flex items-center gap-3 shrink-0 text-xs">
+              <label className="flex items-center gap-1 cursor-pointer text-muted-foreground">
+                <input type="checkbox" className="accent-primary" checked={ty.is_metered}
+                  onChange={(e) => patch(ty.id, { is_metered: e.target.checked })} />
+                {t('buildings.metered')}
+              </label>
+              <button type="button" onClick={() => patch(ty.id, { active: !ty.active })}
+                className="text-primary hover:underline cursor-pointer">
+                {ty.active ? t('buildings.typeDisable') : t('buildings.typeEnable')}
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input value={newName} onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+          placeholder={t('buildings.newTypePlaceholder')}
+          className="flex-1 rounded-lg border border-border bg-background text-foreground px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
+        <Button type="button" variant="secondary" size="sm" onClick={add} loading={busy} disabled={!newName.trim()}>
+          {t('common.add')}
+        </Button>
+      </div>
     </div>
   );
 }

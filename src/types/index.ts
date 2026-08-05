@@ -205,11 +205,28 @@ export interface Group {
   created_at: string;
 }
 
+/** A building/compound's own expense catalog (0085). Seeded rows keep the
+ *  legacy enum in `key`; custom rows have key NULL and file under 'other'. */
+export interface ExpenseType {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  key: string | null;
+  name: string;
+  /** metered types (generator/water) get the metering module (0090) */
+  is_metered: boolean;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Expense {
   id: string;
   building_id: string | null;
   compound_id: string | null;
   category: ExpenseCategory;
+  /** the catalog row this expense belongs to (0085); category is the legacy mirror */
+  expense_type_id?: string | null;
   description: string;
   amount_usd: number;
   expense_date: string;
