@@ -1415,6 +1415,11 @@
     "warnings": "Some readings go backwards or the stock math is negative - those rows were clamped to zero. Double-check before finalizing.",
     "nothingToPost": "Nothing to post: the cycle computes to zero.",
     "posted": "Cycle finalized - {{amount}} posted as an expense with per-unit charges.",
-    "finalize": "Finalize & post expense"
+    "finalize": "Finalize & post expense",
+    "editCycle": "Edit cycle",
+    "refinalize": "Recompute & re-post",
+    "reposted": "Cycle updated - {{amount}} re-posted; the old charges were replaced.",
+    "deleteConfirm": "Delete this cycle? Its posted expense and every charge derived from it are removed together, and residents' balances move back. Payments already made stay as credit.",
+    "deleted": "Cycle deleted - its expense and charges were removed."
   }
 }

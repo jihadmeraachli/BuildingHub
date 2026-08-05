@@ -7,7 +7,7 @@
 // ============================================================
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Gauge } from 'lucide-react';
+import { Plus, Gauge, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,8 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(u
 interface CycleRow {
   id: string; expense_type_id: string; period_start: string; period_end: string;
   opening_stock: number; added_qty: number; added_cost_usd: number; closing_stock: number;
+  added_cost_lbp: number | null; lbp_rate: number | null;
+  common_method: 'equal' | 'by_shares'; billed_to: 'tenant_where_leased' | 'owner';
   status: string; expense_id: string | null; created_at: string;
 }
 
@@ -62,6 +64,9 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
   // ── the new-cycle form ────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // editing an existing cycle re-derives and RE-POSTS: the expense amount and
+  // its charges are replaced, exactly like editing an ordinary expense
+  const [editingCycle, setEditingCycle] = useState<CycleRow | null>(null);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [openingStock, setOpeningStock] = useState('');
@@ -76,6 +81,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
   const COMMON = '__common__';
 
   async function openCycle() {
+    setEditingCycle(null);
     setFrom(''); setTo(''); setAddedQty(''); setAddedUsd(''); setAddedLbp('');
     setCommonMethod('by_shares'); setBilledTo('tenant_where_leased');
     // prefill: last cycle's closing stock and end readings become the starts
@@ -97,6 +103,40 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
       setLbpRate(data ? String(data) : '');
     } else setLbpRate('');
     setOpen(true);
+  }
+
+  async function openCycleEdit(c: CycleRow) {
+    setEditingCycle(c);
+    setFrom(c.period_start); setTo(c.period_end);
+    setOpeningStock(String(c.opening_stock)); setAddedQty(String(c.added_qty));
+    // split the stored cost back into the USD part + the LBP log (0086)
+    const lbp = Number(c.added_cost_lbp ?? 0);
+    const rate = Number(c.lbp_rate ?? 0);
+    setAddedLbp(lbp > 0 ? String(lbp) : '');
+    setLbpRate(rate > 0 ? String(rate) : '');
+    setAddedUsd(String(Math.round((Number(c.added_cost_usd) - (lbp > 0 && rate > 0 ? lbp / rate : 0)) * 100) / 100));
+    setClosingStock(String(c.closing_stock));
+    setCommonMethod(c.common_method); setBilledTo(c.billed_to);
+    const init: Record<string, { start: string; end: string }> = { [COMMON]: { start: '', end: '' } };
+    for (const u of units) init[u.id] = { start: '', end: '' };
+    const { data } = await supabase.from('meter_readings').select('unit_id, start_reading, end_reading').eq('cycle_id', c.id);
+    for (const r of ((data ?? []) as { unit_id: string | null; start_reading: number; end_reading: number }[])) {
+      init[r.unit_id ?? COMMON] = { start: String(r.start_reading), end: String(r.end_reading) };
+    }
+    setReads(init);
+    setOpen(true);
+  }
+
+  async function deleteCycle(c: CycleRow) {
+    if (!confirm(t('metering.deleteConfirm'))) return;
+    if (c.expense_id) {
+      const { error } = await supabase.from('expenses').delete().eq('id', c.expense_id);
+      if (error) { toast.error(error.message); return; }
+    }
+    const { error } = await supabase.from('meter_cycles').delete().eq('id', c.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('metering.deleted'));
+    loadCycles(); onPosted();
   }
 
   const readingDrafts: MeterReadingDraft[] = useMemo(() =>
@@ -122,18 +162,31 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
     if (result.chargesTotal <= 0) { toast.error(t('metering.nothingToPost')); return; }
     setSaving(true);
     const lbp = Number(addedLbp) || 0;
-    const { data: cyc, error: cErr } = await supabase.from('meter_cycles').insert({
-      building_id: entity.kind === 'building' ? entity.id : null,
-      compound_id: entity.kind === 'compound' ? entity.id : null,
+    const cycleFields = {
       expense_type_id: type.id, period_start: from, period_end: to,
       opening_stock: Number(openingStock) || 0, added_qty: Number(addedQty) || 0,
       added_cost_usd: Number.isNaN(totalCostUsd) ? 0 : totalCostUsd,
       added_cost_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(lbpRate) : null,
       closing_stock: Number(closingStock) || 0,
-      common_method: commonMethod, billed_to: billedTo, status: 'final', created_by: profileId,
-    }).select().single();
-    if (cErr || !cyc) { toast.error(cErr?.message ?? 'Could not save the cycle'); setSaving(false); return; }
-    const cycleId = (cyc as { id: string }).id;
+      common_method: commonMethod, billed_to: billedTo, status: 'final',
+    };
+
+    let cycleId: string;
+    if (editingCycle) {
+      const { error } = await supabase.from('meter_cycles').update(cycleFields).eq('id', editingCycle.id);
+      if (error) { toast.error(error.message); setSaving(false); return; }
+      cycleId = editingCycle.id;
+      // readings are replaced wholesale — they ARE the new derivation
+      await supabase.from('meter_readings').delete().eq('cycle_id', cycleId);
+    } else {
+      const { data: cyc, error: cErr } = await supabase.from('meter_cycles').insert({
+        building_id: entity.kind === 'building' ? entity.id : null,
+        compound_id: entity.kind === 'compound' ? entity.id : null,
+        ...cycleFields, created_by: profileId,
+      }).select().single();
+      if (cErr || !cyc) { toast.error(cErr?.message ?? 'Could not save the cycle'); setSaving(false); return; }
+      cycleId = (cyc as { id: string }).id;
+    }
 
     await supabase.from('meter_readings').insert(readingDrafts.map((r) => ({
       cycle_id: cycleId, unit_id: r.unitId, start_reading: r.start, end_reading: r.end,
@@ -141,18 +194,31 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
 
     const typeName = type.key ? t(`finance.cats.${type.key}`) : type.name;
     const desc = `${typeName} · ${fmtDate(from, 'MMM d')} – ${fmtDate(to, 'MMM d, yyyy')}`;
-    const { data: exp, error: eErr } = await supabase.from('expenses').insert({
-      building_id: entity.kind === 'building' ? entity.id : null,
-      compound_id: entity.kind === 'compound' ? entity.id : null,
+    const expenseFields = {
       category: legacyCategoryFor(type), expense_type_id: type.id,
       description: desc, amount_usd: result.chargesTotal,
       amount_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(lbpRate) : null,
       expense_date: to, scope_type: entity.kind === 'compound' ? 'compound' : 'block',
-      method: 'custom', created_by: profileId, meter_cycle_id: cycleId,
-    }).select().single();
-    if (eErr || !exp) { toast.error(eErr?.message ?? 'Could not post the expense'); setSaving(false); return; }
-    const expenseId = (exp as { id: string }).id;
-    await supabase.from('meter_cycles').update({ expense_id: expenseId }).eq('id', cycleId);
+      method: 'custom',
+    };
+
+    let expenseId = editingCycle?.expense_id ?? null;
+    if (expenseId) {
+      // re-post: the expense is updated and its charges rebuilt, the same
+      // delete-and-recreate the ordinary expense editor uses
+      const { error } = await supabase.from('expenses').update(expenseFields).eq('id', expenseId);
+      if (error) { toast.error(error.message); setSaving(false); return; }
+      await supabase.from('charges').delete().eq('expense_id', expenseId);
+    } else {
+      const { data: exp, error: eErr } = await supabase.from('expenses').insert({
+        building_id: entity.kind === 'building' ? entity.id : null,
+        compound_id: entity.kind === 'compound' ? entity.id : null,
+        ...expenseFields, created_by: profileId, meter_cycle_id: cycleId,
+      }).select().single();
+      if (eErr || !exp) { toast.error(eErr?.message ?? 'Could not post the expense'); setSaving(false); return; }
+      expenseId = (exp as { id: string }).id;
+      await supabase.from('meter_cycles').update({ expense_id: expenseId }).eq('id', cycleId);
+    }
 
     const unitById = Object.fromEntries(units.map((u) => [u.id, u]));
     const charges = result.perUnit.filter((p) => p.amount > 0).map((p) => {
@@ -168,8 +234,8 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
       const { error: chErr } = await supabase.from('charges').insert(charges);
       if (chErr) { toast.error(chErr.message); setSaving(false); return; }
     }
-    toast.success(t('metering.posted', { amount: money(result.chargesTotal) }));
-    setSaving(false); setOpen(false);
+    toast.success(t(editingCycle ? 'metering.reposted' : 'metering.posted', { amount: money(result.chargesTotal) }));
+    setSaving(false); setOpen(false); setEditingCycle(null);
     loadCycles(); onPosted();
   }
 
@@ -204,10 +270,11 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
               <th className="px-5 py-3 text-end font-medium">{t('metering.bought')}</th>
               <th className="px-5 py-3 text-end font-medium">{t('metering.closing')}</th>
               <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
+              {canManage && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
             </tr></thead>
             <tbody className="divide-y divide-border/60">
               {cycles.map((c) => (
-                <tr key={c.id}>
+                <tr key={c.id} className={canManage ? 'hover:bg-secondary/40 cursor-pointer' : ''} onClick={() => canManage && openCycleEdit(c)}>
                   <td className="px-5 py-3 text-foreground">{fmtDate(c.period_start, 'MMM d')} – {fmtDate(c.period_end, 'MMM d, yyyy')}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.opening_stock).toLocaleString()}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.added_qty).toLocaleString()} · {money(Number(c.added_cost_usd))}</td>
@@ -215,6 +282,14 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
                   <td className="px-5 py-3 text-end font-semibold text-foreground tnum">
                     {money(Math.max(0, (Number(c.opening_stock) + Number(c.added_qty) - Number(c.closing_stock))) * (Number(c.added_qty) > 0 ? Number(c.added_cost_usd) / Number(c.added_qty) : 0))}
                   </td>
+                  {canManage && (
+                    <td className="px-5 py-3 text-end">
+                      <button onClick={(ev) => { ev.stopPropagation(); deleteCycle(c); }}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -222,7 +297,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
         )}
 
       {/* ── new cycle ── */}
-      <Modal open={open} onClose={() => setOpen(false)} title={t('metering.newCycle')} size="lg">
+      <Modal open={open} onClose={() => { setOpen(false); setEditingCycle(null); }} title={t(editingCycle ? 'metering.editCycle' : 'metering.newCycle')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('dues.periodFrom')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -312,7 +387,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={finalize} loading={saving} disabled={!from || !to || result.chargesTotal <= 0}>
-              {t('metering.finalize')}
+              {t(editingCycle ? 'metering.refinalize' : 'metering.finalize')}
             </Button>
           </div>
         </div>
