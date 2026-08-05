@@ -10,6 +10,7 @@ import {
   isNativeApp, bioAvailable, bioAuthenticate, bioLoginEnabled, setBioLoginEnabled,
 } from '@/lib/biolock';
 import { getPref, setPref, PREF_BIO_ASKED } from '@/lib/devicePrefs';
+import { rememberSessionForBio } from '@/lib/bioSession';
 
 /**
  * Offers Face ID sign-in once, just after the user has signed in on the native
@@ -46,6 +47,9 @@ export function BioPrompt() {
     setBusy(false);
     if (!ok) { toast.error(t('settings.bioFailed')); return; }
     setBioLoginEnabled(true);
+    // Capture the credential now, while signed in — this is what lets Face ID
+    // sign them back in later, including after an explicit sign-out.
+    await rememberSessionForBio();
     remember();
     setOpen(false);
     toast.success(t('settings.bioEnabled'));

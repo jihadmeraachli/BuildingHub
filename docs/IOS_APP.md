@@ -83,6 +83,19 @@ backgrounding, which made routine app switching tedious.
 "Use my password instead" on the gate signs out and falls back to the normal
 login form, so a failed or broken Face ID is never a dead end.
 
+**Face ID also signs you in FROM THE LOGIN SCREEN** — after an explicit sign
+out, after the app was closed, after a restart. That needs a credential that
+outlives `signOut()`, so `src/lib/bioSession.ts` keeps its own copy of the
+refresh token in the Keychain, separate from Supabase's session storage. It is
+written when Face ID is switched on (and refreshed on each password login), and
+**destroyed when Face ID is switched off** — otherwise disabling the setting
+would leave a working way into the account.
+
+The trade-off, which is the same one banking apps make: anyone who can pass
+Face ID or the device passcode can get back in without the password. If the
+stored token has expired or been revoked, the button disappears and the
+password is the way back in.
+
 ### The session lives in the Keychain (second plugin, 2026-08-04)
 
 Swiping the app away used to lose the session entirely — WKWebView

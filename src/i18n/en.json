@@ -252,7 +252,9 @@
     "offerTitle": "Skip the password next time?",
     "offerBody": "Use Face ID, Touch ID or your device passcode to open Abniyah. You'll still need your password if you sign out.",
     "offerEnable": "Use Face ID",
-    "offerLater": "Not now"
+    "offerLater": "Not now",
+    "orPassword": "or use your password",
+    "expired": "Face ID sign-in has expired. Please sign in with your password once."
   },
   "reports": {
     "title": "Reports",

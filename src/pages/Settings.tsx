@@ -12,6 +12,7 @@ import { uploadFile } from '@/lib/upload';
 import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
 import { isNativeApp, bioLoginEnabled, setBioLoginEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
+import { rememberSessionForBio, forgetBioSession } from '@/lib/bioSession';
 import { setLanguage } from '@/i18n';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
@@ -56,6 +57,10 @@ function SettingsInner() {
     setBioBusy(false);
     if (!ok) { toast.error(t('settings.bioFailed')); return; }
     setBioLoginEnabled(on);
+    // Turning it ON stores the credential Face ID will sign in with later;
+    // turning it OFF must destroy it, or the device could still be unlocked
+    // into the account after the user believed they had revoked that.
+    if (on) await rememberSessionForBio(); else await forgetBioSession();
     setBioOn(on);
     toast.success(on ? t('settings.bioEnabled') : t('settings.bioDisabled'));
   }

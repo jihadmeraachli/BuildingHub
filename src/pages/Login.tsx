@@ -11,8 +11,10 @@ import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { setLanguage } from '@/i18n';
-import { Globe, ArrowLeft, Mail, Smartphone } from 'lucide-react';
+import { Globe, ArrowLeft, Mail, Smartphone, Fingerprint } from 'lucide-react';
 import { getPref, setPref, PREF_LAST_EMAIL } from '@/lib/devicePrefs';
+import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
+import { getBioSession, restoreBioSession, rememberSessionForBio } from '@/lib/bioSession';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -58,11 +60,38 @@ export default function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mfaPending, authedUser]);
 
+  // Face ID sign-in is only offered when it is switched on AND a credential is
+  // actually stored — otherwise the button would be a dead end.
+  const [bioReady, setBioReady] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+  useEffect(() => {
+    if (!isNativeApp || !bioLoginEnabled()) return;
+    getBioSession().then((s) => setBioReady(!!s));
+  }, []);
+
+  async function bioSignIn() {
+    setError('');
+    setBioBusy(true);
+    const passed = await bioAuthenticate(t('bio.reason'));
+    if (!passed) { setBioBusy(false); return; }
+    const ok = await restoreBioSession();
+    setBioBusy(false);
+    if (!ok) {
+      // Token expired or revoked — the stored copy is gone now, so fall back.
+      setBioReady(false);
+      setError(t('bio.expired'));
+      return;
+    }
+    navigate('/dashboard');
+  }
+
   async function onSubmit(data: LoginData) {
     setError('');
     const { data: signInData, error } = await supabase.auth.signInWithPassword(data);
     if (error) { setError(t('auth.invalidCredentials')); return; }
     setPref(PREF_LAST_EMAIL, data.email.trim());
+    // Keep the Face ID credential current for next time (no-op when off).
+    if (bioLoginEnabled()) void rememberSessionForBio();
     // 2FA enrolled? Then the password only gets us to aal1 — ask for the code.
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
@@ -174,6 +203,21 @@ export default function Login() {
             <>
               <h2 className="text-2xl font-bold text-foreground">{t('auth.welcomeBack')}</h2>
               <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.signInToContinue')}</p>
+
+              {/* Face ID sign-in, offered above the form because it is the
+                  faster path for a returning user on their own device. */}
+              {bioReady && (
+                <div className="mb-6">
+                  <Button type="button" onClick={bioSignIn} loading={bioBusy} className="w-full">
+                    <Fingerprint size={16} /> {t('bio.unlock')}
+                  </Button>
+                  <div className="flex items-center gap-3 mt-5">
+                    <span className="h-px flex-1 bg-border" />
+                    <span className="text-[11px] text-muted-foreground">{t('bio.orPassword')}</span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
