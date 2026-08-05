@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X, Video, ExternalLink } from 'lucide-react';
+import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X, Video, ExternalLink, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
@@ -10,7 +10,8 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
-import type { Meeting, Profile } from '@/types';
+import type { Meeting, Profile, Issue } from '@/types';
+import { cn } from '@/lib/utils';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
@@ -54,6 +55,14 @@ export default function Meetings() {
   const idsKey = effectiveBuildingIds.join(',');
   const isManager = isPlatformAdmin || canAny('meeting.manage');
 
+  // Agenda issues (#56). Deliberately opt-in and hand-picked: pulling every
+  // open issue onto every agenda would bury the ones that need discussing.
+  const [agendaOn, setAgendaOn] = useState(false);
+  const [openIssues, setOpenIssues] = useState<Issue[]>([]);
+  const [agendaPicked, setAgendaPicked] = useState<string[]>([]);
+  /** meeting_id -> the issues on its agenda, with LIVE status. */
+  const [agendaByMeeting, setAgendaByMeeting] = useState<Record<string, Issue[]>>({});
+
   const scheduleForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
   const addForm = useForm<{ title: string; meeting_date: string; meeting_time: string; summary: string }>();
 
@@ -64,7 +73,22 @@ export default function Meetings() {
     supabase.from('profiles').select('*').in('building_id', effectiveBuildingIds).eq('status', 'active').order('full_name').then(({ data }) => setBuildingUsers(data ?? []));
   }, [idsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openSchedule() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? buildings[0]?.id ?? ''))); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]); setScheduleOpen(true); }
+  // Switching block inside the schedule modal must re-fetch that block's issues,
+  // and drop picks that belong to the block we just left.
+  useEffect(() => {
+    if (!scheduleOpen) return;
+    setAgendaPicked([]);
+    loadOpenIssues(createBuildingId);
+  }, [createBuildingId, scheduleOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function openSchedule() {
+    const bid = blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? buildings[0]?.id ?? ''));
+    setCreateBuildingId(bid);
+    setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); setScheduleFiles([]);
+    setAgendaOn(false); setAgendaPicked([]); setOpenIssues([]);
+    loadOpenIssues(bid);
+    setScheduleOpen(true);
+  }
   function openAdd() { setCreateBuildingId(blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? buildings[0]?.id ?? ''))); setSelectedAttendees([]); setAddFiles([]); setAddOpen(true); }
 
   async function loadMeetings() {
@@ -78,8 +102,39 @@ export default function Meetings() {
       q = q.eq('meeting_type', 'past').order('meeting_date', { ascending: false });
     }
     const { data } = await q;
-    setMeetings(data ?? []);
+    const rows = (data ?? []) as Meeting[];
+    setMeetings(rows);
     setLoading(false);
+    loadAgendas(rows.map((m) => m.id));
+  }
+
+  /** Issues attached to these meetings. Read fresh every load so a status that
+   *  changed since scheduling shows as it is now, not as it was. */
+  async function loadAgendas(meetingIds: string[]) {
+    if (!meetingIds.length) { setAgendaByMeeting({}); return; }
+    const { data, error } = await supabase
+      .from('meeting_issues')
+      .select('meeting_id, issues(*)')
+      .in('meeting_id', meetingIds);
+    // Table absent (migration 0083 not run yet) — agendas just don't render.
+    if (error) { setAgendaByMeeting({}); return; }
+    const map: Record<string, Issue[]> = {};
+    for (const row of (data ?? []) as unknown as { meeting_id: string; issues: Issue | null }[]) {
+      if (!row.issues) continue;   // RLS hid it, e.g. another unit's private issue
+      (map[row.meeting_id] ??= []).push(row.issues);
+    }
+    setAgendaByMeeting(map);
+  }
+
+  /** Open issues in the building being scheduled for, newest first. */
+  async function loadOpenIssues(buildingId: string) {
+    if (!buildingId) { setOpenIssues([]); return; }
+    const { data } = await supabase
+      .from('issues').select('*')
+      .eq('building_id', buildingId)
+      .in('status', ['open', 'in_progress'])
+      .order('created_at', { ascending: false });
+    setOpenIssues((data as Issue[]) ?? []);
   }
 
   async function onSchedule(data: { title: string; meeting_date: string; meeting_time: string; summary: string }) {
@@ -101,8 +156,16 @@ export default function Meetings() {
     };
     // only include meeting_url when set, so scheduling works before migration 0004
     if (scheduleOnline && scheduleUrl.trim()) payload.meeting_url = scheduleUrl.trim();
-    const { error } = await supabase.from('meetings').insert(payload);
+    const { data: created, error } = await supabase.from('meetings').insert(payload).select('id').single();
     if (error) { toast.error(`Could not schedule meeting: ${error.message}`); return; }
+
+    // Attach the chosen issues. A failure here must not lose the meeting that
+    // was just created, so it warns rather than throwing the whole thing away.
+    if (agendaOn && agendaPicked.length && created?.id) {
+      const { error: linkErr } = await supabase.from('meeting_issues')
+        .insert(agendaPicked.map((issue_id) => ({ meeting_id: created.id, issue_id })));
+      if (linkErr) toast.warning(t('meetings.agendaLinkFailed'));
+    }
     toast.success(t('meetings.scheduledToast'));
     setScheduleOpen(false); scheduleForm.reset(); setScheduleFiles([]); setSelectedAttendees([]); setScheduleOnline(false); setScheduleUrl(''); loadMeetings();
   }
@@ -224,6 +287,33 @@ export default function Meetings() {
                           </a>
                         )}
                       </div>
+
+                      {/* Agenda issues, with their status as it is NOW — one may
+                          well have been resolved since the meeting was booked. */}
+                      {agendaByMeeting[m.id]?.length > 0 && (
+                        <div className="mt-3 border-t border-border pt-2">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                            {t('meetings.agendaHeading')}
+                          </p>
+                          <ul className="space-y-1">
+                            {agendaByMeeting[m.id].map((iss) => (
+                              <li key={iss.id} className="flex items-center gap-2 text-xs">
+                                <span className={cn(
+                                  'w-1.5 h-1.5 rounded-full shrink-0',
+                                  iss.status === 'resolved' ? 'bg-emerald-500'
+                                    : iss.status === 'in_progress' ? 'bg-blue-500' : 'bg-orange-500',
+                                )} />
+                                <span className={cn('truncate', iss.status === 'resolved' && 'line-through text-muted-foreground')}>
+                                  {iss.title}
+                                </span>
+                                <span className="text-muted-foreground shrink-0">
+                                  {t(`issues.statuses.${iss.status}`)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {isManager && (
@@ -328,6 +418,63 @@ export default function Meetings() {
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-muted-foreground">{t('meetings.attendees')}</label>
             <AttendeePicker users={buildingUsers} selected={selectedAttendees} setSelected={setSelectedAttendees} />
+          </div>
+
+          {/* Agenda from open issues (#56) */}
+          <div className="rounded-xl border border-border p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agendaOn}
+                onChange={(e) => { setAgendaOn(e.target.checked); if (!e.target.checked) setAgendaPicked([]); }}
+                className="rounded"
+              />
+              <AlertTriangle size={15} className="text-primary" /> {t('meetings.includeIssues')}
+            </label>
+
+            {agendaOn && (
+              openIssues.length === 0 ? (
+                <p className="text-xs text-muted-foreground mt-2">{t('meetings.noOpenIssues')}</p>
+              ) : (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setAgendaPicked(
+                      agendaPicked.length === openIssues.length ? [] : openIssues.map((i) => i.id),
+                    )}
+                    className="text-xs text-primary hover:underline cursor-pointer"
+                  >
+                    {agendaPicked.length === openIssues.length ? t('meetings.selectNone') : t('meetings.selectAll')}
+                  </button>
+                  <div className="mt-2 max-h-52 overflow-y-auto space-y-1.5 pe-1">
+                    {openIssues.map((iss) => (
+                      <label key={iss.id} className="flex items-start gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={agendaPicked.includes(iss.id)}
+                          onChange={(e) => setAgendaPicked(
+                            e.target.checked
+                              ? [...agendaPicked, iss.id]
+                              : agendaPicked.filter((x) => x !== iss.id),
+                          )}
+                          className="rounded mt-0.5 shrink-0"
+                        />
+                        <span className="min-w-0">
+                          <span className="text-foreground">{iss.title}</span>
+                          <span className="text-xs text-muted-foreground ms-1.5">
+                            {iss.apartment_number ? `Apt ${iss.apartment_number}` : t('issues.commonArea')}
+                            {' · '}{t(`issues.statuses.${iss.status}`)}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    {t('meetings.agendaCount', { count: agendaPicked.length })}
+                  </p>
+                </div>
+              )
+            )}
           </div>
 
           <div className="rounded-xl border border-border p-3">
