@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
+import { BellRing, Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
 import type { Factor } from '@supabase/supabase-js';
 import Cropper from 'react-easy-crop';
 import { Navigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
 import { isNativeApp, bioLoginEnabled, setBioLoginEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
 import { rememberSessionForBio, forgetBioSession } from '@/lib/bioSession';
+import { pushAlreadyGranted, enablePush, disablePush } from '@/lib/push';
 import { setLanguage } from '@/i18n';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,28 @@ function SettingsInner() {
   const [bioOn, setBioOn] = useState(() => bioLoginEnabled());
   const [bioBusy, setBioBusy] = useState(false);
   useEffect(() => { if (isNativeApp) bioAvailable().then(setBioAvail); }, []);
+
+  // ---- phone notifications (native app only) ----
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushDenied, setPushDenied] = useState(false);
+  useEffect(() => { if (isNativeApp) pushAlreadyGranted().then(setPushOn); }, []);
+
+  async function togglePush(on: boolean) {
+    setPushBusy(true);
+    setPushDenied(false);
+    if (on) {
+      const ok = await enablePush();
+      setPushOn(ok);
+      // iOS only ever shows its permission prompt once. If it was refused
+      // then, we cannot ask again — only iOS Settings can undo it.
+      if (!ok) setPushDenied(true);
+    } else {
+      await disablePush();
+      setPushOn(false);
+    }
+    setPushBusy(false);
+  }
 
   async function toggleBioLock(on: boolean) {
     setBioBusy(true);
@@ -426,6 +449,32 @@ function SettingsInner() {
           </div>
         </CardBody>
       </Card>
+
+      {/* ---------- phone notifications (native app only) ---------- */}
+      {isNativeApp && (
+        <Card className="mb-5">
+          <CardBody>
+            <div className="flex items-center gap-2 mb-1">
+              <BellRing size={16} className="text-[#7fe3ec]" />
+              <p className="text-sm font-semibold text-foreground">{t('settings.pushTitle')}</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">{t('settings.pushHint')}</p>
+            <label className="flex items-center gap-2.5 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={pushOn}
+                disabled={pushBusy}
+                onChange={e => togglePush(e.target.checked)}
+                className="w-4 h-4 rounded cursor-pointer accent-primary"
+              />
+              {t('settings.pushLabel')}
+            </label>
+            {pushDenied && (
+              <p className="text-xs text-destructive mt-2">{t('settings.pushDenied')}</p>
+            )}
+          </CardBody>
+        </Card>
+      )}
 
       {/* ---------- device app lock (native app only) ---------- */}
       {isNativeApp && (

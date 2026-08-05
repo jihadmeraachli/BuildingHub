@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import i18n, { setLanguage } from '@/i18n';
 import { rolesHaveCap } from '@/lib/permissions';
 import type { Profile, Grant, Membership, Capability, GrantRole } from '@/types';
+import { disablePush } from '@/lib/push';
 
 interface AuthContextValue {
   user: User | null;
@@ -256,6 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadAll]);
 
   async function signOut() {
+    // Drop this device's push token FIRST, while the session can still
+    // authorise the delete. Otherwise the next person to use the phone keeps
+    // receiving the previous user's building notices.
+    await disablePush();
     await supabase.auth.signOut();
   }
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isDemoEmail } from '@/lib/demo';
 import { usePullToRefresh, PullIndicator } from '@/components/PullToRefresh';
 import { BioPrompt } from '@/components/BioPrompt';
+import { pushAlreadyGranted, enablePush } from '@/lib/push';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
@@ -19,6 +20,14 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement | null>(null);
   const ptrRef = useRef<HTMLDivElement | null>(null);
   usePullToRefresh(mainRef, ptrRef);
+
+  // Re-register for push on every launch where permission is already granted:
+  // iOS can hand out a NEW device token after an update or a restore, and a
+  // stale one silently stops delivering. Never prompts — enabling is a
+  // deliberate action in Settings.
+  useEffect(() => {
+    pushAlreadyGranted().then((ok) => { if (ok) void enablePush(); });
+  }, []);
 
   // Demo visitors who convert must not carry the demo session into /register.
   async function startTrial() {
