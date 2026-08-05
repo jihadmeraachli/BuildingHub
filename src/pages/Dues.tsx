@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Wallet, Settings2, Trash2, Info, ChevronRight } from 'lucide-react';
+import { composeUsdTotal } from '@/lib/currency';
+import { useExpenseTypes } from '@/lib/expenseTypes';
+import { Plus, Trash2, Info, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -13,7 +15,7 @@ import {
   tenancyHelpers, buildDuesRows, computeDuesGeneration, tenantTitle,
   type TenancyRow, type DuesGenRow, type OffBudgetBillTo,
 } from '@/lib/reportData';
-import type { Unit, Charge, Payment, Adjustment, DuesPlan, Dues as DuesItem, DuesCadence, DuesMethod, DuesPlanType, Tenure, Group } from '@/types';
+import type { Unit, Charge, Payment, Adjustment, Dues as DuesItem, DuesMethod, DuesPlanType, Tenure, Group } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -21,7 +23,6 @@ import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, Sel
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
-const CADENCES: DuesCadence[] = ['monthly', 'quarterly', 'semiannual', 'annual'];
 const METHODS: DuesMethod[] = ['by_shares', 'equal', 'custom'];
 const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 /** Carry-in sign colors match Finance: a credit is good, arrears are not. */
@@ -55,9 +56,6 @@ export default function Dues() {
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
-  const [plan, setPlan] = useState<DuesPlan | null>(null);
-  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
-  const [ownerCustomAmounts, setOwnerCustomAmounts] = useState<Record<string, string>>({});
   const [items, setItems] = useState<DuesItem[]>([]);
   // ended memberships included, so a unit whose tenant left still resolves that
   // tenant's name on their historical dues rows (0070)
@@ -76,21 +74,22 @@ export default function Dues() {
     return (iso: string) => !cut || new Date(iso) <= cut;
   }, [asOf]);
 
-  // plan form
-  const [planOpen, setPlanOpen] = useState(false);
-  const [pCadence, setPCadence] = useState<DuesCadence>('quarterly');
-  const [pMethod, setPMethod] = useState<DuesMethod>('by_shares');
-  const [pPool, setPPool] = useState('');
-  const [pOwnerPool, setPOwnerPool] = useState('');
-  const [pCustom, setPCustom] = useState<Record<string, string>>({});
-  const [pOwnerCustom, setPOwnerCustom] = useState<Record<string, string>>({});
-  const [pPlanType, setPPlanType] = useState<DuesPlanType>('b1');
   const [saving, setSaving] = useState(false);
+  // the entity's catalog for the line picker (0085)
+  const { activeTypes } = useExpenseTypes(entity?.kind, entity?.id);
 
-  // generate form
+  // ── the budget being issued. THERE IS NO PLAN: every issuance is built from
+  // scratch out of LINES (type + amount), and the total of the lines is what
+  // gets split. Time-bound: period from → to, held against actuals in Reports.
+  type BudgetLineDraft = { expense_type_id: string; note: string; usd: string; lbp: string; rate: string };
   const [genOpen, setGenOpen] = useState(false);
   const [genPeriod, setGenPeriod] = useState('');
+  const [genStart, setGenStart] = useState('');
+  const [genEnd, setGenEnd] = useState('');
   const [genDue, setGenDue] = useState(new Date().toISOString().slice(0, 10));
+  const [budLines, setBudLines] = useState<BudgetLineDraft[]>([]);
+  const [genCustom, setGenCustom] = useState<Record<string, string>>({});
+  const [prefillRate, setPrefillRate] = useState('');
   // ON = a normal period, netted against each party's position. OFF = a flat
   // ask for an unbudgeted cost, collected in full even from units in credit.
   const [genTrueUp, setGenTrueUp] = useState(true);
@@ -98,14 +97,12 @@ export default function Dues() {
   // are per-run, so an off-cycle ask (fuel to tenants, capital to owners) does
   // not need the plan edited and put back afterwards.
   const [genBillTo, setGenBillTo] = useState<OffBudgetBillTo>('tenant_where_leased');
-  const [genPool, setGenPool] = useState('');
   // Allocation for THIS run: which units, and on what basis. Defaults to the
   // whole entity on the plan's basis, so a normal period is unchanged.
   const [genMethod, setGenMethod] = useState<DuesMethod>('by_shares');
   const [genScope, setGenScope] = useState<'all' | 'group' | 'units'>('all');
   const [genGroupId, setGenGroupId] = useState('');
   const [genUnitIds, setGenUnitIds] = useState<string[]>([]);
-  const [genOwnerPool, setGenOwnerPool] = useState('');
 
 
   useEffect(() => { if (entity) load(); }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -114,22 +111,16 @@ export default function Dues() {
     if (!entity) return;
     setLoading(true);
     const blocks = entity.buildingIds;
-    const planQ = entity.kind === 'compound'
-      ? supabase.from('dues_plans').select('*').eq('compound_id', entity.id).maybeSingle()
-      : supabase.from('dues_plans').select('*').eq('building_id', entity.id).maybeSingle();
-    const [{ data: u }, { data: c }, { data: p }, { data: pl }, { data: a }] = await Promise.all([
+    const [{ data: u }, { data: c }, { data: p }, { data: a }] = await Promise.all([
       supabase.from('units').select('*').in('building_id', blocks).order('label'),
       supabase.from('charges').select('*').in('building_id', blocks),
       supabase.from('payments').select('*').in('building_id', blocks),
-      planQ,
       supabase.from('adjustments').select('*').in('building_id', blocks),
     ]);
     setUnits((u as Unit[]) ?? []);
     setCharges((c as Charge[]) ?? []);
     setPayments((p as Payment[]) ?? []);
     setAdjustments((a as Adjustment[]) ?? []);
-    const planRow = (pl as DuesPlan) ?? null;
-    setPlan(planRow);
     const ids = ((u as Unit[]) ?? []).map((x) => x.id);
     if (ids.length) {
       const [{ data: d }, { data: mem }, { data: g }, { data: ug }] = await Promise.all([
@@ -143,12 +134,6 @@ export default function Dues() {
       setGroups((g as Group[]) ?? []);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
     } else { setItems([]); setTenancy([]); setGroups([]); setUnitGroups([]); }
-    if (planRow && planRow.method === 'custom') {
-      const { data: ca } = await supabase.from('dues_unit_amounts').select('unit_id, amount, owner_amount').eq('plan_id', planRow.id);
-      const rows = (ca as { unit_id: string; amount: number; owner_amount: number }[]) ?? [];
-      setCustomAmounts(Object.fromEntries(rows.map((r) => [r.unit_id, String(r.amount)])));
-      setOwnerCustomAmounts(Object.fromEntries(rows.map((r) => [r.unit_id, String(r.owner_amount ?? 0)])));
-    } else { setCustomAmounts({}); setOwnerCustomAmounts({}); }
     setLoading(false);
   }
 
@@ -201,47 +186,25 @@ export default function Dues() {
           Number(d.amount_due) - paidSince(unitId, party, d.created_at, d.tenant_id)), 0);
   }, [items, payments, upTo]);
 
-  function openPlan() {
-    if (plan) {
-      setPCadence(plan.cadence); setPMethod(plan.method);
-      setPPool(plan.pool_amount != null ? String(plan.pool_amount) : '');
-      setPOwnerPool(plan.owner_pool_amount ? String(plan.owner_pool_amount) : '');
-      setPCustom(customAmounts); setPOwnerCustom(ownerCustomAmounts); setPPlanType(plan.plan_type ?? 'b1');
-    } else {
-      setPCadence('quarterly'); setPMethod('by_shares'); setPPool(''); setPOwnerPool('');
-      setPCustom({}); setPOwnerCustom({}); setPPlanType('b1');
-    }
-    setPlanOpen(true);
+  /** Start a fresh budget. Every issuance is its own plan, so the modal always
+   *  opens empty — one blank line, the entity's LBP prefill rate fetched for
+   *  the line editor (frozen per line on save, 0086). */
+  async function openBudget() {
+    setGenPeriod(''); setGenStart(''); setGenEnd('');
+    setGenDue(new Date().toISOString().slice(0, 10));
+    setGenTrueUp(true); setGenBillTo('tenant_where_leased');
+    setGenMethod('by_shares'); setGenScope('all'); setGenGroupId(''); setGenUnitIds([]);
+    setGenCustom({});
+    setBudLines([{ expense_type_id: '', note: '', usd: '', lbp: '', rate: '' }]);
+    setGenOpen(true);
+    const bid = entity?.buildingIds[0];
+    if (bid) {
+      const { data } = await supabase.rpc('effective_lbp_rate', { p_building: bid });
+      setPrefillRate(data ? String(data) : '');
+    } else setPrefillRate('');
   }
 
-  async function savePlan() {
-    if (!entity) return;
-    setSaving(true);
-    const payload = {
-      building_id: entity.kind === 'building' ? entity.id : null,
-      compound_id: entity.kind === 'compound' ? entity.id : null,
-      cadence: pCadence, method: pMethod,
-      pool_amount: pMethod === 'custom' ? null : (Number(pPool) || 0),
-      owner_pool_amount: pMethod === 'custom' ? 0 : (Number(pOwnerPool) || 0),
-      plan_type: pPlanType, active: true,
-    };
-    let planId = plan?.id;
-    if (plan) await supabase.from('dues_plans').update(payload).eq('id', plan.id);
-    else { const { data } = await supabase.from('dues_plans').insert(payload).select().single(); planId = (data as DuesPlan)?.id; }
-    if (planId && pMethod === 'custom') {
-      await supabase.from('dues_unit_amounts').delete().eq('plan_id', planId);
-      const rows = units.map((u) => ({
-        plan_id: planId, unit_id: u.id,
-        amount: Number(pCustom[u.id]) || 0,
-        owner_amount: Number(pOwnerCustom[u.id]) || 0,
-      }));
-      if (rows.length) await supabase.from('dues_unit_amounts').insert(rows);
-    }
-    toast.success(t('dues.planSaved'));
-    setSaving(false); setPlanOpen(false); load();
-  }
-
-  const isB2 = plan?.plan_type === 'b2';
+  const isB2 = false; // b2 lives on as the per-issuance true-up toggle
 
   /** Units this run targets. Allocation divides across THESE only, so an
    *  equal split over a group is a split over that group, not the building. */
@@ -255,19 +218,25 @@ export default function Dues() {
     return scoped;
   }, [units, blockFilter, genScope, genGroupId, genUnitIds, unitGroups]);
 
+  /** Σ of the line totals (USD part + LBP/rate, 0086) — THE pool. */
+  const budgetTotal = useMemo(() =>
+    budLines.reduce((s, l) => {
+      const t = composeUsdTotal(Number(l.usd) || 0, Number(l.lbp) || 0, Number(l.rate) || 0);
+      return s + (Number.isNaN(t) ? 0 : t);
+    }, 0), [budLines]);
+
   const genPlan = useMemo(() => ({
     method: genMethod,
-    planType: (plan?.plan_type ?? 'b1') as DuesPlanType,
-    poolAmount: genPool === '' ? (Number(plan?.pool_amount) || 0) : (Number(genPool) || 0),
-    ownerPoolAmount: genOwnerPool === '' ? (Number(plan?.owner_pool_amount) || 0) : (Number(genOwnerPool) || 0),
-    custom: num(customAmounts),
-    ownerCustom: num(ownerCustomAmounts),
-  }), [plan, customAmounts, ownerCustomAmounts, genPool, genOwnerPool, genMethod]);
+    planType: 'b1' as DuesPlanType,
+    poolAmount: Math.round(budgetTotal * 100) / 100,
+    ownerPoolAmount: 0,
+    custom: num(genCustom),
+    ownerCustom: {},
+  }), [budgetTotal, genMethod, genCustom]);
 
   /** Preview and insert come from the same pure call, so what the manager sees
    *  is exactly what gets written. */
   const preview = useMemo(() => {
-    if (!plan) return [];
     return computeDuesGeneration({
       units: genUnits, plan: genPlan, balances: balanceOf,
       activeTenantId: th.activeTenantId,
@@ -276,13 +245,13 @@ export default function Dues() {
       applyTrueUp: genTrueUp,
       recurringBillTo: genBillTo,
     });
-  }, [plan, genUnits, genPlan, balanceOf, th, genPeriod, items, genTrueUp, genBillTo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [genUnits, genPlan, balanceOf, th, genPeriod, items, genTrueUp, genBillTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
-  function toRows(gen: DuesGenRow[], period: string, due: string) {
+  function toRows(gen: DuesGenRow[], period: string, due: string, budgetId: string) {
     return gen.map((r) => ({
-      plan_id: plan?.id ?? null, building_id: r.unit.building_id, unit_id: r.unit.id,
+      plan_id: null, budget_id: budgetId, building_id: r.unit.building_id, unit_id: r.unit.id,
       period_label: period, due_date: due || null,
       base_amount: r.base, carry_in: r.carry, amount_due: r.due,
       billed_to: r.party, tenant_id: r.tenantId, kind: r.kind, label: r.label,
@@ -290,10 +259,31 @@ export default function Dues() {
     }));
   }
 
-  async function generate() {
-    if (!entity || !plan || !genPeriod.trim()) return;
+  async function issueBudget() {
+    if (!entity || !genPeriod.trim() || !genStart || !genEnd) return;
+    const lines = budLines.filter((l) => composeUsdTotal(Number(l.usd) || 0, Number(l.lbp) || 0, Number(l.rate) || 0) > 0);
+    if (lines.some((l) => (Number(l.lbp) || 0) > 0 && (Number(l.rate) || 0) <= 0)) { toast.error(t('finance.lbpNeedsRate')); return; }
+    if (!lines.length) { toast.error(t('dues.needLines')); return; }
     setSaving(true);
-    const rows = toRows(preview, genPeriod.trim(), genDue);
+    const { data: bud, error: bErr } = await supabase.from('budgets').insert({
+      building_id: entity.kind === 'building' ? entity.id : null,
+      compound_id: entity.kind === 'compound' ? entity.id : null,
+      label: genPeriod.trim(), period_start: genStart, period_end: genEnd,
+      due_date: genDue || null, method: genMethod, billed_to: genBillTo,
+      true_up: genTrueUp, created_by: profile?.id,
+    }).select().single();
+    if (bErr || !bud) { toast.error(bErr?.message ?? 'Could not save the budget'); setSaving(false); return; }
+    const budgetId = (bud as { id: string }).id;
+    const { error: lErr } = await supabase.from('budget_lines').insert(lines.map((l) => {
+      const lbp = Number(l.lbp) || 0;
+      return {
+        budget_id: budgetId, expense_type_id: l.expense_type_id || null, note: l.note.trim() || null,
+        amount_usd: composeUsdTotal(Number(l.usd) || 0, lbp, Number(l.rate) || 0),
+        amount_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(l.rate) : null,
+      };
+    }));
+    if (lErr) { toast.error(lErr.message); setSaving(false); return; }
+    const rows = toRows(preview, genPeriod.trim(), genDue, budgetId);
     if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { toast.error(error.message); setSaving(false); return; } }
     toast.success(t('dues.generated'));
     setSaving(false); setGenOpen(false); load();
@@ -376,12 +366,10 @@ export default function Dues() {
               </SelectContent>
             </RadixSelect>
           )}
-          {/* Editing the plan stays open in arrears mode - configuring one before
-              flipping the switch is legitimate. ISSUING is what gets blocked:
-              get_overdue_dues() only reminds on 'dues' buildings, so dues raised
-              here would notify residents and then never be chased. */}
-          {canManage && entity && <Button variant="secondary" onClick={openPlan}><Settings2 size={16} /> {plan ? t('dues.editPlan') : t('dues.setupPlan')}</Button>}
-          {canManage && entity && plan && duesMode && <Button onClick={() => { setGenPeriod(''); setGenTrueUp(true); setGenBillTo('tenant_where_leased'); setGenMethod(plan?.method ?? 'by_shares'); setGenScope('all'); setGenGroupId(''); setGenUnitIds([]); setGenPool(String(Number(plan?.pool_amount) || 0)); setGenOwnerPool(String(Number(plan?.owner_pool_amount) || 0)); setGenOpen(true); }}><Plus size={16} /> {t('dues.generate')}</Button>}
+          {/* No standing plan any more: every issuance IS the plan (0087).
+              Issuing stays blocked in arrears mode — get_overdue_dues() only
+              reminds on 'dues' buildings. */}
+          {canManage && entity && duesMode && <Button onClick={openBudget}><Plus size={16} /> {t('dues.newBudget')}</Button>}
         </div>
       </div>
 
@@ -404,24 +392,8 @@ export default function Dues() {
       )}
 
       {!entity ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{entities.length ? t('common.pickEntity') : t('finance.noBuildings')}</p></CardBody></Card>
-        : !plan ? (
-          <Card><CardBody><div className="text-center py-10">
-            <Wallet className="mx-auto text-primary mb-2" size={28} />
-            <p className="text-sm text-muted-foreground mb-3">{t('dues.noPlan')}</p>
-            {canManage && <Button variant="secondary" size="sm" onClick={openPlan}>{t('dues.setupPlan')}</Button>}
-          </div></CardBody></Card>
-        ) : (
+        : (
           <>
-            <Card className="mb-4"><CardBody>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isB2 ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{t(`dues.planTypes.${plan.plan_type ?? 'b1'}`)}</span>
-                <span className="text-slate-500">{t('dues.cadence')}: <span className="font-medium text-slate-800">{t(`dues.cadences.${plan.cadence}`)}</span></span>
-                <span className="text-slate-500">{t('dues.method')}: <span className="font-medium text-slate-800">{t(`dues.methods.${plan.method}`)}</span></span>
-                {plan.pool_amount != null && <span className="text-slate-500">{t('dues.pool')}: <span className="font-medium text-slate-800 tnum">{money(Number(plan.pool_amount))}</span></span>}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">{isB2 ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
-            </CardBody></Card>
-
             <div className="flex items-center justify-end gap-2 mb-3">
               <label className="text-xs text-muted-foreground">{t('dues.asOfLabel')}</label>
               <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)}
@@ -570,76 +542,58 @@ export default function Dues() {
           </>
         )}
 
-      {/* Plan modal */}
-      <Modal open={planOpen} onClose={() => setPlanOpen(false)} title={plan ? t('dues.editPlan') : t('dues.setupPlan')} size="lg">
-        <div className="space-y-4">
-          <SelectField label={t('dues.planType')} value={pPlanType} onValueChange={(v) => setPPlanType(v as DuesPlanType)}>
-            <SelectItem value="b1">{t('dues.planTypes.b1')}</SelectItem>
-            <SelectItem value="b2">{t('dues.planTypes.b2')}</SelectItem>
-          </SelectField>
-          <p className="text-xs text-muted-foreground -mt-2">{pPlanType === 'b2' ? t('dues.flatFeeNote') : t('dues.reconcileNote')}</p>
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField label={t('dues.cadence')} value={pCadence} onValueChange={(v) => setPCadence(v as DuesCadence)}>
-              {CADENCES.map((c) => <SelectItem key={c} value={c}>{t(`dues.cadences.${c}`)}</SelectItem>)}
-            </SelectField>
-            <SelectField label={t('dues.method')} value={pMethod} onValueChange={(v) => setPMethod(v as DuesMethod)}>
-              {METHODS.map((m) => <SelectItem key={m} value={m}>{t(`dues.methods.${m}`)}</SelectItem>)}
-            </SelectField>
-          </div>
-          {pMethod !== 'custom'
-            ? (
-              <div className="space-y-3">
-                <div>
-                  <Input label={t('dues.pool')} type="number" step="0.01" min="0" value={pPool} onChange={(e) => setPPool(e.target.value)} />
-                  <p className="text-xs text-muted-foreground mt-1">{t('dues.poolPartyHint')}</p>
-                </div>
-                <div>
-                  <Input label={t('dues.ownerPool')} type="number" step="0.01" min="0" value={pOwnerPool} onChange={(e) => setPOwnerPool(e.target.value)} />
-                  <p className="text-xs text-muted-foreground mt-1">{t('dues.ownerPoolHint')}</p>
-                </div>
-              </div>
-            )
-            : (
-              <div>
-                <label className="text-sm font-medium text-foreground">{t('dues.customAmounts')}</label>
-                <p className="text-xs text-muted-foreground mt-0.5">{t('dues.customPartyHint')}</p>
-                <div className="mt-1.5 max-h-56 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
-                  <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground uppercase tracking-wide">
-                    <span>{t('dues.unit')}</span>
-                    <span className="flex gap-2">
-                      <span className="w-28 text-end">{t('dues.tenantColumn')}</span>
-                      <span className="w-28 text-end">{t('dues.ownerColumn')}</span>
-                    </span>
-                  </div>
-                  {units.map((u) => (
-                    <div key={u.id} className="flex items-center justify-between px-3 py-1.5 text-sm gap-2">
-                      <span className="text-foreground truncate">{unitLabel(u.id)}</span>
-                      <span className="flex gap-2 shrink-0">
-                        <input type="number" step="0.01" min="0" value={pCustom[u.id] ?? ''} placeholder="0.00"
-                          onChange={(e) => setPCustom({ ...pCustom, [u.id]: e.target.value })}
-                          className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-                        <input type="number" step="0.01" min="0" value={pOwnerCustom[u.id] ?? ''} placeholder="0.00"
-                          onChange={(e) => setPOwnerCustom({ ...pOwnerCustom, [u.id]: e.target.value })}
-                          className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="secondary" onClick={() => setPlanOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={savePlan} loading={saving}>{t('dues.savePlan')}</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Generate modal */}
-      <Modal open={genOpen} onClose={() => setGenOpen(false)} title={t('dues.generateTitle')} size="lg">
+      {/* New budget (0087): there is no plan — the LINES are the plan. */}
+      <Modal open={genOpen} onClose={() => setGenOpen(false)} title={t('dues.newBudget')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('dues.period')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
+            <Input label={t('dues.budgetLabel')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('dues.periodFrom')} type="date" value={genStart} onChange={(e) => setGenStart(e.target.value)} />
+            <Input label={t('dues.periodTo')} type="date" value={genEnd} onChange={(e) => setGenEnd(e.target.value)} />
+          </div>
+
+          {/* ── the budget itself: one row per expense type ── */}
+          <div>
+            <label className="text-sm font-medium text-foreground">{t('dues.budgetLines')}</label>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">{t('dues.budgetLinesHint')}</p>
+            <div className="space-y-1.5">
+              {budLines.map((l, i) => (
+                <div key={i} className="grid grid-cols-[1fr_5rem_6rem_5rem_auto] gap-1.5 items-center">
+                  <select value={l.expense_type_id}
+                    onChange={(e) => setBudLines(budLines.map((x, j) => j === i ? { ...x, expense_type_id: e.target.value } : x))}
+                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
+                    <option value="">{t('dues.pickType')}</option>
+                    {activeTypes.map((ty) => <option key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</option>)}
+                  </select>
+                  <input type="number" step="0.01" min="0" placeholder="USD" value={l.usd}
+                    onChange={(e) => setBudLines(budLines.map((x, j) => j === i ? { ...x, usd: e.target.value } : x))}
+                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1.5 text-sm text-end focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                  <input type="number" step="1" min="0" placeholder="LBP" value={l.lbp}
+                    onChange={(e) => setBudLines(budLines.map((x, j) => j === i ? { ...x, lbp: e.target.value, rate: x.rate || prefillRate } : x))}
+                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1.5 text-sm text-end focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                  <input type="number" step="0.01" min="0" placeholder={t('dues.rateShort')} value={l.rate}
+                    onChange={(e) => setBudLines(budLines.map((x, j) => j === i ? { ...x, rate: e.target.value } : x))}
+                    disabled={!(Number(l.lbp) > 0)}
+                    className="rounded-lg border border-border bg-background text-foreground px-2 py-1.5 text-sm text-end focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-40" />
+                  <button type="button" onClick={() => setBudLines(budLines.filter((_, j) => j !== i))}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <button type="button"
+                onClick={() => setBudLines([...budLines, { expense_type_id: '', note: '', usd: '', lbp: '', rate: prefillRate }])}
+                className="text-xs text-primary hover:underline cursor-pointer">
+                + {t('dues.addLine')}
+              </button>
+              <p className="text-sm text-muted-foreground">
+                {t('dues.budgetTotal')}: <span className="font-semibold text-foreground tnum">{money(Math.round(budgetTotal * 100) / 100)}</span>
+              </p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <SelectField label={t('dues.scope')} value={genScope} onValueChange={(v) => setGenScope(v as 'all' | 'group' | 'units')}>
@@ -682,12 +636,19 @@ export default function Dues() {
               {genBillTo === 'owner' ? t('dues.billToOwnerHint') : t('dues.billToTenantHint')}
             </p>
           </div>
-          {genMethod !== 'custom' && (
-            <div className="grid grid-cols-2 gap-3">
-              <Input label={t('dues.pool')} type="number" step="0.01" min="0"
-                     value={genPool} onChange={(e) => setGenPool(e.target.value)} />
-              <Input label={t('dues.ownerPool')} type="number" step="0.01" min="0"
-                     value={genOwnerPool} onChange={(e) => setGenOwnerPool(e.target.value)} />
+          {genMethod === 'custom' && (
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('dues.customAmounts')}</label>
+              <div className="mt-1.5 max-h-40 overflow-y-auto border border-border rounded-xl divide-y divide-border/60">
+                {genUnits.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
+                    <span className="text-foreground truncate">{unitLabel(u.id)}</span>
+                    <input type="number" step="0.01" min="0" value={genCustom[u.id] ?? ''} placeholder="0.00"
+                      onChange={(e) => setGenCustom({ ...genCustom, [u.id]: e.target.value })}
+                      className="w-28 text-end rounded-lg border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {!isB2 && (
@@ -706,7 +667,7 @@ export default function Dues() {
           <GenPreview rows={preview} isB2={isB2} unitLabel={unitLabel} th={th} labels={labels} t={t} />
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setGenOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={generate} loading={saving} disabled={!genPeriod.trim()}>{t('dues.generate')}</Button>
+            <Button onClick={issueBudget} loading={saving} disabled={!genPeriod.trim() || !genStart || !genEnd}>{t('dues.issueBudget')}</Button>
           </div>
         </div>
       </Modal>

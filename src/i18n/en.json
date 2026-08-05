@@ -57,7 +57,7 @@
     "inspections": "Inspections",
     "contracts": "Contracts",
     "contactsDir": "Contacts",
-    "dues": "Dues",
+    "dues": "Prepaid Budget",
     "people": "People",
     "issues": "Issues",
     "users": "Users",
@@ -1184,8 +1184,8 @@
     }
   },
   "dues": {
-    "title": "Dues",
-    "subtitle": "Fixed prepayments. Set a plan and issue them each period.",
+    "title": "Prepaid Budget",
+    "subtitle": "Build a budget out of expense lines; the total is split across units and collected in advance.",
     "plan": "Dues plan",
     "noPlan": "No dues plan for this building/compound yet.",
     "setupPlan": "Set up plan",
@@ -1269,7 +1269,19 @@
     "group": "Group",
     "pickUnits": "Units",
     "pickUnitsHint": "{{count}} selected. The amount is split across these only.",
-    "asOfLabel": "Position as of"
+    "asOfLabel": "Position as of",
+    "newBudget": "New budget",
+    "issueBudget": "Issue budget",
+    "budgetLabel": "Budget name",
+    "periodFrom": "Period from",
+    "periodTo": "Period to",
+    "budgetLines": "Budget lines",
+    "budgetLinesHint": "One row per expense type — fuel, elevator maintenance, gardening… The total of the lines is what gets split across units.",
+    "pickType": "Type…",
+    "addLine": "Add line",
+    "budgetTotal": "Budget total",
+    "rateShort": "Rate",
+    "needLines": "Add at least one budget line with an amount."
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",
