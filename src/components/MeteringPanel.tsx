@@ -30,8 +30,9 @@ interface CycleRow {
   status: string; expense_id: string | null; created_at: string;
 }
 
-export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenantId, profileId, onPosted }: {
+export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenantId, profileId, onPosted, rateBuildingId }: {
   entity: { kind: 'compound' | 'building'; id: string; name: string };
+  rateBuildingId?: string;
   units: Unit[];
   canManage: boolean;
   hasTenant: (unitId: string) => boolean;
@@ -89,7 +90,8 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
       }
     }
     setReads(init);
-    const bid = entity.kind === 'building' ? entity.id : undefined;
+    // effective_lbp_rate cascades block → compound, so any block id works
+    const bid = entity.kind === 'building' ? entity.id : rateBuildingId;
     if (bid) {
       const { data } = await supabase.rpc('effective_lbp_rate', { p_building: bid });
       setLbpRate(data ? String(data) : '');

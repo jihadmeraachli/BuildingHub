@@ -442,6 +442,7 @@ export default function Finance() {
   function openPayment() { setEditingPaymentId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' }); setAdjOpen(true); }
   function openExpenseEdit(e: Expense) {
+    if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
     setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
@@ -514,6 +515,7 @@ export default function Finance() {
           building_id: entity.kind === 'building' ? entity.id : null,
           compound_id: entity.kind === 'compound' ? entity.id : null,
           label, period_start: expForm.expense_date, period_end: expForm.expense_date,
+          expense_id: expenseId,
           due_date: new Date(Date.now() + effectiveDueDays * 864e5).toISOString().slice(0, 10), method: 'custom',
           billed_to: expForm.leasedTo === 'tenant' ? 'tenant_where_leased' : 'owner',
           true_up: false, created_by: profile?.id,
@@ -551,7 +553,13 @@ export default function Finance() {
   }
 
   async function deleteExpense(id: string) {
-    if (!confirm('Delete this expense and the charges it created?')) return;
+    const e = expenses.find((x) => x.id === id);
+    const msg = e?.is_extraordinary
+      ? t('finance.deleteExtraordinaryConfirm')
+      : e?.meter_cycle_id
+        ? t('finance.deleteMeteredConfirm')
+        : 'Delete this expense and the charges it created?';
+    if (!confirm(msg)) return;
     await supabase.from('expenses').delete().eq('id', id);
     setDetailExpense(null); loadScope();
   }
@@ -1019,6 +1027,7 @@ export default function Finance() {
               {tab === 'metering' && entity && (
                 <MeteringPanel
                   entity={{ kind: entity.kind, id: entity.id, name: entity.name }}
+                  rateBuildingId={entity.buildingIds[0]}
                   units={units}
                   canManage={canManageFinance}
                   hasTenant={hasTenant}

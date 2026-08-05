@@ -1086,7 +1086,10 @@
     "extraordinaryHintDues": "Issues a flat prepaid ask for this expense immediately, marked extraordinary, collected in full even from units in credit.",
     "extraordinaryTag": "Extraordinary",
     "extraordinaryIssued": "Extraordinary payment request sent",
-    "extraordinaryIssuedDues": "Extraordinary ask issued"
+    "extraordinaryIssuedDues": "Extraordinary ask issued",
+    "meteredNoEdit": "This expense was posted by a metering cycle - its numbers are the cycle's derivation. Manage it from the Metering tab.",
+    "deleteExtraordinaryConfirm": "Delete this extraordinary expense? Its charges AND the payment ask it issued are withdrawn together.",
+    "deleteMeteredConfirm": "Delete this metered expense? Its charges are removed; the metering cycle stays as a record with no money posted."
   },
   "inspections": {
     "title": "Inspections",
@@ -1300,7 +1303,11 @@
     "addLine": "Add line",
     "budgetTotal": "Budget total",
     "rateShort": "Rate",
-    "needLines": "Add at least one budget line with an amount."
+    "needLines": "Add at least one budget line with an amount.",
+    "issuedBudgets": "Issued budgets",
+    "cancelBudget": "Cancel",
+    "cancelBudgetConfirm": "Cancel the budget \"{{label}}\"? Its unpaid asks are withdrawn and residents are notified. Payments already made stay on the ledger as credit.",
+    "budgetCancelled": "Budget cancelled and its asks withdrawn"
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",

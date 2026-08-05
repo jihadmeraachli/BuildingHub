@@ -231,6 +231,10 @@ export interface Expense {
   category: ExpenseCategory;
   /** the catalog row this expense belongs to (0085); category is the legacy mirror */
   expense_type_id?: string | null;
+  /** urgent one-off that auto-issued its ask (0089) */
+  is_extraordinary?: boolean;
+  /** posted by a metering cycle (0090) — the cycle is the source of truth */
+  meter_cycle_id?: string | null;
   description: string;
   amount_usd: number;
   /** LBP part + frozen rate (0086); amount_usd is the canonical total. */
@@ -354,6 +358,8 @@ export interface Dues {
    *  — it records who was tenant when the due was issued (0070). */
   tenant_id: string | null;
   kind: DuesKind;
+  /** the budget that issued this row (0087) */
+  budget_id?: string | null;
   /** Name of an off_budget assessment, e.g. "Roof waterproofing 2026" (0070). */
   label: string | null;
   created_by: string | null;
@@ -516,6 +522,8 @@ export interface Budget {
   method: DuesMethod;
   billed_to: 'tenant_where_leased' | 'owner';
   true_up: boolean;
+  /** set when auto-issued by an extraordinary expense (0089/0091) */
+  expense_id?: string | null;
   created_by: string | null;
   created_at: string;
   cancelled_at: string | null;

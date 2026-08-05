@@ -15,7 +15,7 @@ import {
   tenancyHelpers, buildDuesRows, computeDuesGeneration, tenantTitle,
   type TenancyRow, type DuesGenRow, type OffBudgetBillTo,
 } from '@/lib/reportData';
-import type { Unit, Charge, Payment, Adjustment, Dues as DuesItem, DuesMethod, DuesPlanType, Tenure, Group } from '@/types';
+import type { Unit, Charge, Payment, Adjustment, Dues as DuesItem, Budget, DuesMethod, DuesPlanType, Tenure, Group } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -62,6 +62,7 @@ export default function Dues() {
   const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [unitGroups, setUnitGroups] = useState<{ group_id: string; unit_id: string }[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   /** Point-in-time view: dues issued by this date, settled by payments up to
@@ -123,17 +124,22 @@ export default function Dues() {
     setAdjustments((a as Adjustment[]) ?? []);
     const ids = ((u as Unit[]) ?? []).map((x) => x.id);
     if (ids.length) {
-      const [{ data: d }, { data: mem }, { data: g }, { data: ug }] = await Promise.all([
+      const budQ = entity.kind === 'compound'
+        ? supabase.from('budgets').select('*').eq('compound_id', entity.id)
+        : supabase.from('budgets').select('*').eq('building_id', entity.id);
+      const [{ data: d }, { data: mem }, { data: g }, { data: ug }, { data: buds }] = await Promise.all([
         supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false }),
         supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', ids),
         supabase.from('groups').select('*').in('building_id', blocks).order('name'),
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
+        budQ.is('cancelled_at', null).order('period_start', { ascending: false }),
       ]);
       setItems((d as DuesItem[]) ?? []);
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
       setGroups((g as Group[]) ?? []);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
-    } else { setItems([]); setTenancy([]); setGroups([]); setUnitGroups([]); }
+      setBudgets((buds as Budget[]) ?? []);
+    } else { setItems([]); setTenancy([]); setGroups([]); setUnitGroups([]); setBudgets([]); }
     setLoading(false);
   }
 
@@ -290,6 +296,16 @@ export default function Dues() {
   }
 
 
+  async function cancelBudget(b: Budget) {
+    if (!confirm(t('dues.cancelBudgetConfirm', { label: b.label }))) return;
+    const { error: dErr } = await supabase.from('dues').delete().eq('budget_id', b.id);
+    if (dErr) { toast.error(dErr.message); return; }
+    const { error } = await supabase.from('budgets').update({ cancelled_at: new Date().toISOString() }).eq('id', b.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('dues.budgetCancelled'));
+    load();
+  }
+
   async function removeItem(id: string) {
     if (!confirm('Delete this dues item?')) return;
     await supabase.from('dues').delete().eq('id', id);
@@ -394,6 +410,34 @@ export default function Dues() {
       {!entity ? <Card><CardBody><p className="text-sm text-slate-500 text-center py-10">{entities.length ? t('common.pickEntity') : t('finance.noBuildings')}</p></CardBody></Card>
         : (
           <>
+            {budgets.length > 0 && (
+              <Card className="mb-4"><CardBody>
+                <p className="text-sm font-semibold text-foreground mb-2">{t('dues.issuedBudgets')}</p>
+                <div className="divide-y divide-border/60">
+                  {budgets.map((b) => {
+                    const issued = items.filter((d) => d.budget_id === b.id)
+                      .reduce((s, d) => s + Number(d.amount_due), 0);
+                    return (
+                      <div key={b.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                        <span className="text-foreground min-w-0">
+                          {b.label}
+                          <span className="text-muted-foreground/70"> · {fmtDate(b.period_start, 'MMM d')} – {fmtDate(b.period_end, 'MMM d, yyyy')}</span>
+                          {b.expense_id && <span className="ms-1.5 text-xs text-amber-600 dark:text-amber-400">{t('finance.extraordinaryTag')}</span>}
+                        </span>
+                        <span className="flex items-center gap-3 shrink-0">
+                          <span className="font-semibold text-foreground tnum">{money(Math.round(issued * 100) / 100)}</span>
+                          {canManage && (
+                            <button onClick={() => cancelBudget(b)} className="text-xs text-primary hover:text-rose-600 hover:underline cursor-pointer">
+                              {t('dues.cancelBudget')}
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardBody></Card>
+            )}
             <div className="flex items-center justify-end gap-2 mb-3">
               <label className="text-xs text-muted-foreground">{t('dues.asOfLabel')}</label>
               <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)}
