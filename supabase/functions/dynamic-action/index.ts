@@ -232,8 +232,110 @@ async function buildingAdminIds(buildingId: string): Promise<string[]> {
   return [...ids];
 }
 
+// ── Push notifications (Apple APNs) ──────────────────────────────────────────
+// Real phone alerts: they arrive with the app closed and the phone locked,
+// unlike the in-app bell. Secrets are set in Supabase → Edge Functions:
+//   APNS_KEY_ID      the 10-char key id from developer.apple.com
+//   APNS_TEAM_ID     the 10-char team id (NOT the same value)
+//   APNS_PRIVATE_KEY the whole .p8 file contents, BEGIN/END lines included
+// Missing any of them simply disables push; email and WhatsApp are unaffected.
+const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID') ?? '';
+const APNS_TEAM_ID = Deno.env.get('APNS_TEAM_ID') ?? '';
+const APNS_PRIVATE_KEY = Deno.env.get('APNS_PRIVATE_KEY') ?? '';
+const APNS_BUNDLE_ID = 'com.abniyah.app';
+const pushEnabled = () => Boolean(APNS_KEY_ID && APNS_TEAM_ID && APNS_PRIVATE_KEY);
+
+const b64url = (bytes: ArrayBuffer | Uint8Array) =>
+  btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+// Apple rejects a token older than an hour, and refuses one regenerated more
+// often than every 20 minutes — so it is cached, not rebuilt per notification.
+let apnsJwtCache = { token: '', madeAt: 0 };
+async function apnsJwt(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (apnsJwtCache.token && now - apnsJwtCache.madeAt < 1800) return apnsJwtCache.token;
+
+  const der = Uint8Array.from(
+    atob(APNS_PRIVATE_KEY.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '')),
+    (c) => c.charCodeAt(0),
+  );
+  const key = await crypto.subtle.importKey(
+    'pkcs8', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'],
+  );
+  const head = b64url(new TextEncoder().encode(JSON.stringify({ alg: 'ES256', kid: APNS_KEY_ID })));
+  const body = b64url(new TextEncoder().encode(JSON.stringify({ iss: APNS_TEAM_ID, iat: now })));
+  const sig = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(`${head}.${body}`),
+  );
+  apnsJwtCache = { token: `${head}.${body}.${b64url(sig)}`, madeAt: now };
+  return apnsJwtCache.token;
+}
+
+async function apnsPost(host: string, token: string, payload: unknown) {
+  return await fetch(`https://${host}/3/device/${token}`, {
+    method: 'POST',
+    headers: {
+      authorization: `bearer ${await apnsJwt()}`,
+      'apns-topic': APNS_BUNDLE_ID,
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Push to a set of users, honouring notify_push. Never throws — a push
+ *  failure must not stop the email that carries the same news. */
+async function pushToUserIds(ids: string[], title: string, body?: string) {
+  try {
+    if (!pushEnabled()) return;
+    const uniq = [...new Set(ids)];
+    if (!uniq.length) return;
+
+    const { data: profs } = await supabase.from('profiles').select('id, notify_push').in('id', uniq);
+    const allowed = ((profs ?? []) as { id: string; notify_push: boolean }[])
+      .filter((p) => p.notify_push !== false).map((p) => p.id);
+    if (!allowed.length) return;
+
+    const { data: devices } = await supabase
+      .from('device_tokens').select('token').in('user_id', allowed);
+    if (!devices?.length) return;
+
+    const payload = { aps: { alert: body ? { title, body } : { title }, sound: 'default' } };
+
+    for (const d of devices as { token: string }[]) {
+      // TestFlight AND the App Store are both "production"; only builds run
+      // straight from Xcode are sandbox. Try production, then fall back on the
+      // one error that specifically means wrong environment.
+      let res = await apnsPost('api.push.apple.com', d.token, payload);
+      if (res.status === 400) {
+        const why = await res.clone().json().catch(() => ({} as { reason?: string }));
+        if (why.reason === 'BadDeviceToken') {
+          res = await apnsPost('api.sandbox.push.apple.com', d.token, payload);
+        }
+      }
+      if (res.status === 410) {
+        // Apple: this device is gone for good. Stop sending to it.
+        await supabase.from('device_tokens').delete().eq('token', d.token);
+        console.log('[push] pruned dead token');
+        continue;
+      }
+      console.log(res.ok
+        ? `[push] sent — "${title}"`
+        : `[push] FAILED ${res.status}: ${await res.text().catch(() => '')}`);
+    }
+  } catch (e) {
+    console.error('[push] error', e);
+  }
+}
+
 /** send the same email to a set of users, honoring their notify_email preference */
 async function emailToUserIds(ids: string[], subject: string, html: string, fromName?: string, attachments?: Attachment[]) {
+  // Same event, one alert per channel: everything that emails also pushes.
+  // The subject is already a complete, specific line ("Payment received"),
+  // and iOS shows the app name above it, so it works as the alert title.
+  void pushToUserIds(ids, subject);
   const uniq = [...new Set(ids)];
   // Every outcome is logged. This used to discard sendEmail()'s error string,
   // so a Resend rejection, an opted-out recipient or an empty id list all

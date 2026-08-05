@@ -128,6 +128,38 @@ bug. `devicePrefs` reads are synchronous against a cache that
 (`npx cap add ios` starts fresh). Without it, iOS kills the app when Face ID
 is invoked.
 
+## Push notifications (one-time native step)
+
+Real alerts that arrive with the app closed and the phone locked, via
+`@capacitor/push-notifications` → Apple APNs, sent from `dynamic-action`
+alongside the existing email and WhatsApp on the same events.
+
+**In Xcode** (target **App** → **Signing & Capabilities** → **+ Capability**):
+1. **Push Notifications**
+2. **Background Modes** → tick **Remote notifications**
+
+⚠️ Re-add both after any `npx cap add ios` regeneration, like the Face ID usage
+description and Associated Domains.
+
+**Apple side (already done):** App ID `com.abniyah.app` has Push Notifications
+enabled, and an APNs key exists — Key ID `222WU36W5N`, Team ID `8PHJEU7CDL`,
+scoped to **Sandbox & Production**. That last choice matters: TestFlight and the
+App Store are BOTH production, and only builds run straight from Xcode are
+sandbox. The sender tries production first and retries sandbox when Apple
+answers `BadDeviceToken`, so both work without a config switch.
+
+**Supabase secrets:** `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (the
+whole `.p8` file, BEGIN/END lines included). See docs/DEPENDENCIES.md.
+
+**Behaviour:** permission is requested only from the Settings toggle, never on
+launch — iOS grants exactly one chance at that prompt, and asking cold is how
+apps get denied permanently. Every launch silently re-registers when permission
+already exists, because iOS can issue a **new** device token after an update or
+a restore and a stale one stops delivering with no error anywhere. Signing out
+deletes the device's tokens, so the next person to use the phone does not keep
+receiving the previous user's building notices. Apple reporting a token as gone
+(HTTP 410) prunes it automatically.
+
 ## Shipping to TestFlight (every release)
 
 ```bash
