@@ -20,6 +20,10 @@ export const pushSupported = Capacitor.isNativePlatform();
 
 let listenersBound = false;
 
+/** Why enabling failed, when it does. Surfaced in Settings so a silent
+ *  misconfiguration is not mistaken for "it just doesn't work". */
+export type PushFailure = 'denied' | 'no-token' | 'error';
+
 /** Store (or refresh) this device's token for the signed-in user. */
 async function saveToken(token: string) {
   const { data: auth } = await supabase.auth.getUser();
@@ -55,19 +59,44 @@ function bindListeners() {
  * receiving notifications. Safe to call repeatedly — iOS only shows the
  * system prompt the first time.
  */
-export async function enablePush(): Promise<boolean> {
-  if (!pushSupported) return false;
+export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: PushFailure }> {
+  if (!pushSupported) return { ok: false, reason: 'error' };
   try {
     let perm = await PushNotifications.checkPermissions();
     if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
       perm = await PushNotifications.requestPermissions();
     }
-    if (perm.receive !== 'granted') return false;
+    if (perm.receive !== 'granted') return { ok: false, reason: 'denied' };
+
     bindListeners();
-    await PushNotifications.register();
-    return true;
+
+    // register() resolving only means the REQUEST was made — the token, or an
+    // error, arrives later on a listener. Waiting for whichever comes first is
+    // the difference between the toggle reporting the truth and reporting
+    // optimism: without the Push Notifications capability in Xcode, iOS grants
+    // permission and then never issues a token, which looked like success.
+    return await new Promise((resolve) => {
+      let settled = false;
+      const done = (r: { ok: true } | { ok: false; reason: PushFailure }) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        void reg.then((h) => h.remove());
+        void errReg.then((h) => h.remove());
+        resolve(r);
+      };
+      const timer = setTimeout(() => done({ ok: false, reason: 'no-token' }), 12000);
+      const reg = PushNotifications.addListener('registration', (t) => {
+        void saveToken(t.value).then(() => done({ ok: true }));
+      });
+      const errReg = PushNotifications.addListener('registrationError', (e) => {
+        console.error('push registration failed', e);
+        done({ ok: false, reason: 'no-token' });
+      });
+      void PushNotifications.register();
+    });
   } catch {
-    return false;
+    return { ok: false, reason: 'error' };
   }
 }
 

@@ -53,18 +53,21 @@ function SettingsInner() {
   // ---- phone notifications (native app only) ----
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
-  const [pushDenied, setPushDenied] = useState(false);
+  const [pushError, setPushError] = useState<'denied' | 'no-token' | null>(null);
   useEffect(() => { if (isNativeApp) pushAlreadyGranted().then(setPushOn); }, []);
 
   async function togglePush(on: boolean) {
     setPushBusy(true);
-    setPushDenied(false);
+    setPushError(null);
     if (on) {
-      const ok = await enablePush();
-      setPushOn(ok);
-      // iOS only ever shows its permission prompt once. If it was refused
-      // then, we cannot ask again — only iOS Settings can undo it.
-      if (!ok) setPushDenied(true);
+      const res = await enablePush();
+      setPushOn(res.ok);
+      // Two very different failures, and conflating them sends people to the
+      // wrong place: 'denied' means iOS is blocking us and only the iPhone
+      // Settings app can undo it; 'no-token' means permission was granted but
+      // Apple issued no token, which is nearly always a missing capability in
+      // the build rather than anything the user can fix.
+      if (!res.ok) setPushError(res.reason === 'denied' ? 'denied' : 'no-token');
     } else {
       await disablePush();
       setPushOn(false);
@@ -469,8 +472,10 @@ function SettingsInner() {
               />
               {t('settings.pushLabel')}
             </label>
-            {pushDenied && (
-              <p className="text-xs text-destructive mt-2">{t('settings.pushDenied')}</p>
+            {pushError && (
+              <p className="text-xs text-destructive mt-2">
+                {t(pushError === 'denied' ? 'settings.pushDenied' : 'settings.pushNoToken')}
+              </p>
             )}
           </CardBody>
         </Card>
