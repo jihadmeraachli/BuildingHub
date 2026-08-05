@@ -159,6 +159,14 @@ export default function Finance() {
 
   // the entity's expense catalog (0085); compound catalog governs its blocks
   const { activeTypes, types: allTypes } = useExpenseTypes(entity?.kind, entity?.id);
+  /** Display name for an expense: its catalog type (custom names included),
+   *  falling back to the legacy enum label. Without this every custom type
+   *  renders as "Other" across the tab. */
+  const typeLabel = (e: { expense_type_id?: string | null; category: string }) => {
+    const ty = e.expense_type_id ? allTypes.find((x) => x.id === e.expense_type_id) : undefined;
+    if (ty && !ty.key) return ty.name;
+    return t(`finance.cats.${ty?.key ?? e.category}`);
+  };
   // Ad-hoc arrears collection (0076)
   const [reqOpen, setReqOpen] = useState(false);
   const [reqLabel, setReqLabel] = useState('');
@@ -382,10 +390,21 @@ export default function Finance() {
   }, [vUnits, vCharges, vPayments, adjustments, period, monthValue]);
 
   // category breakdown (charges → block-sliceable)
-  const breakdown = CATEGORIES.map((cat) => ({
-    label: t(`finance.cats.${cat}`),
-    value: round2(pCharges.filter((c) => c.category === cat).reduce((s, c) => s + Number(c.amount_usd), 0)),
-  })).filter((d) => d.value > 0);
+  const breakdown = useMemo(() => {
+    // a charge's type comes through its expense (charges only carry the legacy
+    // category string); dues-less manual charges fall back to that string
+    const typeOfExpense = new Map(expenses.map((e) => [e.id, e.expense_type_id ?? null]));
+    const acc = new Map<string, number>();
+    for (const c of pCharges) {
+      const tid = c.expense_id ? typeOfExpense.get(c.expense_id) : null;
+      const ty = tid ? allTypes.find((x) => x.id === tid) : undefined;
+      const label = ty && !ty.key ? ty.name : t(`finance.cats.${ty?.key ?? c.category}`);
+      acc.set(label, round2((acc.get(label) ?? 0) + Number(c.amount_usd)));
+    }
+    return [...acc.entries()].map(([label, value]) => ({ label, value })).filter((d) => d.value > 0)
+      .sort((a, b) => b.value - a.value);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pCharges, expenses, allTypes, t]);
 
   // trend: collected (payments) vs billed (charges), granularity by period
   const trend = useMemo(() => {
@@ -442,7 +461,9 @@ export default function Finance() {
     const amount = composeUsdTotal(Number(expForm.amount) || 0, lbpPart, rate);
     if (!entity || !amount || amount <= 0 || targetUnits.length === 0) return;
     setSaving(true);
-    const desc = expForm.description.trim() || CAT_LABEL[expForm.category];
+    const chosenType = activeTypes.find((x) => x.id === expForm.expense_type_id);
+    const desc = expForm.description.trim()
+      || (chosenType && !chosenType.key ? chosenType.name : CAT_LABEL[expForm.category]);
     const invoice_url = expFile ? await uploadFile('attachments', `${entity.id}/expenses`, expFile) : null;
 
     // expense-level tagging: compound entities carry compound_id; single-block keeps building_id
@@ -1087,7 +1108,7 @@ export default function Finance() {
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
-                        <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
+                        <td className="px-5 py-3"><Badge>{typeLabel(e)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
                         <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}{money(Number(e.amount_usd))}</td>
                       </tr>

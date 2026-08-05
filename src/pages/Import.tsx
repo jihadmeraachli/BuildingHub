@@ -7,6 +7,24 @@ import {
 import type { Grant } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+
+// 0085: an imported expense must point at its scope's catalog row, or it sits
+// as "Uncategorized" in budget-vs-actual forever. Seeded types carry the legacy
+// enum in `key`; the compound's catalog governs its blocks.
+const _typeCache = new Map<string, string | null>();
+async function typeIdFor(buildingId: string, categoryKey: string): Promise<string | null> {
+  const cacheKey = `${buildingId}|${categoryKey}`;
+  if (_typeCache.has(cacheKey)) return _typeCache.get(cacheKey) ?? null;
+  const { data: b } = await supabase.from('buildings').select('compound_id').eq('id', buildingId).single();
+  const scope = (b as { compound_id: string | null } | null)?.compound_id;
+  const q = scope
+    ? supabase.from('expense_types').select('id').eq('compound_id', scope).eq('key', categoryKey)
+    : supabase.from('expense_types').select('id').eq('building_id', buildingId).eq('key', categoryKey);
+  const { data } = await q.maybeSingle();
+  const id = (data as { id: string } | null)?.id ?? null;
+  _typeCache.set(cacheKey, id);
+  return id;
+}
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
@@ -855,6 +873,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         const { data: expRow, error: eErr } = await supabase.from('expenses').insert({
           building_id:  buildingId,
           category:     validCategory,
+          expense_type_id: await typeIdFor(buildingId, validCategory),
           description:  exp.description,
           amount_usd:   exp.amount_usd,
           expense_date: exp.expense_date ?? todayStr(),
