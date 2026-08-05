@@ -13,7 +13,7 @@ import { cropToSquare, type CropArea } from '@/lib/cropImage';
 import { Card, CardBody } from '@/components/ui/Card';
 import { isNativeApp, bioLoginEnabled, setBioLoginEnabled, bioAvailable, bioAuthenticate } from '@/lib/biolock';
 import { rememberSessionForBio, forgetBioSession } from '@/lib/bioSession';
-import { pushAlreadyGranted, enablePush, disablePush } from '@/lib/push';
+import { pushAlreadyGranted, enablePush, disablePush, lastPushError } from '@/lib/push';
 import { setLanguage } from '@/i18n';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
@@ -53,7 +53,7 @@ function SettingsInner() {
   // ---- phone notifications (native app only) ----
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
-  const [pushError, setPushError] = useState<'denied' | 'no-token' | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
   useEffect(() => { if (isNativeApp) pushAlreadyGranted().then(setPushOn); }, []);
 
   async function togglePush(on: boolean) {
@@ -62,12 +62,16 @@ function SettingsInner() {
     if (on) {
       const res = await enablePush();
       setPushOn(res.ok);
-      // Two very different failures, and conflating them sends people to the
-      // wrong place: 'denied' means iOS is blocking us and only the iPhone
-      // Settings app can undo it; 'no-token' means permission was granted but
-      // Apple issued no token, which is nearly always a missing capability in
-      // the build rather than anything the user can fix.
-      if (!res.ok) setPushError(res.reason === 'denied' ? 'denied' : 'no-token');
+      // These failures send you to completely different places, so they are
+      // reported separately — and Apple's own words are shown, because every
+      // guess here costs a whole TestFlight build to test.
+      if (!res.ok) {
+        const msg = res.reason === 'denied' ? t('settings.pushDenied')
+          : res.reason === 'timeout' ? t('settings.pushTimeout')
+          : res.reason === 'save' ? t('settings.pushSaveFailed')
+          : t('settings.pushNoToken');
+        setPushError(lastPushError ? `${msg}\n\n${lastPushError}` : msg);
+      }
     } else {
       await disablePush();
       setPushOn(false);
@@ -473,9 +477,7 @@ function SettingsInner() {
               {t('settings.pushLabel')}
             </label>
             {pushError && (
-              <p className="text-xs text-destructive mt-2">
-                {t(pushError === 'denied' ? 'settings.pushDenied' : 'settings.pushNoToken')}
-              </p>
+              <p className="text-xs text-destructive mt-2 whitespace-pre-wrap">{pushError}</p>
             )}
           </CardBody>
         </Card>

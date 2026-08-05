@@ -21,17 +21,27 @@ export const pushSupported = Capacitor.isNativePlatform();
 let listenersBound = false;
 
 /** Why enabling failed, when it does. Surfaced in Settings so a silent
- *  misconfiguration is not mistaken for "it just doesn't work". */
-export type PushFailure = 'denied' | 'no-token' | 'error';
+ *  misconfiguration is not mistaken for "it just doesn't work".
+ *  'no-token'  — iOS actively refused to issue one (carries Apple's reason)
+ *  'timeout'   — nothing came back at all, which can just be a slow network
+ *  'save'      — Apple issued a token but storing it failed */
+export type PushFailure = 'denied' | 'no-token' | 'timeout' | 'save' | 'error';
 
-/** Store (or refresh) this device's token for the signed-in user. */
-async function saveToken(token: string) {
+/** Apple's own words for the last failure. Each diagnostic cycle costs a whole
+ *  TestFlight build, so the real message is worth showing rather than guessing
+ *  from symptoms. */
+export let lastPushError = '';
+
+/** Store (or refresh) this device's token. Returns an error string on failure —
+ *  the first version ignored the result, so a rejected write looked identical
+ *  to success and the toggle happily reported "on" with nothing saved. */
+async function saveToken(token: string): Promise<string | null> {
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
-  if (!uid) return;
+  if (!uid) return 'not signed in';
   // Upsert on the token: the same device re-registering must update its row,
   // not add another, or one phone buzzes repeatedly per notification.
-  await supabase.from('device_tokens').upsert(
+  const { error } = await supabase.from('device_tokens').upsert(
     {
       user_id: uid,
       token,
@@ -40,6 +50,7 @@ async function saveToken(token: string) {
     },
     { onConflict: 'token' },
   );
+  return error ? `${error.code ?? ''} ${error.message}`.trim() : null;
 }
 
 function bindListeners() {
@@ -75,6 +86,7 @@ export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: 
     // the difference between the toggle reporting the truth and reporting
     // optimism: without the Push Notifications capability in Xcode, iOS grants
     // permission and then never issues a token, which looked like success.
+    lastPushError = '';
     return await new Promise((resolve) => {
       let settled = false;
       const done = (r: { ok: true } | { ok: false; reason: PushFailure }) => {
@@ -85,11 +97,17 @@ export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: 
         void errReg.then((h) => h.remove());
         resolve(r);
       };
-      const timer = setTimeout(() => done({ ok: false, reason: 'no-token' }), 12000);
+      // Separate from a refusal: nothing arriving can simply mean a slow or
+      // restricted network, which is a different problem from iOS saying no.
+      const timer = setTimeout(() => done({ ok: false, reason: 'timeout' }), 15000);
       const reg = PushNotifications.addListener('registration', (t) => {
-        void saveToken(t.value).then(() => done({ ok: true }));
+        void saveToken(t.value).then((err) => {
+          if (err) { lastPushError = err; done({ ok: false, reason: 'save' }); }
+          else done({ ok: true });
+        });
       });
       const errReg = PushNotifications.addListener('registrationError', (e) => {
+        lastPushError = (e as { error?: string })?.error ?? JSON.stringify(e);
         console.error('push registration failed', e);
         done({ ok: false, reason: 'no-token' });
       });
