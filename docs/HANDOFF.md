@@ -109,6 +109,13 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0081 | `0081_request_arrears_only.sql` | Requests are arrears-only again. A prepay building sits in credit so a ledger-based request finds nobody; where it finds arrears, outstanding dues already collect them. |
 | 0082 | `0082_chase_all_dues.sql` | Chase EVERY unpaid dues period, not just the latest. |
 
+| 0085 | `0085_expense_types.sql` | **Expense types are DATA** — per building/compound catalog (compound governs), seeded with the 7 legacy categories + auto-seed trigger for new entities. `expenses.expense_type_id` (+ backfill); `category` stays as the legacy mirror (custom types file under 'other'). Managed from building settings; `is_metered` feeds 0090. |
+| 0086 | `0086_lbp_currency.sql` | **LBP alongside USD.** Two amount boxes on expense/payment; ONE canonical `amount_usd`; `amount_lbp`+`lbp_rate` are the per-row LOG (rate FROZEN per row — the building/compound `lbp_rate` setting only prefills, via sealed `set_lbp_rate()`). LBP/MIX row tags, detail breakdown, "Paid as" line in the payment email. |
+| 0087 | `0087_prepaid_budget.sql` | **The Prepaid Budget** — Dues renamed; no plan+generate: every issuance IS the plan, built from LINES (expense type + amount), Σ lines = the pool, TIME-BOUND (period from→to). `budgets` + `budget_lines`; `dues.budget_id`. Budget-vs-actual card in Reports. `dues_plans` retired from the UI. |
+| 0088 | `0088_request_asof.sql` | **Requests target a period**: optional as-of — owed AT the date − payments dated AFTER it. `unit_party_balance_asof()`; settlement moves to ENTRY time (`created_at`); `get_overdue_units()` sums open lines per unit+party (0082 pattern) and skips recipient-less candidates BEFORE the dedup insert. |
+| 0089 | `0089_extraordinary_expense.sql` | **Extraordinary expenses collect immediately**: arrears → targeted `request_payment_for_expense()` (no supersede); dues mode → the client issues a flat one-line budget (the netting rule keeps charge+due from double-collecting). |
+| 0090 | `0090_metering.sql` | **Metering** — cycles + readings for `is_metered` types (generator/water): stock in/bought/out → avg unit cost; per-unit + common kW; pro-rata; finalize posts ONE ordinary expense with per-unit charges (`expenses.meter_cycle_id`). Math in `lib/metering.ts`, tested. |
+
 ### Key idea: the access ladder (0026 + 0027)
 ```
 platform_admin 100  the operator (profiles.is_platform_admin) — god-mode
@@ -168,6 +175,31 @@ otherwise nobody is reminded and the owner's payment never clears it.
 **Reminders**: daily to the due date, weekly after, per (unit, day, party,
 source). Every unpaid period is chased, summed into one reminder dated from the
 oldest.
+
+
+### ⚠️ THE EXPERT-SESSION REWORK (2026-08-05, migrations 0085–0090)
+
+Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
+
+- **Expense types are the building's own catalog** (settings → Expense types).
+  Everything joins on them: expenses, budget lines, budget-vs-actual, metering.
+- **The Prepaid Budget has no plan.** Every issuance is built from lines; the
+  lines' total is the pool; per-run scope/basis/who-pays/true-up as before. The
+  obligation shape (dues rows) did NOT change — carry netting, reminders,
+  outstanding: all untouched and their suites still pass.
+- **LBP**: `amount_usd` stays canonical EVERYWHERE. `amount_lbp`+`lbp_rate` are
+  a per-row log; the building setting is only a prefill and never rewrites
+  history.
+- **Requests**: optional as-of (owed at the date − payments since), settlement
+  by entry time, one reminder per unit+party summing all open lines, no
+  reminders "sent" to nobody.
+- **Extraordinary expense** = collect NOW; mode-branched (request vs flat
+  budget).
+- **Metering** posts ordinary expenses; the cycle is the audit trail. Expense
+  total = Σ rounded per-unit charges, to the cent.
+- **Client math tests** live in the session scratchpad pattern — eight suites
+  (netting, true-up, bill-to, scope, dues, as-of, budget-vs-actual, metering).
+  Run them against `src/lib` before changing any money function.
 
 ---
 
