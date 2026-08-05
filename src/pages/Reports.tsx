@@ -8,13 +8,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
 import { fetchAll } from '@/lib/fetchAll';
+import { useExpenseTypes } from '@/lib/expenseTypes';
+import { fmtDate } from '@/lib/dateFmt';
 import { computeBalance } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets, type TenancyRow } from '@/lib/reportData';
-import type { Unit, Charge, Payment, Expense, Adjustment, Dues } from '@/types';
+import { tenancyHelpers, buildBook, buildUnitBuckets, buildBudgetVsActual, type TenancyRow } from '@/lib/reportData';
+import type { Unit, Charge, Payment, Expense, Adjustment, Dues, Budget, BudgetLine } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { SkeletonCards } from '@/components/ui/Skeleton';
+
+const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * Reports (#62) — the output room. Finance stays the operational workbench
@@ -207,6 +211,7 @@ export default function Reports() {
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [statementUnitId, setStatementUnitId] = useState('');
 
+
   const [units, setUnits] = useState<Unit[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -214,6 +219,36 @@ export default function Reports() {
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
   const [dues, setDues] = useState<Dues[]>([]);
+  // Budget vs actual (0087): pick an issued budget, hold it against the
+  // expenses booked inside its period.
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [bvaBudgetId, setBvaBudgetId] = useState('');
+  const [bvaLines, setBvaLines] = useState<BudgetLine[]>([]);
+  const { types: allExpenseTypes } = useExpenseTypes(entity?.kind, entity?.id);
+  useEffect(() => {
+    if (!entity) { setBudgets([]); return; }
+    const q = entity.kind === 'compound'
+      ? supabase.from('budgets').select('*').eq('compound_id', entity.id)
+      : supabase.from('budgets').select('*').eq('building_id', entity.id);
+    q.is('cancelled_at', null).order('period_start', { ascending: false })
+      .then(({ data }) => setBudgets((data as Budget[]) ?? []));
+  }, [entityKey, entity?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!bvaBudgetId) { setBvaLines([]); return; }
+    supabase.from('budget_lines').select('*').eq('budget_id', bvaBudgetId)
+      .then(({ data }) => setBvaLines((data as BudgetLine[]) ?? []));
+  }, [bvaBudgetId]);
+  const bva = useMemo(() => {
+    const budget = budgets.find((b) => b.id === bvaBudgetId);
+    if (!budget || !bvaLines.length) return null;
+    return buildBudgetVsActual(budget, bvaLines,
+      expenses.filter((e) => !('voided_at' in e) || !e.voided_at),
+      (id) => {
+        const ty = allExpenseTypes.find((x) => x.id === id);
+        if (!ty) return t('reports.uncategorized');
+        return ty.key ? t(`finance.cats.${ty.key}`) : ty.name;
+      });
+  }, [budgets, bvaBudgetId, bvaLines, expenses, allExpenseTypes, t]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
 
@@ -395,6 +430,57 @@ export default function Reports() {
                 <Download size={15} /> {t('reports.download')}
               </Button>
             </div>
+          </CardBody></Card>
+
+          {/* Budget vs actual (0087): how well did the prepaid budget perform */}
+          <Card className="md:col-span-2"><CardBody>
+            <div className="flex items-center gap-2.5 mb-2">
+              <FileBarChart2 size={18} className="text-primary" />
+              <p className="font-semibold text-foreground">{t('reports.budgetVsActual')}</p>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.budgetVsActualDesc')}</p>
+            {budgets.length === 0
+              ? <p className="text-sm text-muted-foreground">{t('reports.noBudgets')}</p>
+              : (
+                <div className="space-y-3">
+                  <SelectField label={t('dues.budgetLabel')} value={bvaBudgetId || '__none__'} onValueChange={(v) => setBvaBudgetId(v === '__none__' ? '' : v)}>
+                    <SelectItem value="__none__">{t('reports.pickBudget')}</SelectItem>
+                    {budgets.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.label} · {fmtDate(b.period_start, 'MMM d')} – {fmtDate(b.period_end, 'MMM d, yyyy')}
+                      </SelectItem>
+                    ))}
+                  </SelectField>
+                  {bva && (
+                    <div className="overflow-x-auto rounded-xl border border-border">
+                      <table className="w-full text-sm">
+                        <thead><tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
+                          <th className="px-4 py-2.5 text-start font-medium">{t('finance.category')}</th>
+                          <th className="px-4 py-2.5 text-end font-medium">{t('reports.budgeted')}</th>
+                          <th className="px-4 py-2.5 text-end font-medium">{t('reports.actual')}</th>
+                          <th className="px-4 py-2.5 text-end font-medium">{t('reports.variance')}</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-border/60">
+                          {bva.rows.map((r) => (
+                            <tr key={r.typeId ?? 'null'}>
+                              <td className="px-4 py-2 text-foreground">{r.typeName}{r.budgeted === 0 && <span className="ms-1.5 text-xs text-amber-600 dark:text-amber-400">{t('reports.unbudgeted')}</span>}</td>
+                              <td className="px-4 py-2 text-end text-muted-foreground tnum">{money(r.budgeted)}</td>
+                              <td className="px-4 py-2 text-end text-foreground tnum">{money(r.actual)}</td>
+                              <td className={`px-4 py-2 text-end tnum font-medium ${r.variance < 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.variance)}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-t border-border font-semibold">
+                            <td className="px-4 py-2 text-foreground">{t('reports.total')}</td>
+                            <td className="px-4 py-2 text-end text-foreground tnum">{money(bva.totalBudgeted)}</td>
+                            <td className="px-4 py-2 text-end text-foreground tnum">{money(bva.totalActual)}</td>
+                            <td className={`px-4 py-2 text-end tnum ${bva.totalBudgeted - bva.totalActual < 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(Math.round((bva.totalBudgeted - bva.totalActual) * 100) / 100)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
           </CardBody></Card>
         </div>
       )}

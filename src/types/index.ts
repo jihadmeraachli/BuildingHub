@@ -502,3 +502,33 @@ export interface PaymentRequestLine {
   created_at: string;
   request?: PaymentRequest;
 }
+
+/** A prepaid budget (0087) — every issuance is its own plan. Time-bound so
+ *  Reports can hold it against the actual expenses in the window. */
+export interface Budget {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  label: string;
+  period_start: string;
+  period_end: string;
+  due_date: string | null;
+  method: DuesMethod;
+  billed_to: 'tenant_where_leased' | 'owner';
+  true_up: boolean;
+  created_by: string | null;
+  created_at: string;
+  cancelled_at: string | null;
+}
+
+/** One line of a budget: an expense type + an amount (USD/LBP, 0086). */
+export interface BudgetLine {
+  id: string;
+  budget_id: string;
+  expense_type_id: string | null;
+  note: string | null;
+  amount_usd: number;
+  amount_lbp: number | null;
+  lbp_rate: number | null;
+  created_at: string;
+}

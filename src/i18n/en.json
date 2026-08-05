@@ -274,7 +274,17 @@
     "myStatementDesc": "Your unit's account for the period: charges, payments and balance, as a branded PDF you can keep or share.",
     "buildingExpenses": "Building expenses",
     "buildingExpensesDesc": "Everything the building spent in the period, with category totals. Full transparency on where the money goes.",
-    "building": "Building"
+    "building": "Building",
+    "budgetVsActual": "Budget vs actual",
+    "budgetVsActualDesc": "How a prepaid budget performed: what was planned per expense type against what was actually spent inside its period.",
+    "noBudgets": "No budgets issued yet. Issue one from the Prepaid Budget tab.",
+    "pickBudget": "Pick a budget…",
+    "budgeted": "Budgeted",
+    "actual": "Actual",
+    "variance": "Variance",
+    "unbudgeted": "unbudgeted",
+    "total": "Total",
+    "uncategorized": "Uncategorized"
   },
   "feedback": {
     "button": "Send feedback",

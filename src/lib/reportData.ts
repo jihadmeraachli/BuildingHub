@@ -436,3 +436,51 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
 
   return rows;
 }
+
+// ============================================================
+// BUDGET vs ACTUAL (0087). A budget is time-bound (period_start → period_end);
+// the actual side is the expenses booked in that window, joined on the expense
+// TYPE. Expenses of types the budget never planned for land in extra rows, so
+// overspend cannot hide by being unbudgeted.
+// ============================================================
+export interface BudgetVsActualRow {
+  typeId: string | null;
+  typeName: string;
+  budgeted: number;
+  actual: number;
+  variance: number;      // budgeted − actual: positive = under budget
+}
+
+export function buildBudgetVsActual(
+  budget: { period_start: string; period_end: string },
+  lines: { expense_type_id: string | null; amount_usd: number }[],
+  expenses: { expense_type_id?: string | null; category?: string; amount_usd: number; expense_date: string }[],
+  typeName: (id: string | null) => string,
+): { rows: BudgetVsActualRow[]; totalBudgeted: number; totalActual: number } {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const inPeriod = (d: string) => d >= budget.period_start && d <= budget.period_end;
+
+  const budgeted = new Map<string | null, number>();
+  for (const l of lines) {
+    budgeted.set(l.expense_type_id, r2((budgeted.get(l.expense_type_id) ?? 0) + Number(l.amount_usd)));
+  }
+  const actual = new Map<string | null, number>();
+  for (const e of expenses) {
+    if (!inPeriod(e.expense_date)) continue;
+    const key = e.expense_type_id ?? null;
+    actual.set(key, r2((actual.get(key) ?? 0) + Number(e.amount_usd)));
+  }
+
+  // budgeted types first (in insertion order), then unbudgeted actuals
+  const keys = [...budgeted.keys(), ...[...actual.keys()].filter((k) => !budgeted.has(k))];
+  const rows = keys.map((k) => {
+    const b = budgeted.get(k) ?? 0;
+    const a = actual.get(k) ?? 0;
+    return { typeId: k, typeName: typeName(k), budgeted: b, actual: a, variance: r2(b - a) };
+  });
+  return {
+    rows,
+    totalBudgeted: r2(rows.reduce((s, r) => s + r.budgeted, 0)),
+    totalActual: r2(rows.reduce((s, r) => s + r.actual, 0)),
+  };
+}
