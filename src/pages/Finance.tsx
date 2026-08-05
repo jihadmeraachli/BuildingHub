@@ -66,7 +66,7 @@ interface Entity { key: string; kind: 'compound' | 'building'; id: string; name:
 
 type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
-  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string;
+  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string; extraordinary: boolean;
   scope: ExpScope; method: AllocationMethod; block_id: string; group_id: string; unit_id: string; selectedUnits: string[];
   // T5: for units that HAVE a tenant, charge this party. Owner-only units always
   // go to the owner regardless. (No more 'both' / 'all members'.)
@@ -75,7 +75,7 @@ type ExpForm = {
 const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
   cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
-  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10),
+  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false,
   scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner',
 });
 type PayForm = { unit_id: string; amount: string; amount_lbp: string; lbp_rate: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure };
@@ -137,6 +137,15 @@ export default function Finance() {
   /** Dues for the loaded units — listed on exported statements under the party
    *  they fall on (0070). Obligations, never part of the balance. */
   const [dues, setDues] = useState<Dues[]>([]);
+  // days-to-pay prefill (0076): compound governs, default 7
+  const effectiveDueDays = useMemo(() => {
+    if (!entity) return 7;
+    if (entity.kind === 'compound') return compounds.find((c) => c.id === entity.id)?.payment_due_days ?? 7;
+    const b = buildings.find((x) => x.id === entity.id);
+    const comp = b?.compound_id ? compounds.find((c) => c.id === b.compound_id) : null;
+    return comp?.payment_due_days ?? b?.payment_due_days ?? 7;
+  }, [entity, buildings, compounds]);
+
   // LBP form prefill (0086): the compound's rate governs its blocks. Frozen
   // per row on save — changing the setting never rewrites old entries.
   const effectiveLbpRate = useMemo(() => {
@@ -415,7 +424,7 @@ export default function Finance() {
   function openExpenseEdit(e: Expense) {
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
+    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -452,6 +461,7 @@ export default function Finance() {
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
         expense_type_id: expForm.expense_type_id || null,
         amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
+        is_extraordinary: !editingExpenseId && expForm.extraordinary,
       }).select().single();
       if (error || !exp) { setSaving(false); toast.error(error?.message ?? 'Could not save expense'); return; }
       expenseId = (exp as Expense).id;
@@ -469,6 +479,51 @@ export default function Finance() {
       };
     });
     if (rows.length) await supabase.from('charges').insert(rows);
+
+    // Extraordinary (0089): collect it NOW instead of at the next cycle. The
+    // ask is mode-branched — a ledger request in a prepay building finds
+    // nobody (0081), so dues mode issues a FLAT one-line budget instead. The
+    // netting rule keeps the two books straight: the outstanding due absorbs
+    // the ledger arrears this charge just created, and one payment settles both.
+    if (!editingExpenseId && expForm.extraordinary && expenseId && rows.length) {
+      if (entity.billingMode === 'dues') {
+        const label = `${t('finance.extraordinaryTag')}: ${desc}`;
+        const { data: bud, error: bErr } = await supabase.from('budgets').insert({
+          building_id: entity.kind === 'building' ? entity.id : null,
+          compound_id: entity.kind === 'compound' ? entity.id : null,
+          label, period_start: expForm.expense_date, period_end: expForm.expense_date,
+          due_date: new Date(Date.now() + effectiveDueDays * 864e5).toISOString().slice(0, 10), method: 'custom',
+          billed_to: expForm.leasedTo === 'tenant' ? 'tenant_where_leased' : 'owner',
+          true_up: false, created_by: profile?.id,
+        }).select().single();
+        if (bErr || !bud) { toast.error(bErr?.message ?? 'Could not issue the extraordinary ask'); }
+        else {
+          const budgetId = (bud as { id: string }).id;
+          await supabase.from('budget_lines').insert({
+            budget_id: budgetId, expense_type_id: expForm.expense_type_id || null,
+            note: desc, amount_usd: amount,
+            amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
+          });
+          const { error: dErr } = await supabase.from('dues').insert(rows.map((r) => ({
+            budget_id: budgetId, building_id: r.building_id, unit_id: r.unit_id,
+            period_label: label,
+            // a due date is what makes the reminder cron chase it
+            due_date: new Date(Date.now() + effectiveDueDays * 864e5).toISOString().slice(0, 10),
+            base_amount: r.amount_usd, carry_in: 0, amount_due: r.amount_usd,
+            billed_to: r.billed_to === 'tenant' ? 'tenant' : 'owner',
+            tenant_id: r.billed_to === 'tenant' ? r.tenant_id : null,
+            kind: 'off_budget', label, created_by: profile?.id,
+          })));
+          if (dErr) toast.error(dErr.message);
+          else toast.success(t('finance.extraordinaryIssuedDues'));
+        }
+      } else {
+        const { error: rErr } = await supabase.rpc('request_payment_for_expense', { p_expense: expenseId });
+        if (rErr) toast.error(rErr.message);
+        else toast.success(t('finance.extraordinaryIssued'));
+      }
+    }
+
     toast.success(t('finance.expenseSaved'));
     setSaving(false); setExpOpen(false); loadScope();
   }
@@ -1143,6 +1198,19 @@ export default function Finance() {
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
+            {!editingExpenseId && (
+              <label className="flex items-start gap-2.5 cursor-pointer rounded-xl border border-border p-3">
+                <input type="checkbox" checked={expForm.extraordinary}
+                  onChange={(e) => setExpForm({ ...expForm, extraordinary: e.target.checked })}
+                  className="mt-0.5 accent-primary" />
+                <span>
+                  <span className="text-sm font-medium text-foreground">{t('finance.extraordinaryLabel')}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    {entity?.billingMode === 'dues' ? t('finance.extraordinaryHintDues') : t('finance.extraordinaryHintArrears')}
+                  </span>
+                </span>
+              </label>
+            )}
             <SelectField label={t('finance.applyTo')} value={expForm.scope} onValueChange={(v) => setExpForm({ ...expForm, scope: v as ExpScope })}>
               <SelectItem value="all">{entity?.kind === 'compound' ? t('finance.wholeCompound') : t('finance.allUnits')}</SelectItem>
               {entity?.kind === 'compound' && multiBlock && <SelectItem value="block">{t('finance.aBlock')}</SelectItem>}

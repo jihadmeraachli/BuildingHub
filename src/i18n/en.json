@@ -1080,7 +1080,13 @@
     "lbpNeedsRate": "Enter the LBP exchange rate to convert the LBP amount.",
     "requestAsOf": "Request balances as of",
     "requestAsOfHint": "Asks what was owed on {{date}}, minus anything paid since. Charges after that date wait for the next request.",
-    "requestAsOfLive": "Leave empty to request today's balances."
+    "requestAsOfLive": "Leave empty to request today's balances.",
+    "extraordinaryLabel": "Extraordinary (urgent one-off)",
+    "extraordinaryHintArrears": "Sends a payment request for this expense immediately, marked extraordinary. The regular request cycle is not affected.",
+    "extraordinaryHintDues": "Issues a flat prepaid ask for this expense immediately, marked extraordinary, collected in full even from units in credit.",
+    "extraordinaryTag": "Extraordinary",
+    "extraordinaryIssued": "Extraordinary payment request sent",
+    "extraordinaryIssuedDues": "Extraordinary ask issued"
   },
   "inspections": {
     "title": "Inspections",
