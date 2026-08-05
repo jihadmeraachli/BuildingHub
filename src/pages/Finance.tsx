@@ -13,6 +13,7 @@ import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
 import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle } from '@/lib/reportData';
 import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
+import { composeUsdTotal, usdPartOf, currencyTag, currencyBreakdown } from '@/lib/currency';
 import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -65,7 +66,7 @@ interface Entity { key: string; kind: 'compound' | 'building'; id: string; name:
 
 type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
-  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; expense_date: string;
+  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string;
   scope: ExpScope; method: AllocationMethod; block_id: string; group_id: string; unit_id: string; selectedUnits: string[];
   // T5: for units that HAVE a tenant, charge this party. Owner-only units always
   // go to the owner regardless. (No more 'both' / 'all members'.)
@@ -74,11 +75,11 @@ type ExpForm = {
 const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
   cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
-  category: 'common_expenses', expense_type_id: '', description: '', amount: '', expense_date: new Date().toISOString().slice(0, 10),
+  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10),
   scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner',
 });
-type PayForm = { unit_id: string; amount: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure };
-const newPayForm = (): PayForm => ({ unit_id: '', amount: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner' });
+type PayForm = { unit_id: string; amount: string; amount_lbp: string; lbp_rate: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure };
+const newPayForm = (): PayForm => ({ unit_id: '', amount: '', amount_lbp: '', lbp_rate: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner' });
 
 export default function Finance() {
   const { t } = useTranslation();
@@ -136,6 +137,16 @@ export default function Finance() {
   /** Dues for the loaded units — listed on exported statements under the party
    *  they fall on (0070). Obligations, never part of the balance. */
   const [dues, setDues] = useState<Dues[]>([]);
+  // LBP form prefill (0086): the compound's rate governs its blocks. Frozen
+  // per row on save — changing the setting never rewrites old entries.
+  const effectiveLbpRate = useMemo(() => {
+    if (!entity) return null;
+    if (entity.kind === 'compound') return compounds.find((c) => c.id === entity.id)?.lbp_rate ?? null;
+    const b = buildings.find((x) => x.id === entity.id);
+    const comp = b?.compound_id ? compounds.find((c) => c.id === b.compound_id) : null;
+    return comp?.lbp_rate ?? b?.lbp_rate ?? null;
+  }, [entity, buildings, compounds]);
+
   // the entity's expense catalog (0085); compound catalog governs its blocks
   const { activeTypes, types: allTypes } = useExpenseTypes(entity?.kind, entity?.id);
   // Ad-hoc arrears collection (0076)
@@ -395,24 +406,27 @@ export default function Finance() {
   const preview = useMemo(() => allocate(Number(expForm.amount) || 0, targetUnits, expForm.method, custom), [expForm.amount, expForm.method, targetUnits, custom]);
   const previewSum = preview.reduce((s, r) => s + r.amount, 0);
 
-  function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: entity?.kind === 'compound' ? 'all' : 'all' }); setCustom({}); setExpFile(null); setExpOpen(true); }
-  function openPayment() { setEditingPaymentId(null); setPayForm(newPayForm()); setPayFile(null); setPayOpen(true); }
+  function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
+  function openPayment() { setEditingPaymentId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' }); setAdjOpen(true); }
   function openExpenseEdit(e: Expense) {
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, amount: String(e.amount_usd), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
+    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
   function openPaymentEdit(p: Payment) {
     setEditingPaymentId(p.id); setPayFile(null);
-    setPayForm({ unit_id: p.unit_id, amount: String(p.amount_usd), method: p.method, paid_on: p.paid_on, note: p.note ?? '', paid_by: p.paid_by ?? 'owner' });
+    setPayForm({ unit_id: p.unit_id, amount: String(usdPartOf(p)), amount_lbp: p.amount_lbp ? String(p.amount_lbp) : '', lbp_rate: p.lbp_rate ? String(p.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), method: p.method, paid_on: p.paid_on, note: p.note ?? '', paid_by: p.paid_by ?? 'owner' });
     setPayOpen(true);
   }
 
   async function saveExpense() {
-    const amount = Number(expForm.amount);
+    const lbpPart = Number(expForm.amount_lbp) || 0;
+    const rate = Number(expForm.lbp_rate) || 0;
+    if (lbpPart > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
+    const amount = composeUsdTotal(Number(expForm.amount) || 0, lbpPart, rate);
     if (!entity || !amount || amount <= 0 || targetUnits.length === 0) return;
     setSaving(true);
     const desc = expForm.description.trim() || CAT_LABEL[expForm.category];
@@ -425,7 +439,7 @@ export default function Finance() {
 
     let expenseId = editingExpenseId;
     if (editingExpenseId) {
-      const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, expense_date: expForm.expense_date, scope_type, method: expForm.method };
+      const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, expense_date: expForm.expense_date, scope_type, method: expForm.method };
       if (invoice_url) patch.invoice_url = invoice_url;
       await supabase.from('expenses').update(patch).eq('id', editingExpenseId);
       await supabase.from('charges').delete().eq('expense_id', editingExpenseId);
@@ -434,6 +448,7 @@ export default function Finance() {
         building_id, compound_id, category: expForm.category, description: desc, amount_usd: amount,
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
         expense_type_id: expForm.expense_type_id || null,
+        amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
       }).select().single();
       if (error || !exp) { setSaving(false); toast.error(error?.message ?? 'Could not save expense'); return; }
       expenseId = (exp as Expense).id;
@@ -494,13 +509,16 @@ export default function Finance() {
   }
 
   async function savePayment() {
-    const amount = Number(payForm.amount);
+    const lbpPart = Number(payForm.amount_lbp) || 0;
+    const rate = Number(payForm.lbp_rate) || 0;
+    if (lbpPart > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
+    const amount = composeUsdTotal(Number(payForm.amount) || 0, lbpPart, rate);
     if (!payForm.unit_id || !amount || amount <= 0) return;
     setSaving(true);
     const receipt_url = payFile ? await uploadFile('attachments', `${payForm.unit_id}/payments`, payFile) : null;
     // T8: leased units record who paid; owner-only units are always the owner
     const paid_by = hasTenant(payForm.unit_id) ? payForm.paid_by : 'owner';
-    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id: paid_by === 'tenant' ? activeTenantId(payForm.unit_id) : null };
+    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id: paid_by === 'tenant' ? activeTenantId(payForm.unit_id) : null };
     if (receipt_url) base.receipt_url = receipt_url;
     const { error } = editingPaymentId
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
@@ -1000,7 +1018,7 @@ export default function Finance() {
                         <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
                         <td className="px-5 py-3"><Badge>{t(`finance.cats.${e.category}`)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
-                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{money(Number(e.amount_usd))}</td>
+                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}{money(Number(e.amount_usd))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1030,7 +1048,7 @@ export default function Finance() {
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
                         <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
-                        <td className={`px-5 py-3 text-end font-semibold tnum ${p.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{money(Number(p.amount_usd))}</td>
+                        <td className={`px-5 py-3 text-end font-semibold tnum ${p.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{currencyTag(p) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(p)}</span>}{money(Number(p.amount_usd))}</td>
                         {canManageFinance && (
                           <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
                             {!p.voided_at && <>
@@ -1101,7 +1119,23 @@ export default function Finance() {
               {/* legacy fallback while the catalog loads */}
               {activeTypes.length === 0 && CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`finance.cats.${c}`)}</SelectItem>)}
             </SelectField>
-            <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
+                <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={expForm.amount_lbp} onChange={(e) => setExpForm({ ...expForm, amount_lbp: e.target.value })} />
+              </div>
+              {Number(expForm.amount_lbp) > 0 && (
+                <div className="grid grid-cols-2 gap-3 items-end">
+                  <Input label={t('finance.lbpRate')} type="number" step="0.01" min="0" value={expForm.lbp_rate} onChange={(e) => setExpForm({ ...expForm, lbp_rate: e.target.value })} />
+                  <p className="text-sm text-muted-foreground pb-2.5">
+                    {t('finance.totalUsd')}: <span className="font-semibold text-foreground tnum">
+                      {Number.isNaN(composeUsdTotal(Number(expForm.amount) || 0, Number(expForm.amount_lbp) || 0, Number(expForm.lbp_rate) || 0))
+                        ? '—' : money(composeUsdTotal(Number(expForm.amount) || 0, Number(expForm.amount_lbp) || 0, Number(expForm.lbp_rate) || 0))}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
@@ -1238,7 +1272,23 @@ export default function Finance() {
             {book.map((r) => <SelectItem key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</SelectItem>)}
           </SelectField>
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+                <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={payForm.amount_lbp} onChange={(e) => setPayForm({ ...payForm, amount_lbp: e.target.value })} />
+              </div>
+              {Number(payForm.amount_lbp) > 0 && (
+                <div className="grid grid-cols-2 gap-3 items-end">
+                  <Input label={t('finance.lbpRate')} type="number" step="0.01" min="0" value={payForm.lbp_rate} onChange={(e) => setPayForm({ ...payForm, lbp_rate: e.target.value })} />
+                  <p className="text-sm text-muted-foreground pb-2.5">
+                    {t('finance.totalUsd')}: <span className="font-semibold text-foreground tnum">
+                      {Number.isNaN(composeUsdTotal(Number(payForm.amount) || 0, Number(payForm.amount_lbp) || 0, Number(payForm.lbp_rate) || 0))
+                        ? '—' : money(composeUsdTotal(Number(payForm.amount) || 0, Number(payForm.amount_lbp) || 0, Number(payForm.lbp_rate) || 0))}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
             <SelectField label={t('finance.method')} value={payForm.method} onValueChange={(v) => setPayForm({ ...payForm, method: v as PaymentMethod })}>
               {PAY_METHODS.map((m) => <SelectItem key={m} value={m}>{t(`finance.methods.${m}`)}</SelectItem>)}
             </SelectField>
@@ -1269,7 +1319,7 @@ export default function Finance() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { l: t('finance.amount'), v: money(Number(detailExpense.amount_usd)) },
+                { l: t('finance.amount'), v: money(Number(detailExpense.amount_usd)) + (currencyBreakdown(detailExpense) ? ` (${currencyBreakdown(detailExpense)})` : '') },
                 { l: t('finance.category'), v: allTypes.find((x) => x.id === detailExpense.expense_type_id)?.key == null && detailExpense.expense_type_id ? (allTypes.find((x) => x.id === detailExpense.expense_type_id)?.name ?? t(`finance.cats.${detailExpense.category}`)) : t(`finance.cats.${detailExpense.category}`) },
                 { l: t('finance.date'), v: fmtDate(detailExpense.expense_date, 'MMM d, yyyy') },
                 { l: t('finance.split'), v: detailExpense.building_id ? (blockName[detailExpense.building_id] ?? t('finance.aBlock')) : (detailExpense.compound_id ? t('finance.wholeCompound') : detailExpense.scope_type) },
@@ -1300,7 +1350,7 @@ export default function Finance() {
       <Modal open={!!detailPayment} onClose={() => setDetailPayment(null)} title={detailPayment ? `${t('finance.payment')} — ${unitDisplay(detailPayment.unit_id)}` : t('finance.payment')}>
         {detailPayment && (
           <div className="space-y-4">
-            <div className="rounded-2xl bg-emerald-500/10 px-4 py-3"><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('finance.amount')}</p><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tnum">{money(Number(detailPayment.amount_usd))}</p></div>
+            <div className="rounded-2xl bg-emerald-500/10 px-4 py-3"><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('finance.amount')}</p><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tnum">{money(Number(detailPayment.amount_usd))}</p>{currencyBreakdown(detailPayment) && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">{currencyBreakdown(detailPayment)}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
               {[
                 { l: t('finance.unit'), v: unitDisplay(detailPayment.unit_id) },

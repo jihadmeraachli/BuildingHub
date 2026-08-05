@@ -25,6 +25,8 @@ export interface Building {
   payment_due_days?: number | null;
   /** Whish account (mobile number) residents can pay to; null = not offered. (0059) */
   whish_number: string | null;
+  /** LBP-per-USD form prefill (0086). Each entry freezes the rate it used. */
+  lbp_rate?: number | null;
   created_at: string;
 }
 
@@ -159,6 +161,8 @@ export interface Compound {
   org_id: string | null;
   /** Days to pay (0076) — governs every block, like billing_mode. */
   payment_due_days?: number | null;
+  /** LBP-per-USD form prefill (0086) — governs every block. */
+  lbp_rate?: number | null;
   created_at: string;
 }
 
@@ -229,6 +233,9 @@ export interface Expense {
   expense_type_id?: string | null;
   description: string;
   amount_usd: number;
+  /** LBP part + frozen rate (0086); amount_usd is the canonical total. */
+  amount_lbp?: number | null;
+  lbp_rate?: number | null;
   expense_date: string;
   scope_type: AllocationScope;
   method: AllocationMethod;
@@ -290,6 +297,9 @@ export interface Payment {
   unit_id: string;
   building_id: string;
   amount_usd: number;
+  /** LBP part + frozen rate (0086); amount_usd is the canonical total. */
+  amount_lbp?: number | null;
+  lbp_rate?: number | null;
   method: PaymentMethod;
   paid_on: string;
   note: string | null;

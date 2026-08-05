@@ -201,7 +201,7 @@ export default function Buildings() {
     contact_email: '', contact_phone: '', maps_url: '',
     compound_id: '', billing_mode: 'arrears', is_active: true, org_id: '',
     reminder_day: '', whish_number: '',
-    payment_due_days: '7',
+    payment_due_days: '7', lbp_rate: '',
   });
 
   const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<FormData>();
@@ -387,6 +387,7 @@ export default function Buildings() {
       org_id: orgByBuilding[b.id] ?? '',
       reminder_day: b.reminder_day != null ? String(b.reminder_day) : '',
       payment_due_days: String(b.payment_due_days ?? 7),
+      lbp_rate: b.lbp_rate != null ? String(b.lbp_rate) : '',
       whish_number: b.whish_number ?? '',
     });
     setEditB(b);
@@ -412,6 +413,13 @@ export default function Buildings() {
       p_days: Number(ebForm.payment_due_days) || 7,
     });
     if (termsErr) toast.error(termsErr.message);
+
+    // LBP prefill rate (0086) — frozen per entry, so this only affects new forms
+    const { error: rateErr } = await supabase.rpc('set_lbp_rate', {
+      p_scope_type: 'building', p_scope_id: editB.id,
+      p_rate: ebForm.lbp_rate ? Number(ebForm.lbp_rate) : null,
+    });
+    if (rateErr) toast.error(rateErr.message);
 
     if (isPlatformAdmin) {
       await supabase.from('org_buildings').delete().eq('building_id', editB.id);
@@ -743,6 +751,16 @@ export default function Buildings() {
               scopeId={editB.compound_id ?? editB.id}
             />
           )}
+          <div>
+            <Input
+              label={t('buildings.lbpRate')}
+              type="number" step="0.01" min="0"
+              value={ebForm.lbp_rate}
+              onChange={e => setEbForm({ ...ebForm, lbp_rate: e.target.value })}
+              placeholder="89500"
+            />
+            <p className="text-xs text-muted-foreground mt-1">{t('buildings.lbpRateHint')}</p>
+          </div>
           <div>
             <Input
               label={t('buildings.whishNumber')}

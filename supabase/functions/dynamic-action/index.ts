@@ -77,6 +77,14 @@ const row = (label: string, value: string) =>
    <td style="padding:6px 0;color:#0f172a;font-size:14px;">${value}</td></tr>`;
 const table = (rows: string) => `<table style="width:100%;border-collapse:collapse;">${rows}</table>`;
 const money = (n: number) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Dual-currency log (0086): "$100.00 + LL 5,000,000 @ 89,500" when the entry
+// carried an LBP part. amount_usd stays the canonical total everywhere.
+function lbpNote(rec: { amount_usd?: number; amount_lbp?: number | null; lbp_rate?: number | null }): string | null {
+  if (!rec?.amount_lbp || !rec?.lbp_rate) return null;
+  const usdPart = Math.round((Number(rec.amount_usd) - Number(rec.amount_lbp) / Number(rec.lbp_rate)) * 100) / 100;
+  const ll = `LL ${Number(rec.amount_lbp).toLocaleString('en-US', { maximumFractionDigits: 0 })} @ ${Number(rec.lbp_rate).toLocaleString('en-US')}`;
+  return usdPart > 0.004 ? `${money(usdPart)} + ${ll}` : ll;
+}
 
 // ── WhatsApp primitives (Meta Cloud API) ─────────────────────────────────────
 // Disabled until both secrets are set — same two-step opt-in as WEBHOOK_SECRET,
@@ -473,7 +481,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(payRecipients, 'Payment received',
         emailHtml('Payment recorded',
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">We've recorded your payment. Thank you.</p>
-           ${table(row('Amount', money(record.amount_usd)) + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
+           ${table(row('Amount', money(record.amount_usd)) + (lbpNote(record) ? row('Paid as', esc(lbpNote(record)!)) : '') + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
           'View My Account', `${APP_URL}/finance`),
         b?.name ?? 'Abniyah');
       const { data: payUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();

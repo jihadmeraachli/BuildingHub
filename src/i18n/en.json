@@ -820,7 +820,9 @@
     "metered": "Metered",
     "typeDisable": "Disable",
     "typeEnable": "Enable",
-    "newTypePlaceholder": "e.g. Fuel, Gardening, Elevator maintenance"
+    "newTypePlaceholder": "e.g. Fuel, Gardening, Elevator maintenance",
+    "lbpRate": "LBP exchange rate (LL per USD)",
+    "lbpRateHint": "Prefills the LBP rate on expense and payment entry. Each entry freezes the rate it was converted at, so changing this never rewrites older records."
   },
   "structure": {
     "title": "Structure",
@@ -1060,7 +1062,12 @@
     "requestIssued": "Payment request sent",
     "requestReplacesOpen": "This replaces the open request for this building. The previous one is cancelled and the payment window starts again from today.",
     "requestNoRecipient": "nobody to notify",
-    "requestNoRecipientHint": "{{count}} line(s) have no resident attached to the unit, so the amount is recorded but no one is notified. Assign an owner in Structure if that is not intended."
+    "requestNoRecipientHint": "{{count}} line(s) have no resident attached to the unit, so the amount is recorded but no one is notified. Assign an owner in Structure if that is not intended.",
+    "amountUsd": "Amount (USD)",
+    "amountLbp": "Amount (LBP)",
+    "lbpRate": "Rate (LL per USD)",
+    "totalUsd": "Total",
+    "lbpNeedsRate": "Enter the LBP exchange rate to convert the LBP amount."
   },
   "inspections": {
     "title": "Inspections",
