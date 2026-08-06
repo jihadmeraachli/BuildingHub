@@ -121,6 +121,9 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0092 | `0092_atomic_money_ops.sql` | Cancel-budget, delete-cycle and re-post become single transactions (`cancel_budget`, `delete_meter_cycle`, `repost_metered_expense`) instead of 2–3 client calls that could half-complete. The metered-expense edit guard moves into the DB as a trigger. |
 | 0093 | `0093_repost_scope_guard.sql` | `repost_metered_expense` stopped trusting its payload: SECURITY DEFINER bypasses charges RLS, and 0092 took `unit_id`/`building_id` verbatim while checking only the expense's scope. `building_id` is now derived from the unit, units must be in the expense's building or compound, and a `tenant_id` must actually hold that unit. |
 
+| 0094 | `0094_demo_read_only.sql` | The public demo is read-only **in the database**. `profiles.is_demo` + a BEFORE trigger on every showcase table refuse writes from the personas, so the demo admin can hold a real `building_admin` grant (People, invitations, the full product) even though the password ships in the bundle. Language/notification prefs still save; renames do not. |
+| 0095 | `0095_audit_fk_set_null.sql` | Finishes 0026: walks the catalog converting every nullable NO ACTION/RESTRICT FK on `profiles`/`auth.users` to `ON DELETE SET NULL`. `subscriptions.created_by` was blocking `delete_user()` outright. NOT NULL ones are reported, not touched. |
+
 ⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
 metered expense, migrations included. A future backfill over those rows must
 `SELECT set_config('app.metering_repost', '1', true);` in the same transaction
