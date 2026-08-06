@@ -275,9 +275,19 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={async () => {
+            if (isDemo) {
+              // Leave FIRST. signOut() awaits two network round trips, and
+              // waiting for them renders the login form for about a second on
+              // a slow connection — which a prospect reads as "the demo threw
+              // me out and now wants a password". The sign-out still runs; we
+              // just don't hold the redirect for it, and /demo signs out again
+              // before it signs anyone in. replace() also keeps the dead
+              // session out of history, so Back doesn't return to it.
+              void signOut();
+              window.location.replace('https://abniyah.com');
+              return;
+            }
             await signOut();
-            // Demo visitors flow back to the marketing site, not the login form.
-            if (isDemo) window.location.href = 'https://abniyah.com';
           }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground w-full transition-colors cursor-pointer"
         >
