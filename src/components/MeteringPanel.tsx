@@ -129,11 +129,9 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
 
   async function deleteCycle(c: CycleRow) {
     if (!confirm(t('metering.deleteConfirm'))) return;
-    if (c.expense_id) {
-      const { error } = await supabase.from('expenses').delete().eq('id', c.expense_id);
-      if (error) { toast.error(error.message); return; }
-    }
-    const { error } = await supabase.from('meter_cycles').delete().eq('id', c.id);
+    // one transaction (0092): the expense, its charges and the cycle go
+    // together, or nothing does
+    const { error } = await supabase.rpc('delete_meter_cycle', { p_cycle: c.id });
     if (error) { toast.error(error.message); return; }
     toast.success(t('metering.deleted'));
     loadCycles(); onPosted();
@@ -202,13 +200,31 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
       method: 'custom',
     };
 
+    const unitByIdPre = Object.fromEntries(units.map((u) => [u.id, u]));
+    const buildCharges = (expId: string | null) => result.perUnit.filter((p) => p.amount > 0).map((p) => {
+      const bt: Tenure = billedTo === 'tenant_where_leased' && hasTenant(p.unitId) ? 'tenant' : 'owner';
+      return {
+        expense_id: expId, unit_id: p.unitId, building_id: unitByIdPre[p.unitId]?.building_id,
+        category: legacyCategoryFor(type), description: desc, amount_usd: p.amount,
+        charge_date: to, billed_to: bt,
+        tenant_id: bt === 'tenant' ? activeTenantId(p.unitId) : null, created_by: profileId,
+      };
+    });
+
     let expenseId = editingCycle?.expense_id ?? null;
     if (expenseId) {
-      // re-post: the expense is updated and its charges rebuilt, the same
-      // delete-and-recreate the ordinary expense editor uses
-      const { error } = await supabase.from('expenses').update(expenseFields).eq('id', expenseId);
+      // re-post in ONE transaction (0092): update + rebuild charges together.
+      // The DB guard on metered expenses only admits changes through this path.
+      const { error } = await supabase.rpc('repost_metered_expense', {
+        p_expense: expenseId,
+        p_fields: expenseFields,
+        p_charges: buildCharges(null).map(({ expense_id: _e, created_by: _c, ...rest }) => rest),
+      });
       if (error) { toast.error(error.message); setSaving(false); return; }
-      await supabase.from('charges').delete().eq('expense_id', expenseId);
+      toast.success(t('metering.reposted', { amount: money(result.chargesTotal) }));
+      setSaving(false); setOpen(false); setEditingCycle(null);
+      loadCycles(); onPosted();
+      return;
     } else {
       const { data: exp, error: eErr } = await supabase.from('expenses').insert({
         building_id: entity.kind === 'building' ? entity.id : null,

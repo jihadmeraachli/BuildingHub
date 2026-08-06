@@ -298,9 +298,8 @@ export default function Dues() {
 
   async function cancelBudget(b: Budget) {
     if (!confirm(t('dues.cancelBudgetConfirm', { label: b.label }))) return;
-    const { error: dErr } = await supabase.from('dues').delete().eq('budget_id', b.id);
-    if (dErr) { toast.error(dErr.message); return; }
-    const { error } = await supabase.from('budgets').update({ cancelled_at: new Date().toISOString() }).eq('id', b.id);
+    // one transaction (0092): withdraw the dues AND mark the budget, or neither
+    const { error } = await supabase.rpc('cancel_budget', { p_budget: b.id });
     if (error) { toast.error(error.message); return; }
     toast.success(t('dues.budgetCancelled'));
     load();

@@ -70,10 +70,16 @@ request lines (`request_line_outstanding`, aged by `due_date`) and open dues
   — `budgets.label` via `dues.budget_id`; residents can already read
   `budget_lines` by RLS, so a one-line "includes: Fuel, Gardening…" is free).
 
-## Backlog found during the money audit (not reporting, don't lose them)
-- **Cancel budget** action (soft `cancelled_at` exists, no UI; a mis-issued
-  budget currently means deleting its dues rows one by one).
-- Guard **editing/deleting a metered expense** (desyncs from its cycle).
-- Adjustments are USD-only — decide if that's final (they're non-cash; probably
-  yes).
-- Metering LBP prefill isn't fetched for compound entities (minor).
+## Backlog found during the money audit
+*(updated 2026-08-06 after Jihad's Claude's review — most items were built the
+same day: cancel-budget UI in 9017841, metered-edit guard + cycle edit/delete in
+6b5fc58/0092, compound LBP prefill in 9017841, atomic money ops in 0092.)*
+- **Adjustments are USD-only** — the one genuinely open decision. They're
+  non-cash (discounts/waivers), so probably fine as-is; confirm and close.
+- **Accepted pattern, documented not changed:** `budget_lines` /
+  `meter_readings` read access nests a query on the parent table inside the
+  policy, inheriting the parent's RLS. Correct, but it means disabling RLS on
+  `budgets`/`meter_cycles` silently opens the children — never disable RLS on a
+  parent without checking its dependents.
+- Metering cycle **draft** status exists in the schema, unused — cycles are
+  finalize-only for now.
