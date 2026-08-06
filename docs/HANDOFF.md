@@ -117,6 +117,14 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0088 | `0088_request_asof.sql` | **Requests target a period**: optional as-of — owed AT the date − payments dated AFTER it. `unit_party_balance_asof()`; settlement moves to ENTRY time (`created_at`); `get_overdue_units()` sums open lines per unit+party (0082 pattern) and skips recipient-less candidates BEFORE the dedup insert. |
 | 0089 | `0089_extraordinary_expense.sql` | **Extraordinary expenses collect immediately**: arrears → targeted `request_payment_for_expense()` (no supersede); dues mode → the client issues a flat one-line budget (the netting rule keeps charge+due from double-collecting). |
 | 0090 | `0090_metering.sql` | **Metering** — cycles + readings for `is_metered` types (generator/water): stock in/bought/out → avg unit cost; per-unit + common kW; pro-rata; finalize posts ONE ordinary expense with per-unit charges (`expenses.meter_cycle_id`). Math in `lib/metering.ts`, tested. |
+| 0091 | `0091_expense_links.sql` | Deleting an extraordinary expense used to leave its ask alive — residents chased forever for something gone. `payment_requests.expense_id` / `budgets.expense_id` CASCADE, and a BEFORE DELETE trigger takes a budget's dues with it (so the dues-removed notifications fire). |
+| 0092 | `0092_atomic_money_ops.sql` | Cancel-budget, delete-cycle and re-post become single transactions (`cancel_budget`, `delete_meter_cycle`, `repost_metered_expense`) instead of 2–3 client calls that could half-complete. The metered-expense edit guard moves into the DB as a trigger. |
+| 0093 | `0093_repost_scope_guard.sql` | `repost_metered_expense` stopped trusting its payload: SECURITY DEFINER bypasses charges RLS, and 0092 took `unit_id`/`building_id` verbatim while checking only the expense's scope. `building_id` is now derived from the unit, units must be in the expense's building or compound, and a `tenant_id` must actually hold that unit. |
+
+⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
+metered expense, migrations included. A future backfill over those rows must
+`SELECT set_config('app.metering_repost', '1', true);` in the same transaction
+or it will fail with the cycle message.
 
 ### Key idea: the access ladder (0026 + 0027)
 ```
