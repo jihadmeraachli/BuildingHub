@@ -108,6 +108,8 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0080 | `0080_request_any_mode.sql` | `reminders_sent` dedup gains `source` — a request and dues can fall due the same day and must not silence each other. |
 | 0081 | `0081_request_arrears_only.sql` | Requests are arrears-only again. A prepay building sits in credit so a ledger-based request finds nobody; where it finds arrears, outstanding dues already collect them. |
 | 0082 | `0082_chase_all_dues.sql` | Chase EVERY unpaid dues period, not just the latest. |
+| 0083 | `0083_meeting_issues.sql` | Meeting agendas link to real issues (a join table) rather than pasted text, so an issue resolved after the invite goes out shows as resolved on the agenda. |
+| 0084 | `0084_push_tokens.sql` | `device_tokens` (one row per device, UNIQUE on the token) + `profiles.notify_push` — the third notification channel. |
 
 | 0085 | `0085_expense_types.sql` | **Expense types are DATA** — per building/compound catalog (compound governs), seeded with the 7 legacy categories + auto-seed trigger for new entities. `expenses.expense_type_id` (+ backfill); `category` stays as the legacy mirror (custom types file under 'other'). Managed from building settings; `is_metered` feeds 0090. |
 | 0086 | `0086_lbp_currency.sql` | **LBP alongside USD.** Two amount boxes on expense/payment; ONE canonical `amount_usd`; `amount_lbp`+`lbp_rate` are the per-row LOG (rate FROZEN per row — the building/compound `lbp_rate` setting only prefills, via sealed `set_lbp_rate()`). LBP/MIX row tags, detail breakdown, "Paid as" line in the payment email. |
@@ -350,6 +352,7 @@ npm run dev         # http://localhost:5173
 - **Email reminders** — ✅ done (`send-reminders` edge fn + pg_cron; overdue balance + dues + inspection due-date alerts).
 - **UI overhaul** — ✅ dark Tatawwor-brand theme merged to master; shadcn/ui migration next.
 - **WhatsApp notifications** — dedicated number being sourced; bundle with mobile app release.
+- **Phone push notifications (iOS)** — ✅ done and verified on device (2026-08-05). `@capacitor/push-notifications` → APNs, sent from `dynamic-action` on the same events as email. Two native steps are easy to lose and cost several TestFlight cycles to find — the AppDelegate registration relay and `aps-environment: production`; both are written up in [docs/IOS_APP.md](IOS_APP.md). Android is not wired up yet (needs Firebase).
 - **PWA / Mobile app** — installable on phones; publish on Google Play & App Store.
 
 ### Phase 2 — ✅ Complete
