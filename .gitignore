@@ -33,3 +33,7 @@ supabase/.temp
 # Capacitor native projects (generated per-machine via npx cap add)
 ios/
 android/
+
+# Local database snapshots (scripts/dump-db.mjs) — every resident's real data.
+# Never commit, never put on a shared drive.
+db-dumps/
