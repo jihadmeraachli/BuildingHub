@@ -315,7 +315,59 @@ for (const [name, unit, tenure, n] of [['Nadim Barakat', units[16], 'tenant', 17
   }
 }
 
-// ── 9. Tidy: mark the admin's own notification backlog read ─────────────────
+// ── 9. The two PUBLIC DEMO PERSONAS (src/lib/demo.ts) ───────────────────────
+// These are what abniyah.com's "See the live demo" button signs into, and they
+// are NOT part of the cast above — so for a long time nothing here set them up.
+// The result: the admin persona had no grant at all, saw an empty building, and
+// sat broken for five days because the setup lived only in someone's memory.
+// It lives here now.
+//
+// Writes by these accounts are refused by the database (migration 0094), so a
+// real building_admin grant is safe even though the password is public.
+const DEMO_ADMIN_EMAIL = 'jihad.meraachli+demoviewer@gmail.com';
+const DEMO_OWNER_EMAIL = 'jihad.meraachli+demoowner@gmail.com';
+
+async function personaId(addr, full_name) {
+  const { data, error } = await supabase.functions.invoke('invite-user', {
+    body: { email: addr, full_name, building_id: B.id, mode: 'import' },
+  });
+  if (error || !data?.user_id) {
+    console.warn(`  warn persona ${addr}:`, error?.message ?? JSON.stringify(data));
+    return null;
+  }
+  return data.user_id;
+}
+
+const demoAdminId = await personaId(DEMO_ADMIN_EMAIL, 'Demo Admin');
+if (demoAdminId) {
+  const { data: existingGrant } = await supabase.from('grants')
+    .select('id').eq('user_id', demoAdminId).eq('building_id', B.id).maybeSingle();
+  if (!existingGrant) {
+    const { error } = await supabase.from('grants').insert({
+      user_id: demoAdminId, scope_type: 'building', building_id: B.id, role: 'building_admin',
+    });
+    ok('demo admin grant', error);
+  }
+  console.log(`demo admin persona: building_admin on ${B.name}`);
+}
+
+const demoOwnerId = await personaId(DEMO_OWNER_EMAIL, 'Nadia Salameh');
+if (demoOwnerId) {
+  // The last two units. One active owner per unit (0062), so the seeded owner
+  // moves out first — a soft move-out, which keeps their charge history.
+  const hers = units.slice(-2);
+  for (const u of hers) {
+    await supabase.from('memberships')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('unit_id', u.id).eq('tenure', 'owner').is('ended_at', null);
+    const { error } = await supabase.from('memberships')
+      .insert({ user_id: demoOwnerId, unit_id: u.id, tenure: 'owner' });
+    ok(`demo owner ${u.label}`, error);
+  }
+  console.log(`demo owner persona: owns ${hers.map(u => u.label).join(', ')}`);
+}
+
+// ── 10. Tidy: mark the admin's own notification backlog read ────────────────
 await supabase.from('notifications').update({ is_read: true }).eq('user_id', me.id).eq('is_read', false);
 
 console.log('\nDONE.');
