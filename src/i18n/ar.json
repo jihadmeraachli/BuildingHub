@@ -323,7 +323,14 @@
       "show": "عرض",
       "scopeMine": "مستحقاتي ودفعاتي",
       "scopeBuilding": "مصاريف المبنى",
-      "allUnits": "كل شققي"
+      "allUnits": "كل شققي",
+      "party": "الطرف",
+      "bothParties": "المالك والمستأجر",
+      "currency": "العملة",
+      "anyCurrency": "كل العملات",
+      "usdOnly": "دولار فقط",
+      "lbpOnly": "ليرة فقط",
+      "mixedOnly": "دولار وليرة معاً"
     }
   },
   "feedback": {

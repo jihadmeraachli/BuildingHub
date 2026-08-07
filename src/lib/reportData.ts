@@ -7,6 +7,7 @@
 // ============================================================
 import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure, Expense } from '@/types';
 import { computeUnitBalances, adjustmentEffect } from '@/lib/balance';
+import { currencyTag } from '@/lib/currency';
 import type { StatementBucket } from '@/lib/pdf';
 
 export type TenancyRow = {
@@ -537,6 +538,12 @@ export function requestLinesAsOf(
 
 export type LedgerKind = 'expense' | 'payment';
 
+/** USD / all-lira / split, from the row's own LBP log (0086). Delegates to
+ *  currencyTag so the report agrees with the LBP and MIX badges on the money
+ *  screens instead of deciding it a second way. */
+const currencyOf = (row: { amount_usd: number; amount_lbp?: number | null; lbp_rate?: number | null }):
+  'USD' | 'LBP' | 'MIX' => currencyTag(row) ?? 'USD';
+
 export interface LedgerRow {
   id: string;
   kind: LedgerKind;
@@ -547,6 +554,11 @@ export interface LedgerRow {
   description: string;
   /** unit label for a payment; blank for a building-wide expense */
   unit: string;
+  /** which sub-ledger the row belongs to; '' for a building-wide expense */
+  party: '' | 'owner' | 'tenant';
+  /** how the money was actually tendered (0086): all dollars, all lira, or a
+   *  split invoice. Derived from the row, not a separate field to keep in sync. */
+  currency: 'USD' | 'LBP' | 'MIX';
   amountUsd: number;
   amountLbp: number | null;
   lbpRate: number | null;
@@ -561,9 +573,14 @@ export interface LedgerFilters {
   /** exact unit label; '' = every unit. Only meaningful when the viewer has
    *  more than one, which the card decides from the rows themselves. */
   unit: string;
+  /** owner / tenant sub-ledger; '' = both. This narrows what is DISPLAYED.
+   *  What a tenant may see at all is enforced by RLS (0097), never here. */
+  party: '' | 'owner' | 'tenant';
+  /** '' = any currency */
+  currency: '' | 'USD' | 'LBP' | 'MIX';
 }
 
-export const emptyLedgerFilters: LedgerFilters = { kind: 'all', from: '', to: '', search: '', unit: '' };
+export const emptyLedgerFilters: LedgerFilters = { kind: 'all', from: '', to: '', search: '', unit: '', party: '', currency: '' };
 
 export interface LedgerTotals {
   expenses: number;
@@ -600,6 +617,8 @@ export function buildLedger(
       category: opts.typeName(e),
       description: e.description,
       unit: '',
+      party: '',
+      currency: currencyOf(e),
       amountUsd: Number(e.amount_usd),
       amountLbp: e.amount_lbp ?? null,
       lbpRate: e.lbp_rate ?? null,
@@ -615,6 +634,8 @@ export function buildLedger(
       category: opts.paymentWord,
       description: p.note?.trim() || opts.payerLabel(p),
       unit: opts.unitLabel(p.unit_id),
+      party: p.paid_by === 'tenant' ? 'tenant' : 'owner',
+      currency: currencyOf(p),
       amountUsd: Number(p.amount_usd),
       amountLbp: p.amount_lbp ?? null,
       lbpRate: p.lbp_rate ?? null,
@@ -634,6 +655,8 @@ export function filterLedger(rows: LedgerRow[], f: LedgerFilters): LedgerRow[] {
     if (f.from && r.date < f.from) return false;
     if (f.to && r.date > f.to) return false;
     if (f.unit && r.unit !== f.unit) return false;
+    if (f.party && r.party !== f.party) return false;
+    if (f.currency && r.currency !== f.currency) return false;
     if (needle && !norm(`${r.category} ${r.description} ${r.unit}`).includes(needle)) return false;
     return true;
   });
@@ -689,6 +712,8 @@ export function buildResidentLedger(
       category: opts.categoryName(c),
       description: c.description,
       unit: opts.unitLabel(c.unit_id),
+      party: c.billed_to === 'tenant' ? 'tenant' : 'owner',
+      currency: 'USD',
       amountUsd: Number(c.amount_usd),
       amountLbp: null,             // charges are a derived share; the LBP log lives on the expense
       lbpRate: null,
@@ -704,6 +729,8 @@ export function buildResidentLedger(
       category: opts.paymentWord,
       description: p.note?.trim() || opts.paymentWord,
       unit: opts.unitLabel(p.unit_id),
+      party: p.paid_by === 'tenant' ? 'tenant' : 'owner',
+      currency: currencyOf(p),
       amountUsd: Number(p.amount_usd),
       amountLbp: p.amount_lbp ?? null,
       lbpRate: p.lbp_rate ?? null,

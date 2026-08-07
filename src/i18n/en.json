@@ -323,7 +323,14 @@
       "show": "Show",
       "scopeMine": "My charges and payments",
       "scopeBuilding": "Building expenses",
-      "allUnits": "All my units"
+      "allUnits": "All my units",
+      "party": "Party",
+      "bothParties": "Owner and tenant",
+      "currency": "Currency",
+      "anyCurrency": "Any currency",
+      "usdOnly": "USD only",
+      "lbpOnly": "LBP only",
+      "mixedOnly": "Mixed USD + LBP"
     }
   },
   "feedback": {

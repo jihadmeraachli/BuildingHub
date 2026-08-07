@@ -538,7 +538,7 @@ interface LedgerReportProps {
   generatedOn: string;
   rows: {
     id: string; kind: 'expense' | 'payment'; date: string;
-    category: string; description: string; unit: string;
+    category: string; description: string; unit: string; party: '' | 'owner' | 'tenant';
     amountUsd: number; amountLbp: number | null; lbpRate: number | null;
   }[];
   totals: { expenses: number; payments: number; net: number; count: number };
@@ -588,6 +588,7 @@ export function LedgerReportDoc({ entityName, filterSummary, generatedOn, rows, 
                 <Text style={[s.tableHeadCell, { flex: 1 }]}>Type</Text>
                 <Text style={[s.tableHeadCell, { flex: 3 }]}>Description</Text>
                 <Text style={[s.tableHeadCell, { flex: 1 }]}>Unit</Text>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Party</Text>
                 <Text style={[s.tableHeadCell, { flex: 1.2, textAlign: 'right' }]}>Amount</Text>
               </View>
               {rows.map((r) => (
@@ -602,6 +603,7 @@ export function LedgerReportDoc({ entityName, filterSummary, generatedOn, rows, 
                       : ''}
                   </Text>
                   <Text style={[s.tableCell, { flex: 1 }]}>{r.unit || '—'}</Text>
+                  <Text style={[s.tableCell, { flex: 1 }]}>{r.party ? r.party[0].toUpperCase() + r.party.slice(1) : '—'}</Text>
                   <Text style={[s.tableCell, { flex: 1.2, textAlign: 'right' }]}>
                     {/* money out is signed, so a mixed list reads correctly down the column */}
                     {r.kind === 'expense' ? `-${money(r.amountUsd)}` : money(r.amountUsd)}
@@ -609,7 +611,7 @@ export function LedgerReportDoc({ entityName, filterSummary, generatedOn, rows, 
                 </View>
               ))}
               <View style={[s.tableRow, { borderBottom: 'none' }]}>
-                <Text style={[s.tableCell, { flex: 6, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>Net</Text>
+                <Text style={[s.tableCell, { flex: 7, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>Net</Text>
                 <Text style={[s.tableCell, { flex: 1.2, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{money(totals.net)}</Text>
               </View>
             </>

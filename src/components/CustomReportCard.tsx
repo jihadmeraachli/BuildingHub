@@ -32,6 +32,7 @@ function toCsv(rows: LedgerRow[], head: string[]): string {
   for (const r of rows) {
     lines.push([
       cell(r.date), cell(r.kind), cell(r.category), cell(r.description), cell(r.unit),
+      cell(r.party), cell(r.currency),
       cell(r.kind === 'expense' ? -r.amountUsd : r.amountUsd),
       cell(r.amountLbp ?? ''), cell(r.lbpRate ?? ''),
     ].join(','));
@@ -73,9 +74,24 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
     [source],
   );
 
+  // Same principle for the party filter: a tenant only ever HAS tenant rows
+  // (RLS, 0097), so offering them an owner/tenant choice would be offering a
+  // choice that isn't theirs to make. It appears only when both are present.
+  const hasBothParties = useMemo(
+    () => source.some((r) => r.party === 'owner') && source.some((r) => r.party === 'tenant'),
+    [source],
+  );
+
+  // Likewise currency: a building that only ever transacts in dollars should
+  // not carry a filter with one live option.
+  const currencyOptions = useMemo(
+    () => [...new Set(source.map((r) => r.currency))].sort(),
+    [source],
+  );
+
   const shown = useMemo(() => filterLedger(source, f), [source, f]);
   const totals = useMemo(() => ledgerTotals(shown), [shown]);
-  const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search || !!f.unit;
+  const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search || !!f.unit || !!f.party || !!f.currency;
 
   /** "Mar 2026" from "2026-03" — built from a real date so Arabic gets Arabic
    *  month names rather than a number. */
@@ -92,14 +108,18 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
     activeScope?.label ?? '',
     f.kind === 'all' ? t('reports.custom.bothKinds') : f.kind === 'expense' ? t('reports.custom.expensesOnly') : t('reports.custom.paymentsOnly'),
     f.from || f.to ? `${f.from || '…'} → ${f.to || '…'}` : t('reports.custom.allDates'),
+    f.unit ? f.unit : '',
+    f.party ? t(`finance.${f.party}`) : '',
+    f.currency ? f.currency : '',
     f.search ? `"${f.search}"` : '',
   ].filter(Boolean).join(' · ');
 
   function exportCsv() {
     const csv = toCsv(shown, [
       t('reports.custom.date'), t('reports.custom.kind'), t('reports.custom.category'),
-      t('reports.custom.description'), t('reports.custom.unit'), t('reports.custom.amountUsd'),
-      t('reports.custom.amountLbp'), t('reports.custom.rate'),
+      t('reports.custom.description'), t('reports.custom.unit'),
+      t('reports.custom.party'), t('reports.custom.currency'),
+      t('reports.custom.amountUsd'), t('reports.custom.amountLbp'), t('reports.custom.rate'),
     ]);
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const a = document.createElement('a');
@@ -178,6 +198,29 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
             >
               <SelectItem value="__all__">{t('reports.custom.allUnits')}</SelectItem>
               {unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+            </SelectField>
+          )}
+          {hasBothParties && (
+            <SelectField
+              label={t('reports.custom.party')}
+              value={f.party || '__all__'}
+              onValueChange={(v) => setF({ ...f, party: v === '__all__' ? '' : v as LedgerFilters['party'] })}
+            >
+              <SelectItem value="__all__">{t('reports.custom.bothParties')}</SelectItem>
+              <SelectItem value="owner">{t('finance.owner')}</SelectItem>
+              <SelectItem value="tenant">{t('finance.tenant')}</SelectItem>
+            </SelectField>
+          )}
+          {currencyOptions.length > 1 && (
+            <SelectField
+              label={t('reports.custom.currency')}
+              value={f.currency || '__all__'}
+              onValueChange={(v) => setF({ ...f, currency: v === '__all__' ? '' : v as LedgerFilters['currency'] })}
+            >
+              <SelectItem value="__all__">{t('reports.custom.anyCurrency')}</SelectItem>
+              <SelectItem value="USD">{t('reports.custom.usdOnly')}</SelectItem>
+              <SelectItem value="LBP">{t('reports.custom.lbpOnly')}</SelectItem>
+              <SelectItem value="MIX">{t('reports.custom.mixedOnly')}</SelectItem>
             </SelectField>
           )}
           {/* The one that answers "how much water per month" without a
@@ -265,6 +308,7 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
                 <th className="py-2 pe-3 font-medium">{t('reports.custom.category')}</th>
                 <th className="py-2 pe-3 font-medium">{t('reports.custom.description')}</th>
                 <th className="py-2 pe-3 font-medium">{t('reports.custom.unit')}</th>
+                <th className="py-2 pe-3 font-medium">{t('reports.custom.party')}</th>
                 <th className="py-2 font-medium text-end">{t('reports.custom.amount')}</th>
               </tr>
             </thead>
@@ -294,6 +338,7 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
                       ) : null}
                     </td>
                     <td className="py-2 pe-3 text-muted-foreground">{r.unit || '—'}</td>
+                    <td className="py-2 pe-3 text-muted-foreground">{r.party ? t('finance.' + r.party) : '—'}</td>
                     <td className="py-2 text-end tabular-nums whitespace-nowrap">
                       {r.kind === 'expense' ? `-${money(r.amountUsd)}` : money(r.amountUsd)}
                     </td>
