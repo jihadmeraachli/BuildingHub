@@ -528,6 +528,103 @@ export function ExpensesReportDoc({ entityName, period, generatedOn, expenses, c
   );
 }
 
+// ─── Custom report (the ledger) ───────────────────────────────────────────────
+
+interface LedgerReportProps {
+  entityName: string;
+  /** the filter, spelled out — a report you cannot tell the shape of is a
+   *  report you cannot hand to a committee */
+  filterSummary: string;
+  generatedOn: string;
+  rows: {
+    id: string; kind: 'expense' | 'payment'; date: string;
+    category: string; description: string; unit: string;
+    amountUsd: number; amountLbp: number | null; lbpRate: number | null;
+  }[];
+  totals: { expenses: number; payments: number; net: number; count: number };
+}
+
+export function LedgerReportDoc({ entityName, filterSummary, generatedOn, rows, totals }: LedgerReportProps) {
+  return (
+    <Document title={`Custom Report — ${entityName}`} author="Abniyah">
+      <Page size="A4" style={s.page}>
+        <View style={s.header}>
+          <View>
+            <Text style={s.brand}>ABNIYAH</Text>
+            <Text style={s.brandSub}>{entityName}</Text>
+          </View>
+          <View style={s.metaRight}>
+            <Text style={s.metaLabel}>Generated</Text>
+            <Text style={s.metaValue}>{generatedOn}</Text>
+          </View>
+        </View>
+
+        <Text style={s.title}>Custom Report</Text>
+        <Text style={s.subtitle}>{filterSummary}</Text>
+
+        <View style={s.balanceSummary}>
+          <View style={s.balanceBox}>
+            <Text style={s.balanceLabel}>Money in</Text>
+            <Text style={[s.balanceValue, { color: C.slate9 }]}>{money(totals.payments)}</Text>
+          </View>
+          <View style={s.balanceBox}>
+            <Text style={s.balanceLabel}>Money out</Text>
+            <Text style={[s.balanceValue, { color: C.slate9 }]}>{money(totals.expenses)}</Text>
+          </View>
+          <View style={s.balanceBox}>
+            <Text style={s.balanceLabel}>Net</Text>
+            <Text style={[s.balanceValue, { color: C.slate9 }]}>{money(totals.net)}</Text>
+          </View>
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>{totals.count} entr{totals.count === 1 ? 'y' : 'ies'}</Text>
+          {rows.length === 0 ? (
+            <Text style={s.empty}>Nothing matches this filter.</Text>
+          ) : (
+            <>
+              <View style={s.tableHead}>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Type</Text>
+                <Text style={[s.tableHeadCell, { flex: 3 }]}>Description</Text>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Unit</Text>
+                <Text style={[s.tableHeadCell, { flex: 1.2, textAlign: 'right' }]}>Amount</Text>
+              </View>
+              {rows.map((r) => (
+                <View key={`${r.kind}-${r.id}`} style={s.tableRow} wrap={false}>
+                  <Text style={[s.tableCell, { flex: 1 }]}>{fmtDate(r.date)}</Text>
+                  <Text style={[s.tableCell, { flex: 1 }]}>{r.category}</Text>
+                  <Text style={[s.tableCell, { flex: 3 }]}>
+                    {r.description}
+                    {/* the LBP part at its FROZEN rate — never re-converted */}
+                    {r.amountLbp && r.lbpRate
+                      ? `  (LL ${Number(r.amountLbp).toLocaleString('en-US')} @ ${Number(r.lbpRate).toLocaleString('en-US')})`
+                      : ''}
+                  </Text>
+                  <Text style={[s.tableCell, { flex: 1 }]}>{r.unit || '—'}</Text>
+                  <Text style={[s.tableCell, { flex: 1.2, textAlign: 'right' }]}>
+                    {/* money out is signed, so a mixed list reads correctly down the column */}
+                    {r.kind === 'expense' ? `-${money(r.amountUsd)}` : money(r.amountUsd)}
+                  </Text>
+                </View>
+              ))}
+              <View style={[s.tableRow, { borderBottom: 'none' }]}>
+                <Text style={[s.tableCell, { flex: 6, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>Net</Text>
+                <Text style={[s.tableCell, { flex: 1.2, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{money(totals.net)}</Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        <View style={s.footer} fixed>
+          <Text style={s.footerText}>Abniyah · {entityName}</Text>
+          <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
 // ─── Download helper ──────────────────────────────────────────────────────────
 
 export async function downloadPdf(element: React.ReactElement, filename: string): Promise<void> {

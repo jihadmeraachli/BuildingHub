@@ -11,7 +11,8 @@ import { fetchAll } from '@/lib/fetchAll';
 import { useExpenseTypes } from '@/lib/expenseTypes';
 import { fmtDate } from '@/lib/dateFmt';
 import { computeBalance } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets, buildBudgetVsActual, type TenancyRow } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildUnitBuckets, buildBudgetVsActual, buildLedger, tenantTitle, type TenancyRow } from '@/lib/reportData';
+import { CustomReportCard } from '@/components/CustomReportCard';
 import type { Unit, Charge, Payment, Expense, Adjustment, Dues, Budget, BudgetLine } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -290,6 +291,23 @@ export default function Reports() {
     [tenancy, charges, payments, adjustments]);
   const labels = { owner: t('finance.owner'), tenant: t('finance.currentTenant'), formerTenant: t('finance.formerTenant') };
 
+  // The Custom report's source: everything in this entity that moved money.
+  // Deliberately NOT period-filtered here — the card carries its own date
+  // range, and two date filters fighting each other is how people end up
+  // distrusting a total they cannot reproduce.
+  const ledgerRows = useMemo(() => buildLedger(expenses, payments, {
+    typeName: (e) => {
+      const cat = allExpenseTypes.find((x) => x.id === e.expense_type_id);
+      // catalog name first — a custom type must never print as "Other" (0085)
+      return cat?.name ?? (e.category ? t(`finance.cats.${e.category}`) : t('finance.cats.other'));
+    },
+    unitLabel: (uid) => units.find((u) => u.id === uid)?.label ?? '—',
+    payerLabel: (p) => (p.paid_by === 'tenant'
+      ? tenantTitle(labels.tenant, th.nameById(p.tenant_id))
+      : labels.owner),
+    paymentWord: t('reports.custom.payment'),
+  }), [expenses, payments, units, allExpenseTypes, th]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Period filter (mirrors Finance)
   const now = new Date();
   let range: { from: Date; to: Date } | null = null;
@@ -482,6 +500,12 @@ export default function Reports() {
                 </div>
               )}
           </CardBody></Card>
+        </div>
+      )}
+
+      {entity && !loading && (
+        <div className="mt-4 max-w-6xl">
+          <CustomReportCard rows={ledgerRows} entityName={entity.name} />
         </div>
       )}
     </div>

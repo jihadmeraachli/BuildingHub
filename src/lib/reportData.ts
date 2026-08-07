@@ -5,7 +5,7 @@
 // If the ledger model evolves (owner/tenant buckets, offloads), change it HERE
 // and both pages follow.
 // ============================================================
-import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure } from '@/types';
+import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure, Expense } from '@/types';
 import { computeUnitBalances, adjustmentEffect } from '@/lib/balance';
 import type { StatementBucket } from '@/lib/pdf';
 
@@ -521,4 +521,133 @@ export function requestLinesAsOf(
     }
   }
   return out;
+}
+
+// ============================================================
+// THE LEDGER — one filterable list of everything that moved money, feeding the
+// Custom report card. Money OUT (expenses) and money IN (payments) side by
+// side, because "show me what we spent and what came in, between these dates,
+// matching this word" is the question people actually ask, and answering it
+// previously meant reading two screens and a calculator.
+//
+// Pure, and the single source for the table, the CSV and the PDF — the rule
+// from docs/REPORTING_GUIDANCE.md: if screen and export can disagree, one of
+// them is wrong and nobody knows which.
+// ============================================================
+
+export type LedgerKind = 'expense' | 'payment';
+
+export interface LedgerRow {
+  id: string;
+  kind: LedgerKind;
+  /** value date: expense_date or paid_on — what the money is dated, not when it was typed */
+  date: string;
+  /** catalog type for an expense (never the legacy enum), payer party for a payment */
+  category: string;
+  description: string;
+  /** unit label for a payment; blank for a building-wide expense */
+  unit: string;
+  amountUsd: number;
+  amountLbp: number | null;
+  lbpRate: number | null;
+}
+
+export interface LedgerFilters {
+  kind: LedgerKind | 'all';
+  from: string;
+  to: string;
+  /** matched against category, description and unit — one box, not three */
+  search: string;
+}
+
+export const emptyLedgerFilters: LedgerFilters = { kind: 'all', from: '', to: '', search: '' };
+
+export interface LedgerTotals {
+  expenses: number;
+  payments: number;
+  /** payments − expenses: positive means more came in than went out */
+  net: number;
+  count: number;
+}
+
+/**
+ * Merge expenses and payments into one dated list, newest first.
+ *
+ * `typeName` resolves an expense to its catalog name (0085) — passed in rather
+ * than looked up here so this stays pure, and so a custom type never prints as
+ * "Other" the way ExpensesReportDoc's enum map does.
+ */
+export function buildLedger(
+  expenses: Expense[],
+  payments: Payment[],
+  opts: {
+    typeName: (e: Expense) => string;
+    unitLabel: (unitId: string) => string;
+    payerLabel: (p: Payment) => string;
+    paymentWord: string;
+  },
+): LedgerRow[] {
+  const rows: LedgerRow[] = [];
+
+  for (const e of expenses) {
+    rows.push({
+      id: e.id,
+      kind: 'expense',
+      date: e.expense_date,
+      category: opts.typeName(e),
+      description: e.description,
+      unit: '',
+      amountUsd: Number(e.amount_usd),
+      amountLbp: e.amount_lbp ?? null,
+      lbpRate: e.lbp_rate ?? null,
+    });
+  }
+
+  for (const p of payments) {
+    if (p.voided_at) continue;   // a voided payment is not money that moved
+    rows.push({
+      id: p.id,
+      kind: 'payment',
+      date: p.paid_on,
+      category: opts.paymentWord,
+      description: p.note?.trim() || opts.payerLabel(p),
+      unit: opts.unitLabel(p.unit_id),
+      amountUsd: Number(p.amount_usd),
+      amountLbp: p.amount_lbp ?? null,
+      lbpRate: p.lbp_rate ?? null,
+    });
+  }
+
+  return rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+/** Apply the filter bar. Search is accent-blind and case-blind across the three
+ *  text columns, so "water" finds a Water expense and a payment noted "water". */
+export function filterLedger(rows: LedgerRow[], f: LedgerFilters): LedgerRow[] {
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  const needle = norm(f.search.trim());
+  return rows.filter((r) => {
+    if (f.kind !== 'all' && r.kind !== f.kind) return false;
+    if (f.from && r.date < f.from) return false;
+    if (f.to && r.date > f.to) return false;
+    if (needle && !norm(`${r.category} ${r.description} ${r.unit}`).includes(needle)) return false;
+    return true;
+  });
+}
+
+/** Totals for whatever is currently on screen — the filtered set, never the
+ *  whole ledger. A total that ignores the filter is a total nobody can use. */
+export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
+  let expenses = 0;
+  let payments = 0;
+  for (const r of rows) {
+    if (r.kind === 'expense') expenses += r.amountUsd;
+    else payments += r.amountUsd;
+  }
+  return {
+    expenses: round2(expenses),
+    payments: round2(payments),
+    net: round2(payments - expenses),
+    count: rows.length,
+  };
 }
