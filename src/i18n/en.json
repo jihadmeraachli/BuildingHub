@@ -314,7 +314,12 @@
       "rate": "Rate",
       "payment": "Payment",
       "noMatch": "Nothing matches this filter.",
-      "nothingYet": "No expenses or payments recorded yet."
+      "nothingYet": "No expenses or payments recorded yet.",
+      "groupBy": "Group by",
+      "groupNone": "No grouping",
+      "groupMonth": "Month",
+      "groupCategory": "Category",
+      "month": "Month"
     }
   },
   "feedback": {

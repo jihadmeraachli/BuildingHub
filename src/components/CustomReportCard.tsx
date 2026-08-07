@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/Input';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { LedgerReportDoc, downloadPdf } from '@/lib/pdf';
-import { filterLedger, ledgerTotals, emptyLedgerFilters, type LedgerRow, type LedgerFilters } from '@/lib/reportData';
+import { filterLedger, ledgerTotals, groupLedger, emptyLedgerFilters, type LedgerRow, type LedgerFilters, type LedgerGrouping } from '@/lib/reportData';
 
 const money = (n: number) =>
   `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -42,11 +42,22 @@ function toCsv(rows: LedgerRow[], head: string[]): string {
 export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; entityName: string }) {
   const { t } = useTranslation();
   const [f, setF] = useState<LedgerFilters>(emptyLedgerFilters);
+  const [groupBy, setGroupBy] = useState<LedgerGrouping>('none');
   const [busy, setBusy] = useState('');
 
   const shown = useMemo(() => filterLedger(rows, f), [rows, f]);
   const totals = useMemo(() => ledgerTotals(shown), [shown]);
   const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search;
+
+  /** "Mar 2026" from "2026-03" — built from a real date so Arabic gets Arabic
+   *  month names rather than a number. */
+  const monthLabel = (yyyymm: string) =>
+    new Date(`${yyyymm}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+
+  const groups = useMemo(
+    () => (groupBy === 'none' ? [] : groupLedger(shown, groupBy, monthLabel)),
+    [shown, groupBy], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   /** Spelled out on the PDF so a printed copy says what it is showing. */
   const filterSummary = [
@@ -125,6 +136,17 @@ export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; enti
             placeholder={t('reports.custom.searchHint')}
             onChange={(e) => setF({ ...f, search: e.target.value })}
           />
+          {/* The one that answers "how much water per month" without a
+              calculator: roll the same filtered rows up by month or category. */}
+          <SelectField
+            label={t('reports.custom.groupBy')}
+            value={groupBy}
+            onValueChange={(v) => setGroupBy(v as LedgerGrouping)}
+          >
+            <SelectItem value="none">{t('reports.custom.groupNone')}</SelectItem>
+            <SelectItem value="month">{t('reports.custom.groupMonth')}</SelectItem>
+            <SelectItem value="category">{t('reports.custom.groupCategory')}</SelectItem>
+          </SelectField>
         </div>
 
         {dirty && (
@@ -161,7 +183,35 @@ export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; enti
           </Button>
         </div>
 
-        {/* ── the table. Scrolls inside itself so the page never scrolls
+        {/* ── the rollup, when grouping is on ─────────────────────────── */}
+        {groupBy !== 'none' && groups.length > 0 && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm min-w-[420px]">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                  <th className="py-2 pe-3 font-medium">
+                    {groupBy === 'month' ? t('reports.custom.month') : t('reports.custom.category')}
+                  </th>
+                  <th className="py-2 pe-3 font-medium text-end">{t('reports.custom.moneyOut')}</th>
+                  <th className="py-2 pe-3 font-medium text-end">{t('reports.custom.moneyIn')}</th>
+                  <th className="py-2 font-medium text-end">{t('reports.custom.net')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((g) => (
+                  <tr key={g.key} className="border-b border-border/50">
+                    <td className="py-2 pe-3 font-medium">{g.label}</td>
+                    <td className="py-2 pe-3 text-end tabular-nums">{money(g.expenses)}</td>
+                    <td className="py-2 pe-3 text-end tabular-nums">{money(g.payments)}</td>
+                    <td className="py-2 text-end tabular-nums">{money(g.net)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── the detail. Scrolls inside itself so the page never scrolls
                sideways on a phone. ───────────────────────────────────── */}
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">

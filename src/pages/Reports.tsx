@@ -11,7 +11,7 @@ import { fetchAll } from '@/lib/fetchAll';
 import { useExpenseTypes } from '@/lib/expenseTypes';
 import { fmtDate } from '@/lib/dateFmt';
 import { computeBalance } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets, buildBudgetVsActual, buildLedger, tenantTitle, type TenancyRow } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildUnitBuckets, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, type TenancyRow } from '@/lib/reportData';
 import { CustomReportCard } from '@/components/CustomReportCard';
 import type { Unit, Charge, Payment, Expense, Adjustment, Dues, Budget, BudgetLine } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -56,6 +56,30 @@ function ResidentReports() {
   const [period, setPeriod] = useState<'all' | 'year' | 'month'>('year');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [busy, setBusy] = useState('');
+
+  // My own ledger, for the Custom report: MY charges (my share of each
+  // expense) and MY payments. Not the building's expenses — a $1,200 concierge
+  // bill is not what one owner paid, their charge is. RLS scopes this anyway;
+  // the unit filter is so the query is honest about what it is asking for.
+  const myUnitIds = useMemo(() => myUnits.map((m) => m.unit.id), [myUnits]);
+  const [myCharges, setMyCharges] = useState<Charge[]>([]);
+  const [myPayments, setMyPayments] = useState<Payment[]>([]);
+  useEffect(() => {
+    if (!myUnitIds.length) { setMyCharges([]); setMyPayments([]); return; }
+    Promise.all([
+      fetchAll<Charge>((f, to) => supabase.from('charges').select('*').in('unit_id', myUnitIds)
+        .order('charge_date', { ascending: false }).order('id').range(f, to)),
+      fetchAll<Payment>((f, to) => supabase.from('payments').select('*').in('unit_id', myUnitIds)
+        .order('paid_on', { ascending: false }).order('id').range(f, to)),
+    ]).then(([c, p]) => { setMyCharges(c); setMyPayments(p); });
+  }, [myUnitIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const myLedger = useMemo(() => buildResidentLedger(myCharges, myPayments, {
+    // charges carry a copy of their expense's category, so no join is needed
+    categoryName: (c) => (c.category ? t(`finance.cats.${c.category}`) : t('finance.cats.other')),
+    unitLabel: (uid) => myUnits.find((m) => m.unit.id === uid)?.unit.label ?? '—',
+    paymentWord: t('reports.custom.payment'),
+  }), [myCharges, myPayments, myUnits]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const now = new Date();
   let range: { from: Date; to: Date } | null = null;
@@ -192,6 +216,13 @@ function ResidentReports() {
             </Button>
           </div>
         </CardBody></Card>
+      </div>
+
+      <div className="mt-4 max-w-6xl">
+        <CustomReportCard
+          rows={myLedger}
+          entityName={bldgs.find((b) => b.id === buildingId)?.name ?? ''}
+        />
       </div>
     </div>
   );

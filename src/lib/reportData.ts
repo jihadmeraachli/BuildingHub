@@ -651,3 +651,111 @@ export function ledgerTotals(rows: LedgerRow[]): LedgerTotals {
     count: rows.length,
   };
 }
+
+/**
+ * A RESIDENT's ledger: their charges (what they were billed) and their
+ * payments — not the building's expenses.
+ *
+ * The distinction matters and is easy to get wrong. A building expense of
+ * $1,200 for the concierge is not what an owner paid; their CHARGE is their
+ * share of it. Asking "how much am I paying for the concierge" is a question
+ * about charges, and answering it with expenses would overstate every figure
+ * by the size of the building.
+ *
+ * Charges carry the category their expense had (a copy, kept on the row), so
+ * the same filtering works without joining back to expenses.
+ */
+export function buildResidentLedger(
+  charges: Charge[],
+  payments: Payment[],
+  opts: {
+    categoryName: (c: Charge) => string;
+    unitLabel: (unitId: string) => string;
+    paymentWord: string;
+  },
+): LedgerRow[] {
+  const rows: LedgerRow[] = [];
+
+  for (const c of charges) {
+    if (c.voided_at) continue;
+    rows.push({
+      id: c.id,
+      kind: 'expense',              // money owed BY the resident — "out" from their side
+      date: c.charge_date,
+      category: opts.categoryName(c),
+      description: c.description,
+      unit: opts.unitLabel(c.unit_id),
+      amountUsd: Number(c.amount_usd),
+      amountLbp: null,             // charges are a derived share; the LBP log lives on the expense
+      lbpRate: null,
+    });
+  }
+
+  for (const p of payments) {
+    if (p.voided_at) continue;
+    rows.push({
+      id: p.id,
+      kind: 'payment',
+      date: p.paid_on,
+      category: opts.paymentWord,
+      description: p.note?.trim() || opts.paymentWord,
+      unit: opts.unitLabel(p.unit_id),
+      amountUsd: Number(p.amount_usd),
+      amountLbp: p.amount_lbp ?? null,
+      lbpRate: p.lbp_rate ?? null,
+    });
+  }
+
+  return rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+export type LedgerGrouping = 'none' | 'month' | 'category';
+
+export interface LedgerGroup {
+  key: string;
+  label: string;
+  expenses: number;
+  payments: number;
+  net: number;
+  count: number;
+}
+
+/**
+ * Roll the filtered rows up by month or by category — the shape that answers
+ * "how much water am I paying per month" and "what did the concierge cost me
+ * over the last year", which a flat list makes you compute by hand.
+ *
+ * Months come back newest-first (matching the detail list); categories come
+ * back biggest-first, because the question behind a category rollup is
+ * almost always "where is the money going".
+ */
+export function groupLedger(
+  rows: LedgerRow[],
+  by: Exclude<LedgerGrouping, 'none'>,
+  monthLabel: (yyyymm: string) => string,
+): LedgerGroup[] {
+  const acc = new Map<string, LedgerGroup>();
+
+  for (const r of rows) {
+    const key = by === 'month' ? r.date.slice(0, 7) : r.category;
+    let g = acc.get(key);
+    if (!g) {
+      g = { key, label: by === 'month' ? monthLabel(key) : key, expenses: 0, payments: 0, net: 0, count: 0 };
+      acc.set(key, g);
+    }
+    if (r.kind === 'expense') g.expenses += r.amountUsd;
+    else g.payments += r.amountUsd;
+    g.count += 1;
+  }
+
+  const out = [...acc.values()].map((g) => ({
+    ...g,
+    expenses: round2(g.expenses),
+    payments: round2(g.payments),
+    net: round2(g.payments - g.expenses),
+  }));
+
+  return by === 'month'
+    ? out.sort((a, b) => (a.key < b.key ? 1 : -1))
+    : out.sort((a, b) => (b.expenses + b.payments) - (a.expenses + a.payments));
+}
