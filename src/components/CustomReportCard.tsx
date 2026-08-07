@@ -280,7 +280,10 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
                   <tr key={`${r.kind}-${r.id}`} className="border-b border-border/50">
                     <td className="py-2 pe-3 whitespace-nowrap text-muted-foreground">{r.date}</td>
                     <td className="py-2 pe-3">
-                      <Badge variant={r.kind === 'payment' ? 'green' : 'slate'}>{r.category}</Badge>
+                      {/* out/in as orange/green: money leaving is not an error,
+                          so orange rather than red, and the pair reads at a
+                          glance down a mixed column. */}
+                      <Badge variant={r.kind === 'payment' ? 'green' : 'orange'}>{r.category}</Badge>
                     </td>
                     <td className="py-2 pe-3">
                       {r.description}
