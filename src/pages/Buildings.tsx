@@ -360,16 +360,25 @@ export default function Buildings() {
     if (isCompoundAdmin) {
       compoundId = compoundId && myCompoundIds.includes(compoundId) ? compoundId : myCompoundIds[0];
     }
-    const { data: inserted, error } = await supabase.from('buildings').insert({
-      name: data.name, address: data.address, city: data.city, country: data.country,
-      contact_email: data.contact_email || null, contact_phone: data.contact_phone || null,
-      maps_url: data.maps_url || null, compound_id: compoundId, is_active: true,
-    }).select('id').single();
+    // Through a sealed function, not a plain insert (0096). Buildings are now
+    // readable only by someone with a grant on them, and that grant arrives
+    // from an AFTER INSERT trigger — which fires after RETURNING is projected,
+    // so `.insert().select('id')` would be rejected on the row it just made.
+    const { data: newId, error } = await supabase.rpc('create_building', {
+      p_name: data.name,
+      p_address: data.address || null,
+      p_city: data.city || null,
+      p_country: data.country || null,
+      p_contact_email: data.contact_email || null,
+      p_contact_phone: data.contact_phone || null,
+      p_maps_url: data.maps_url || null,
+      p_compound_id: compoundId,
+    });
 
     if (error) { toast.error(error.message); return; }
 
-    if (isOrgAdmin && myOrgIds[0] && inserted) {
-      await supabase.from('org_buildings').insert({ org_id: myOrgIds[0], building_id: (inserted as { id: string }).id });
+    if (isOrgAdmin && myOrgIds[0] && newId) {
+      await supabase.from('org_buildings').insert({ org_id: myOrgIds[0], building_id: newId as string });
     }
 
     toast.success(t('buildings.buildingAdded'));

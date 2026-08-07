@@ -124,6 +124,8 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0094 | `0094_demo_read_only.sql` | The public demo is read-only **in the database**. `profiles.is_demo` + a BEFORE trigger on every showcase table refuse writes from the personas, so the demo admin can hold a real `building_admin` grant (People, invitations, the full product) even though the password ships in the bundle. Language/notification prefs still save; renames do not. |
 | 0095 | `0095_audit_fk_set_null.sql` | Finishes 0026: walks the catalog converting every nullable NO ACTION/RESTRICT FK on `profiles`/`auth.users` to `ON DELETE SET NULL`. `subscriptions.created_by` was blocking `delete_user()` outright. NOT NULL ones are reported, not touched. |
 
+| 0096 | `0096_entity_read_scope.sql` | **Buildings and compounds stop being world-readable.** `buildings_select_active` was v1 schema ("for registration" — v3 never reads it), so any authenticated user could list every building, and Buildings/Compounds render unscoped: a building admin saw the whole platform. Compounds were worse — 0022's scoped policy never took effect because 0002's open one was never dropped. Reads now go through `user_sees_building()`/`user_sees_compound()` (grant, or a membership in it). Building creation moves to the sealed `create_building()`, because the auto-grant trigger fires AFTER RETURNING is projected and a plain insert would be rejected on its own new row. |
+
 ⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
 metered expense, migrations included. A future backfill over those rows must
 `SELECT set_config('app.metering_repost', '1', true);` in the same transaction
