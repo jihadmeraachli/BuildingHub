@@ -317,6 +317,22 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
   Backed by **0069**: building members can READ their building's/compound's
   expense list (Jey's default-on decision); writes untouched. NEW REPORT TYPES
   GO HERE as cards, not into Finance.
+- **Custom report (2026-08-06):** one filterable ledger of everything that moved
+  money — filters (type, date range, unit, free text), roll-up by month or
+  category, CSV + PDF of the *filtered* set. Totals always describe what is on
+  screen. Built on pure functions in `lib/reportData` (`buildLedger`,
+  `buildResidentLedger`, `filterLedger`, `groupLedger`, `ledgerTotals`) so the
+  table, the CSV and the PDF cannot disagree.
+  **The admin and resident versions read different tables on purpose:** admins
+  see the entity's `expenses` + `payments`; residents see THEIR `charges` +
+  `payments`. A $1,200 concierge invoice is not what one owner paid — their
+  charge is their share of it, and using expenses would overstate every
+  resident figure by the size of the building. The resident card offers
+  "Building expenses" as a separate SCOPE (transparency, 0069) — the two must
+  never be summed together, since a charge is a share of an expense.
+  This replaced the two resident cards: "My unit statement" duplicated
+  Finance → My home → Export statement, and "Building expenses" became the
+  scope above.
 - **In-app feedback widget (2026-08-02, 0068):** sidebar "Send feedback" →
   `feedback` table → `file-feedback` edge function → GitHub issue labeled
   `feedback` (reporter, route, device, signed screenshot). SWEEP THE BOARD for
@@ -355,6 +371,29 @@ npm run dev         # http://localhost:5173
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
 - **Compound inspection admins** — `get_due_inspections()` finds org admins via `org_buildings` join; platform-admin-only compounds (no `org_id`) won't have anyone to notify for inspection reminders.
 - **WhatsApp notifications** — dedicated number still being sourced; email is the only active channel for now.
+- **No test runner exists.** No vitest, no test files, nothing in `package.json`.
+  `docs/REPORTING_GUIDANCE.md` says to add a test alongside each new
+  `reportData` function, and commit messages have referred to suites passing —
+  neither is true today. The ledger builders (`buildLedger`,
+  `buildResidentLedger`, `filterLedger`, `ledgerTotals`, `groupLedger`) are pure
+  and are the obvious first thing to cover once a runner is added.
+- **`charges` do not carry `expense_type_id`** — only the legacy `category`
+  enum copied from their expense. So a RESIDENT's Custom report shows a custom
+  expense type by its enum fallback ("Other") instead of its catalog name; the
+  admin view resolves properly. Fixing it means denormalising `expense_type_id`
+  onto `charges` (a small additive migration) or joining back through the
+  expense.
+- **`ExpensesReportDoc` (pdf.tsx) is now unreferenced** — the resident card that
+  used it was folded into the Custom report. Left in place rather than deleted
+  in case the admin side wants it; delete it or wire it up, but don't leave it
+  drifting indefinitely.
+- **Every deploy can blank an open tab.** Hashed chunks + an open tab mid-
+  rollout = the browser asks for a hash the edge doesn't have yet, Pages
+  answers with `index.html`, and `React.lazy` reads `.default` off undefined.
+  `main.tsx` self-heals twice then stops; the `ErrorBoundary` now offers "Clear
+  cache and reload". **Wait for the Cloudflare deployment to show Success
+  before reloading**, and when triaging remember: reproduces in a private
+  window = real bug, doesn't = cache.
 - **shadcn/ui migration** — Ahmad's dark Tatawwor theme is ✅ **merged to master**. Next UI step: migrate components to shadcn/ui for a professional design system, keeping the Tatawwor brand tokens (cyan `#57D6E2` → blue `#349ECD`, Poppins display font) and the dark theme. Note: the dark theme is currently a scoped `.app-dark` override layer in `src/index.css` — shadcn uses CSS variables + `dark:` variants, so that layer should be **replaced by** shadcn theme tokens during the migration rather than stacked on top.
 
 ---
