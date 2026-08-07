@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { BetaGate } from '@/components/BetaGate';
 import { BioLock } from '@/components/BioLock';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -57,6 +58,9 @@ export default function App() {
     return <BetaGate><Landing /></BetaGate>;
   }
   return (
+    // Outermost on purpose: a crash in the gate, the theme or the auth
+    // provider is exactly the kind that used to blank the whole screen.
+    <ErrorBoundary>
     <BioLock>
     <BetaGate>
     <ThemeProvider>
@@ -107,5 +111,6 @@ export default function App() {
     </ThemeProvider>
     </BetaGate>
     </BioLock>
+    </ErrorBoundary>
   );
 }
