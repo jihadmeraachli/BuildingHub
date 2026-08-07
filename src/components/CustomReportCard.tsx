@@ -10,7 +10,7 @@
 // PDF all read the same rows from lib/reportData, so they cannot disagree
 // (docs/REPORTING_GUIDANCE.md).
 // ============================================================
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Search, X } from 'lucide-react';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -44,13 +44,21 @@ function toCsv(rows: LedgerRow[], head: string[]): string {
  *  both in one list would double-count every figure. */
 export interface LedgerScope { key: string; label: string; rows: LedgerRow[] }
 
-export function CustomReportCard({ rows, scopes, entityName }: {
+export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
   rows?: LedgerRow[];
   scopes?: LedgerScope[];
   entityName: string;
+  /** Unit LABEL chosen elsewhere in the app (the sidebar's my-home picker).
+   *  Seeds the filter and re-applies whenever it changes, so the report agrees
+   *  with the dashboard instead of quietly showing a different unit. Still
+   *  overridable here — this drives the filter, it does not lock it. */
+  unitFilter?: string;
 }) {
   const { t } = useTranslation();
-  const [f, setF] = useState<LedgerFilters>(emptyLedgerFilters);
+  const [f, setF] = useState<LedgerFilters>({ ...emptyLedgerFilters, unit: unitFilter ?? '' });
+  useEffect(() => {
+    setF((prev) => (prev.unit === (unitFilter ?? '') ? prev : { ...prev, unit: unitFilter ?? '' }));
+  }, [unitFilter]);
   const [groupBy, setGroupBy] = useState<LedgerGrouping>('none');
   const [scopeKey, setScopeKey] = useState(scopes?.[0]?.key ?? '');
   const [busy, setBusy] = useState('');

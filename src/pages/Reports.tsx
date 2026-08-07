@@ -33,7 +33,7 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(u
  *  A tenant's statement is THEIR ledger only; owners get the full unit. */
 function ResidentReports() {
   const { t } = useTranslation();
-  const { memberships } = useAuth();
+  const { memberships, residentUnitId } = useAuth();
   const myUnits = useMemo(
     () => memberships.filter((m) => m.unit).map((m) => ({ unit: m.unit as Unit, tenure: m.tenure })),
     [memberships]);
@@ -129,6 +129,10 @@ function ResidentReports() {
             { key: 'building', label: t('reports.custom.scopeBuilding'), rows: buildingLedger },
           ]}
           entityName={myBuilding?.name ?? ''}
+          // Follow the sidebar's my-home picker: pick unit 503 there and the
+          // report opens on 503, rather than silently showing both.
+          // AuthContext hands out an id; the ledger filters on the label.
+          unitFilter={myUnits.find((m) => m.unit.id === residentUnitId)?.unit.label ?? ''}
         />
       </div>
     </div>
