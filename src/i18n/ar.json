@@ -319,7 +319,10 @@
       "groupNone": "بدون تجميع",
       "groupMonth": "الشهر",
       "groupCategory": "الفئة",
-      "month": "الشهر"
+      "month": "الشهر",
+      "show": "عرض",
+      "scopeMine": "مستحقاتي ودفعاتي",
+      "scopeBuilding": "مصاريف المبنى"
     }
   },
   "feedback": {

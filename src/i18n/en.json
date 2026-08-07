@@ -319,7 +319,10 @@
       "groupNone": "No grouping",
       "groupMonth": "Month",
       "groupCategory": "Category",
-      "month": "Month"
+      "month": "Month",
+      "show": "Show",
+      "scopeMine": "My charges and payments",
+      "scopeBuilding": "Building expenses"
     }
   },
   "feedback": {

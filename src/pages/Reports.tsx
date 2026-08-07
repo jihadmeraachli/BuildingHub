@@ -33,13 +33,10 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(u
  *  A tenant's statement is THEIR ledger only; owners get the full unit. */
 function ResidentReports() {
   const { t } = useTranslation();
-  const { user, memberships } = useAuth();
+  const { memberships } = useAuth();
   const myUnits = useMemo(
     () => memberships.filter((m) => m.unit).map((m) => ({ unit: m.unit as Unit, tenure: m.tenure })),
     [memberships]);
-
-  const [unitId, setUnitId] = useState('');
-  useEffect(() => { if (!unitId && myUnits.length) setUnitId(myUnits[0].unit.id); }, [myUnits, unitId]);
 
   const [bldgs, setBldgs] = useState<{ id: string; name: string; compound_id: string | null }[]>([]);
   const [buildingId, setBuildingId] = useState('');
@@ -52,10 +49,6 @@ function ResidentReports() {
       setBuildingId((cur) => cur || rows[0]?.id || '');
     });
   }, [myUnits]);
-
-  const [period, setPeriod] = useState<'all' | 'year' | 'month'>('year');
-  const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
-  const [busy, setBusy] = useState('');
 
   // My own ledger, for the Custom report: MY charges (my share of each
   // expense) and MY payments. Not the building's expenses — a $1,200 concierge
@@ -81,86 +74,33 @@ function ResidentReports() {
     paymentWord: t('reports.custom.payment'),
   }), [myCharges, myPayments, myUnits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const now = new Date();
-  let range: { from: Date; to: Date } | null = null;
-  if (period === 'year') range = { from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31, 23, 59, 59) };
-  else if (period === 'month') { const [y, m] = monthValue.split('-').map(Number); range = { from: new Date(y, m - 1, 1), to: new Date(y, m, 0, 23, 59, 59) }; }
-  const inRange = (d: string) => !range || (new Date(d) >= range.from && new Date(d) <= range.to);
-  const periodLabel = period === 'month'
-    ? new Date(`${monthValue}-01`).toLocaleString(undefined, { month: 'long', year: 'numeric' })
-    : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
+  // The building's OWN spending — the transparency view (0069). Kept strictly
+  // separate from "my charges": a charge is a share of an expense, so one list
+  // containing both would count every figure twice.
+  const myBuilding = bldgs.find((b) => b.id === buildingId) ?? null;
+  const { types: bldgExpenseTypes } = useExpenseTypes(
+    myBuilding?.compound_id ? 'compound' : 'building',
+    myBuilding?.compound_id ?? myBuilding?.id,
+  );
+  const [bldgExpenses, setBldgExpenses] = useState<Expense[]>([]);
+  useEffect(() => {
+    if (!myBuilding) { setBldgExpenses([]); return; }
+    const q = myBuilding.compound_id
+      ? supabase.from('expenses').select('*').or(`building_id.eq.${myBuilding.id},compound_id.eq.${myBuilding.compound_id}`)
+      : supabase.from('expenses').select('*').eq('building_id', myBuilding.id);
+    q.order('expense_date', { ascending: false })
+      .then(({ data }) => setBldgExpenses((data as Expense[]) ?? []));
+  }, [buildingId, myBuilding?.compound_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function downloadMyStatement() {
-    const mine = myUnits.find((m) => m.unit.id === unitId);
-    if (!mine || !user) return;
-    setBusy('statement');
-    try {
-      const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
-      const [cRes, pRes, aRes, mRes, bRes, dRes] = await Promise.all([
-        supabase.from('charges').select('*').eq('unit_id', mine.unit.id),
-        supabase.from('payments').select('*').eq('unit_id', mine.unit.id),
-        supabase.from('adjustments').select('*').eq('unit_id', mine.unit.id),
-        supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').eq('unit_id', mine.unit.id),
-        supabase.from('buildings').select('name').eq('id', mine.unit.building_id).single(),
-        supabase.from('dues').select('*').eq('unit_id', mine.unit.id),
-      ]);
-      const cAll = ((cRes.data as Charge[]) ?? []).filter((c) => !c.voided_at && inRange(c.charge_date));
-      const pAll = ((pRes.data as Payment[]) ?? []).filter((p) => !p.voided_at && inRange(p.paid_on));
-      const aAll = ((aRes.data as Adjustment[]) ?? []).filter((a) => !a.voided_at && inRange(a.effective_date));
-      // dues sit on the party bucket they were billed to; a tenant's statement
-      // therefore lists only their own dues (0070)
-      const dAll = ((dRes.data as Dues[]) ?? []).filter((d) => !d.due_date || inRange(d.due_date));
-      const tenancy = (mRes.data as unknown as TenancyRow[]) ?? [];
-      const th = tenancyHelpers(tenancy, cAll, pAll, aAll);
-      const labels = { owner: t('finance.owner'), tenant: t('finance.currentTenant'), formerTenant: t('finance.formerTenant') };
-      // Tenants export their own ledger only; owners get the whole unit.
-      const only = mine.tenure === 'tenant' ? new Set([user.id]) : undefined;
-      const { buckets, combined } = buildUnitBuckets(mine.unit, cAll, pAll, aAll, th, labels, only, dAll);
-      const el = (
-        <UnitStatementDoc
-          unitLabel={mine.unit.label}
-          buildingName={(bRes.data as { name: string } | null)?.name ?? ''}
-          period={periodLabel}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-          buckets={buckets}
-          combinedBalance={combined}
-        />
-      );
-      await downloadPdf(el, `statement-unit-${mine.unit.label.replace(/\s+/g, '-')}.pdf`);
-    } catch (e) {
-      toast.error(t('reports.exportFailed'));
-      console.error('resident statement failed:', e);
-    } finally { setBusy(''); }
-  }
+  const buildingLedger = useMemo(() => buildLedger(bldgExpenses, [], {
+    // catalog name, so a custom type never prints as "Other" (0085)
+    typeName: (e) => bldgExpenseTypes.find((x) => x.id === e.expense_type_id)?.name
+      ?? (e.category ? t(`finance.cats.${e.category}`) : t('finance.cats.other')),
+    unitLabel: () => '',
+    payerLabel: () => '',
+    paymentWord: t('reports.custom.payment'),
+  }), [bldgExpenses, bldgExpenseTypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function downloadBuildingExpenses() {
-    const b = bldgs.find((x) => x.id === buildingId);
-    if (!b) return;
-    setBusy('expenses');
-    try {
-      const { ExpensesReportDoc, downloadPdf } = await import('@/lib/pdf');
-      const q = b.compound_id
-        ? supabase.from('expenses').select('*').or(`building_id.eq.${b.id},compound_id.eq.${b.compound_id}`)
-        : supabase.from('expenses').select('*').eq('building_id', b.id);
-      const { data, error } = await q.order('expense_date', { ascending: false });
-      if (error) throw error;
-      const rows = ((data as Expense[]) ?? []).filter((e) => inRange(e.expense_date));
-      const categoryLabels = Object.fromEntries(EXPENSE_CATS.map((c) => [c, t(`finance.cats.${c}`)]));
-      const el = (
-        <ExpensesReportDoc
-          entityName={b.name}
-          period={periodLabel}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-          expenses={rows}
-          categoryLabels={categoryLabels}
-        />
-      );
-      await downloadPdf(el, `expenses-${b.name.replace(/\s+/g, '-')}-${period}.pdf`);
-    } catch (e) {
-      toast.error(t('reports.exportFailed'));
-      console.error('building expenses failed:', e);
-    } finally { setBusy(''); }
-  }
 
   return (
     <div>
@@ -169,65 +109,31 @@ function ResidentReports() {
         <p className="text-sm text-slate-500 mt-0.5">{t('reports.residentSubtitle')}</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4 max-w-4xl">
-        <Card><CardBody>
-          <div className="flex items-center gap-2.5 mb-2">
-            <FileText size={18} className="text-primary" />
-            <p className="font-semibold text-foreground">{t('reports.myStatement')}</p>
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.myStatementDesc')}</p>
-          <div className="space-y-3">
-            {myUnits.length > 1 && (
-              <SelectField label={t('finance.unit')} value={unitId} onValueChange={setUnitId}>
-                {myUnits.map((m) => <SelectItem key={m.unit.id} value={m.unit.id}>{m.unit.label}</SelectItem>)}
-              </SelectField>
-            )}
-            <SelectField label={t('reports.period')} value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-              <SelectItem value="all">{t('finance.allTime')}</SelectItem>
-              <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
-              <SelectItem value="month">{t('reports.specificMonth')}</SelectItem>
-            </SelectField>
-            {period === 'month' && (
-              <input
-                type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            )}
-            <Button onClick={downloadMyStatement} loading={busy === 'statement'} disabled={!unitId} className="w-full">
-              <Download size={15} /> {t('reports.download')}
-            </Button>
-          </div>
-        </CardBody></Card>
+      {/* The two cards that used to sit here are gone. "My unit statement"
+          duplicated Finance → My home → Export statement, exactly the same PDF
+          behind a second door. "Building expenses" became a SCOPE of the
+          report below, where it is filterable and groupable instead of a
+          single fixed download. */}
+      {bldgs.length > 1 && (
+        <div className="max-w-xs mb-4">
+          <SelectField label={t('reports.building')} value={buildingId} onValueChange={setBuildingId}>
+            {bldgs.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectField>
+        </div>
+      )}
 
-        <Card><CardBody>
-          <div className="flex items-center gap-2.5 mb-2">
-            <FileBarChart2 size={18} className="text-primary" />
-            <p className="font-semibold text-foreground">{t('reports.buildingExpenses')}</p>
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.buildingExpensesDesc')}</p>
-          <div className="space-y-3">
-            {bldgs.length > 1 && (
-              <SelectField label={t('reports.building')} value={buildingId} onValueChange={setBuildingId}>
-                {bldgs.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-              </SelectField>
-            )}
-            <Button onClick={downloadBuildingExpenses} loading={busy === 'expenses'} disabled={!buildingId} className="w-full">
-              <Download size={15} /> {t('reports.download')}
-            </Button>
-          </div>
-        </CardBody></Card>
-      </div>
-
-      <div className="mt-4 max-w-6xl">
+      <div className="max-w-6xl">
         <CustomReportCard
-          rows={myLedger}
-          entityName={bldgs.find((b) => b.id === buildingId)?.name ?? ''}
+          scopes={[
+            { key: 'mine', label: t('reports.custom.scopeMine'), rows: myLedger },
+            { key: 'building', label: t('reports.custom.scopeBuilding'), rows: buildingLedger },
+          ]}
+          entityName={myBuilding?.name ?? ''}
         />
       </div>
     </div>
   );
 }
-const EXPENSE_CATS = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
 
 export default function Reports() {
   const { t } = useTranslation();

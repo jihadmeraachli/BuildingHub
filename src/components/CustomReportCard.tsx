@@ -39,13 +39,26 @@ function toCsv(rows: LedgerRow[], head: string[]): string {
   return '﻿' + lines.join('\r\n');
 }
 
-export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; entityName: string }) {
+/** More than one scope turns on a selector. Scopes are mutually exclusive by
+ *  design: a resident's charge IS a share of a building expense, so showing
+ *  both in one list would double-count every figure. */
+export interface LedgerScope { key: string; label: string; rows: LedgerRow[] }
+
+export function CustomReportCard({ rows, scopes, entityName }: {
+  rows?: LedgerRow[];
+  scopes?: LedgerScope[];
+  entityName: string;
+}) {
   const { t } = useTranslation();
   const [f, setF] = useState<LedgerFilters>(emptyLedgerFilters);
   const [groupBy, setGroupBy] = useState<LedgerGrouping>('none');
+  const [scopeKey, setScopeKey] = useState(scopes?.[0]?.key ?? '');
   const [busy, setBusy] = useState('');
 
-  const shown = useMemo(() => filterLedger(rows, f), [rows, f]);
+  const activeScope = scopes?.find((s) => s.key === scopeKey) ?? scopes?.[0] ?? null;
+  const source = activeScope ? activeScope.rows : (rows ?? []);
+
+  const shown = useMemo(() => filterLedger(source, f), [source, f]);
   const totals = useMemo(() => ledgerTotals(shown), [shown]);
   const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search;
 
@@ -61,6 +74,7 @@ export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; enti
 
   /** Spelled out on the PDF so a printed copy says what it is showing. */
   const filterSummary = [
+    activeScope?.label ?? '',
     f.kind === 'all' ? t('reports.custom.bothKinds') : f.kind === 'expense' ? t('reports.custom.expensesOnly') : t('reports.custom.paymentsOnly'),
     f.from || f.to ? `${f.from || '…'} → ${f.to || '…'}` : t('reports.custom.allDates'),
     f.search ? `"${f.search}"` : '',
@@ -109,6 +123,11 @@ export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; enti
 
         {/* ── filters ─────────────────────────────────────────────────── */}
         <div className="grid gap-3 mt-4 sm:grid-cols-2 lg:grid-cols-4">
+          {scopes && scopes.length > 1 && (
+            <SelectField label={t('reports.custom.show')} value={activeScope?.key ?? ''} onValueChange={setScopeKey}>
+              {scopes.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+            </SelectField>
+          )}
           <SelectField
             label={t('reports.custom.kind')}
             value={f.kind}
@@ -228,7 +247,7 @@ export function CustomReportCard({ rows, entityName }: { rows: LedgerRow[]; enti
               {shown.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                    {rows.length === 0 ? t('reports.custom.nothingYet') : t('reports.custom.noMatch')}
+                    {source.length === 0 ? t('reports.custom.nothingYet') : t('reports.custom.noMatch')}
                   </td>
                 </tr>
               ) : (
