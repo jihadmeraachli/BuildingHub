@@ -208,8 +208,13 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* My-home unit picker: investors drill into one unit or view all. */}
-      {residentLens && memberships.length > 1 && (
+      {/* My-home unit picker: investors drill into one unit or view all.
+          NOT gated on residentLens — that means "a MANAGER who is also a
+          resident, currently looking at My home" (it requires grants). A plain
+          owner with two units has no grants, so the picker never appeared for
+          exactly the people who need it most. Anyone seeing the resident
+          experience with more than one unit gets it. */}
+      {(residentLens || (!isPlatformAdmin && grants.length === 0)) && memberships.length > 1 && (
         <div className="px-2 pt-2">
           <RadixSelect value={residentUnitId || '__all__'} onValueChange={v => setResidentUnitId(v === '__all__' ? '' : v)}>
             <SelectTrigger className="w-full h-8 text-xs">

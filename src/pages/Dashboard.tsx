@@ -422,7 +422,10 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-        <div className="grid lg:grid-cols-2 gap-4 items-start">
+        {/* Stacked, not side by side: the statement link is a one-line action
+            and the meetings card is a list, so a two-column row left them
+            top-aligned at different heights and reading as unrelated. */}
+        <div className="space-y-4">
           <Link to="/finance" className="block">
             <QuickLink icon={Wallet} title={t('dashboard.viewStatement')} desc={t('dashboard.viewStatementDesc')} />
           </Link>

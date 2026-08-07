@@ -558,9 +558,12 @@ export interface LedgerFilters {
   to: string;
   /** matched against category, description and unit — one box, not three */
   search: string;
+  /** exact unit label; '' = every unit. Only meaningful when the viewer has
+   *  more than one, which the card decides from the rows themselves. */
+  unit: string;
 }
 
-export const emptyLedgerFilters: LedgerFilters = { kind: 'all', from: '', to: '', search: '' };
+export const emptyLedgerFilters: LedgerFilters = { kind: 'all', from: '', to: '', search: '', unit: '' };
 
 export interface LedgerTotals {
   expenses: number;
@@ -630,6 +633,7 @@ export function filterLedger(rows: LedgerRow[], f: LedgerFilters): LedgerRow[] {
     if (f.kind !== 'all' && r.kind !== f.kind) return false;
     if (f.from && r.date < f.from) return false;
     if (f.to && r.date > f.to) return false;
+    if (f.unit && r.unit !== f.unit) return false;
     if (needle && !norm(`${r.category} ${r.description} ${r.unit}`).includes(needle)) return false;
     return true;
   });

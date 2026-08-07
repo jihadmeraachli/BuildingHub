@@ -322,7 +322,8 @@
       "month": "Month",
       "show": "Show",
       "scopeMine": "My charges and payments",
-      "scopeBuilding": "Building expenses"
+      "scopeBuilding": "Building expenses",
+      "allUnits": "All my units"
     }
   },
   "feedback": {

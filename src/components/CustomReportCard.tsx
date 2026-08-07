@@ -58,9 +58,16 @@ export function CustomReportCard({ rows, scopes, entityName }: {
   const activeScope = scopes?.find((s) => s.key === scopeKey) ?? scopes?.[0] ?? null;
   const source = activeScope ? activeScope.rows : (rows ?? []);
 
+  // Offered only when there is a choice to make: an owner with one unit does
+  // not need a selector whose every option is the same answer.
+  const unitOptions = useMemo(
+    () => [...new Set(source.map((r) => r.unit).filter(Boolean))].sort(),
+    [source],
+  );
+
   const shown = useMemo(() => filterLedger(source, f), [source, f]);
   const totals = useMemo(() => ledgerTotals(shown), [shown]);
-  const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search;
+  const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search || !!f.unit;
 
   /** "Mar 2026" from "2026-03" — built from a real date so Arabic gets Arabic
    *  month names rather than a number. */
@@ -155,6 +162,16 @@ export function CustomReportCard({ rows, scopes, entityName }: {
             placeholder={t('reports.custom.searchHint')}
             onChange={(e) => setF({ ...f, search: e.target.value })}
           />
+          {unitOptions.length > 1 && (
+            <SelectField
+              label={t('reports.custom.unit')}
+              value={f.unit || '__all__'}
+              onValueChange={(v) => setF({ ...f, unit: v === '__all__' ? '' : v })}
+            >
+              <SelectItem value="__all__">{t('reports.custom.allUnits')}</SelectItem>
+              {unitOptions.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+            </SelectField>
+          )}
           {/* The one that answers "how much water per month" without a
               calculator: roll the same filtered rows up by month or category. */}
           <SelectField
