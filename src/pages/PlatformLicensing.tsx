@@ -181,18 +181,21 @@ export default function PlatformLicensing() {
 
   async function markPaid(inv: Invoice) {
     setBusy(inv.id);
-    const { error } = await supabase.from('invoices')
-      .update({ status: 'paid', paid_at: new Date().toISOString(), paid_by: user?.id ?? null })
-      .eq('id', inv.id);
-    if (error) { setBusy(''); toast.error(error.message); return; }
-    // A paid invoice activates the subscription for the invoiced period.
-    const { error: subErr } = await supabase.from('subscriptions')
-      .update({ status: 'active', current_period_start: inv.period_start, current_period_end: inv.period_end })
-      .eq('id', inv.subscription_id);
+    // One sealed call (0098): the invoice, the subscription activation and the
+    // audit event move together or not at all. This used to be three round
+    // trips, and failing between the first two left an invoice reading PAID
+    // while the customer stayed locked out. The same function is what a payment
+    // gateway's webhook will call, so both paths cannot drift apart.
+    const { data: settled, error } = await supabase.rpc('mark_invoice_paid', {
+      p_invoice: inv.id,
+      p_method: 'manual',
+      p_ref: null,
+    });
     setBusy('');
-    if (subErr) { toast.error(subErr.message); return; }
-    await logEvent(inv.subscription_id, 'invoice_paid', { invoice_id: inv.id, amount_cents: inv.amount_cents });
-    toast.success('Invoice marked paid. Subscription activated for the period');
+    if (error) { toast.error(error.message); return; }
+    toast.success(settled
+      ? 'Invoice marked paid. Subscription activated for the period'
+      : 'That invoice was already settled');
     loadAll();
   }
 
