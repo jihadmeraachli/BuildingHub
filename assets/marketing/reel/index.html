@@ -1,0 +1,496 @@
+<title>Crossed Off</title>
+<style>
+  :root {
+    --paper: #F3F1EC;
+    --card: #FFFFFF;
+    --ink: #14201E;
+    --muted: #5C6B68;
+    --line: #DFDBD3;
+    --accent: #0F8C86;
+
+    /* the reel's own world: fixed, an ad looks the same everywhere */
+    --ground: #08211E;
+    --ground-2: #0E332E;
+    --teal: #22E0CB;
+    --white: #FFFFFF;
+    --dim: #7FA8A2;
+
+    --display: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --arabic: "Segoe UI", "Noto Sans Arabic", "Geeza Pro", Tahoma, sans-serif;
+
+    --step: 2.8s;   /* one problem beat */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14201E; --card: #1B2A28; --ink: #EAF2F0;
+      --muted: #9DB2AE; --line: #2B3D3A; --accent: #22E0CB;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14201E; --card: #1B2A28; --ink: #EAF2F0;
+    --muted: #9DB2AE; --line: #2B3D3A; --accent: #22E0CB;
+  }
+  :root[data-theme="light"] {
+    --paper: #F3F1EC; --card: #FFFFFF; --ink: #14201E;
+    --muted: #5C6B68; --line: #DFDBD3; --accent: #0F8C86;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--display); line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 44px 22px 80px; }
+
+  .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  h1 { font-size: clamp(27px, 4vw, 40px); font-weight: 800; letter-spacing: -.025em; margin: 10px 0 0; }
+  .lede { max-width: 60ch; color: var(--muted); font-size: 15.5px; margin: 12px 0 0; }
+
+  .studio {
+    margin-top: 34px; display: grid; gap: 26px;
+    grid-template-columns: minmax(0, 1fr); justify-items: center;
+  }
+
+  /* ── the stage ───────────────────────────────────────────── */
+  .stage {
+    position: relative; width: 100%; max-width: 340px; aspect-ratio: 9 / 16;
+    background: radial-gradient(120% 80% at 50% 12%, var(--ground-2) 0%, var(--ground) 62%);
+    border-radius: 18px; overflow: hidden; color: var(--white);
+    display: grid; place-items: center; padding: 34px;
+    box-shadow: 0 14px 44px rgba(8, 33, 30, .28);
+  }
+  .stage.square { aspect-ratio: 1 / 1; max-width: 460px; }
+
+  /* faint skyline, ambient only */
+  .stage::after {
+    content: ""; position: absolute; inset: auto 0 -20px 0; height: 190px;
+    opacity: .06; pointer-events: none;
+    background:
+      linear-gradient(var(--teal) 0 0) 8%  70px / 13% 120px no-repeat,
+      linear-gradient(var(--teal) 0 0) 26% 30px / 13% 160px no-repeat,
+      linear-gradient(var(--teal) 0 0) 44% 92px / 13% 100px no-repeat,
+      linear-gradient(var(--teal) 0 0) 62% 48px / 13% 145px no-repeat,
+      linear-gradient(var(--teal) 0 0) 80% 78px / 13% 115px no-repeat;
+  }
+
+  /* ── the image bed ───────────────────────────────────────────
+     A photo behind type is a legibility problem before it is a design one.
+     Three layers, in order: the picture, a duotone that drags any stock photo
+     into the brand, then a scrim so the words always have something to sit on.
+     Get this right once and any photo you drop in works. ------------------- */
+  .bed { position: absolute; inset: 0; opacity: 0; overflow: hidden; }
+  .bed .pic, .bed canvas {
+    position: absolute; inset: -4%;            /* room for the slow push-in */
+    width: 108%; height: 108%; object-fit: cover; display: block;
+  }
+  .bed .pic { opacity: 0; }
+  .bed.has-photo canvas { display: none; }
+  .bed.has-photo .pic { opacity: 1; }
+  /* duotone: strip the photo's own colour, then paint it in brand teal */
+  .bed .tint {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, #0d4f48 0%, #08211E 100%);
+    mix-blend-mode: color; opacity: .85;
+  }
+  .bed .scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(8,33,30,.86) 0%, rgba(8,33,30,.52) 42%, rgba(8,33,30,.94) 100%);
+  }
+  .bed .pic, .bed canvas { filter: grayscale(1) contrast(1.08) brightness(.92); }
+
+  .frame { position: absolute; inset: 34px; display: grid; place-items: center; }
+
+  .problem {
+    position: relative; margin: 0; text-align: center; opacity: 0;
+    font-size: clamp(21px, 5.4vw, 27px); font-weight: 800; letter-spacing: -.02em;
+    line-height: 1.24; text-wrap: balance; max-width: 15ch;
+  }
+  .stage.square .problem { max-width: 20ch; }
+  /* the strike: a problem being solved, not a flourish */
+  .problem span.bar {
+    position: absolute; left: -4%; top: 52%; height: 3px; width: 0;
+    background: var(--teal); border-radius: 2px;
+    box-shadow: 0 0 14px var(--teal);
+  }
+
+  .brand { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; }
+  .brand-inner { text-align: center; position: relative; }
+  .halo {
+    position: absolute; left: 50%; top: 50%; width: 40px; height: 40px;
+    translate: -50% -50%; border-radius: 50%;
+    border: 1.5px solid var(--teal); opacity: 0;
+  }
+  .mark {
+    font-size: clamp(27px, 7vw, 38px); font-weight: 800; letter-spacing: .2em;
+    text-transform: uppercase; position: relative;
+  }
+  .soon {
+    margin: 18px auto 0; opacity: 0; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .22em; text-transform: uppercase; color: var(--teal);
+    border: 1px solid currentColor; border-radius: 999px; padding: 5px 13px;
+    display: inline-block;
+  }
+  .tag { margin: 12px 0 0; opacity: 0; font-size: 12.5px; color: var(--dim); }
+
+  /* progress hairline, so you can see the beat structure while reviewing */
+  .track { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.08); }
+  .track i { display: block; height: 100%; width: 0; background: var(--teal); opacity: .5; }
+
+  /* ── the sequence ────────────────────────────────────────── */
+  .playing .problem { animation: pIn .55s cubic-bezier(.2,.7,.3,1) both, pOut .45s ease-in both; }
+  .playing .p1 { animation-delay: 0s,               calc(var(--step) - .4s); }
+  .playing .p2 { animation-delay: var(--step),      calc(var(--step)*2 - .4s); }
+  .playing .p3 { animation-delay: calc(var(--step)*2), calc(var(--step)*3 - .4s); }
+
+  /* the bed rides the same beat as its line, and pushes in slowly under it */
+  .playing .bed { animation: bedIn .7s ease-out both, bedOut .45s ease-in both; }
+  .playing .bed .pic, .playing .bed canvas { animation: push calc(var(--step) + .6s) linear both; }
+  .playing .b1 { animation-delay: 0s,                 calc(var(--step) - .4s); }
+  .playing .b2 { animation-delay: var(--step),        calc(var(--step)*2 - .4s); }
+  .playing .b3 { animation-delay: calc(var(--step)*2), calc(var(--step)*3 - .4s); }
+  .playing .b1 .pic, .playing .b1 canvas { animation-delay: 0s; }
+  .playing .b2 .pic, .playing .b2 canvas { animation-delay: var(--step); }
+  .playing .b3 .pic, .playing .b3 canvas { animation-delay: calc(var(--step)*2); }
+
+  .playing .problem .bar { animation: strike .42s cubic-bezier(.4,0,.2,1) both; }
+  .playing .p1 .bar { animation-delay: calc(var(--step) - 1.0s); }
+  .playing .p2 .bar { animation-delay: calc(var(--step)*2 - 1.0s); }
+  .playing .p3 .bar { animation-delay: calc(var(--step)*3 - 1.0s); }
+
+  .playing .brand { animation: brandIn .7s cubic-bezier(.2,.9,.25,1) both; animation-delay: calc(var(--step)*3 + .1s); }
+  .playing .halo  { animation: halo 1.5s ease-out both;  animation-delay: calc(var(--step)*3 + .15s); }
+  .playing .soon  { animation: rise .6s ease-out both;   animation-delay: calc(var(--step)*3 + .95s); }
+  .playing .tag   { animation: rise .6s ease-out both;   animation-delay: calc(var(--step)*3 + 1.25s); }
+  .playing .track i { animation: prog calc(var(--step)*3 + 2.6s) linear both; }
+
+  @keyframes pIn  { from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+                    to   { opacity: 1; transform: none;             filter: blur(0); } }
+  @keyframes pOut { to   { opacity: 0; transform: translateY(-14px); filter: blur(5px); } }
+  @keyframes strike { from { width: 0; } to { width: 108%; } }
+  @keyframes brandIn {
+    0%   { opacity: 0; transform: scale(.72); filter: blur(10px); }
+    60%  { opacity: 1; transform: scale(1.06); filter: blur(0); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes halo {
+    0%   { opacity: .9; width: 40px; height: 40px; }
+    100% { opacity: 0;  width: 300px; height: 300px; }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes prog { to { width: 100%; } }
+  @keyframes bedIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes bedOut { to { opacity: 0; } }
+  /* a slow push in, never a zoom out: it should feel like attention narrowing */
+  @keyframes push { from { transform: scale(1.10); } to { transform: scale(1); } }
+
+  /* Reduced motion: hold the end frame rather than animate it. */
+  @media (prefers-reduced-motion: reduce) {
+    .playing .problem, .playing .problem .bar, .playing .track i,
+    .playing .bed, .playing .bed .pic, .playing .bed canvas { animation: none; opacity: 0; }
+    .playing .brand, .playing .soon, .playing .tag { animation: none; opacity: 1; }
+  }
+
+  /* ── controls ────────────────────────────────────────────── */
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+  .slots { margin-top: -14px; }
+  .slots-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted); margin-inline-end: 2px;
+  }
+  /* a filled slot says so, so you can see what is set without replaying */
+  .slot[aria-pressed="true"]::before { content: "✓ "; }
+  button {
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    padding: 8px 15px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); transition: border-color .15s, color .15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .note {
+    margin-top: 50px; padding: 22px 24px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--card); max-width: 74ch;
+    margin-inline: auto;
+  }
+  .note h3 { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
+  .note p { margin: 0 0 10px; font-size: 14.5px; }
+  .note p:last-child { margin-bottom: 0; }
+  .note b { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Abniyah · teaser reel</div>
+    <h1>Crossed off</h1>
+    <p class="lede">
+      Three problems arrive, each one struck through as it leaves, then the name
+      lands. The strike is the whole argument: by the time you read Abniyah,
+      you have watched three things get solved.
+    </p>
+  </header>
+
+  <div class="studio">
+    <div class="stage playing" id="stage">
+      <div class="bed b1" data-slot="0">
+        <canvas width="540" height="960" aria-hidden="true"></canvas>
+        <img class="pic" alt="" />
+        <div class="tint"></div><div class="scrim"></div>
+      </div>
+      <div class="bed b2" data-slot="1">
+        <canvas width="540" height="960" aria-hidden="true"></canvas>
+        <img class="pic" alt="" />
+        <div class="tint"></div><div class="scrim"></div>
+      </div>
+      <div class="bed b3" data-slot="2">
+        <canvas width="540" height="960" aria-hidden="true"></canvas>
+        <img class="pic" alt="" />
+        <div class="tint"></div><div class="scrim"></div>
+      </div>
+
+      <div class="frame">
+        <p class="problem p1"><span class="txt"></span><span class="bar"></span></p>
+      </div>
+      <div class="frame">
+        <p class="problem p2"><span class="txt"></span><span class="bar"></span></p>
+      </div>
+      <div class="frame">
+        <p class="problem p3"><span class="txt"></span><span class="bar"></span></p>
+      </div>
+
+      <div class="brand">
+        <div class="brand-inner">
+          <span class="halo"></span>
+          <div class="mark">Abniyah</div>
+          <div><span class="soon" id="soon">Coming soon</span></div>
+          <p class="tag" id="tag">Building management, built for Lebanon</p>
+        </div>
+      </div>
+
+      <div class="track"><i></i></div>
+    </div>
+
+    <div class="controls">
+      <button id="replay" type="button">Replay</button>
+      <button id="lang" type="button" aria-pressed="false">العربية</button>
+      <button id="fmt" type="button" aria-pressed="false">Square (1:1)</button>
+      <button id="slow" type="button" aria-pressed="false">Slower</button>
+      <input id="files" type="file" accept="image/*" hidden />
+    </div>
+
+    <!-- One picker per beat, rather than a multi-select: a file dialog returns
+         files in the OS listing order, not the order you clicked them, so a
+         bulk pick silently shuffles the reel. -->
+    <div class="controls slots">
+      <span class="slots-label">Photo for beat</span>
+      <button class="slot" type="button" data-slot="0" aria-pressed="false">1 · Receipt</button>
+      <button class="slot" type="button" data-slot="1" aria-pressed="false">2 · Spending</button>
+      <button class="slot" type="button" data-slot="2" aria-pressed="false">3 · Meeting</button>
+      <button id="clear" type="button">Clear</button>
+    </div>
+  </div>
+
+  <div class="note">
+    <h3>Turning this into something you can upload</h3>
+    <p>
+      This is a working motion reference, not a video file. Meta and TikTok need
+      an MP4, so the quickest honest route is to <b>screen record this stage</b>
+      full width, which gives you a usable teaser today for the cost of one take.
+    </p>
+    <p>
+      For a paid campaign it is worth handing this to a motion designer as the
+      reference instead. The timing, the strike mechanic and the copy are the
+      hard part and they are decided here; rebuilding it properly in After
+      Effects is then a short job with sound design on top.
+    </p>
+    <p>
+      Runs about <b>11 seconds</b>, which suits Stories, Reels and WhatsApp
+      status. The <b>Slower</b> control stretches each beat if the Arabic reads
+      too fast, which it will for some viewers.
+    </p>
+    <p>
+      <b>About the backgrounds.</b> The drawn motifs are placeholders, not
+      photography: scattered paper, a year of bars, chairs around a table with
+      one empty. They exist so the composition can be judged before anyone has
+      shot or licensed anything. Use the <b>Photo for beat</b> row to set each
+      one individually, so you control which image lands on which line. A
+      filled slot shows a tick. Nothing leaves your machine.
+    </p>
+    <p>
+      Whatever you drop in gets the same treatment: desaturated, tinted into
+      brand teal, and darkened top and bottom so the words always have
+      something to sit on. That is what stops a photo campaign looking like
+      three unrelated stock images. <b>Shoot in Lebanon</b> if you can, in real
+      buildings. A Beirut stairwell earns trust that a generic office lobby
+      never will, and it costs an afternoon.
+    </p>
+  </div>
+</div>
+
+<script>
+  const COPY = {
+    en: {
+      problems: [
+        'Where did the receipt go?',
+        'How much did the building spend last year?',
+        'Getting the committee in one room is the hard part.',
+      ],
+      soon: 'Coming soon',
+      tag: 'Building management, built for Lebanon',
+      dir: 'ltr', font: 'var(--display)',
+    },
+    ar: {
+      problems: [
+        'وين راحت الفاتورة؟',
+        'كم صرف المبنى السنة الماضية؟',
+        'أصعب شي تجمع اللجنة بغرفة وحدة.',
+      ],
+      soon: 'قريباً',
+      tag: 'إدارة المباني، مصمّمة للبنان',
+      dir: 'rtl', font: 'var(--arabic)',
+    },
+  };
+
+  const stage = document.getElementById('stage');
+  const texts = [...document.querySelectorAll('.problem .txt')];
+  const soonEl = document.getElementById('soon');
+  const tagEl = document.getElementById('tag');
+  let lang = 'en';
+
+  function render() {
+    const c = COPY[lang];
+    texts.forEach((el, i) => { el.textContent = c.problems[i]; });
+    soonEl.textContent = c.soon;
+    tagEl.textContent = c.tag;
+    stage.dir = c.dir;
+    stage.style.setProperty('--display-active', c.font);
+    document.querySelectorAll('.problem, .tag').forEach((el) => { el.style.fontFamily = c.font; });
+    play();
+  }
+
+  /** Restart cleanly: drop the class, force a reflow, put it back. Without the
+   *  reflow the browser coalesces both changes and nothing replays. */
+  function play() {
+    stage.classList.remove('playing');
+    void stage.offsetWidth;
+    stage.classList.add('playing');
+  }
+
+  document.getElementById('replay').addEventListener('click', play);
+
+  document.getElementById('lang').addEventListener('click', (e) => {
+    lang = lang === 'en' ? 'ar' : 'en';
+    e.currentTarget.setAttribute('aria-pressed', String(lang === 'ar'));
+    e.currentTarget.textContent = lang === 'ar' ? 'English' : 'العربية';
+    render();
+  });
+
+  document.getElementById('fmt').addEventListener('click', (e) => {
+    const square = stage.classList.toggle('square');
+    e.currentTarget.setAttribute('aria-pressed', String(square));
+    e.currentTarget.textContent = square ? 'Story (9:16)' : 'Square (1:1)';
+    play();
+  });
+
+  document.getElementById('slow').addEventListener('click', (e) => {
+    const slow = stage.style.getPropertyValue('--step') !== '3.8s';
+    stage.style.setProperty('--step', slow ? '3.8s' : '2.8s');
+    e.currentTarget.setAttribute('aria-pressed', String(slow));
+    play();
+  });
+
+  // ── placeholder art ──────────────────────────────────────────────────────
+  // Not pretending to be photography. Each motif is the SHAPE of its scene, so
+  // the composition and the legibility treatment can be judged before anyone
+  // has shot or licensed anything. Real photos replace these outright.
+  const MOTIFS = [
+    // scattered paper: receipts, one of them the one you are looking for
+    (g, w, h) => {
+      for (let i = 0; i < 26; i++) {
+        const x = Math.random() * w, y = h * 0.18 + Math.random() * h * 0.72;
+        const rw = 60 + Math.random() * 90, rh = 80 + Math.random() * 120;
+        g.save(); g.translate(x, y); g.rotate((Math.random() - 0.5) * 1.5);
+        g.fillStyle = i === 7 ? 'rgba(34,224,203,.85)' : `rgba(255,255,255,${0.10 + Math.random() * 0.16})`;
+        g.fillRect(-rw / 2, -rh / 2, rw, rh);
+        g.restore();
+      }
+    },
+    // a year of spending, and no idea how tall the bars got
+    (g, w, h) => {
+      const n = 12, gap = w / n;
+      for (let i = 0; i < n; i++) {
+        const bh = h * (0.12 + Math.pow(i / n, 1.6) * 0.62 + Math.random() * 0.06);
+        g.fillStyle = i === n - 1 ? 'rgba(34,224,203,.8)' : `rgba(255,255,255,${0.10 + i * 0.012})`;
+        g.fillRect(i * gap + gap * 0.18, h - bh, gap * 0.64, bh);
+      }
+    },
+    // chairs around a table, one of them empty
+    (g, w, h) => {
+      const cx = w / 2, cy = h / 2, rx = w * 0.34, ry = h * 0.20;
+      g.strokeStyle = 'rgba(255,255,255,.16)'; g.lineWidth = 3;
+      g.beginPath(); g.ellipse(cx, cy, rx * 0.62, ry * 0.62, 0, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2 - Math.PI / 2;
+        g.beginPath();
+        g.arc(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, 26, 0, Math.PI * 2);
+        g.fillStyle = i === 4 ? 'rgba(34,224,203,.55)' : 'rgba(255,255,255,.20)';
+        g.fill();
+      }
+    },
+  ];
+
+  document.querySelectorAll('.bed canvas').forEach((cv, i) => {
+    const g = cv.getContext('2d');
+    g.fillStyle = '#0E332E';
+    g.fillRect(0, 0, cv.width, cv.height);
+    MOTIFS[i](g, cv.width, cv.height);
+  });
+
+  // ── your own photos, applied live ────────────────────────────────────────
+  // Object URLs, so nothing is uploaded anywhere and the picture never leaves
+  // this machine. Pick up to three: they fill the beats in order.
+  const beds = [...document.querySelectorAll('.bed')];
+  const filesInput = document.getElementById('files');
+
+  const slotButtons = [...document.querySelectorAll('.slot')];
+  let pendingSlot = 0;
+
+  slotButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      pendingSlot = Number(btn.dataset.slot);
+      filesInput.click();
+    });
+  });
+
+  filesInput.addEventListener('change', () => {
+    const file = filesInput.files?.[0];
+    filesInput.value = '';               // so re-picking the same file still fires
+    if (!file) return;
+    const bed = beds[pendingSlot];
+    const img = bed.querySelector('.pic');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    const url = URL.createObjectURL(file);
+    img.dataset.url = url;
+    img.src = url;
+    bed.classList.add('has-photo');
+    slotButtons[pendingSlot].setAttribute('aria-pressed', 'true');
+    play();
+  });
+
+  document.getElementById('clear').addEventListener('click', () => {
+    beds.forEach((bed, i) => {
+      const img = bed.querySelector('.pic');
+      if (img.dataset.url) { URL.revokeObjectURL(img.dataset.url); delete img.dataset.url; }
+      img.removeAttribute('src');
+      bed.classList.remove('has-photo');
+      slotButtons[i].setAttribute('aria-pressed', 'false');
+    });
+    play();
+  });
+
+  render();
+</script>
