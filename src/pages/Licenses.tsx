@@ -52,6 +52,31 @@ export default function Licenses() {
   // Selected-subscription detail
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [paying, setPaying] = useState('');
+
+  /**
+   * Hand the payer to Whish's hosted page. We never see the OTP, and nothing
+   * here settles anything: the invoice is marked paid only by whish-callback,
+   * after asking Whish what actually happened. A browser that "came back
+   * successful" is not evidence of payment.
+   */
+  async function payWithWhish(inv: Invoice) {
+    setPaying(inv.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('whish-pay', {
+        body: { invoice_id: inv.id },
+      });
+      if (error || !data?.collectUrl) {
+        toast.error(data?.error ?? error?.message ?? t('licensesPage.payFailed'));
+        return;
+      }
+      // Same tab: Whish sends the payer back to successRedirectUrl when done,
+      // and a popup would be eaten by the blocker on some phones.
+      window.location.href = data.collectUrl as string;
+    } finally {
+      setPaying('');
+    }
+  }
   const [detailLoading, setDetailLoading] = useState(false);
   const [busyUnit, setBusyUnit] = useState<string>('');
 
@@ -443,6 +468,7 @@ export default function Licenses() {
                           <TableHead>{t('licensesPage.amount')}</TableHead>
                           <TableHead>{t('common.status')}</TableHead>
                           <TableHead>{t('licensesPage.paid')}</TableHead>
+                          <TableHead className="text-end">{t('common.actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -455,6 +481,13 @@ export default function Licenses() {
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '—'}
+                            </TableCell>
+                            <TableCell className="text-end">
+                              {inv.status === 'open' && (
+                                <Button size="sm" onClick={() => payWithWhish(inv)} loading={paying === inv.id}>
+                                  {t('licensesPage.payWithWhish')}
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

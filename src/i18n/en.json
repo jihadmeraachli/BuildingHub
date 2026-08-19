@@ -541,7 +541,10 @@
     "amount": "Amount",
     "paid": "Paid",
     "howMany": "How many licenses do you want to add? Each covers one unit at {{price}}/unit/{{period}}.",
-    "newTotal": "New total: {{count}} licenses, {{total}}/{{period}}"
+    "newTotal": "New total: {{count}} licenses, {{total}}/{{period}}",
+    "payWithWhish": "Pay with Whish",
+    "payFailed": "Could not start the payment. Please try again.",
+    "payPending": "Payment received. Your licence activates once Whish confirms it, usually within a minute."
   },
   "dashboard": {
     "welcome": "Welcome back",
