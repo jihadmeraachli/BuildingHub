@@ -150,13 +150,39 @@
     border-radius: 0; margin: auto; padding: 0;
   }
   .stage:fullscreen::backdrop { background: #000; }
-  .stage:fullscreen .frame { inset: 7%; }
-  .stage:fullscreen .problem { font-size: clamp(28px, 4.6vh, 74px); }
-  .stage:fullscreen .mark { font-size: clamp(30px, 5.4vh, 88px); }
-  .stage:fullscreen .soon { font-size: clamp(11px, 1.5vh, 22px); padding: .6vh 1.4vh; }
-  .stage:fullscreen .tag  { font-size: clamp(12px, 1.7vh, 26px); }
-  .stage:fullscreen .problem span.bar { height: .45vh; }
-  .stage:fullscreen .track { display: none; }   /* a progress bar is review chrome, not the ad */
+
+  /* iOS Safari has no Fullscreen API for anything but <video>, so on iPhone
+     the real thing is simply unavailable. This fills the viewport instead:
+     browser chrome stays, everything else matches. dvh, not vh, or iOS's
+     collapsing address bar crops the bottom of the frame. */
+  .stage.faux-full {
+    position: fixed; inset: 0; z-index: 9999;
+    max-width: none; width: auto; height: 100dvh;
+    border-radius: 0; margin: auto; padding: 0;
+  }
+  body.faux-lock { overflow: hidden; }
+  body.faux-lock::before {
+    content: ""; position: fixed; inset: 0; background: #000; z-index: 9998;
+  }
+
+  .stage:fullscreen .frame,        .stage.faux-full .frame        { inset: 7%; }
+  .stage:fullscreen .problem,      .stage.faux-full .problem      { font-size: clamp(28px, 4.6vh, 74px); }
+  .stage:fullscreen .mark,         .stage.faux-full .mark         { font-size: clamp(30px, 5.4vh, 88px); }
+  .stage:fullscreen .soon,         .stage.faux-full .soon         { font-size: clamp(11px, 1.5vh, 22px); padding: .6vh 1.4vh; }
+  .stage:fullscreen .tag,          .stage.faux-full .tag          { font-size: clamp(12px, 1.7vh, 26px); }
+  .stage:fullscreen .problem span.bar, .stage.faux-full .problem span.bar { height: .45vh; }
+  /* a progress bar is review chrome, not the ad */
+  .stage:fullscreen .track,        .stage.faux-full .track        { display: none; }
+
+  /* Exit has to be visible: with no browser fullscreen there is no Esc hint,
+     and on a phone there is no Esc key either. */
+  .exit {
+    position: absolute; top: 14px; right: 14px; z-index: 2; display: none;
+    width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.35); background: rgba(8,33,30,.55);
+    color: #fff; font-size: 17px; line-height: 1; padding: 0;
+  }
+  .stage.faux-full .exit { display: grid; place-items: center; }
 
   /* progress hairline, so you can see the beat structure while reviewing */
   .track { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.08); }
@@ -294,6 +320,7 @@
       </div>
 
       <div class="track"><i></i></div>
+      <button class="exit" id="exit" type="button" aria-label="Exit full screen">✕</button>
     </div>
 
     <div class="controls">
@@ -408,11 +435,27 @@
   // Fullscreen the STAGE, not the page: the reel is the artefact, the
   // controls and notes around it are review chrome.
   const fullBtn = document.getElementById('full');
+  const exitBtn = document.getElementById('exit');
+  const canNative = !!(stage.requestFullscreen || stage.webkitRequestFullscreen);
+
+  function fauxOn(on) {
+    stage.classList.toggle('faux-full', on);
+    document.body.classList.toggle('faux-lock', on);
+    fullBtn.textContent = on ? 'Exit full screen' : 'Full screen';
+    if (on) play();
+  }
+
   fullBtn.addEventListener('click', () => {
+    // iPhone: no Fullscreen API outside <video>, so go straight to the fallback.
+    if (!canNative) { fauxOn(!stage.classList.contains('faux-full')); return; }
     if (document.fullscreenElement) { document.exitFullscreen(); return; }
-    const req = stage.requestFullscreen ?? stage.webkitRequestFullscreen;
-    if (!req) { alert('This browser will not let a page go full screen. Try Chrome or Edge.'); return; }
-    req.call(stage);
+    (stage.requestFullscreen ?? stage.webkitRequestFullscreen).call(stage);
+  });
+
+  exitBtn.addEventListener('click', () => fauxOn(false));
+  // No Esc key on a phone, but honour it where there is one.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && stage.classList.contains('faux-full')) fauxOn(false);
   });
 
   // Replay on entry so it is watched from the first frame, not mid-beat.
