@@ -42,8 +42,23 @@ appears and there is no release on file, the asset does not go in an ad.
 node scripts/stock-search.mjs "receipts drawer" --vertical --limit 12
 ```
 
-Returns id, title, keywords, aspect ratio, release status and a preview URL.
-It cannot license or download: that spends money and is Jey's call.
+Returns id, title, aspect ratio, photographer, release status and a preview
+URL. It cannot license or download: that spends money or creates a licence
+obligation, and both are Jey's call.
+
+**Sources, and which to use when:**
+
+- **Pexels (default).** Free API key, issued instantly at pexels.com/api, no
+  approval. Right for the **object and hands shots** the Abniyah ads use.
+- **Adobe Stock (`--source adobe`).** Needs the Stock API **enterprise**
+  entitlement; a self-service subscription, trial included, does not have it
+  and the Developer Console answers "License required". Adobe is still where
+  you go for **anything with an identifiable face**, because they supply model
+  releases and indemnification. Just license those by hand on the website.
+
+The split follows the risk, not convenience: free stock verifies no model
+releases, so a face from a free source in a paid ad is real exposure. Objects
+and hands carry none of that.
 
 ## What makes a shot work here
 
