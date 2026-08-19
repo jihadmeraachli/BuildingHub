@@ -42,3 +42,7 @@ db-dumps/
 # clones the repo, and git history outlives a delete. MANIFEST.md records what
 # we hold and what we may do with it; the files stay off git.
 assets/marketing/originals/
+
+# Reel with licensed photos baked in (scripts/bake-reel.mjs). Same rule as
+# originals/: the licence is to Abniyah, not to whoever clones the repo.
+assets/marketing/reel-final/

@@ -95,12 +95,16 @@
     background: linear-gradient(180deg, #0d4f48 0%, #08211E 100%);
     mix-blend-mode: color; opacity: .85;
   }
+  /* Tuned for HIGH-KEY source photos (white paper, white tables, bright
+     windows), which is what this campaign's imagery is. A gentler mid scrim
+     left the centre too light for white type to sit on. Dark photos survive
+     this fine; bright ones do not survive the gentler version. */
   .bed .scrim {
     position: absolute; inset: 0;
     background:
-      linear-gradient(180deg, rgba(8,33,30,.86) 0%, rgba(8,33,30,.52) 42%, rgba(8,33,30,.94) 100%);
+      linear-gradient(180deg, rgba(8,33,30,.90) 0%, rgba(8,33,30,.68) 44%, rgba(8,33,30,.96) 100%);
   }
-  .bed .pic, .bed canvas { filter: grayscale(1) contrast(1.08) brightness(.92); }
+  .bed .pic, .bed canvas { filter: grayscale(1) contrast(1.12) brightness(.80); }
 
   .frame { position: absolute; inset: 34px; display: grid; place-items: center; }
 
@@ -135,6 +139,24 @@
     display: inline-block;
   }
   .tag { margin: 12px 0 0; opacity: 0; font-size: 12.5px; color: var(--dim); }
+
+  /* ── fullscreen ──────────────────────────────────────────────
+     The stage keeps its aspect ratio and letterboxes on black, rather than
+     stretching to the screen: a 9:16 reel shown at 16:9 is not the ad. Height
+     drives the size, so type scales in vh — the vw-based sizes above would
+     stay tiny once width is derived from height. --------------------------- */
+  .stage:fullscreen {
+    max-width: none; width: auto; height: 100vh;
+    border-radius: 0; margin: auto; padding: 0;
+  }
+  .stage:fullscreen::backdrop { background: #000; }
+  .stage:fullscreen .frame { inset: 7%; }
+  .stage:fullscreen .problem { font-size: clamp(28px, 4.6vh, 74px); }
+  .stage:fullscreen .mark { font-size: clamp(30px, 5.4vh, 88px); }
+  .stage:fullscreen .soon { font-size: clamp(11px, 1.5vh, 22px); padding: .6vh 1.4vh; }
+  .stage:fullscreen .tag  { font-size: clamp(12px, 1.7vh, 26px); }
+  .stage:fullscreen .problem span.bar { height: .45vh; }
+  .stage:fullscreen .track { display: none; }   /* a progress bar is review chrome, not the ad */
 
   /* progress hairline, so you can see the beat structure while reviewing */
   .track { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.08); }
@@ -275,6 +297,7 @@
     </div>
 
     <div class="controls">
+      <button id="full" type="button">Full screen</button>
       <button id="replay" type="button">Replay</button>
       <button id="lang" type="button" aria-pressed="false">العربية</button>
       <button id="fmt" type="button" aria-pressed="false">Square (1:1)</button>
@@ -381,6 +404,23 @@
   }
 
   document.getElementById('replay').addEventListener('click', play);
+
+  // Fullscreen the STAGE, not the page: the reel is the artefact, the
+  // controls and notes around it are review chrome.
+  const fullBtn = document.getElementById('full');
+  fullBtn.addEventListener('click', () => {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    const req = stage.requestFullscreen ?? stage.webkitRequestFullscreen;
+    if (!req) { alert('This browser will not let a page go full screen. Try Chrome or Edge.'); return; }
+    req.call(stage);
+  });
+
+  // Replay on entry so it is watched from the first frame, not mid-beat.
+  document.addEventListener('fullscreenchange', () => {
+    const on = !!document.fullscreenElement;
+    fullBtn.textContent = on ? 'Exit full screen' : 'Full screen';
+    if (on) play();
+  });
 
   document.getElementById('lang').addEventListener('click', (e) => {
     lang = lang === 'en' ? 'ar' : 'en';
