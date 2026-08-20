@@ -46,3 +46,6 @@ assets/marketing/originals/
 # Reel with licensed photos baked in (scripts/bake-reel.mjs). Same rule as
 # originals/: the licence is to Abniyah, not to whoever clones the repo.
 assets/marketing/reel-final/
+
+# RLS audit personas — contains real passwords.
+scripts/rls-personas.json

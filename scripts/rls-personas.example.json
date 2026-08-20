@@ -1,0 +1,22 @@
+[
+  {
+    "label": "platform admin",
+    "email": "jihad.meraachli@tatawwor.com",
+    "password": "PUT-IT-IN-rls-personas.json-NOT-HERE"
+  },
+  {
+    "label": "demo admin",
+    "email": "jihad.meraachli+demoviewer@gmail.com",
+    "password": "abniyah-demo-2026"
+  },
+  {
+    "label": "demo owner",
+    "email": "jihad.meraachli+demoowner@gmail.com",
+    "password": "abniyah-demo-2026"
+  },
+  {
+    "label": "demo tenant",
+    "email": "jihad.meraachli+demo17@gmail.com",
+    "password": "set-one-first-see-below"
+  }
+]
