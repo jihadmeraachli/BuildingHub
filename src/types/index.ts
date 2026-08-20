@@ -439,7 +439,12 @@ export interface Subscription {
   license_count: number;
   /** Platform-set cap override for legit outliers; null = license_cap(scope). (0071) */
   cap_override?: number | null;
+  /** LEGACY (pre-0100): the per-unit rate this subscription was originally
+   *  sold at. Kept as the record of what the customer agreed to. */
   price_per_unit_cents: number;
+  /** The whole monthly price. NULL = use the band for the unit count (0100).
+   *  Set only for a negotiated deal, which is everything above 500 units. */
+  price_monthly_cents?: number | null;
   billing_email: string | null;
   notes: string | null;
   created_by: string | null;

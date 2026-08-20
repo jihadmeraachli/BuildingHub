@@ -6,6 +6,7 @@ import {
 import { setLanguage } from '@/i18n';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
+import { PRICING_BANDS, asLowAsPerUnitCents, fmtMonthly, fmtPerUnit } from '@/lib/pricing';
 
 /**
  * Public marketing page on the ROOT domain (abniyah.com) — see the hostname
@@ -42,6 +43,10 @@ export default function Landing() {
   const { t, i18n } = useTranslation();
   const [activeSection, setActiveSection] = useState('');
   const [showTop, setShowTop] = useState(false);
+  // Default to the second band: the first is the smallest building we serve, and
+  // opening on it makes the whole page look like it is for tiny buildings.
+  const [bandIndex, setBandIndex] = useState(1);
+  const band = PRICING_BANDS[bandIndex];
 
   // Floating back-to-top arrow: appears once the visitor has scrolled a bit.
   useEffect(() => {
@@ -210,36 +215,61 @@ export default function Landing() {
       <section id="pricing" className="max-w-5xl mx-auto px-6 pb-16">
         <h2 className="text-2xl font-bold text-center mb-2">{t('landing.pricingTitle')}</h2>
         <p className="text-center text-white/60 text-sm mb-8">{t('landing.pricingSub')}</p>
-        <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-          {(['monthly', 'annual'] as const).map(plan => (
-            <div
-              key={plan}
-              className={`relative rounded-2xl border p-6 ${plan === 'annual' ? 'border-[oklch(0.85_0.09_180)]/50 bg-white/[0.07]' : 'border-white/10 bg-white/5'}`}
-            >
-              {plan === 'annual' && (
-                <span className="absolute -top-3 start-5 bg-[oklch(0.85_0.09_180)] text-[oklch(0.2_0.05_186)] text-xs font-bold px-2.5 py-0.5 rounded-full">
-                  {t('register.save17')}
-                </span>
-              )}
-              <p className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-2">
-                {plan === 'monthly' ? t('register.monthly') : t('register.annual')}
-              </p>
-              <p className="text-4xl font-bold">
-                ${plan === 'monthly' ? 5 : 50}
-                <span className="text-base font-medium text-white/60">
-                  {plan === 'monthly' ? t('register.perUnitMonth') : t('register.perUnitYear')}
-                </span>
-              </p>
-              <ul className="mt-5 space-y-2 text-sm text-white/75">
-                {['p1', 'p2', 'p3'].map(k => (
-                  <li key={k} className="flex items-start gap-2">
-                    <Check size={15} className="mt-0.5 shrink-0 text-[oklch(0.85_0.09_180)]" />
-                    {t(`landing.pricing.${k}`)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        {/* Pick your size, see YOUR price. A table makes the visitor scan and
+            locate themselves; a selector hands them one number that is theirs.
+            Same bands underneath either way. */}
+        <div className="max-w-lg mx-auto">
+          <label htmlFor="pricing-size" className="block text-sm text-white/70 mb-2">
+            {t('landing.pricingPick')}
+          </label>
+          <select
+            id="pricing-size"
+            value={String(bandIndex)}
+            onChange={(e) => setBandIndex(Number(e.target.value))}
+            className="w-full rounded-xl border border-white/15 bg-white/[0.07] px-4 py-3 text-base text-white focus:outline-none focus:ring-2 focus:ring-[oklch(0.85_0.09_180)]"
+          >
+            {PRICING_BANDS.map((b, i) => (
+              <option key={b.from} value={i} className="text-black">
+                {b.to === null
+                  ? t('landing.pricingBandOpen', { from: b.from })
+                  : t('landing.pricingBand', { from: b.from, to: b.to })}
+              </option>
+            ))}
+          </select>
+
+          <div className="mt-5 rounded-2xl border border-[oklch(0.85_0.09_180)]/40 bg-white/[0.07] p-7 text-center">
+            {band.monthlyCents === null ? (
+              <>
+                <p className="text-3xl font-bold">{t('landing.pricingTalk')}</p>
+                <p className="mt-2 text-sm text-white/65">{t('landing.pricingTalkSub')}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-5xl font-bold">
+                  {fmtMonthly(band.to ?? band.from)}
+                  <span className="text-base font-medium text-white/60">{t('landing.perMonth')}</span>
+                </p>
+                {/* "as low as", never a bare rate: inside a band the real
+                    per-unit figure is higher at the bottom than at the top, and
+                    a bare number is a claim someone will check. */}
+                <p className="mt-2 text-sm text-white/60">
+                  {t('landing.pricingAsLowAs', { rate: fmtPerUnit(asLowAsPerUnitCents(band)) })}
+                </p>
+                <p className="mt-4 text-sm text-white/75">
+                  {t('landing.pricingAnnual', { price: fmtMonthly(band.to ?? band.from) })}
+                </p>
+              </>
+            )}
+          </div>
+
+          <ul className="mt-6 space-y-2 text-sm text-white/75">
+            {['p1', 'p2', 'p3'].map(k => (
+              <li key={k} className="flex items-start gap-2">
+                <Check size={15} className="mt-0.5 shrink-0 text-[oklch(0.85_0.09_180)]" />
+                {t(`landing.pricing.${k}`)}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

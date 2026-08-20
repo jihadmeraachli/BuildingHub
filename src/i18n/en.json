@@ -411,7 +411,7 @@
       }
     },
     "pricingTitle": "Simple, per-unit pricing",
-    "pricingSub": "Every feature included. Start with 30 days free, cancel anytime.",
+    "pricingSub": "One monthly price for your building. Pick your size.",
     "pricing": {
       "p1": "All features, all channels: WhatsApp, email and in-app",
       "p2": "Unlimited managers and residents per unit",
@@ -436,7 +436,7 @@
       },
       "price": {
         "q": "What does it cost after the trial?",
-        "a": "$5 per unit per month, or $50 per unit per year (about 17% less). One license covers one unit, with all features and no hidden extras."
+        "a": "One monthly price for the whole building, based on its size: from $85 a month for up to 20 units, $105 up to 40, $150 up to 70, and on up. Larger buildings pay less per unit. Pay yearly and you get 12 months for the price of 10. Above 500 units we agree a price with you. Every feature is included in both languages, with no hidden extras."
       },
       "residents": {
         "q": "What do residents get?",
@@ -475,7 +475,15 @@
     "rights": "All rights reserved.",
     "productOf": "a product of",
     "privacy": "Privacy",
-    "terms": "Terms"
+    "terms": "Terms",
+    "pricingPick": "How many units does your building have?",
+    "pricingBand": "{{from}} to {{to}} units",
+    "pricingBandOpen": "{{from}}+ units",
+    "perMonth": "/month",
+    "pricingAsLowAs": "as low as {{rate}} per unit per month",
+    "pricingAnnual": "Or pay yearly and get 12 months for the price of 10.",
+    "pricingTalk": "Let's talk",
+    "pricingTalkSub": "Above 500 units we price it with you, not from a table. Email support@abniyah.com."
   },
   "noLicense": {
     "almostThere": "Almost there",
@@ -544,7 +552,12 @@
     "newTotal": "New total: {{count}} licenses, {{total}}/{{period}}",
     "payWithWhish": "Pay with Whish",
     "payFailed": "Could not start the payment. Please try again.",
-    "payPending": "Payment received. Your licence activates once Whish confirms it, usually within a minute."
+    "payPending": "Payment received. Your licence activates once Whish confirms it, usually within a minute.",
+    "perPeriod": "{{price}}/{{period}}",
+    "priceBand": "For {{count}} units, about {{rate}} per unit per month.",
+    "priceTalk": "Agreed with you",
+    "priceTalkSub": "Above 500 units we price it with you rather than from a table.",
+    "howManyBanded": "How many licenses do you want to add? Each covers one unit. Your monthly price is set by the size of the building, not by the number of licenses."
   },
   "dashboard": {
     "welcome": "Welcome back",

@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { KeyRound, Plus, CalendarClock, Wallet, Boxes } from 'lucide-react';
 import { licenseCap } from '@/lib/licenseCaps';
+import { monthlyPriceCents, annualPriceCents, effectivePerUnitCents, fmtPerUnit } from '@/lib/pricing';
 
 const STATUS_COLOR: Record<Subscription['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
   trial: 'yellow', active: 'green', past_due: 'red', cancelled: 'slate',
@@ -238,10 +239,20 @@ export default function Licenses() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const trialDays = daysLeft(sub?.trial_ends_at ?? null);
-  const perUnitLabel = sub
-    ? t('licensesPage.perUnit', { price: usd(sub.price_per_unit_cents), period: periodWord(sub.plan) })
-    : '';
-  const projectedCents = sub ? sub.license_count * sub.price_per_unit_cents : 0;
+  // Priced by the BUILDING's size, not by licences bought (0100). A
+  // half-licensed building is still that size, so the count that matters is
+  // units in scope. price_monthly_cents overrides the band for a negotiated
+  // deal; above the top band there is no price, only a conversation.
+  const unitCount = units.length;
+  const negotiated = sub?.price_monthly_cents ?? null;
+  const bandCents = sub?.plan === 'annual' ? annualPriceCents(unitCount) : monthlyPriceCents(unitCount);
+  const priceCents = negotiated !== null
+    ? (sub?.plan === 'annual' ? negotiated * 10 : negotiated)
+    : bandCents;
+  const perUnitCents = effectivePerUnitCents(unitCount);
+  const priceLabel = priceCents === null
+    ? t('licensesPage.priceTalk')
+    : t('licensesPage.perPeriod', { price: usd(priceCents), period: periodWord(sub?.plan ?? 'monthly') });
 
   const entityName = useMemo(
     () => (sub ? entityNames[entityKey(sub)] ?? '—' : ''),
@@ -359,11 +370,11 @@ export default function Licenses() {
                   <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium uppercase tracking-wide mb-2">
                     <Wallet size={13} /> {t('licensesPage.price')}
                   </div>
-                  <p className="font-semibold text-foreground">{perUnitLabel}</p>
+                  <p className="font-semibold text-foreground">{priceLabel}</p>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    {t('licensesPage.projected', {
-                      total: usd(projectedCents), period: periodWord(sub.plan), count: sub.license_count,
-                    })}
+                    {priceCents === null
+                      ? t('licensesPage.priceTalkSub')
+                      : t('licensesPage.priceBand', { count: unitCount, rate: fmtPerUnit(perUnitCents) })}
                   </p>
                 </CardContent>
               </Card>
@@ -506,7 +517,7 @@ export default function Licenses() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {sub
-              ? t('licensesPage.howMany', { price: usd(sub.price_per_unit_cents), period: periodWord(sub.plan) })
+              ? t('licensesPage.howManyBanded')
               : ''}
           </p>
           <input
