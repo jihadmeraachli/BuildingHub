@@ -1,5 +1,12 @@
 # Competitors: what they charge, how they position, where we lose
 
+> **Actioned, 2026-08-20.** The pricing argument in the last section was
+> accepted and shipped as migration **0100**: Abniyah now charges one monthly
+> price per building size ($85 up to 20 units, rising to $480 at 500, agreed
+> individually above that) instead of a flat $5 per unit. The figures in the
+> "What this means" section below are the ones that made the case, and are kept
+> as the record of it. Everything about the competitors themselves still stands.
+
 Researched August 2026. Three profiles, chosen for how directly they compete
 for the same buyer: one Lebanese, one regional Arabic, one international
 benchmark that publishes its prices in full. Every figure below is quoted from

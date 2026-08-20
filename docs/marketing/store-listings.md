@@ -140,7 +140,7 @@ WHO IT IS FOR
 Owners' committees, building supervisors, and property-management companies, from a single block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.
 
 PRICING
-$5 per unit per month, or $50 per unit per year. 30 days free, no card required. Every feature included, in both languages.
+One monthly price for the whole building, set by its size: from $85 a month for up to 20 units, and the larger the building the less it works out per unit. Pay yearly and get 12 months for the price of 10. Above 500 units we agree a price with you. 30 days free, no card required. Every feature included, in both languages.
 
 Abniyah is a product of Tatawwor.
 ```
@@ -227,7 +227,7 @@ page's `دفتر المبنى، حتى آخر قرش`. Same reasoning as the Eng
 لجان المالكين، ونواطير المباني، وشركات إدارة العقارات، من بلوك واحد إلى محفظة مجمّعات. تسجيل دخول واحد لكل شخص: أدر مبانيك، أو تابع منزلك ببساطة.
 
 السعر
-5 دولارات للوحدة شهرياً، أو 50 دولاراً للوحدة سنوياً. ثلاثون يوماً مجاناً بلا بطاقة دفع، وكل الميزات مشمولة، وباللغتين.
+سعر شهري واحد للمبنى كله بحسب حجمه: من 85 دولاراً شهرياً حتى 20 وحدة، وكلما كبر المبنى انخفضت كلفة الوحدة. وبالدفع السنوي تحصل على 12 شهراً بسعر 10. وفوق 500 وحدة نتفق على السعر معك. ثلاثون يوماً مجاناً بلا بطاقة دفع، وكل الميزات مشمولة، وباللغتين.
 
 أبنية من إنتاج تطوّر.
 ```
@@ -302,7 +302,7 @@ WHO IT IS FOR
 Owners' committees, building supervisors and property-management companies, from one block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.
 
 PRICING
-$5 per unit per month, or $50 per unit per year. 30 days free, no card required.
+One monthly price for the whole building, set by its size: from $85 a month for up to 20 units, and the larger the building the less it works out per unit. Pay yearly and get 12 months for the price of 10. Above 500 units we agree a price with you. 30 days free, no card required.
 
 Abniyah is a product of Tatawwor.
 ```
@@ -380,7 +380,7 @@ gate.
 لجان المالكين، ونواطير المباني، وشركات إدارة العقارات، من بلوك واحد إلى محفظة مجمّعات. تسجيل دخول واحد لكل شخص: أدر مبانيك، أو تابع منزلك ببساطة.
 
 السعر
-5 دولارات للوحدة شهرياً، أو 50 دولاراً للوحدة سنوياً. ثلاثون يوماً مجاناً بلا بطاقة دفع.
+سعر شهري واحد للمبنى كله بحسب حجمه: من 85 دولاراً شهرياً حتى 20 وحدة، وكلما كبر المبنى انخفضت كلفة الوحدة. وبالدفع السنوي تحصل على 12 شهراً بسعر 10. وفوق 500 وحدة نتفق على السعر معك. ثلاثون يوماً مجاناً بلا بطاقة دفع.
 
 أبنية من إنتاج تطوّر.
 ```
