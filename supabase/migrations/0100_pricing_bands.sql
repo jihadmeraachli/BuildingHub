@@ -119,8 +119,14 @@ COMMIT;
 --   SELECT monthly_price_cents(20), monthly_price_cents(21), monthly_price_cents(300);
 --     → 8500, 10500, 38000
 --   SELECT monthly_price_cents(600);   → NULL (negotiated, on purpose)
---   Monotonic, and never above the old rate:
+--
+--   Monotonic — a bigger building never pays less. MUST return 0 rows:
+--     SELECT n FROM generate_series(2, 500) n
+--     WHERE monthly_price_cents(n) < monthly_price_cents(n - 1);
+--
+--   Where the floor bites. Returns exactly units 1 to 16, which is the
+--   deliberate minimum described above, NOT a bug:
 --     SELECT n, monthly_price_cents(n), n * 500 AS old_price
 --     FROM generate_series(1, 500) n
---     WHERE monthly_price_cents(n) > n * 500;      -- must return 0 rows
+--     WHERE monthly_price_cents(n) > n * 500;
 -- ============================================================

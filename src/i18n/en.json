@@ -194,7 +194,11 @@
     "noEmailHint2": "Nothing in your inbox? Check spam, or",
     "contactTeam": "contact the Abniyah team.",
     "emailInvalid": "That doesn't look like a valid email address.",
-    "upToUnits": "up to {{max}}"
+    "upToUnits": "up to {{max}}",
+    "perMonthBilledYearly": "/month, billed yearly",
+    "planTalk": "Let's talk",
+    "planTalkSub": "Above 500 units we agree the price with you. Start the trial and we will be in touch.",
+    "priceBanded": "For {{count}} units. That works out around {{rate}} per unit per month."
   },
   "gs": {
     "title": "Getting started",

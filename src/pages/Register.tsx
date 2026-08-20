@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { LICENSE_CAPS } from '@/lib/licenseCaps';
+import { monthlyPriceCents, effectivePerUnitCents, fmtPerUnit, ANNUAL_MONTHS_CHARGED } from '@/lib/pricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { setLanguage } from '@/i18n';
 import { Input } from '@/components/ui/Input';
@@ -67,9 +68,13 @@ function nounKey(role: AdminRole | null): 'building' | 'compound' | 'org' {
   return 'building';
 }
 
-function monthlyEquivalent(plan: 'monthly' | 'annual', units: number) {
-  const ppu = plan === 'monthly' ? 5 : 50 / 12;
-  return (ppu * units).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** What this building pays a month (0100). Annual bills 10 months for 12, so
+ *  the monthly EQUIVALENT of the annual plan is the band divided by 1.2.
+ *  Returns null above the top band: that price is agreed, not calculated. */
+function monthlyEquivalentCents(plan: 'monthly' | 'annual', units: number): number | null {
+  const m = monthlyPriceCents(units);
+  if (m === null) return null;
+  return plan === 'monthly' ? m : Math.round((m * ANNUAL_MONTHS_CHARGED) / 12);
 }
 
 // ── Steps progress bar (named phases) ─────────────────────────────────────────
@@ -229,6 +234,7 @@ export default function Register() {
   function renderPricing() {
     // License cap per scope (0071, DB-enforced): mirror of license_cap() SQL.
     const unitCap = LICENSE_CAPS[scopeType(state.type as AdminRole)];
+    const summaryCents = monthlyEquivalentCents(state.plan, state.unitCount);
     return (
       <>
         <h2 className="text-xl font-bold text-foreground mb-1">{t('register.choosePlan')}</h2>
@@ -258,8 +264,10 @@ export default function Register() {
         <div className="grid grid-cols-2 gap-3 mb-5">
           {(['monthly', 'annual'] as const).map(plan => {
             const selected = state.plan === plan;
-            const ppu = plan === 'monthly' ? 5 : 50;
-            const period = plan === 'monthly' ? t('register.perUnitMonth') : t('register.perUnitYear');
+            // The plan card shows THIS building's price, not a rate: the band
+            // is already known from the unit count they just entered.
+            const planCents = monthlyEquivalentCents(plan, state.unitCount);
+            const period = plan === 'monthly' ? t('register.perMonthShort') : t('register.perMonthBilledYearly');
             const saving = plan === 'annual' ? t('register.save17') : null;
             return (
               <button
@@ -282,8 +290,10 @@ export default function Register() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                   {plan === 'monthly' ? t('register.monthly') : t('register.annual')}
                 </p>
-                <p className="text-2xl font-bold text-foreground">${ppu}</p>
-                <p className="text-xs text-muted-foreground">{period}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {planCents === null ? t('register.planTalk') : `$${(planCents / 100).toFixed(0)}`}
+                </p>
+                <p className="text-xs text-muted-foreground">{planCents === null ? '' : period}</p>
               </button>
             );
           })}
@@ -299,19 +309,25 @@ export default function Register() {
           ))}
         </div>
 
-        {/* Live price summary */}
+        {/* Live price summary — recalculates as they change the unit count,
+            so the band is discovered by moving the number, not by reading a
+            table. */}
         <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t('register.afterTrial')}</span>
             <span className="font-semibold text-foreground">
-              ${monthlyEquivalent(state.plan, state.unitCount)}{t('register.perMonthShort')}
+              {summaryCents === null
+                ? t('register.planTalk')
+                : `$${(summaryCents / 100).toFixed(2)}${t('register.perMonthShort')}`}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {t('register.priceBreakdown', {
-              count: state.unitCount,
-              rate: state.plan === 'monthly' ? '$5' : '$50/12 ≈ $4.17',
-            })}
+            {summaryCents === null
+              ? t('register.planTalkSub')
+              : t('register.priceBanded', {
+                  count: state.unitCount,
+                  rate: fmtPerUnit(effectivePerUnitCents(state.unitCount)),
+                })}
           </p>
         </div>
       </>
