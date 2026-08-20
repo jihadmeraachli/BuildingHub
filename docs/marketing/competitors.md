@@ -70,21 +70,42 @@ phenomenon.
   notaries and older committee members work in French. This is a real product
   gap, not a copy problem, and it is the one competitor feature I would take
   most seriously.
-- **Payment collection.** They advertise digital payment collection and SMS
-  reminders. We record payments that changed hands elsewhere, and Whish is
-  roadmap. Collection is the buyer's number one pain, so losing on it hurts
-  more than the feature count suggests.
+- **Payment collection — claimed, NOT verified (checked 2026-08-20).** Their
+  site says "seamless integration with leading online payment gateways" and
+  **never names one**, which is unusual: a real integration is a trust signal,
+  so it gets named (PayHOA names Stripe, ADDA names Noqodi). Their own App
+  Store feature list reads administrative rather than transactional: "Manage
+  Payments" and "Partial payment for expenses", which is a treasurer recording
+  what came in — exactly what we do. If residents could pay from the app, that
+  would be the headline of the listing.
+
+  So downgrade this from "they collect and we do not" to **unverified**. The
+  install test below settles it in the same hour as the currency question.
+
+  Worth knowing either way: in Lebanon a card gateway (Areeba, NetCommerce)
+  would be close to useless for building dues. Card penetration collapsed after
+  2019 and committees are paid in cash, through OMT, or through Whish. A
+  competitor with card acquiring would not actually be beating us at
+  collection, which is why Whish is the right integration for this market
+  rather than the cheap one.
 - **Time in market.** They have years of shipped versions, an App Store
   presence, and presumably reference buildings. We have a private beta.
 - **Multi-currency.** They claim it. We should not assume our USD/LBP handling
   is unique until somebody checks what theirs actually does.
 
 **Action worth taking this week.** The app is free to download. Install
-Binayati, run a building through it, and find out specifically: does it freeze
-the exchange rate on each transaction, or does it re-convert history when the
-rate changes? If it re-converts, our LBP story is a genuine wedge and should
-lead every ad. If it freezes, we need a different wedge, and metering is the
-obvious one. This is an hour of work that decides our main message.
+Binayati, run a building through it, and answer two questions in one sitting:
+
+1. **Does it freeze the exchange rate on each transaction, or re-convert
+   history when the rate changes?** If it re-converts, our LBP story is a
+   genuine wedge and should lead every ad. If it freezes, the wedge moves to
+   metering, which no competitor in this research advertises at all.
+2. **Can a resident actually pay through the app, or does an admin record a
+   payment that happened elsewhere?** Their marketing implies the first; their
+   feature list reads like the second. This decides whether we are behind on
+   collection or level with them.
+
+An hour, and it settles our main message and our biggest supposed weakness.
 
 Sources:
 [binayati.com product](https://www.binayati.com/property-management-application/) ·
@@ -286,11 +307,13 @@ win nothing.
 
 ### Where we are genuinely behind, and what it costs us
 
-- **We cannot take money.** Binayati advertises digital collection, ADDA has a
-  payments partner. We record what happened elsewhere. Whish is on the roadmap.
-  Until it ships, the honest line is that management records payments and
-  residents see them instantly, which is what `landing.faq.payments` already
-  says. It is a good answer, but it is an answer, not an advantage.
+- **We cannot take money — and Binayati may not either.** ADDA genuinely has a
+  payments partner (Noqodi). Binayati's claim does not survive inspection (see
+  above) and needs the install test. Until Whish ships, the honest line is that
+  management records payments and residents see them instantly, which is what
+  `landing.faq.payments` already says. It is a good answer, but it is an
+  answer, not an advantage — and it may be no worse than the local
+  competition's.
 - **No French.** Binayati has it. For a slice of this market that is
   disqualifying before the demo starts.
 - **No proof.** No named customer, no logo, no number, no review. Everyone else
