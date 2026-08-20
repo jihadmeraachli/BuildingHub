@@ -41,12 +41,12 @@ and SMS payment reminders, online financial reports, expense management and
 budgeting, committee meeting tools, bulk invoicing, credit notes, and
 **multi-currency support**. Listed languages: **English, Arabic and French.**
 
-**Footprint.** On the US App Store storefront the app shows 4.2 stars from 5
-ratings, with version 6.0 shipped in March. Five ratings on one storefront is
-not a measure of the Lebanese install base (most of their users would rate on
-the Lebanese storefront, and most users of a B2B tool never rate at all), so
-read it only as: they have been shipping for years and they are not a consumer
-phenomenon.
+**Footprint — smaller than "since 2018" suggests.** Google Play shows
+**1,000+ installs**, first released May 2018, last updated July 2026, by
+OURJOUWAN.COM of Bauchrieh. The US App Store storefront shows 4.2 stars from 5
+ratings. Neither number is a clean read on the Lebanese install base, but
+1,000+ Android installs after seven years is a real ceiling, not a rounding
+artefact: this is an incumbent by tenure, not by scale.
 
 **Where Abniyah is stronger.**
 - **The ledger model.** Compound to block to unit, with a charge carrying its
@@ -70,24 +70,35 @@ phenomenon.
   notaries and older committee members work in French. This is a real product
   gap, not a copy problem, and it is the one competitor feature I would take
   most seriously.
-- **Payment collection — claimed, NOT verified (checked 2026-08-20).** Their
-  site says "seamless integration with leading online payment gateways" and
-  **never names one**, which is unusual: a real integration is a trust signal,
-  so it gets named (PayHOA names Stripe, ADDA names Noqodi). Their own App
-  Store feature list reads administrative rather than transactional: "Manage
-  Payments" and "Partial payment for expenses", which is a treasurer recording
-  what came in — exactly what we do. If residents could pay from the app, that
-  would be the headline of the listing.
+- ~~**Payment collection.**~~ **CLAIM DOES NOT HOLD (checked 2026-08-20).**
+  This was written up as their biggest advantage over us. It is not real.
 
-  So downgrade this from "they collect and we do not" to **unverified**. The
-  install test below settles it in the same hour as the currency question.
+  Their own **Google Play Data safety declaration** says the app collects
+  "Location, Personal info, and Device or other IDs" and — decisively — **"No
+  data shared with third parties."** Google's form has explicit categories for
+  Financial info, User payment info and Purchase history. They declare none of
+  them. The **App Store privacy labels** agree: Contact Info only. Their
+  Android permissions are camera and network, nothing payment-related.
 
-  Worth knowing either way: in Lebanon a card gateway (Areeba, NetCommerce)
-  would be close to useless for building dues. Card penetration collapsed after
-  2019 and committees are paid in cash, through OMT, or through Whish. A
-  competitor with card acquiring would not actually be beating us at
-  collection, which is why Whish is the right integration for this market
-  rather than the cheap one.
+  You cannot route a payment through a gateway without sharing data with a
+  third party, so "no third-party sharing" and "we process payments" cannot
+  both be true. These are self-reported declarations to Apple and Google, not
+  marketing copy.
+
+  It also fits everything else: their site says "integration with leading
+  online payment gateways" and **never names one** (PayHOA names Stripe, ADDA
+  names Noqodi — a real integration is a trust signal), and their App Store
+  feature list is administrative: "Manage Payments", "Partial payment for
+  expenses", which is a treasurer recording what came in. Exactly what we do.
+
+  **So we are level on collection, not behind.** When Whish ships we are ahead
+  of the only local competitor, on the buyer's number one pain.
+
+  Worth knowing for when someone else tries it: in Lebanon a card gateway
+  (Areeba, NetCommerce) would be close to useless for building dues. Card
+  penetration collapsed after 2019 and committees are paid in cash, through OMT
+  or through Whish. Whish is the right integration for this market, not the
+  cheap one.
 - **Time in market.** They have years of shipped versions, an App Store
   presence, and presumably reference buildings. We have a private beta.
 - **Multi-currency.** They claim it. We should not assume our USD/LBP handling
@@ -100,12 +111,12 @@ Binayati, run a building through it, and answer two questions in one sitting:
    history when the rate changes?** If it re-converts, our LBP story is a
    genuine wedge and should lead every ad. If it freezes, the wedge moves to
    metering, which no competitor in this research advertises at all.
-2. **Can a resident actually pay through the app, or does an admin record a
-   payment that happened elsewhere?** Their marketing implies the first; their
-   feature list reads like the second. This decides whether we are behind on
-   collection or level with them.
+2. ~~Can a resident actually pay through the app?~~ **Answered without
+   installing anything**: no. Their own Play and App Store data declarations
+   report no financial or payment data and no third-party sharing. See above.
 
-An hour, and it settles our main message and our biggest supposed weakness.
+So the install is now about the currency question alone, which is still worth
+an hour because it decides the campaign's lead message.
 
 Sources:
 [binayati.com product](https://www.binayati.com/property-management-application/) ·
@@ -307,13 +318,12 @@ win nothing.
 
 ### Where we are genuinely behind, and what it costs us
 
-- **We cannot take money — and Binayati may not either.** ADDA genuinely has a
-  payments partner (Noqodi). Binayati's claim does not survive inspection (see
-  above) and needs the install test. Until Whish ships, the honest line is that
-  management records payments and residents see them instantly, which is what
-  `landing.faq.payments` already says. It is a good answer, but it is an
-  answer, not an advantage — and it may be no worse than the local
-  competition's.
+- **We cannot take money yet — but neither can Binayati.** ADDA genuinely has a
+  payments partner (Noqodi), and ADDA does not sell here. Binayati's claim does
+  not survive their own store declarations (see above). So on the buyer's
+  number one pain we are LEVEL with the local competition today, and ahead of
+  it the day Whish ships. Until then, `landing.faq.payments` already says the
+  honest thing: management records payments and residents see them instantly.
 - **No French.** Binayati has it. For a slice of this market that is
   disqualifying before the demo starts.
 - **No proof.** No named customer, no logo, no number, no review. Everyone else
