@@ -63,6 +63,15 @@ export default function App() {
     // (per-origin localStorage, so testers enter their code once per domain).
     return <BetaGate><Landing /></BetaGate>;
   }
+  // The waitlist answers on the app host too. On abniyah.com it is handled
+  // above; here it must come BEFORE the gate and the biometric lock, or a
+  // link shared as app.abniyah.com/waitlist lands on the very passcode screen
+  // it exists to route around. A shared URL should not depend on which of the
+  // two domains it happened to be copied from.
+  if (window.location.pathname.startsWith('/waitlist')) {
+    return <ErrorBoundary><Waitlist /></ErrorBoundary>;
+  }
+
   return (
     // Outermost on purpose: a crash in the gate, the theme or the auth
     // provider is exactly the kind that used to blank the whole screen.

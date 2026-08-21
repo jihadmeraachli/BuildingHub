@@ -35,10 +35,17 @@ const bad = await sb.from('waitlist').insert({ email: 'not-an-email', source: 'g
 check(bad.error?.code === '23514',
   `malformed address rejected as 23514 (got ${bad.error?.code ?? 'no error'})`);
 
-// 5. anon may not delete what it left
+// 5. anon may not delete what it left.
+//    A blocked DELETE does not necessarily error: with no row visible to anon,
+//    PostgREST deletes nothing and returns 204, which looks identical to
+//    success. So prove the row SURVIVED instead of trusting the response —
+//    re-inserting the same address must still collide on the unique index.
+//    (anon cannot SELECT, by design, so this is the only way to look.)
 const del = await sb.from('waitlist').delete().eq('email', addr);
-const delBlocked = !!del.error || del.count === 0;
-check(delBlocked, `anon delete blocked${del.error ? ` — ${del.error.code}` : ' (0 rows affected)'}`);
+const probe = await sb.from('waitlist').insert({ email: addr, source: 'gate' });
+check(probe.error?.code === '23505',
+  `anon delete left the row in place — re-insert still collides `
+  + `(delete said ${del.error ? del.error.code : 'no error'}, re-insert said ${probe.error?.code ?? 'accepted, ROW WAS DELETED'})`);
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');
 process.exit(failures ? 1 : 0);

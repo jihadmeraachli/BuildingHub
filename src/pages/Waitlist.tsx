@@ -39,7 +39,7 @@ export default function Waitlist() {
         {/* Same brand↔legal-entity line the gate carries: this page is now
             also a surface an external reviewer can reach without a code. */}
         <p className="mt-8 text-[11px] text-muted-foreground/60 text-center">
-          Abniyah {t('landing.productOf')} Tatawwor
+          Abniyah, {t('landing.productOf')} Tatawwor
         </p>
       </div>
     </div>
