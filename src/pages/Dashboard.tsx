@@ -20,7 +20,7 @@ import { MonthPicker } from '@/components/ui/MonthPicker';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import {
-  AlertTriangle, Home, TrendingUp, AlertCircle, Wallet,
+  AlertTriangle, Home, TrendingUp, AlertCircle, Wallet, Building2,
   Plus, HandCoins, Layers, ArrowRight, CalendarDays,
 } from 'lucide-react';
 
@@ -363,7 +363,7 @@ export default function Dashboard() {
       <div className="space-y-6">
         <PendingInvites />
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} />
+          <Greeting name={firstName} subtitle={t('dashboard.accountGlance')} lens="home" />
           <div className="flex items-center gap-2 flex-wrap">
             <RadixSelect value={rPeriod} onValueChange={(v) => setRPeriod(v as 'month' | 'year' | 'all')}>
               <SelectTrigger className="min-w-[130px]"><SelectValue /></SelectTrigger>
@@ -441,7 +441,12 @@ export default function Dashboard() {
       <PendingInvites />
       {/* Page header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <Greeting name={firstName} subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')} />
+        <Greeting
+          name={firstName}
+          subtitle={isPlatformAdmin ? t('dashboard.overviewPlatform') : t('dashboard.overviewBuildings')}
+          lens="managing"
+          entity={selEntity?.name}
+        />
         <div className="flex items-center gap-2 flex-wrap">
           {/* Entity selection moved to the sidebar (global). Block drill-down stays local. */}
           {selEntity?.kind === 'compound' && selEntity.blocks.length > 1 && (
@@ -541,13 +546,40 @@ export default function Dashboard() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function Greeting({ name, subtitle }: { name: string; subtitle: string }) {
+/**
+ * The greeting carries the LENS (#67).
+ *
+ * Feedback was that switching Managing / My home did not visibly change the
+ * dashboard and it was unclear which building was being managed. It did change
+ * — the two views are structurally different — but nothing on the page NAMED
+ * which one you were in, so the difference read as the page being inconsistent
+ * rather than as a deliberate switch.
+ *
+ * So the lens is stated, with the entity beside it: "Managing · Tulip" against
+ * "My home". Someone who lands mid-scroll can tell whose numbers they are
+ * looking at without going back to the sidebar.
+ */
+function Greeting({ name, subtitle, lens, entity }: {
+  name: string; subtitle: string;
+  lens?: 'managing' | 'home';
+  /** the building or compound in view; omitted when nothing is selected */
+  entity?: string;
+}) {
   const { t } = useTranslation();
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight">
         {name ? `${t('dashboard.welcome')}, ${name}` : t('dashboard.welcome')} <span className="inline-block">👋</span>
       </h1>
+      {lens && (
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+            {lens === 'managing' ? <Building2 size={12} /> : <Home size={12} />}
+            {lens === 'managing' ? t('nav.lensManaging') : t('nav.lensMyHome')}
+          </span>
+          {entity && <span className="text-xs text-muted-foreground">{entity}</span>}
+        </div>
+      )}
       <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
     </div>
   );
