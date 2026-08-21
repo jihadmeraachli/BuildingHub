@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { Button } from '@/components/ui/Button';
+import { WaitlistForm } from '@/components/WaitlistForm';
 import { Lock } from 'lucide-react';
 
 /**
@@ -75,6 +76,17 @@ export function BetaGate({ children }: { children: ReactNode }) {
             Enter
           </Button>
         </form>
+
+        {/* Until now this screen offered a code or nothing, so everyone who
+            arrived from a post without one simply left. The copy stays English
+            like the rest of the gate; the standalone /waitlist page is
+            translated and carries a language picker. */}
+        <div className="mt-6 pt-5 border-t border-border">
+          <p className="text-xs text-muted-foreground mb-2.5">
+            No code yet? Leave your email and we'll tell you when Abniyah opens.
+          </p>
+          <WaitlistForm source="gate" />
+        </div>
 
         {/* Brand↔legal-entity link. The gate is the ONLY page unauthenticated
             visitors (incl. Meta's display-name reviewers) can see — the same

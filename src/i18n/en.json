@@ -1530,5 +1530,16 @@
     "pickEntity": "Pick a building or compound to see its Nizam.",
     "showHistory_one": "Show {{count}} earlier version",
     "showHistory_other": "Show {{count}} earlier versions"
+  },
+  "waitlist": {
+    "title": "Join the waitlist",
+    "blurb": "Abniyah is in closed testing with a handful of buildings in Lebanon. Leave your email and we will tell you the day it opens.",
+    "emailLabel": "Email address",
+    "placeholder": "you@example.com",
+    "join": "Join",
+    "thanks": "You're on the list. We'll be in touch.",
+    "badEmail": "That does not look like an email address.",
+    "failed": "Something went wrong. Please try again.",
+    "privacyNote": "One email, when we launch. No newsletter, and we do not pass your address to anyone."
   }
 }

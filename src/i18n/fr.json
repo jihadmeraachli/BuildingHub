@@ -1530,5 +1530,16 @@
     "pickEntity": "Choisissez un immeuble ou une résidence pour voir son règlement.",
     "showHistory_one": "Afficher {{count}} version antérieure",
     "showHistory_other": "Afficher {{count}} versions antérieures"
+  },
+  "waitlist": {
+    "title": "Rejoindre la liste d'attente",
+    "blurb": "Abniyah est en test fermé avec quelques immeubles au Liban. Laissez votre adresse e-mail et nous vous préviendrons le jour de l'ouverture.",
+    "emailLabel": "Adresse e-mail",
+    "placeholder": "vous@exemple.com",
+    "join": "Rejoindre",
+    "thanks": "Vous êtes sur la liste. Nous vous recontacterons.",
+    "badEmail": "Cela ne ressemble pas à une adresse e-mail.",
+    "failed": "Une erreur est survenue. Veuillez réessayer.",
+    "privacyNote": "Un seul e-mail, au lancement. Pas de newsletter, et votre adresse n'est communiquée à personne."
   }
 }
