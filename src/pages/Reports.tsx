@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { FileBarChart2, FileText, Download } from 'lucide-react';
+import { FileBarChart2, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
@@ -11,9 +11,9 @@ import { fetchAll } from '@/lib/fetchAll';
 import { useExpenseTypes } from '@/lib/expenseTypes';
 import { fmtDate } from '@/lib/dateFmt';
 import { computeBalance } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, type TenancyRow } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, type TenancyRow } from '@/lib/reportData';
 import { CustomReportCard } from '@/components/CustomReportCard';
-import type { Unit, Charge, Payment, Expense, Adjustment, Dues, Budget, BudgetLine } from '@/types';
+import type { Unit, Charge, Payment, Expense, Adjustment, Budget, BudgetLine } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SelectField, SelectItem } from '@/components/ui/Select';
@@ -151,7 +151,6 @@ export default function Reports() {
 
   const [period, setPeriod] = useState<'all' | 'year' | 'month'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
-  const [statementUnitId, setStatementUnitId] = useState('');
 
 
   const [units, setUnits] = useState<Unit[]>([]);
@@ -160,7 +159,6 @@ export default function Reports() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [tenancy, setTenancy] = useState<TenancyRow[]>([]);
-  const [dues, setDues] = useState<Dues[]>([]);
   // Budget vs actual (0087): pick an issued budget, hold it against the
   // expenses booked inside its period.
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -215,14 +213,15 @@ export default function Reports() {
       setExpenses(expenseRows); setAdjustments(adjRows);
       if (unitList.length) {
         const ids = unitList.map((x) => x.id);
-        const [{ data: mem }, { data: dus }] = await Promise.all([
-          supabase.from('memberships')
-            .select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)')
-            .in('unit_id', ids),
-          supabase.from('dues').select('*').in('unit_id', ids),
-        ]);
-        if (!cancelled) { setTenancy((mem as unknown as TenancyRow[]) ?? []); setDues((dus as Dues[]) ?? []); }
-      } else { setTenancy([]); setDues([]); }
+        // Dues used to be fetched here too, only to list a party's obligations
+        // on the unit-statement PDF. That card is gone (Finance exports the
+        // same statement from the unit's own row), so the query went with it
+        // rather than loading on every visit for nobody.
+        const { data: mem } = await supabase.from('memberships')
+          .select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)')
+          .in('unit_id', ids);
+        if (!cancelled) setTenancy((mem as unknown as TenancyRow[]) ?? []);
+      } else { setTenancy([]); }
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -297,34 +296,6 @@ export default function Reports() {
     } finally { setBusy(''); }
   }
 
-  async function downloadUnitStatement() {
-    const unit = units.find((u) => u.id === statementUnitId);
-    if (!unit) { toast.error(t('reports.pickUnitFirst')); return; }
-    setBusy('statement');
-    try {
-      const { UnitStatementDoc, downloadPdf } = await import('@/lib/pdf');
-      const cAll = charges.filter((c) => c.unit_id === unit.id && !c.voided_at);
-      const pAll = payments.filter((p) => p.unit_id === unit.id && !p.voided_at);
-      const aAll = adjustments.filter((a) => a.unit_id === unit.id && !a.voided_at);
-      const { buckets, combined } = buildUnitBuckets(unit, cAll, pAll, aAll, th, labels, undefined,
-        dues.filter((d) => d.unit_id === unit.id));
-      const el = (
-        <UnitStatementDoc
-          unitLabel={unit.label}
-          buildingName={entity?.name ?? ''}
-          period={t('finance.allTime')}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-          buckets={buckets}
-          combinedBalance={combined}
-        />
-      );
-      await downloadPdf(el, `statement-unit-${unit.label.replace(/\s+/g, '-')}.pdf`);
-    } catch (e) {
-      toast.error(t('reports.exportFailed'));
-      console.error('unit statement failed:', e);
-    } finally { setBusy(''); }
-  }
-
   if (authLoading) return <div className="p-6"><SkeletonCards count={2} /></div>;
   // Residents (and dual-persona users browsing "My home") get their own report
   // set: their statement + the building's expenses (transparency, 0069).
@@ -373,23 +344,11 @@ export default function Reports() {
             </div>
           </CardBody></Card>
 
-          {/* ── Unit statement ── */}
-          <Card><CardBody>
-            <div className="flex items-center gap-2.5 mb-2">
-              <FileText size={18} className="text-primary" />
-              <p className="font-semibold text-foreground">{t('reports.unitStatement')}</p>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.unitStatementDesc')}</p>
-            <div className="space-y-3">
-              <SelectField label={t('finance.unit')} value={statementUnitId || '__none__'} onValueChange={(v) => setStatementUnitId(v === '__none__' ? '' : v)}>
-                <SelectItem value="__none__">{t('reports.pickUnit')}</SelectItem>
-                {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>)}
-              </SelectField>
-              <Button onClick={downloadUnitStatement} loading={busy === 'statement'} disabled={!statementUnitId} className="w-full">
-                <Download size={15} /> {t('reports.download')}
-              </Button>
-            </div>
-          </CardBody></Card>
+          {/* The Unit statement card that used to sit here is gone. Finance's
+              book already exports a statement from each unit's own row, where
+              you are already looking at that unit — this was a second door to
+              the identical PDF, in a place where you first had to find the unit
+              in a dropdown. Same reasoning that removed the two resident cards. */}
 
           {/* Budget vs actual (0087): how well did the prepaid budget perform */}
           <Card className="md:col-span-2"><CardBody>
