@@ -15,6 +15,7 @@ import { isNativeApp, bioLoginEnabled, setBioLoginEnabled, bioAvailable, bioAuth
 import { rememberSessionForBio, forgetBioSession } from '@/lib/bioSession';
 import { pushAlreadyGranted, enablePush, disablePush, lastPushError } from '@/lib/push';
 import { setLanguage } from '@/i18n';
+import { LANGUAGES } from '@/lib/languages';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -403,7 +404,10 @@ function SettingsInner() {
             <div className="pt-1 space-y-2">
               <p className="text-sm font-medium text-foreground">{t('settings.language')}</p>
               <div className="flex gap-2">
-                {([['en', 'English'], ['ar', 'العربية']] as const).map(([lng, label]) => (
+                {/* Settings gets the full list, not the cycle: this is where
+                    you SET a preference, and a person picking French should
+                    see it named rather than have to press twice to find it. */}
+                {LANGUAGES.map(({ code: lng, label }) => (
                   <button
                     key={lng}
                     type="button"

@@ -405,7 +405,9 @@ npm run dev         # http://localhost:5173
 - **UI overhaul** — ✅ dark Tatawwor-brand theme merged to master; shadcn/ui migration next.
 - **WhatsApp notifications** — dedicated number being sourced; bundle with mobile app release.
 - **Phone push notifications (iOS)** — ✅ done and verified on device (2026-08-05). `@capacitor/push-notifications` → APNs, sent from `dynamic-action` on the same events as email. Two native steps are easy to lose and cost several TestFlight cycles to find — the AppDelegate registration relay and `aps-environment: production`; both are written up in [docs/IOS_APP.md](IOS_APP.md). Android is not wired up yet (needs Firebase).
-- **PWA / Mobile app** — installable on phones; publish on Google Play & App Store.
+- **PWA / Mobile app** — installable on phones; publish on Google Play & App Store. Android: see [docs/ANDROID_APP.md](ANDROID_APP.md) — register the Play account as an **organization** to skip the 12-testers-for-14-days gate.
+- **French (0101)** — the one competitor feature worth taking seriously: Binayati ships FR and a large slice of Lebanese syndics and notaries work in it. Infrastructure done (`src/lib/languages.ts`, three-way toggle, `preferred_language` widened); `src/i18n/fr.json` being filled in. **Still to do:** French email templates in `dynamic-action` and `send-reminders`, which currently fall back to English.
+- **Open question, one hour of work:** install **Binayati** (free) and find out whether it freezes the exchange rate per transaction or re-converts history when the rate changes. If it re-converts, the LBP story is a genuine wedge and should lead every ad; if it freezes, the wedge is metering, which no competitor advertises at all. **This decides the campaign's lead message.** Their payment-collection claim is already settled — their own store filings show they do not collect (see [docs/marketing/competitors.md](marketing/competitors.md)).
 
 ### Phase 2 — ✅ Complete
 - **Organizations UI** — ✅ done (CRUD, org strip, building assignment, org admin role).

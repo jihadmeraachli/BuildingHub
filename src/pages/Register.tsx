@@ -6,6 +6,7 @@ import { LICENSE_CAPS } from '@/lib/licenseCaps';
 import { monthlyPriceCents, effectivePerUnitCents, fmtPerUnit, ANNUAL_MONTHS_CHARGED } from '@/lib/pricing';
 import { useAuth } from '@/contexts/AuthContext';
 import { setLanguage } from '@/i18n';
+import { nextLanguage } from '@/lib/languages';
 import { Input } from '@/components/ui/Input';
 import { CitySelect } from '@/components/ui/CitySelect';
 import { Button } from '@/components/ui/Button';
@@ -455,11 +456,11 @@ export default function Register() {
   const langToggle = (
     <button
       type="button"
-      onClick={() => setLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
+      onClick={() => setLanguage(nextLanguage(i18n.language).code)}
       className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
     >
       <Globe size={14} />
-      {i18n.language === 'ar' ? 'EN' : 'عر'}
+      {nextLanguage(i18n.language).short}
     </button>
   );
 

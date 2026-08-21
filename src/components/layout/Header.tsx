@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { setLanguage } from '@/i18n';
+import { nextLanguage } from '@/lib/languages';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -46,7 +47,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   }
 
   function toggleLang() {
-    const next = i18n.language === 'ar' ? 'en' : 'ar';
+    const next = nextLanguage(i18n.language).code;
     setLanguage(next);
     // The toggle IS a preference (0060): remember it on the profile so every
     // device and every notification follows it.
@@ -80,7 +81,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           className="gap-1.5 text-muted-foreground text-xs font-medium"
         >
           <Globe size={15} />
-          {i18n.language === 'ar' ? 'EN' : 'عر'}
+          {nextLanguage(i18n.language).short}
         </Button>
 
         {/* Notifications */}

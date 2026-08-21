@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { setLanguage } from '@/i18n';
+import { nextLanguage } from '@/lib/languages';
 import { Globe, ArrowLeft, Mail, Smartphone, Fingerprint } from 'lucide-react';
 import { getPref, setPref, PREF_LAST_EMAIL } from '@/lib/devicePrefs';
 import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
@@ -169,11 +170,11 @@ export default function Login() {
 
   const langToggle = (
     <button
-      onClick={() => setLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
+      onClick={() => setLanguage(nextLanguage(i18n.language).code)}
       className="ms-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer"
     >
       <Globe size={14} />
-      {i18n.language === 'ar' ? 'EN' : 'عر'}
+      {nextLanguage(i18n.language).short}
     </button>
   );
 

@@ -4,6 +4,7 @@ import {
   BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Globe, Check, ArrowUp,
 } from 'lucide-react';
 import { setLanguage } from '@/i18n';
+import { nextLanguage } from '@/lib/languages';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { PRICING_BANDS, asLowAsPerUnitCents, fmtMonthly, fmtPerUnit } from '@/lib/pricing';
@@ -116,11 +117,11 @@ export default function Landing() {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setLanguage(i18n.language === 'ar' ? 'en' : 'ar')}
+              onClick={() => setLanguage(nextLanguage(i18n.language).code)}
               className="flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white cursor-pointer"
             >
               <Globe size={15} />
-              {i18n.language === 'ar' ? 'EN' : 'عر'}
+              {nextLanguage(i18n.language).short}
             </button>
             <a
               href="https://app.abniyah.com"
