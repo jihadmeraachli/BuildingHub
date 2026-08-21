@@ -375,7 +375,7 @@
     "openApp": "Open the app",
     "privateBeta": "Currently in private beta",
     "heroTitle": "Everything your building needs, in one place.",
-    "heroTagline": "People, units, meetings, maintenance and the building book. Clear for managers, transparent for residents, in Arabic and English.",
+    "heroTagline": "People, units, meetings, maintenance and the building book. Clear for managers, transparent for residents, in Arabic, English and French.",
     "navProduct": "Product",
     "navPricing": "Pricing",
     "navAbout": "About",
@@ -394,8 +394,8 @@
         "body": "A guided checklist takes you from a fresh account to a working building: create your blocks, import units from Excel, add your people, and switch on automated payment reminders. Each step checks itself off as you go."
       },
       "arabic": {
-        "title": "Arabic and English, born bilingual",
-        "body": "The whole app flows right-to-left in Arabic and switches with one tap. Notifications reach residents on WhatsApp and email in both languages, so everyone in the building reads comfortably."
+        "title": "Everyone reads it in their own language",
+        "body": "Arabic, English and French, and each person picks their own. The whole app flows right-to-left in Arabic and switches with one tap. Notifications reach residents on WhatsApp and email in the language they chose, so nobody in the building is reading a translation."
       }
     },
     "everythingElse": "And everything else a building needs",
@@ -419,7 +419,7 @@
     "pricing": {
       "p1": "All features, all channels: WhatsApp, email and in-app",
       "p2": "Unlimited managers and residents per unit",
-      "p3": "Arabic and English included"
+      "p3": "Arabic, English and French included"
     },
     "aboutTitle": "About Abniyah",
     "aboutBody1": "Abniyah is built and operated by Tatawwor, a Beirut-based technology company whose team earned its experience in Australia, New Zealand and the United Kingdom. We build it the way we run our own systems: security enforced in the database, daily backups, and no shortcuts.",
@@ -440,7 +440,7 @@
       },
       "price": {
         "q": "What does it cost after the trial?",
-        "a": "One monthly price for the whole building, based on its size: from $85 a month for up to 20 units, $105 up to 40, $150 up to 70, and on up. Larger buildings pay less per unit. Pay yearly and you get 12 months for the price of 10. Above 500 units we agree a price with you. Every feature is included in both languages, with no hidden extras."
+        "a": "One monthly price for the whole building, based on its size: from $85 a month for up to 20 units, $105 up to 40, $150 up to 70, and on up. Larger buildings pay less per unit. Pay yearly and you get 12 months for the price of 10. Above 500 units we agree a price with you. Every feature is included in all three languages, with no hidden extras."
       },
       "residents": {
         "q": "What do residents get?",
@@ -460,7 +460,7 @@
       },
       "f3": {
         "title": "WhatsApp & email updates",
-        "body": "Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic and English."
+        "body": "Receipts, new charges and dues reach residents on WhatsApp and email, in Arabic, English and French."
       },
       "f4": {
         "title": "Issues & maintenance",

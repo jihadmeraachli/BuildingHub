@@ -1,5 +1,11 @@
 # Store listings: App Store and Google Play, English and Arabic
 
+> **French shipped 2026-08-21 (0101).** The copy below is still written in two
+> languages, and the descriptions now say so ("three languages, not
+> translations"). A **French listing** for both stores is still to write — it is
+> the one that reaches Lebanese syndics and notaries, so it is worth doing
+> before launch rather than after.
+
 Four blocks of copy, ready to paste. Character counts are stated next to every
 field and were measured on the exact strings below (spaces and punctuation
 included), so what you see is what the store will count.
@@ -127,8 +133,8 @@ RUNNING THE BUILDING
 • Inspections and service contracts (elevator, generator, safety) at block or compound level
 • A contacts directory: the committee, the natour, the electrician, and every service provider with a phone number
 
-ARABIC, NOT TRANSLATED
-The whole app runs right to left in Arabic and switches with one tap. Each person picks their own language, and notifications arrive in it.
+THREE LANGUAGES, NOT TRANSLATIONS
+English, Arabic and French. The whole app runs right to left in Arabic and switches with one tap. Each person picks their own language, and notifications arrive in it. French matters here: it is the working language of a large share of Lebanese syndics and notaries.
 
 ON YOUR PHONE
 • Sign in with Face ID or Touch ID instead of typing your password
@@ -140,7 +146,7 @@ WHO IT IS FOR
 Owners' committees, building supervisors, and property-management companies, from a single block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.
 
 PRICING
-One monthly price for the whole building, set by its size: from $85 a month for up to 20 units, and the larger the building the less it works out per unit. Pay yearly and get 12 months for the price of 10. Above 500 units we agree a price with you. 30 days free, no card required. Every feature included, in both languages.
+One monthly price for the whole building, set by its size: from $85 a month for up to 20 units, and the larger the building the less it works out per unit. Pay yearly and get 12 months for the price of 10. Above 500 units we agree a price with you. 30 days free, no card required. Every feature included, in all three languages.
 
 Abniyah is a product of Tatawwor.
 ```
@@ -214,8 +220,8 @@ page's `دفتر المبنى، حتى آخر قرش`. Same reasoning as the Eng
 • كشوفات وعقود خدمة للمصعد والمولّد والسلامة، على مستوى البلوك أو المجمّع
 • دليل أرقام المبنى: اللجنة، والناطور، والكهربائي، وكل مزوّد خدمة له رقم
 
-بالعربية، لا مترجَمة
-التطبيق كله يعمل من اليمين إلى اليسار، ويتبدّل بلمسة واحدة. كل شخص يختار لغته، وتصله الإشعارات بها.
+ثلاث لغات، لا ترجمات
+بالإنجليزية والعربية والفرنسية. التطبيق كله يعمل من اليمين إلى اليسار بالعربية، ويتبدّل بلمسة واحدة. كل شخص يختار لغته، وتصله الإشعارات بها.
 
 على هاتفك
 • دخول ببصمة الوجه أو الإصبع بدل كتابة كلمة السر
@@ -227,7 +233,7 @@ page's `دفتر المبنى، حتى آخر قرش`. Same reasoning as the Eng
 لجان المالكين، ونواطير المباني، وشركات إدارة العقارات، من بلوك واحد إلى محفظة مجمّعات. تسجيل دخول واحد لكل شخص: أدر مبانيك، أو تابع منزلك ببساطة.
 
 السعر
-سعر شهري واحد للمبنى كله بحسب حجمه: من 85 دولاراً شهرياً حتى 20 وحدة، وكلما كبر المبنى انخفضت كلفة الوحدة. وبالدفع السنوي تحصل على 12 شهراً بسعر 10. وفوق 500 وحدة نتفق على السعر معك. ثلاثون يوماً مجاناً بلا بطاقة دفع، وكل الميزات مشمولة، وباللغتين.
+سعر شهري واحد للمبنى كله بحسب حجمه: من 85 دولاراً شهرياً حتى 20 وحدة، وكلما كبر المبنى انخفضت كلفة الوحدة. وبالدفع السنوي تحصل على 12 شهراً بسعر 10. وفوق 500 وحدة نتفق على السعر معك. ثلاثون يوماً مجاناً بلا بطاقة دفع، وكل الميزات مشمولة، وباللغات الثلاث.
 
 أبنية من إنتاج تطوّر.
 ```
@@ -295,8 +301,8 @@ RUNNING THE BUILDING
 • Inspections and service contracts for the elevator, the generator and safety equipment, at block or compound level
 • A building contacts directory: the committee, the natour, the electrician, and every service provider with a number
 
-ARABIC, NOT TRANSLATED
-The entire app runs right to left in Arabic and switches with one tap. Every person picks their own language, and their notifications arrive in it.
+THREE LANGUAGES, NOT TRANSLATIONS
+English, Arabic and French. The entire app runs right to left in Arabic and switches with one tap. Every person picks their own language, and their notifications arrive in it. French matters here: it is the working language of a large share of Lebanese syndics and notaries.
 
 WHO IT IS FOR
 Owners' committees, building supervisors and property-management companies, from one block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.
@@ -373,8 +379,8 @@ gate.
 • كشوفات وعقود خدمة للمصعد والمولّد ومعدّات السلامة، على مستوى البلوك أو المجمّع
 • دليل أرقام المبنى: اللجنة، والناطور، والكهربائي، وكل مزوّد خدمة له رقم
 
-بالعربية، لا مترجَمة
-التطبيق كله يعمل من اليمين إلى اليسار، ويتبدّل بلمسة واحدة. كل شخص يختار لغته، وتصله إشعاراته بها.
+ثلاث لغات، لا ترجمات
+بالإنجليزية والعربية والفرنسية. التطبيق كله يعمل من اليمين إلى اليسار بالعربية، ويتبدّل بلمسة واحدة. كل شخص يختار لغته، وتصله إشعاراته بها.
 
 لمن هذا البرنامج
 لجان المالكين، ونواطير المباني، وشركات إدارة العقارات، من بلوك واحد إلى محفظة مجمّعات. تسجيل دخول واحد لكل شخص: أدر مبانيك، أو تابع منزلك ببساطة.

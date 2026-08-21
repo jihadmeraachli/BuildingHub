@@ -375,7 +375,7 @@
     "openApp": "Ouvrir l'application",
     "privateBeta": "Actuellement en bêta privée",
     "heroTitle": "Tout ce dont votre immeuble a besoin, au même endroit.",
-    "heroTagline": "Les personnes, les lots, les réunions, l'entretien et le livre de l'immeuble. Clair pour les syndics, transparent pour les résidents, en arabe et en anglais.",
+    "heroTagline": "Les personnes, les lots, les réunions, l'entretien et le livre de l'immeuble. Clair pour les syndics, transparent pour les résidents, en arabe, en anglais et en français.",
     "navProduct": "Produit",
     "navPricing": "Tarifs",
     "navAbout": "À propos",
@@ -394,8 +394,8 @@
         "body": "Une liste guidée vous mène du compte vierge à l'immeuble opérationnel : créez vos bâtiments, importez les lots depuis Excel, ajoutez vos personnes et activez les rappels de paiement automatiques. Chaque étape se coche d'elle-même à mesure que vous avancez."
       },
       "arabic": {
-        "title": "Arabe et anglais, bilingue de naissance",
-        "body": "Toute l'application passe de droite à gauche en arabe, en une seule touche. Les notifications parviennent aux résidents sur WhatsApp et par e-mail dans les deux langues : chacun dans l'immeuble lit sans effort."
+        "title": "Chacun le lit dans sa langue",
+        "body": "En arabe, en anglais et en français, et chacun choisit la sienne. Toute l'application passe de droite à gauche en arabe, en une seule touche. Les notifications parviennent aux résidents sur WhatsApp et par e-mail dans la langue qu'ils ont choisie : personne dans l'immeuble ne lit une traduction."
       }
     },
     "everythingElse": "Et tout le reste de ce qu'un immeuble demande",
@@ -419,7 +419,7 @@
     "pricing": {
       "p1": "Toutes les fonctions, tous les canaux : WhatsApp, e-mail et dans l'application",
       "p2": "Syndics et résidents illimités par lot",
-      "p3": "Arabe et anglais inclus"
+      "p3": "Arabe, anglais et français inclus"
     },
     "aboutTitle": "À propos d'Abniyah",
     "aboutBody1": "Abniyah est conçu et exploité par Tatawwor, une société technologique basée à Beyrouth dont l'équipe s'est formée en Australie, en Nouvelle-Zélande et au Royaume-Uni. Nous le construisons comme nous exploitons nos propres systèmes : sécurité imposée au niveau de la base de données, sauvegardes quotidiennes, aucun raccourci.",
@@ -440,7 +440,7 @@
       },
       "price": {
         "q": "Combien cela coûte-t-il après l'essai ?",
-        "a": "Un prix mensuel unique pour tout l'immeuble, selon sa taille : à partir de 85 $ par mois jusqu'à 20 lots, 105 $ jusqu'à 40, 150 $ jusqu'à 70, et ainsi de suite. Plus l'immeuble est grand, moins le prix par lot est élevé. En payant à l'année, vous avez 12 mois pour le prix de 10. Au-delà de 500 lots, nous convenons d'un prix avec vous. Toutes les fonctions sont incluses, dans les deux langues, sans supplément caché."
+        "a": "Un prix mensuel unique pour tout l'immeuble, selon sa taille : à partir de 85 $ par mois jusqu'à 20 lots, 105 $ jusqu'à 40, 150 $ jusqu'à 70, et ainsi de suite. Plus l'immeuble est grand, moins le prix par lot est élevé. En payant à l'année, vous avez 12 mois pour le prix de 10. Au-delà de 500 lots, nous convenons d'un prix avec vous. Toutes les fonctions sont incluses, dans les trois langues, sans supplément caché."
       },
       "residents": {
         "q": "Qu'est-ce que les résidents y gagnent ?",
@@ -460,7 +460,7 @@
       },
       "f3": {
         "title": "Notifications WhatsApp et e-mail",
-        "body": "Reçus, nouvelles charges et appels de fonds parviennent aux résidents sur WhatsApp et par e-mail, en arabe et en anglais."
+        "body": "Reçus, nouvelles charges et appels de fonds parviennent aux résidents sur WhatsApp et par e-mail, en arabe, en anglais et en français."
       },
       "f4": {
         "title": "Incidents et entretien",
