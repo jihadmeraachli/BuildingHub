@@ -37,10 +37,143 @@ const beirutToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+// ── Language ─────────────────────────────────────────────────────────────────
+// A payment reminder is the most consequential email this app sends, and it
+// used to arrive in English regardless of who was reading it. Each recipient's
+// profiles.preferred_language (0101 added 'fr') now picks the wording.
+//
+// English is the source of truth: `Dict` is inferred from EN, so the compiler
+// rejects an AR or FR pack that is missing a key. Terminology matches
+// src/i18n/{ar,fr}.json so the email and the screen use the same words.
+//
+// The pack is duplicated from dynamic-action rather than shared: both
+// functions deploy as a single pasted index.ts through the Supabase dashboard
+// editor, and a ../_shared/ import would not survive that.
+type Lang = 'en' | 'ar' | 'fr';
+const langOf = (v: unknown): Lang => (v === 'ar' || v === 'fr' ? v : 'en');
+
+const EN = {
+  dir: 'ltr' as 'ltr' | 'rtl',
+  // Latin digits everywhere: Lebanon writes dates and money in Western
+  // numerals even in Arabic, so 'ar' alone (Arabic-Indic) would look wrong.
+  locale: 'en-US',
+  footer: 'You received this because you have notifications enabled in Abniyah.',
+  ctaAccount: 'View My Account',
+  ctaInspections: 'View Inspections',
+  pay: {
+    subjOverdue: (b: string, u: string) => `Payment overdue: ${b}, unit ${u}`,
+    subjDue: (b: string, u: string) => `Payment reminder: ${b}, unit ${u}`,
+    titleOverdue: 'Payment overdue',
+    titleDue: 'Outstanding balance',
+    body: (unit: string, building: string, amount: string, asOf: string) =>
+      `A friendly reminder: unit <strong>${unit}</strong> at <strong>${building}</strong> has an outstanding balance of <strong style="color:#dc2626;">${amount}</strong>${asOf}.`,
+    asOf: (d: string) => ` as of <strong>${d}</strong>`,
+    pastDue: (d: string) => `This payment is now <strong>past due</strong>${d ? ` (was due ${d})` : ''}.`,
+    settleBy: (d: string) => `Please settle it by <strong>${d}</strong>.`,
+    whish: (n: string) => `You can pay directly through <strong>Whish</strong> to <strong>${n}</strong>.`,
+    tail: 'Details and payment options are in your account.',
+  },
+  inspection: {
+    subj: (overdue: boolean, cat: string, loc: string) =>
+      overdue ? `Inspection overdue: ${cat}, ${loc}` : `Inspection due soon: ${cat}, ${loc}`,
+    titleOverdue: '⚠️ Inspection overdue',
+    titleDue: 'Inspection due soon',
+    lead: (cat: string, loc: string) =>
+      `The <strong>${cat}</strong> inspection at <strong>${loc}</strong>`,
+    wasDue: (d: string) => `<span style="color:#dc2626;">was due on <strong>${d}</strong> and has not been recorded.</span>`,
+    isDue: (d: string) => `is due on <strong style="color:#d97706;">${d}</strong>.`,
+    category: {
+      generator: 'Generator', elevator: 'Elevator', fire_safety: 'Fire safety',
+      water_tank: 'Water tank', electrical: 'Electrical', hvac: 'HVAC', other: 'Other',
+    } as Record<string, string>,
+  },
+};
+type Dict = typeof EN;
+
+const AR: Dict = {
+  dir: 'rtl',
+  locale: 'ar-u-nu-latn',
+  footer: 'وصلتك هذه الرسالة لأن الإشعارات مفعّلة في حسابك على أبنية.',
+  ctaAccount: 'عرض حسابي',
+  ctaInspections: 'عرض الفحوصات',
+  pay: {
+    subjOverdue: (b: string, u: string) => `دفعة متأخرة: ${b}، شقة ${u}`,
+    subjDue: (b: string, u: string) => `تذكير بالدفع: ${b}، شقة ${u}`,
+    titleOverdue: 'دفعة متأخرة',
+    titleDue: 'رصيد مستحق',
+    body: (unit: string, building: string, amount: string, asOf: string) =>
+      `تذكير ودّي: على الشقة <strong>${unit}</strong> في <strong>${building}</strong> رصيد مستحق قدره <strong style="color:#dc2626;">${amount}</strong>${asOf}.`,
+    asOf: (d: string) => ` كما في <strong>${d}</strong>`,
+    pastDue: (d: string) => `هذه الدفعة <strong>متأخرة</strong> الآن${d ? ` (كان موعدها ${d})` : ''}.`,
+    settleBy: (d: string) => `يرجى تسديدها قبل <strong>${d}</strong>.`,
+    whish: (n: string) => `يمكنك الدفع مباشرة عبر <strong>Whish</strong> إلى <strong>${n}</strong>.`,
+    tail: 'التفاصيل وخيارات الدفع متوفرة في حسابك.',
+  },
+  inspection: {
+    subj: (overdue: boolean, cat: string, loc: string) =>
+      overdue ? `فحص متأخر: ${cat}، ${loc}` : `فحص مستحق قريباً: ${cat}، ${loc}`,
+    titleOverdue: '⚠️ فحص متأخر',
+    titleDue: 'فحص مستحق قريباً',
+    lead: (cat: string, loc: string) =>
+      `فحص <strong>${cat}</strong> في <strong>${loc}</strong>`,
+    wasDue: (d: string) => `<span style="color:#dc2626;">كان مستحقاً في <strong>${d}</strong> ولم يُسجَّل بعد.</span>`,
+    isDue: (d: string) => `مستحق في <strong style="color:#d97706;">${d}</strong>.`,
+    category: {
+      generator: 'المولّد', elevator: 'المصعد', fire_safety: 'السلامة من الحريق',
+      water_tank: 'خزان المياه', electrical: 'الكهرباء', hvac: 'التكييف', other: 'أخرى',
+    },
+  },
+};
+
+// French typography: a U+00A0 no-break space before : ; ! ? — matching fr.json.
+const FR: Dict = {
+  dir: 'ltr',
+  locale: 'fr-FR',
+  footer: 'Vous recevez ce message parce que les notifications sont activées dans votre compte Abniyah.',
+  ctaAccount: 'Voir mon compte',
+  ctaInspections: 'Voir les contrôles',
+  pay: {
+    subjOverdue: (b: string, u: string) => `Paiement en retard : ${b}, lot ${u}`,
+    subjDue: (b: string, u: string) => `Rappel de paiement : ${b}, lot ${u}`,
+    titleOverdue: 'Paiement en retard',
+    titleDue: 'Solde à régler',
+    body: (unit: string, building: string, amount: string, asOf: string) =>
+      `Petit rappel : le lot <strong>${unit}</strong> à <strong>${building}</strong> présente un solde à régler de <strong style="color:#dc2626;">${amount}</strong>${asOf}.`,
+    asOf: (d: string) => ` au <strong>${d}</strong>`,
+    pastDue: (d: string) => `Ce paiement est désormais <strong>en retard</strong>${d ? ` (échéance du ${d})` : ''}.`,
+    settleBy: (d: string) => `Merci de le régler avant le <strong>${d}</strong>.`,
+    whish: (n: string) => `Vous pouvez régler directement via <strong>Whish</strong> au <strong>${n}</strong>.`,
+    tail: 'Le détail et les moyens de paiement sont disponibles dans votre compte.',
+  },
+  inspection: {
+    subj: (overdue: boolean, cat: string, loc: string) =>
+      overdue ? `Contrôle en retard : ${cat}, ${loc}` : `Contrôle à échéance proche : ${cat}, ${loc}`,
+    titleOverdue: '⚠️ Contrôle en retard',
+    titleDue: 'Contrôle à échéance proche',
+    lead: (cat: string, loc: string) =>
+      `Le contrôle <strong>${cat}</strong> à <strong>${loc}</strong>`,
+    wasDue: (d: string) => `<span style="color:#dc2626;">était dû le <strong>${d}</strong> et n'a pas été enregistré.</span>`,
+    isDue: (d: string) => `est dû le <strong style="color:#d97706;">${d}</strong>.`,
+    category: {
+      generator: 'Générateur', elevator: 'Ascenseur', fire_safety: 'Sécurité incendie',
+      water_tank: "Réservoir d'eau", electrical: 'Électricité', hvac: 'Chauffage et climatisation', other: 'Autre',
+    },
+  },
+};
+
+const DICT: Record<Lang, Dict> = { en: EN, ar: AR, fr: FR };
+
 // ── Email ────────────────────────────────────────────────────────────────────
-function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-  <body style="margin:0;padding:0;background:#f5f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+function emailHtml(L: Dict, title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
+  // Arabic needs the direction on the document AND inline on the body: Gmail
+  // strips <html> attributes, Outlook honours them. Tahoma is the one Arabic
+  // face Outlook ships.
+  const rtl = L.dir === 'rtl';
+  const dirAttr = rtl ? ' dir="rtl"' : '';
+  const bodyDir = rtl ? 'direction:rtl;text-align:right;' : '';
+  const font = rtl ? "'Segoe UI',Tahoma,Arial,sans-serif" : "'Segoe UI',Arial,sans-serif";
+  return `<!DOCTYPE html><html${dirAttr}><head><meta charset="utf-8"></head>
+  <body style="margin:0;padding:0;background:#f5f6f8;font-family:${font};${bodyDir}">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;padding:40px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
@@ -58,7 +191,7 @@ function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: st
           </div>
         </td></tr>
         <tr><td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
-          <p style="margin:0;font-size:12px;color:#94a3b8;">You received this because you have notifications enabled in Abniyah.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">${L.footer}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -168,10 +301,13 @@ Deno.serve(async (req) => {
     let sentEmail = 0, sentWhatsApp = 0, sentInApp = 0, skippedDup = 0;
     const errors: string[] = [];
 
-    async function deliverEmail(userId: string, subject: string, html: string) {
+    /** The caller passes a BUILDER, not finished text: this loop walks one
+     *  recipient at a time, and each of them may read a different language. */
+    async function deliverEmail(userId: string, build: (L: Dict) => { subject: string; html: string }) {
       const prof = profileMap[userId];
       const email = emailMap[userId];
       if (!email || !prof?.notify_email || prof.status !== 'active') return;
+      const { subject, html } = build(DICT[langOf(prof.preferred_language)]);
       const err = await sendEmail(email, subject, html);
       if (err) errors.push(`email ${email}: ${err}`);
       else sentEmail++;
@@ -223,40 +359,45 @@ Deno.serve(async (req) => {
         return;
       }
       const amount = `$${owed.toFixed(2)}`;
-      const dayFmt = (d?: string | null) =>
-        d ? new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-      // Name the period being settled — the amount is quoted AS OF its close, so
-      // saying which period it is keeps the number and the wording honest.
-      const forPeriod = ctx.forPeriodEnd ? ` as of <strong>${dayFmt(ctx.forPeriodEnd)}</strong>` : '';
-      const byWhen = ctx.isOverdue
-        ? `<p style="color:#b91c1c;font-size:14px;line-height:1.6;">This payment is now <strong>past due</strong>${ctx.dueDate ? ` (was due ${dayFmt(ctx.dueDate)})` : ''}.</p>`
-        : ctx.dueDate
-          ? `<p style="color:#475569;font-size:14px;line-height:1.6;">Please settle it by <strong>${dayFmt(ctx.dueDate)}</strong>.</p>`
-          : '';
+      // The date format follows the reader too: a French reminder saying
+      // "31 mars 2026" and an English one saying "March 31, 2026" are the same
+      // day written the way each person expects to see it.
+      const dayFmt = (L: Dict, d?: string | null) =>
+        d ? new Date(d).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
-      const subject = ctx.isOverdue
-        ? `Payment overdue: ${buildingName}, unit ${unitLabel}`
-        : `Payment reminder: ${buildingName}, unit ${unitLabel}`;
-      const html = emailHtml(
-        ctx.isOverdue ? 'Payment overdue' : 'Outstanding balance',
-        `<p style="color:#475569;font-size:14px;line-height:1.6;">
-          A friendly reminder: unit <strong>${unitLabel}</strong> at <strong>${buildingName}</strong>
-          has an outstanding balance of <strong style="color:#dc2626;">${amount}</strong>${forPeriod}.
-        </p>
-        ${byWhen}
-        ${whishMap[buildingId]
-          ? `<p style="color:#475569;font-size:14px;line-height:1.6;">
-              You can pay directly through <strong>Whish</strong> to <strong>${whishMap[buildingId]}</strong>.
-            </p>`
-          : ''}
-        <p style="color:#475569;font-size:14px;line-height:1.6;">
-          Details and payment options are in your account.
-        </p>`,
-        'View My Account', `${APP_URL}/finance`,
-      );
+      const build = (L: Dict) => {
+        // Name the period being settled — the amount is quoted AS OF its close,
+        // so saying which period it is keeps the number and the wording honest.
+        const forPeriod = ctx.forPeriodEnd ? L.pay.asOf(dayFmt(L, ctx.forPeriodEnd)) : '';
+        const byWhen = ctx.isOverdue
+          ? `<p style="color:#b91c1c;font-size:14px;line-height:1.6;">${L.pay.pastDue(dayFmt(L, ctx.dueDate))}</p>`
+          : ctx.dueDate
+            ? `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.pay.settleBy(dayFmt(L, ctx.dueDate))}</p>`
+            : '';
+        return {
+          subject: ctx.isOverdue
+            ? L.pay.subjOverdue(buildingName, unitLabel)
+            : L.pay.subjDue(buildingName, unitLabel),
+          html: emailHtml(L,
+            ctx.isOverdue ? L.pay.titleOverdue : L.pay.titleDue,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;">
+              ${L.pay.body(unitLabel, buildingName, amount, forPeriod)}
+            </p>
+            ${byWhen}
+            ${whishMap[buildingId]
+              ? `<p style="color:#475569;font-size:14px;line-height:1.6;">
+                  ${L.pay.whish(whishMap[buildingId])}
+                </p>`
+              : ''}
+            <p style="color:#475569;font-size:14px;line-height:1.6;">
+              ${L.pay.tail}
+            </p>`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        };
+      };
       const whishNote = whishMap[buildingId] ? ` Pay via Whish: ${whishMap[buildingId]}.` : '';
       for (const uid of ownerIds) {
-        await deliverEmail(uid, subject, html);
+        await deliverEmail(uid, build);
         // ⚠️ param count frozen at 4 (+ payLine) — wording changed, structure did not
         await deliverWhatsApp(uid, 'abniyah_payment_reminder',
           (name, lang) => {
@@ -317,21 +458,27 @@ Deno.serve(async (req) => {
       dueInspections = (data as unknown[]) ?? [];
       for (const row of (data as DueInspection[] ?? [])) {
         const isOverdue = new Date(row.next_due_date) < new Date();
-        const subject = `Inspection ${isOverdue ? 'overdue' : 'due soon'}: ${row.category.replace(/_/g, ' ')}, ${row.location_name}`;
-        const html = emailHtml(
-          isOverdue ? '⚠️ Inspection overdue' : 'Inspection due soon',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;">
-            The <strong>${row.category.replace(/_/g, ' ')}</strong> inspection
-            at <strong>${row.location_name}</strong>
-            ${isOverdue
-              ? `<span style="color:#dc2626;">was due on <strong>${row.next_due_date}</strong> and has not been recorded.</span>`
-              : `is due on <strong style="color:#d97706;">${row.next_due_date}</strong>.`}
-          </p>
-          ${row.title ? `<p style="color:#64748b;font-size:13px;font-style:italic;">${row.title}</p>` : ''}`,
-          'View Inspections', `${APP_URL}/inspections`,
-        );
+        const build = (L: Dict) => {
+          // The category was printed as a de-underscored enum ("fire_safety" →
+          // "fire safety"), which is neither translated nor how the app names
+          // it. Fall back to that only for a value the catalog does not know.
+          const cat = L.inspection.category[row.category] ?? row.category.replace(/_/g, ' ');
+          return {
+            subject: L.inspection.subj(isOverdue, cat, row.location_name),
+            html: emailHtml(L,
+              isOverdue ? L.inspection.titleOverdue : L.inspection.titleDue,
+              `<p style="color:#475569;font-size:14px;line-height:1.6;">
+                ${L.inspection.lead(cat, row.location_name)}
+                ${isOverdue
+                  ? L.inspection.wasDue(row.next_due_date)
+                  : L.inspection.isDue(row.next_due_date)}
+              </p>
+              ${row.title ? `<p style="color:#64748b;font-size:13px;font-style:italic;">${row.title}</p>` : ''}`,
+              L.ctaInspections, `${APP_URL}/inspections`),
+          };
+        };
         for (const uid of (row.admin_user_ids ?? [])) {
-          await deliverEmail(uid, subject, html);
+          await deliverEmail(uid, build);
         }
       }
     }

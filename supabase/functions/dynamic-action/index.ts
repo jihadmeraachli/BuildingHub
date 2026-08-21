@@ -32,7 +32,10 @@ const safeUrl = (v: unknown): string | null => {
 // ── Email primitives ─────────────────────────────────────────────────────────
 interface Attachment { filename: string; content: string; }
 
-async function sendEmail(to: string, subject: string, html: string, fromName?: string, attachments?: Attachment[]) {
+/** Returns null on success, or Resend's error text. The caller logs it — this
+ *  used to return nothing, so every send was logged as "sent" even when Resend
+ *  rejected it, and a bounced building looked identical to a delivered one. */
+async function sendEmail(to: string, subject: string, html: string, fromName?: string, attachments?: Attachment[]): Promise<string | null> {
   const from = fromName ? `"${fromName}" <${FROM_EMAIL}>` : FROM_EMAIL;
   const body: Record<string, unknown> = { from, to, subject, html };
   if (attachments?.length) body.attachments = attachments;
@@ -41,12 +44,24 @@ async function sendEmail(to: string, subject: string, html: string, fromName?: s
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) console.error('Resend error:', await res.text());
+  if (res.ok) return null;
+  const why = await res.text().catch(() => '');
+  console.error('Resend error:', why);
+  return why || `HTTP ${res.status}`;
 }
 
-function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-  <body style="margin:0;padding:0;background:#f5f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+// `Dict` is declared further down with the language packs; a type reference
+// hoists, and DICT/langOf are only read at request time, long after module init.
+function emailHtml(L: Dict, title: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
+  // Arabic needs the direction on the document AND on the body: Gmail strips
+  // <html> attributes, Outlook honours them, and between them only the inline
+  // style survives everywhere. Tahoma is the one Arabic face Outlook ships.
+  const rtl = L.dir === 'rtl';
+  const dirAttr = rtl ? ' dir="rtl"' : '';
+  const bodyDir = rtl ? 'direction:rtl;text-align:right;' : '';
+  const font = rtl ? "'Segoe UI',Tahoma,Arial,sans-serif" : "'Segoe UI',Arial,sans-serif";
+  return `<!DOCTYPE html><html${dirAttr}><head><meta charset="utf-8"></head>
+  <body style="margin:0;padding:0;background:#f5f6f8;font-family:${font};${bodyDir}">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;padding:40px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">
@@ -64,7 +79,7 @@ function emailHtml(title: string, bodyHtml: string, ctaLabel: string, ctaUrl: st
           </div>
         </td></tr>
         <tr><td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
-          <p style="margin:0;font-size:12px;color:#94a3b8;">You received this because you have notifications enabled in Abniyah.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">${L.footer}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -338,24 +353,49 @@ async function pushToUserIds(ids: string[], title: string, body?: string) {
   }
 }
 
-/** send the same email to a set of users, honoring their notify_email preference */
-async function emailToUserIds(ids: string[], subject: string, html: string, fromName?: string, attachments?: Attachment[]) {
-  // Same event, one alert per channel: everything that emails also pushes.
-  // The subject is already a complete, specific line ("Payment received"),
-  // and iOS shows the app name above it, so it works as the alert title.
-  void pushToUserIds(ids, subject);
+/** Email a set of users, each in their own language, honoring notify_email.
+ *
+ *  The caller hands over a BUILDER rather than a finished subject and body,
+ *  because one event now produces up to three different emails. Recipients are
+ *  grouped by preferred_language and the builder runs once per group — not once
+ *  per person, which would re-render the same HTML for every neighbour in a
+ *  200-unit compound. */
+async function emailToUserIds(
+  ids: string[],
+  build: (L: Dict) => { subject: string; html: string },
+  fromName?: string,
+  attachments?: Attachment[],
+) {
   const uniq = [...new Set(ids)];
   // Every outcome is logged. This used to discard sendEmail()'s error string,
   // so a Resend rejection, an opted-out recipient or an empty id list all
   // looked identical from the dashboard: a boot, a shutdown, and no email.
-  if (!uniq.length) { console.log(`[email] "${subject}" — no recipients`); return; }
-  const { data: profs } = await supabase.from('profiles').select('id, notify_email').in('id', uniq);
-  for (const p of (profs ?? []) as { id: string; notify_email: boolean }[]) {
-    if (!p.notify_email) { console.log(`[email] skip ${p.id} — notify_email off`); continue; }
-    const email = await getUserEmail(p.id);
-    if (!email) { console.log(`[email] skip ${p.id} — no auth email`); continue; }
-    const err = await sendEmail(email, subject, html, fromName, attachments);
-    console.log(err ? `[email] FAILED ${email}: ${err}` : `[email] sent ${email} — "${subject}"`);
+  if (!uniq.length) { console.log('[email] no recipients'); return; }
+  const { data: profs } = await supabase.from('profiles')
+    .select('id, notify_email, preferred_language').in('id', uniq);
+
+  const groups = new Map<Lang, { id: string; notify_email: boolean }[]>();
+  for (const p of (profs ?? []) as { id: string; notify_email: boolean; preferred_language: string | null }[]) {
+    const lang = langOf(p.preferred_language);
+    if (!groups.has(lang)) groups.set(lang, []);
+    groups.get(lang)!.push({ id: p.id, notify_email: p.notify_email });
+  }
+
+  for (const [lang, members] of groups) {
+    const { subject, html } = build(DICT[lang]);
+    // Same event, one alert per channel: everything that emails also pushes.
+    // The subject is already a complete, specific line ("Payment received"),
+    // and iOS shows the app name above it, so it works as the alert title —
+    // and now it reaches the phone in the same language as the email.
+    // Push honours notify_push separately, so it goes to the whole group.
+    void pushToUserIds(members.map((m) => m.id), subject);
+    for (const p of members) {
+      if (!p.notify_email) { console.log(`[email] skip ${p.id} — notify_email off`); continue; }
+      const email = await getUserEmail(p.id);
+      if (!email) { console.log(`[email] skip ${p.id} — no auth email`); continue; }
+      const err = await sendEmail(email, subject, html, fromName, attachments);
+      console.log(err ? `[email] FAILED ${email}: ${err}` : `[email] sent ${email} [${lang}] — "${subject}"`);
+    }
   }
 }
 
@@ -389,12 +429,369 @@ function generateIcs(uid: string, title: string, meeting_date: string, meeting_t
   ].filter(Boolean).join('\r\n');
 }
 
-const PRIORITY_LABEL: Record<string, string> = { low: 'Low', medium: 'Medium', urgent: '🔴 Urgent' };
-const CATEGORY_LABEL: Record<string, string> = {
-  water: 'Water', electricity: 'Electricity', common_expenses: 'Common Expenses',
-  projects: 'Projects', contracts: 'Contracts', fines: 'Fines', other: 'Other',
+// ── Language ─────────────────────────────────────────────────────────────────
+// Every email used to go out in English, including to the Arabic-only residents
+// this app was built for. Each person's profiles.preferred_language (0101 added
+// 'fr') now chooses the wording, the reading direction and the label maps.
+//
+// ENGLISH IS THE SOURCE OF TRUTH: `Dict` is inferred from EN, so the compiler
+// refuses an AR or FR pack that is missing a key. A translation can be wrong;
+// it can no longer be silently absent.
+//
+// TERMINOLOGY is lifted from src/i18n/{ar,fr}.json rather than translated
+// fresh, so an email says the same word the screen does — a French syndic
+// reads "lot" and "appel de fonds" in both places.
+//
+// ESCAPING, and this matters: `subj` builders take RAW text, because a subject
+// line is not HTML. Everything else is interpolated into HTML and takes values
+// the caller has ALREADY put through esc().
+type Lang = 'en' | 'ar' | 'fr';
+const langOf = (v: unknown): Lang => (v === 'ar' || v === 'fr' ? v : 'en');
+
+const EN = {
+  dir: 'ltr' as 'ltr' | 'rtl',
+  footer: 'You received this because you have notifications enabled in Abniyah.',
+  ctaAccount: 'View My Account',
+  ctaIssue: 'View Issue',
+  priority: { low: 'Low', medium: 'Medium', urgent: '🔴 Urgent' } as Record<string, string>,
+  category: {
+    water: 'Water', electricity: 'Electricity', common_expenses: 'Common Expenses',
+    projects: 'Projects', contracts: 'Contracts', fines: 'Fines', other: 'Other',
+  } as Record<string, string>,
+  method: { cash: 'Cash', bank_transfer: 'Bank transfer', cheque: 'Cheque', other: 'Other' } as Record<string, string>,
+  tenure: { owner: 'Owner', tenant: 'Tenant' } as Record<string, string>,
+  whish: (n: string) => `You can pay directly through <strong>Whish</strong> to <strong>${n}</strong>.`,
+
+  reg: {
+    subj: 'New resident registration awaiting approval',
+    title: 'New resident registration',
+    intro: 'A new resident has registered and is awaiting your approval.',
+    name: 'Name', apartment: 'Apartment', phone: 'Phone',
+    cta: 'Review Registration',
+  },
+  approved: {
+    subj: 'Your registration has been approved',
+    title: (name: string) => `Welcome, ${name}!`,
+    intro: (b: string) => `Your registration for <strong>${b}</strong> has been approved. You can now log in.`,
+    cta: 'Log In to Abniyah',
+  },
+  issue: {
+    subj: (t: string) => `New issue reported: ${t}`,
+    title: 'New issue reported',
+    intro: (b: string) => `A new issue has been logged in <strong>${b}</strong>.`,
+    rTitle: 'Title', rPriority: 'Priority', rLocation: 'Location',
+    rApartment: 'Apartment', rDescription: 'Description',
+  },
+  issueDone: {
+    subj: (t: string) => `Issue resolved: ${t}`,
+    title: 'Your issue has been resolved',
+    rNotes: 'Notes',
+  },
+  charge: {
+    subj: (d: string) => `New charge: ${d}`,
+    fallback: 'Charge',
+    title: 'New charge added',
+    intro: "A new charge has been added to your unit's account.",
+    rDescription: 'Description', rCategory: 'Category', rAmount: 'Amount',
+  },
+  paid: {
+    subj: 'Payment received',
+    title: 'Payment recorded',
+    intro: "We've recorded your payment. Thank you.",
+    rAmount: 'Amount', rPaidAs: 'Paid as', rMethod: 'Method', rDate: 'Date',
+  },
+  paidEdit: {
+    subj: 'Your payment was updated',
+    title: 'Payment updated',
+    intro: 'A payment on your account was updated.',
+    rNewAmount: 'New amount', rDate: 'Date',
+  },
+  paidGone: {
+    subj: 'A payment was removed',
+    title: 'Payment removed',
+    intro: (amt: string) => `A payment of <strong>${amt}</strong> was removed from your account.`,
+  },
+  transfer: {
+    rUnit: 'Unit', rAmount: 'Amount', rFormer: 'Former tenant',
+    ownerSubj: 'Balance transferred from former tenant',
+    ownerTitle: 'Balance transferred to the owner account',
+    ownerIntro: 'A former tenant moved out and their remaining balance was transferred to the owner account.',
+    tenantSubj: 'Your balance was transferred on move-out',
+    tenantTitle: 'Balance transferred to the unit owner',
+    tenantIntro: 'On move-out, your remaining balance on this unit was transferred to the owner account.',
+  },
+  dues: {
+    subj: (p: string, a: string) => `Dues for ${p}: ${a}`,
+    title: 'Dues issued',
+    intro: (p: string) => `Your dues for <strong>${p}</strong> are ready.`,
+    rFor: 'For', rAmountDue: 'Amount due', rDueDate: 'Due date',
+    editSubj: (p: string) => `Dues updated: ${p}`,
+    editTitle: 'Dues updated',
+    editIntro: (p: string) => `Your dues for <strong>${p}</strong> were updated.`,
+    rNewAmount: 'New amount',
+    goneSubj: (p: string) => `Dues removed: ${p}`,
+    goneTitle: 'Dues removed',
+    goneIntro: (p: string) => `Your dues for <strong>${p}</strong> were removed.`,
+  },
+  request: {
+    subj: (b: string, u: string) => `Payment requested: ${b}, unit ${u}`,
+    title: 'Payment requested',
+    fallback: 'Outstanding balance',
+    intro: (what: string, unit: string, amount: string) =>
+      `<strong>${what}</strong> — unit <strong>${unit}</strong> has <strong style="color:#dc2626;">${amount}</strong> to settle.`,
+    rAmount: 'Amount', rDueBy: 'Due by',
+  },
+  invite: {
+    subj: (u: string, b: string) => `Unit invitation: ${u} at ${b}`,
+    title: 'You have been invited to a unit',
+    intro: (who: string) => `${who} wants to link your account to a unit. Nothing happens until you accept.`,
+    defaultInviter: 'A building admin',
+    rUnit: 'Unit', rBuilding: 'Building', rAs: 'As',
+    hint: 'Sign in and accept or decline the invitation on your dashboard.',
+    cta: 'Review Invitation',
+  },
+  meeting: {
+    subj: (t: string) => `📅 Meeting invite: ${t}`,
+    title: (t: string) => `You're invited: ${t}`,
+    intro: (b: string) => `A meeting has been scheduled at <strong>${b}</strong>.`,
+    rDate: 'Date', rTime: 'Time', rOnline: 'Online', rNotes: 'Notes',
+    joinLink: 'Join link',
+    icsNote: '📎 A calendar invite (.ics) is attached.',
+    cta: 'View in Abniyah',
+  },
 };
-const METHOD_LABEL: Record<string, string> = { cash: 'Cash', bank_transfer: 'Bank transfer', cheque: 'Cheque', other: 'Other' };
+type Dict = typeof EN;
+
+const AR: Dict = {
+  dir: 'rtl',
+  footer: 'وصلتك هذه الرسالة لأن الإشعارات مفعّلة في حسابك على أبنية.',
+  ctaAccount: 'عرض حسابي',
+  ctaIssue: 'عرض المشكلة',
+  priority: { low: 'منخفضة', medium: 'متوسطة', urgent: '🔴 عاجلة' },
+  category: {
+    water: 'المياه', electricity: 'الكهرباء', common_expenses: 'المصاريف المشتركة',
+    projects: 'المشاريع', contracts: 'العقود', fines: 'الغرامات', other: 'أخرى',
+  },
+  method: { cash: 'نقداً', bank_transfer: 'تحويل بنكي', cheque: 'شيك', other: 'أخرى' },
+  tenure: { owner: 'مالك', tenant: 'مستأجر' },
+  whish: (n: string) => `يمكنك الدفع مباشرة عبر <strong>Whish</strong> إلى <strong>${n}</strong>.`,
+
+  reg: {
+    subj: 'تسجيل ساكن جديد بانتظار الموافقة',
+    title: 'تسجيل ساكن جديد',
+    intro: 'سجّل ساكن جديد وهو بانتظار موافقتك.',
+    name: 'الاسم', apartment: 'الشقة', phone: 'الهاتف',
+    cta: 'مراجعة التسجيل',
+  },
+  approved: {
+    subj: 'تمت الموافقة على تسجيلك',
+    title: (name: string) => `أهلاً بك، ${name}!`,
+    intro: (b: string) => `تمت الموافقة على تسجيلك في <strong>${b}</strong>. يمكنك الآن تسجيل الدخول.`,
+    cta: 'تسجيل الدخول إلى أبنية',
+  },
+  issue: {
+    subj: (t: string) => `مشكلة جديدة: ${t}`,
+    title: 'تم الإبلاغ عن مشكلة جديدة',
+    intro: (b: string) => `تم تسجيل مشكلة جديدة في <strong>${b}</strong>.`,
+    rTitle: 'العنوان', rPriority: 'الأولوية', rLocation: 'الموقع',
+    rApartment: 'الشقة', rDescription: 'الوصف',
+  },
+  issueDone: {
+    subj: (t: string) => `تم حل المشكلة: ${t}`,
+    title: 'تم حل المشكلة التي أبلغت عنها',
+    rNotes: 'ملاحظات',
+  },
+  charge: {
+    subj: (d: string) => `مصروف جديد: ${d}`,
+    fallback: 'مصروف',
+    title: 'تمت إضافة مصروف جديد',
+    intro: 'تمت إضافة مصروف جديد إلى حساب شقتك.',
+    rDescription: 'الوصف', rCategory: 'الفئة', rAmount: 'المبلغ',
+  },
+  paid: {
+    subj: 'تم استلام الدفعة',
+    title: 'تم تسجيل الدفعة',
+    intro: 'سجّلنا دفعتك. شكراً لك.',
+    rAmount: 'المبلغ', rPaidAs: 'دُفعت كـ', rMethod: 'الطريقة', rDate: 'التاريخ',
+  },
+  paidEdit: {
+    subj: 'تم تعديل دفعتك',
+    title: 'تم تعديل الدفعة',
+    intro: 'تم تعديل دفعة في حسابك.',
+    rNewAmount: 'المبلغ الجديد', rDate: 'التاريخ',
+  },
+  paidGone: {
+    subj: 'تم حذف دفعة',
+    title: 'تم حذف الدفعة',
+    intro: (amt: string) => `تم حذف دفعة بقيمة <strong>${amt}</strong> من حسابك.`,
+  },
+  transfer: {
+    rUnit: 'الشقة', rAmount: 'المبلغ', rFormer: 'المستأجر السابق',
+    ownerSubj: 'تم تحويل رصيد المستأجر السابق',
+    ownerTitle: 'تم تحويل الرصيد إلى حساب المالك',
+    ownerIntro: 'غادر مستأجر سابق وتم تحويل رصيده المتبقي إلى حساب المالك.',
+    tenantSubj: 'تم تحويل رصيدك عند المغادرة',
+    tenantTitle: 'تم تحويل الرصيد إلى مالك الشقة',
+    tenantIntro: 'عند المغادرة، تم تحويل رصيدك المتبقي على هذه الشقة إلى حساب المالك.',
+  },
+  dues: {
+    subj: (p: string, a: string) => `الموازنة المسبقة لـ ${p}: ${a}`,
+    title: 'صدرت الموازنة المسبقة',
+    intro: (p: string) => `موازنتك المسبقة لـ <strong>${p}</strong> جاهزة.`,
+    rFor: 'عن', rAmountDue: 'المبلغ المستحق', rDueDate: 'تاريخ الاستحقاق',
+    editSubj: (p: string) => `تم تعديل الموازنة: ${p}`,
+    editTitle: 'تم تعديل الموازنة المسبقة',
+    editIntro: (p: string) => `تم تعديل موازنتك المسبقة لـ <strong>${p}</strong>.`,
+    rNewAmount: 'المبلغ الجديد',
+    goneSubj: (p: string) => `تم حذف الموازنة: ${p}`,
+    goneTitle: 'تم حذف الموازنة المسبقة',
+    goneIntro: (p: string) => `تم حذف موازنتك المسبقة لـ <strong>${p}</strong>.`,
+  },
+  request: {
+    subj: (b: string, u: string) => `طلب دفع: ${b}، شقة ${u}`,
+    title: 'طلب دفع',
+    fallback: 'الرصيد المستحق',
+    intro: (what: string, unit: string, amount: string) =>
+      `<strong>${what}</strong> — على الشقة <strong>${unit}</strong> تسوية <strong style="color:#dc2626;">${amount}</strong>.`,
+    rAmount: 'المبلغ', rDueBy: 'الاستحقاق قبل',
+  },
+  invite: {
+    subj: (u: string, b: string) => `دعوة إلى شقة: ${u} في ${b}`,
+    title: 'تمت دعوتك إلى شقة',
+    intro: (who: string) => `وردت دعوة من ${who} لربط حسابك بشقة. لا يحدث شيء حتى توافق.`,
+    defaultInviter: 'إدارة المبنى',
+    rUnit: 'الشقة', rBuilding: 'المبنى', rAs: 'الصفة',
+    hint: 'سجّل الدخول ووافق على الدعوة أو ارفضها من لوحتك.',
+    cta: 'مراجعة الدعوة',
+  },
+  meeting: {
+    subj: (t: string) => `📅 دعوة اجتماع: ${t}`,
+    title: (t: string) => `أنت مدعو: ${t}`,
+    intro: (b: string) => `تم تحديد موعد اجتماع في <strong>${b}</strong>.`,
+    rDate: 'التاريخ', rTime: 'الوقت', rOnline: 'عبر الإنترنت', rNotes: 'ملاحظات',
+    joinLink: 'رابط الانضمام',
+    icsNote: '📎 مرفق دعوة تقويم (.ics).',
+    cta: 'عرض في أبنية',
+  },
+};
+
+// French typography: a no-break space ( ) before : ; ! ? — the same
+// convention src/i18n/fr.json already follows, so an email reads the way the
+// screens do instead of looking machine-translated.
+const FR: Dict = {
+  dir: 'ltr',
+  footer: 'Vous recevez ce message parce que les notifications sont activées dans votre compte Abniyah.',
+  ctaAccount: 'Voir mon compte',
+  ctaIssue: "Voir l'incident",
+  priority: { low: 'Basse', medium: 'Moyenne', urgent: '🔴 Urgente' },
+  category: {
+    water: 'Eau', electricity: 'Électricité', common_expenses: 'Charges communes',
+    projects: 'Travaux', contracts: 'Contrats', fines: 'Amendes', other: 'Autre',
+  },
+  method: { cash: 'Espèces', bank_transfer: 'Virement bancaire', cheque: 'Chèque', other: 'Autre' },
+  tenure: { owner: 'Propriétaire', tenant: 'Locataire' },
+  whish: (n: string) => `Vous pouvez régler directement via <strong>Whish</strong> au <strong>${n}</strong>.`,
+
+  reg: {
+    subj: "Nouvelle inscription de résident en attente d'approbation",
+    title: 'Nouvelle inscription de résident',
+    intro: "Un nouveau résident s'est inscrit et attend votre approbation.",
+    name: 'Nom', apartment: 'Lot', phone: 'Téléphone',
+    cta: "Examiner l'inscription",
+  },
+  approved: {
+    subj: 'Votre inscription a été approuvée',
+    title: (name: string) => `Bienvenue, ${name} !`,
+    intro: (b: string) => `Votre inscription à <strong>${b}</strong> a été approuvée. Vous pouvez maintenant vous connecter.`,
+    cta: 'Se connecter à Abniyah',
+  },
+  issue: {
+    subj: (t: string) => `Nouvel incident signalé : ${t}`,
+    title: 'Nouvel incident signalé',
+    intro: (b: string) => `Un nouvel incident a été enregistré à <strong>${b}</strong>.`,
+    rTitle: 'Objet', rPriority: 'Priorité', rLocation: 'Emplacement',
+    rApartment: 'Lot', rDescription: 'Description',
+  },
+  issueDone: {
+    subj: (t: string) => `Incident résolu : ${t}`,
+    title: 'Votre incident a été résolu',
+    rNotes: 'Notes',
+  },
+  charge: {
+    subj: (d: string) => `Nouvelle charge : ${d}`,
+    fallback: 'Charge',
+    title: 'Nouvelle charge ajoutée',
+    intro: 'Une nouvelle charge a été ajoutée au compte de votre lot.',
+    rDescription: 'Description', rCategory: 'Catégorie', rAmount: 'Montant',
+  },
+  paid: {
+    subj: 'Paiement reçu',
+    title: 'Paiement enregistré',
+    intro: 'Nous avons enregistré votre paiement. Merci.',
+    rAmount: 'Montant', rPaidAs: 'Réglé en', rMethod: 'Mode de règlement', rDate: 'Date',
+  },
+  paidEdit: {
+    subj: 'Votre paiement a été modifié',
+    title: 'Paiement modifié',
+    intro: 'Un paiement sur votre compte a été modifié.',
+    rNewAmount: 'Nouveau montant', rDate: 'Date',
+  },
+  paidGone: {
+    subj: 'Un paiement a été supprimé',
+    title: 'Paiement supprimé',
+    intro: (amt: string) => `Un paiement de <strong>${amt}</strong> a été supprimé de votre compte.`,
+  },
+  transfer: {
+    rUnit: 'Lot', rAmount: 'Montant', rFormer: 'Ancien locataire',
+    ownerSubj: "Solde transféré depuis l'ancien locataire",
+    ownerTitle: 'Solde transféré au compte du propriétaire',
+    ownerIntro: "Un ancien locataire a quitté le lot et son solde restant a été transféré au compte du propriétaire.",
+    tenantSubj: 'Votre solde a été transféré à votre départ',
+    tenantTitle: 'Solde transféré au propriétaire du lot',
+    tenantIntro: 'À votre départ, votre solde restant sur ce lot a été transféré au compte du propriétaire.',
+  },
+  dues: {
+    subj: (p: string, a: string) => `Appel de fonds pour ${p} : ${a}`,
+    title: 'Appel de fonds émis',
+    intro: (p: string) => `Votre appel de fonds pour <strong>${p}</strong> est prêt.`,
+    rFor: 'Objet', rAmountDue: 'Montant dû', rDueDate: "Date d'échéance",
+    editSubj: (p: string) => `Appel de fonds modifié : ${p}`,
+    editTitle: 'Appel de fonds modifié',
+    editIntro: (p: string) => `Votre appel de fonds pour <strong>${p}</strong> a été modifié.`,
+    rNewAmount: 'Nouveau montant',
+    goneSubj: (p: string) => `Appel de fonds supprimé : ${p}`,
+    goneTitle: 'Appel de fonds supprimé',
+    goneIntro: (p: string) => `Votre appel de fonds pour <strong>${p}</strong> a été supprimé.`,
+  },
+  request: {
+    subj: (b: string, u: string) => `Demande de paiement : ${b}, lot ${u}`,
+    title: 'Demande de paiement',
+    fallback: 'Solde à régler',
+    intro: (what: string, unit: string, amount: string) =>
+      `<strong>${what}</strong> — le lot <strong>${unit}</strong> a <strong style="color:#dc2626;">${amount}</strong> à régler.`,
+    rAmount: 'Montant', rDueBy: 'À régler avant le',
+  },
+  invite: {
+    subj: (u: string, b: string) => `Invitation à un lot : ${u} à ${b}`,
+    title: 'Vous avez été invité à un lot',
+    intro: (who: string) => `${who} souhaite associer votre compte à un lot. Rien ne se passe tant que vous n'avez pas accepté.`,
+    defaultInviter: "La gestion de l'immeuble",
+    rUnit: 'Lot', rBuilding: 'Immeuble', rAs: 'En tant que',
+    hint: "Connectez-vous et acceptez ou refusez l'invitation depuis votre tableau de bord.",
+    cta: "Examiner l'invitation",
+  },
+  meeting: {
+    subj: (t: string) => `📅 Convocation à une réunion : ${t}`,
+    title: (t: string) => `Vous êtes invité : ${t}`,
+    intro: (b: string) => `Une réunion a été programmée à <strong>${b}</strong>.`,
+    rDate: 'Date', rTime: 'Heure', rOnline: 'En ligne', rNotes: 'Notes',
+    joinLink: 'Lien de connexion',
+    icsNote: '📎 Une invitation calendrier (.ics) est jointe.',
+    cta: 'Voir dans Abniyah',
+  },
+};
+
+const DICT: Record<Lang, Dict> = { en: EN, ar: AR, fr: FR };
 
 // ── Main handler (Supabase Database Webhook payloads) ─────────────────────────
 Deno.serve(async (req) => {
@@ -413,45 +810,50 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       await emailToUserIds(
         await buildingAdminIds(record.building_id),
-        'New resident registration awaiting approval',
-        emailHtml('New resident registration',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;">A new resident has registered and is awaiting your approval.</p>
-           ${table(row('Name', esc(record.full_name)) + row('Apartment', esc(record.apartment_number ?? '—')) + row('Phone', esc(record.phone ?? '—')))}`,
-          'Review Registration', `${APP_URL}/users`),
+        (L) => ({
+          subject: L.reg.subj,
+          html: emailHtml(L, L.reg.title,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.reg.intro}</p>
+             ${table(row(L.reg.name, esc(record.full_name)) + row(L.reg.apartment, esc(record.apartment_number ?? '—')) + row(L.reg.phone, esc(record.phone ?? '—')))}`,
+            L.reg.cta, `${APP_URL}/users`),
+        }),
         b?.name ?? 'Abniyah');
     }
 
     // 2. Resident approved → the resident
     if (tbl === 'profiles' && type === 'UPDATE' && old_record?.status === 'pending' && record.status === 'active') {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds([record.id], 'Your registration has been approved',
-        emailHtml(`Welcome, ${esc(record.full_name)}!`,
-          `<p style="color:#475569;font-size:14px;line-height:1.6;">Your registration for <strong>${esc(b?.name ?? 'your building')}</strong> has been approved. You can now log in.</p>`,
-          'Log In to Abniyah', `${APP_URL}/`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds([record.id], (L) => ({
+        subject: L.approved.subj,
+        html: emailHtml(L, L.approved.title(esc(record.full_name)),
+          `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.approved.intro(esc(b?.name ?? '—'))}</p>`,
+          L.approved.cta, `${APP_URL}/`),
+      }), b?.name ?? 'Abniyah');
     }
 
     // 3. New issue → admins (excluding reporter)
     if (tbl === 'issues' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
       const admins = (await buildingAdminIds(record.building_id)).filter((id) => id !== record.reported_by);
-      await emailToUserIds(admins, `New issue reported: ${record.title}`,
-        emailHtml('New issue reported',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new issue has been logged in <strong>${esc(b?.name ?? 'your building')}</strong>.</p>
-           ${table(row('Title', esc(record.title)) + row('Priority', esc(PRIORITY_LABEL[record.priority] ?? record.priority)) + row('Location', esc(record.location ?? '—')) + (record.apartment_number ? row('Apartment', esc(record.apartment_number)) : '') + row('Description', esc(record.description ?? '—')))}`,
-          'View Issue', `${APP_URL}/issues`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds(admins, (L) => ({
+        subject: L.issue.subj(record.title),
+        html: emailHtml(L, L.issue.title,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.issue.intro(esc(b?.name ?? '—'))}</p>
+           ${table(row(L.issue.rTitle, esc(record.title)) + row(L.issue.rPriority, esc(L.priority[record.priority] ?? record.priority)) + row(L.issue.rLocation, esc(record.location ?? '—')) + (record.apartment_number ? row(L.issue.rApartment, esc(record.apartment_number)) : '') + row(L.issue.rDescription, esc(record.description ?? '—')))}`,
+          L.ctaIssue, `${APP_URL}/issues`),
+      }), b?.name ?? 'Abniyah');
     }
 
     // 3b. Issue resolved → reporter
     if (tbl === 'issues' && type === 'UPDATE' && old_record?.status !== 'resolved' && record.status === 'resolved') {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds([record.reported_by], `Issue resolved: ${record.title}`,
-        emailHtml('Your issue has been resolved',
+      await emailToUserIds([record.reported_by], (L) => ({
+        subject: L.issueDone.subj(record.title),
+        html: emailHtml(L, L.issueDone.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;">${esc(record.title)}</p>
-           ${record.resolution_notes ? table(row('Notes', esc(record.resolution_notes))) : ''}`,
-          'View Issue', `${APP_URL}/issues`),
-        b?.name ?? 'Abniyah');
+           ${record.resolution_notes ? table(row(L.issueDone.rNotes, esc(record.resolution_notes))) : ''}`,
+          L.ctaIssue, `${APP_URL}/issues`),
+      }), b?.name ?? 'Abniyah');
     }
 
     // 4. New charge (v3 finance) → the BILLED party only (owner or tenant)
@@ -459,13 +861,14 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       // legacy billed_to='both' means owner; only 'tenant' routes to the tenant.
       const chargeRecipients = await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
-      await emailToUserIds(chargeRecipients, `New charge: ${record.description || 'Charge'}`,
-        emailHtml('New charge added',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A new charge has been added to your unit's account.</p>
-           ${table(row('Description', esc(record.description || '—')) + row('Category', esc(CATEGORY_LABEL[record.category] ?? record.category)) + row('Amount', money(record.amount_usd)))}
-           ${b?.whish_number ? `<p style="color:#475569;font-size:14px;line-height:1.6;margin:12px 0 0;">You can pay directly through <strong>Whish</strong> to <strong>${esc(b.whish_number)}</strong>.</p>` : ''}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds(chargeRecipients, (L) => ({
+        subject: L.charge.subj(record.description || L.charge.fallback),
+        html: emailHtml(L, L.charge.title,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.charge.intro}</p>
+           ${table(row(L.charge.rDescription, esc(record.description || '—')) + row(L.charge.rCategory, esc(L.category[record.category] ?? record.category)) + row(L.charge.rAmount, money(record.amount_usd)))}
+           ${b?.whish_number ? `<p style="color:#475569;font-size:14px;line-height:1.6;margin:12px 0 0;">${L.whish(esc(b.whish_number))}</p>` : ''}`,
+          L.ctaAccount, `${APP_URL}/finance`),
+      }), b?.name ?? 'Abniyah');
       const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(chargeRecipients, 'abniyah_new_charge',
         (name, lang) => {
@@ -478,12 +881,13 @@ Deno.serve(async (req) => {
     if (tbl === 'payments' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
       const payRecipients = await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
-      await emailToUserIds(payRecipients, 'Payment received',
-        emailHtml('Payment recorded',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">We've recorded your payment. Thank you.</p>
-           ${table(row('Amount', money(record.amount_usd)) + (lbpNote(record) ? row('Paid as', esc(lbpNote(record)!)) : '') + row('Method', esc(METHOD_LABEL[record.method] ?? record.method)) + row('Date', esc(record.paid_on)))}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds(payRecipients, (L) => ({
+        subject: L.paid.subj,
+        html: emailHtml(L, L.paid.title,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.paid.intro}</p>
+           ${table(row(L.paid.rAmount, money(record.amount_usd)) + (lbpNote(record) ? row(L.paid.rPaidAs, esc(lbpNote(record)!)) : '') + row(L.paid.rMethod, esc(L.method[record.method] ?? record.method)) + row(L.paid.rDate, esc(record.paid_on)))}`,
+          L.ctaAccount, `${APP_URL}/finance`),
+      }), b?.name ?? 'Abniyah');
       const { data: payUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(payRecipients, 'abniyah_payment_received',
         (name) => [name, money(record.amount_usd), payUnit?.label ?? '—', b?.name ?? '—']);
@@ -492,22 +896,28 @@ Deno.serve(async (req) => {
     // 5b. Payment edited (amount changed) → the paying party only
     if (tbl === 'payments' && type === 'UPDATE' && record.amount_usd !== old_record?.amount_usd) {
       const b = await getBuilding(record.building_id);
-      await emailToUserIds(await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id), 'Your payment was updated',
-        emailHtml('Payment updated',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment on your account was updated.</p>
-           ${table(row('New amount', money(record.amount_usd)) + row('Date', record.paid_on))}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds(
+        await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
+        (L) => ({
+          subject: L.paidEdit.subj,
+          html: emailHtml(L, L.paidEdit.title,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.paidEdit.intro}</p>
+             ${table(row(L.paidEdit.rNewAmount, money(record.amount_usd)) + row(L.paidEdit.rDate, esc(record.paid_on)))}`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        }), b?.name ?? 'Abniyah');
     }
 
     // 5c. Payment removed → the paying party only  (DELETE payloads carry old_record)
     if (tbl === 'payments' && type === 'DELETE' && old_record) {
       const b = await getBuilding(old_record.building_id);
-      await emailToUserIds(await unitPartyIds(old_record.unit_id, old_record.paid_by === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id), 'A payment was removed',
-        emailHtml('Payment removed',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A payment of <strong>${money(old_record.amount_usd)}</strong> was removed from your account.</p>`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds(
+        await unitPartyIds(old_record.unit_id, old_record.paid_by === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
+        (L) => ({
+          subject: L.paidGone.subj,
+          html: emailHtml(L, L.paidGone.title,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.paidGone.intro(money(old_record.amount_usd))}</p>`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        }), b?.name ?? 'Abniyah');
     }
 
     // 5c-ii. Move-out offload (transfer) → BOTH the owner and the former tenant.
@@ -520,18 +930,23 @@ Deno.serve(async (req) => {
         && (record.kind === 'transfer_in' || record.kind === 'transfer_out') && record.party === 'tenant') {
       const b = await getBuilding(record.building_id);
       const { data: adjUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
-      const detail = table(row('Unit', esc(adjUnit?.label ?? '—')) + row('Amount', money(record.amount_usd)) + (record.counterparty_name ? row('Former tenant', esc(record.counterparty_name)) : ''));
-      await emailToUserIds(await unitPartyIds(record.unit_id, 'owner'), 'Balance transferred from former tenant',
-        emailHtml('Balance transferred to the owner account',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A former tenant moved out and their remaining balance was transferred to the owner account.</p>${detail}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+      const detail = (L: Dict) => table(
+        row(L.transfer.rUnit, esc(adjUnit?.label ?? '—')) +
+        row(L.transfer.rAmount, money(record.amount_usd)) +
+        (record.counterparty_name ? row(L.transfer.rFormer, esc(record.counterparty_name)) : ''));
+      await emailToUserIds(await unitPartyIds(record.unit_id, 'owner'), (L) => ({
+        subject: L.transfer.ownerSubj,
+        html: emailHtml(L, L.transfer.ownerTitle,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.transfer.ownerIntro}</p>${detail(L)}`,
+          L.ctaAccount, `${APP_URL}/finance`),
+      }), b?.name ?? 'Abniyah');
       if (record.tenant_id) {
-        await emailToUserIds([record.tenant_id], 'Your balance was transferred on move-out',
-          emailHtml('Balance transferred to the unit owner',
-            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">On move-out, your remaining balance on this unit was transferred to the owner account.</p>${detail}`,
-            'View My Account', `${APP_URL}/finance`),
-          b?.name ?? 'Abniyah');
+        await emailToUserIds([record.tenant_id], (L) => ({
+          subject: L.transfer.tenantSubj,
+          html: emailHtml(L, L.transfer.tenantTitle,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.transfer.tenantIntro}</p>${detail(L)}`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        }), b?.name ?? 'Abniyah');
       }
     }
 
@@ -545,15 +960,16 @@ Deno.serve(async (req) => {
       const duesParty = record.billed_to === 'tenant' ? 'tenant' : 'owner';
       const duesTo = await unitPartyIds(record.unit_id, duesParty, record.tenant_id);
       const what = record.kind === 'off_budget' && record.label ? esc(record.label) : null;
-      await emailToUserIds(duesTo, `Dues for ${record.period_label}: ${money(record.amount_due)}`,
-        emailHtml('Dues issued',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> are ready.</p>
+      await emailToUserIds(duesTo, (L) => ({
+        subject: L.dues.subj(record.period_label, money(record.amount_due)),
+        html: emailHtml(L, L.dues.title,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.dues.intro(esc(record.period_label))}</p>
            ${table(
-             (what ? row('For', what) : '') +
-             row('Amount due', money(record.amount_due)) +
-             (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+             (what ? row(L.dues.rFor, what) : '') +
+             row(L.dues.rAmountDue, money(record.amount_due)) +
+             (record.due_date ? row(L.dues.rDueDate, esc(record.due_date)) : ''))}`,
+          L.ctaAccount, `${APP_URL}/finance`),
+      }), b?.name ?? 'Abniyah');
       const { data: duesUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(duesTo, 'abniyah_dues_issued',
         (name, lang) => {
@@ -567,12 +983,13 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       await emailToUserIds(
         await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
-        `Dues updated: ${record.period_label}`,
-        emailHtml('Dues updated',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(record.period_label)}</strong> were updated.</p>
-           ${table(row('New amount', money(record.amount_due)) + (record.due_date ? row('Due date', esc(record.due_date)) : ''))}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+        (L) => ({
+          subject: L.dues.editSubj(record.period_label),
+          html: emailHtml(L, L.dues.editTitle,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.dues.editIntro(esc(record.period_label))}</p>
+             ${table(row(L.dues.rNewAmount, money(record.amount_due)) + (record.due_date ? row(L.dues.rDueDate, esc(record.due_date)) : ''))}`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        }), b?.name ?? 'Abniyah');
     }
 
     // 5f. Dues removed → the billed party only
@@ -580,11 +997,12 @@ Deno.serve(async (req) => {
       const b = await getBuilding(old_record.building_id);
       await emailToUserIds(
         await unitPartyIds(old_record.unit_id, old_record.billed_to === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
-        `Dues removed: ${old_record.period_label}`,
-        emailHtml('Dues removed',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">Your dues for <strong>${esc(old_record.period_label)}</strong> were removed.</p>`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+        (L) => ({
+          subject: L.dues.goneSubj(old_record.period_label),
+          html: emailHtml(L, L.dues.goneTitle,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.dues.goneIntro(esc(old_record.period_label))}</p>`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        }), b?.name ?? 'Abniyah');
     }
 
     // 5f-ii. Payment request issued (0076/0077) → the billed party only.
@@ -603,15 +1021,19 @@ Deno.serve(async (req) => {
       const party = effParty === 'tenant' ? 'tenant' : 'owner';
       const to = await unitPartyIds(record.unit_id, party, record.tenant_id);
       const amount = money(record.amount_requested);
-      const what = pr?.label ? esc(pr.label) : 'Outstanding balance';
-      await emailToUserIds(to, `Payment requested: ${b?.name ?? 'Abniyah'}, unit ${prUnit?.label ?? ''}`,
-        emailHtml('Payment requested',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">
-             <strong>${what}</strong> — unit <strong>${esc(prUnit?.label ?? '')}</strong> has
-             <strong style="color:#dc2626;">${amount}</strong> to settle.</p>
-           ${table(row('Amount', amount) + (pr?.due_date ? row('Due by', esc(pr.due_date)) : ''))}`,
-          'View My Account', `${APP_URL}/finance`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds(to, (L) => {
+        // the request's own label when it has one, else the generic phrase in
+        // the reader's language — an untranslated fallback was the giveaway
+        const what = pr?.label ? esc(pr.label) : L.request.fallback;
+        return {
+          subject: L.request.subj(b?.name ?? 'Abniyah', prUnit?.label ?? ''),
+          html: emailHtml(L, L.request.title,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">
+               ${L.request.intro(what, esc(prUnit?.label ?? ''), amount)}</p>
+             ${table(row(L.request.rAmount, amount) + (pr?.due_date ? row(L.request.rDueBy, esc(pr.due_date)) : ''))}`,
+            L.ctaAccount, `${APP_URL}/finance`),
+        };
+      }, b?.name ?? 'Abniyah');
       await whatsappToUserIds(to, 'abniyah_payment_reminder',
         (name, lang) => {
           const base = [name, amount, prUnit?.label ?? '—', b?.name ?? '—'];
@@ -627,13 +1049,14 @@ Deno.serve(async (req) => {
       const { data: inviter } = record.invited_by
         ? await supabase.from('profiles').select('full_name').eq('id', record.invited_by).single()
         : { data: null };
-      await emailToUserIds([record.user_id], `Unit invitation: ${unit?.label ?? ''} at ${b?.name ?? 'a building'}`,
-        emailHtml('You have been invited to a unit',
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${esc(inviter?.full_name ?? 'A building admin')} wants to link your account to a unit. Nothing happens until you accept.</p>
-           ${table(row('Unit', esc(unit?.label ?? '—')) + row('Building', esc(b?.name ?? '—')) + row('As', esc(record.tenure)))}
-           <p style="color:#64748b;font-size:13px;margin-top:16px;">Sign in and accept or decline the invitation on your dashboard.</p>`,
-          'Review Invitation', `${APP_URL}/dashboard`),
-        b?.name ?? 'Abniyah');
+      await emailToUserIds([record.user_id], (L) => ({
+        subject: L.invite.subj(unit?.label ?? '', b?.name ?? '—'),
+        html: emailHtml(L, L.invite.title,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.invite.intro(esc(inviter?.full_name ?? L.invite.defaultInviter))}</p>
+           ${table(row(L.invite.rUnit, esc(unit?.label ?? '—')) + row(L.invite.rBuilding, esc(b?.name ?? '—')) + row(L.invite.rAs, esc(L.tenure[record.tenure] ?? record.tenure)))}
+           <p style="color:#64748b;font-size:13px;margin-top:16px;">${L.invite.hint}</p>`,
+          L.invite.cta, `${APP_URL}/dashboard`),
+      }), b?.name ?? 'Abniyah');
       await whatsappToUserIds([record.user_id], 'abniyah_unit_invite',
         (name) => [name, inviter?.full_name ?? 'A building admin', unit?.label ?? '—', b?.name ?? '—']);
     }
@@ -643,14 +1066,17 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       const ics = b ? generateIcs(record.id, record.title, record.meeting_date, record.meeting_time ?? null, record.summary ?? '', b) : null;
       const meetingHref = safeUrl(record.meeting_url);
-      const joinRow = meetingHref ? row('Online', `<a href="${esc(meetingHref)}">Join link</a>`) : '';
-      await emailToUserIds(await buildingResidentIds(record.building_id), `📅 Meeting invite: ${record.title}`,
-        emailHtml(`You're invited: ${esc(record.title)}`,
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">A meeting has been scheduled at <strong>${esc(b?.name ?? 'your building')}</strong>.</p>
-           ${table(row('Date', esc(record.meeting_date)) + (record.meeting_time ? row('Time', esc(record.meeting_time.slice(0, 5))) : '') + joinRow + (record.summary ? row('Notes', esc(record.summary)) : ''))}
-           <p style="color:#64748b;font-size:13px;margin-top:16px;">📎 A calendar invite (.ics) is attached.</p>`,
-          'View in Abniyah', `${APP_URL}/meetings`),
-        b?.name ?? 'Abniyah',
+      await emailToUserIds(await buildingResidentIds(record.building_id), (L) => {
+        const joinRow = meetingHref ? row(L.meeting.rOnline, `<a href="${esc(meetingHref)}">${L.meeting.joinLink}</a>`) : '';
+        return {
+          subject: L.meeting.subj(record.title),
+          html: emailHtml(L, L.meeting.title(esc(record.title)),
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.meeting.intro(esc(b?.name ?? '—'))}</p>
+             ${table(row(L.meeting.rDate, esc(record.meeting_date)) + (record.meeting_time ? row(L.meeting.rTime, esc(record.meeting_time.slice(0, 5))) : '') + joinRow + (record.summary ? row(L.meeting.rNotes, esc(record.summary)) : ''))}
+             <p style="color:#64748b;font-size:13px;margin-top:16px;">${L.meeting.icsNote}</p>`,
+            L.meeting.cta, `${APP_URL}/meetings`),
+        };
+      }, b?.name ?? 'Abniyah',
         ics ? [{ filename: 'meeting-invite.ics', content: toBase64(ics) }] : undefined);
     }
 

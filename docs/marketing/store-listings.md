@@ -632,14 +632,16 @@ was checked for the English blocks (custom report, metering, dual USD/LBP,
 sub-ledgers, meetings, inspections, contacts, Face ID, iOS push, 2FA, Excel
 import, pricing) applies identically to French, since it is the same product.
 
-**One claim deliberately dropped from French, and worth Jey's attention.** The
-English blocks above say notifications "arrive in" each person's language.
-HANDOFF §8 says French email templates in `dynamic-action` and
-`send-reminders` still fall back to English ("French (0101)... Still to do:
-French email templates..."). A French-speaking reader is exactly the person
-who would notice a payment reminder arriving in English. Both French sections
-above say the screens and the language switch are French; neither claims the
-email reminders are. The English App Store and Play blocks still make that
-claim for all three languages, which is not true for French readers today
-(worth a one-line fix there once the French templates ship, so the English
-copy is not quietly overclaiming for a third of the app's own languages).
+**A claim that was dropped from French, and has since become true again.**
+When these blocks were written, French email templates in `dynamic-action` and
+`send-reminders` still fell back to English, so both French sections above
+claimed only that the screens and the language switch are French, never that
+the emails were. That gap is now closed: every email either function sends is
+built from a per-language pack and picks the wording from the recipient's own
+`preferred_language`, Arabic included (which had the same gap and nobody had
+noticed). Arabic emails render right-to-left, and dates follow the reader's
+locale.
+
+The French copy above still does not mention notification language. That is a
+safe understatement rather than an error, so it can stay as written — but if
+these blocks are ever revised, the claim is now available to make.
