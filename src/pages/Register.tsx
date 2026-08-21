@@ -5,15 +5,14 @@ import { supabase } from '@/lib/supabase';
 import { LICENSE_CAPS } from '@/lib/licenseCaps';
 import { monthlyPriceCents, effectivePerUnitCents, fmtPerUnit, ANNUAL_MONTHS_CHARGED } from '@/lib/pricing';
 import { useAuth } from '@/contexts/AuthContext';
-import { setLanguage } from '@/i18n';
-import { nextLanguage } from '@/lib/languages';
+import { LanguagePicker } from '@/components/ui/LanguagePicker';
 import { Input } from '@/components/ui/Input';
 import { CitySelect } from '@/components/ui/CitySelect';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { cn } from '@/lib/utils';
-import { Building2, Layers, Network, Check, ChevronLeft, MailCheck, Loader2, Globe } from 'lucide-react';
+import { Building2, Layers, Network, Check, ChevronLeft, MailCheck, Loader2 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,7 +107,7 @@ function Steps({ current, labels }: { current: number; labels: string[] }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function Register() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
   const [step, setStep] = useState(0); // 0=role, 1=account, 2=entity, 3=pricing
@@ -453,16 +452,7 @@ export default function Register() {
     step === 3 ? t('register.startTrial') :
     null;
 
-  const langToggle = (
-    <button
-      type="button"
-      onClick={() => setLanguage(nextLanguage(i18n.language).code)}
-      className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-    >
-      <Globe size={14} />
-      {nextLanguage(i18n.language).short}
-    </button>
-  );
+  const langToggle = <LanguagePicker />;
 
   // Post-confirmation finalize in progress — full-screen spinner.
   if (finalizing) {

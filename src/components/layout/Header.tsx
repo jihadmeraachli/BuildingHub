@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Menu, Bell, Globe } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { setLanguage } from '@/i18n';
-import { nextLanguage } from '@/lib/languages';
+import { LanguagePicker } from '@/components/ui/LanguagePicker';
+import type { Language } from '@/lib/languages';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,7 +18,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
 
   const [notifs, setNotifs] = useState<Notification[]>([]);
@@ -46,11 +46,9 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   }
 
-  function toggleLang() {
-    const next = nextLanguage(i18n.language).code;
-    setLanguage(next);
-    // The toggle IS a preference (0060): remember it on the profile so every
-    // device and every notification follows it.
+  // Picking a language IS a preference (0060): remember it on the profile so
+  // every device and every notification follows it.
+  function onLanguagePicked(next: Language) {
     if (user) supabase.from('profiles').update({ preferred_language: next }).eq('id', user.id).then(() => {});
   }
 
@@ -73,16 +71,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* AI help assistant */}
         <HelpWidget />
 
-        {/* Language toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={toggleLang}
-          className="gap-1.5 text-muted-foreground text-xs font-medium"
-        >
-          <Globe size={15} />
-          {nextLanguage(i18n.language).short}
-        </Button>
+        {/* Language */}
+        <LanguagePicker onChange={onLanguagePicked} className="px-2 py-1.5 text-xs" />
 
         {/* Notifications */}
         <Popover open={notifOpen} onOpenChange={onNotifOpen}>

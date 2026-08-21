@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Globe, Check, ArrowUp,
+  BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Check, ArrowUp,
 } from 'lucide-react';
-import { setLanguage } from '@/i18n';
-import { nextLanguage } from '@/lib/languages';
+import { LanguagePicker } from '@/components/ui/LanguagePicker';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { PRICING_BANDS, asLowAsPerUnitCents, fmtMonthly, fmtPerUnit } from '@/lib/pricing';
@@ -115,14 +114,7 @@ export default function Landing() {
             ))}
           </nav>
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setLanguage(nextLanguage(i18n.language).code)}
-              className="flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white cursor-pointer"
-            >
-              <Globe size={15} />
-              {nextLanguage(i18n.language).short}
-            </button>
+            <LanguagePicker variant="dark" />
             <a
               href="https://app.abniyah.com"
               className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-sm font-semibold transition-colors"
