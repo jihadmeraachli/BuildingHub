@@ -339,7 +339,15 @@ export default function Landing() {
           <span className="flex items-center gap-4 text-xs text-white/60">
             <a className="hover:text-white transition-colors" href="/privacy">{t('landing.privacy')}</a>
             <a className="hover:text-white transition-colors" href="/terms">{t('landing.terms')}</a>
+            <a className="hover:text-white transition-colors" href="/credits">{t('landing.credits')}</a>
           </span>
+        </div>
+        {/* GeoNames is CC BY 4.0: free to use, but attribution is a licence
+            CONDITION, not a courtesy. The place list ships inside the product,
+            so the credit has to be visible to a user, not only in a source
+            comment. Full text on /credits. */}
+        <div className="max-w-5xl mx-auto px-6 pb-8 -mt-3">
+          <p className="text-[11px] text-white/35">{t('landing.attribution')}</p>
         </div>
       </footer>
     </div>

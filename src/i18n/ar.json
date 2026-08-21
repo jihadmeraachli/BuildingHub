@@ -487,7 +487,9 @@
     "pricingAsLowAs": "أي ما يعادل {{rate}} للوحدة شهرياً كحد أدنى",
     "pricingAnnual": "أو ادفع سنوياً واحصل على ١٢ شهراً بسعر ١٠.",
     "pricingTalk": "لنتحدّث",
-    "pricingTalkSub": "فوق ٥٠٠ وحدة نضع السعر معك، لا من جدول. راسلنا على support@abniyah.com."
+    "pricingTalkSub": "فوق ٥٠٠ وحدة نضع السعر معك، لا من جدول. راسلنا على support@abniyah.com.",
+    "credits": "شكر وتراخيص",
+    "attribution": "بيانات الأماكن اللبنانية من GeoNames، بموجب رخصة CC BY 4.0."
   },
   "noLicense": {
     "almostThere": "اقتربنا",

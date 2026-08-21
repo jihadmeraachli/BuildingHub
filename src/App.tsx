@@ -10,7 +10,7 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import Landing from '@/pages/Landing';
-import { Privacy, Terms } from '@/pages/Legal';
+import { Privacy, Terms, Credits } from '@/pages/Legal';
 
 // The ROOT domain serves the public pages (no beta gate, no auth) — the app
 // lives on app.abniyah.com. Same build, same deploy; the hostname decides.
@@ -53,6 +53,7 @@ export default function App() {
     // Legal pages stay public — App Store review and external policies link here.
     if (path.startsWith('/privacy')) return <Privacy />;
     if (path.startsWith('/terms')) return <Terms />;
+    if (path.startsWith('/credits')) return <Credits />;
     // Stealth: the marketing page sits behind the same beta gate as the app
     // (per-origin localStorage, so testers enter their code once per domain).
     return <BetaGate><Landing /></BetaGate>;

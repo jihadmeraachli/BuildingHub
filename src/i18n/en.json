@@ -487,7 +487,9 @@
     "pricingAsLowAs": "as low as {{rate}} per unit per month",
     "pricingAnnual": "Or pay yearly and get 12 months for the price of 10.",
     "pricingTalk": "Let's talk",
-    "pricingTalkSub": "Above 500 units we price it with you, not from a table. Email support@abniyah.com."
+    "pricingTalkSub": "Above 500 units we price it with you, not from a table. Email support@abniyah.com.",
+    "credits": "Credits",
+    "attribution": "Lebanese place data from GeoNames, licensed under CC BY 4.0."
   },
   "noLicense": {
     "almostThere": "Almost there",

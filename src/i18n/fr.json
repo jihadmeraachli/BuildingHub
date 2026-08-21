@@ -487,7 +487,9 @@
     "pricingAsLowAs": "à partir de {{rate}} par lot et par mois",
     "pricingAnnual": "Ou payez à l'année : 12 mois pour le prix de 10.",
     "pricingTalk": "Parlons-en",
-    "pricingTalkSub": "Au-delà de 500 lots, nous fixons le prix avec vous, pas dans un tableau. Écrivez à support@abniyah.com."
+    "pricingTalkSub": "Au-delà de 500 lots, nous fixons le prix avec vous, pas dans un tableau. Écrivez à support@abniyah.com.",
+    "credits": "Crédits",
+    "attribution": "Données géographiques libanaises issues de GeoNames, sous licence CC BY 4.0."
   },
   "noLicense": {
     "almostThere": "Vous y êtes presque",
