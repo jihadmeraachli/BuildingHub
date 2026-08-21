@@ -59,7 +59,7 @@ export default function Structure() {
 
   // modals
   const [unitModal, setUnitModal] = useState<{ open: boolean; edit?: Unit }>({ open: false });
-  const [unitForm, setUnitForm] = useState({ label: '', share_weight: '1', occupancy: 'occupied' as Occupancy, opening_balance: '', opening_balance_date: '' });
+  const [unitForm, setUnitForm] = useState({ label: '', share_weight: '1', share_source_ref: '', occupancy: 'occupied' as Occupancy, opening_balance: '', opening_balance_date: '' });
   const [assignLicense, setAssignLicense] = useState(true);
   // License pool for this building's subscription (resolves building → compound → org).
   const [subInfo, setSubInfo] = useState<{ id: string; available_count: number } | null>(null);
@@ -155,10 +155,10 @@ export default function Structure() {
   // ---- unit CRUD ----
   function openUnit(edit?: Unit) {
     setUnitForm(edit
-      ? { label: edit.label, share_weight: String(edit.share_weight), occupancy: edit.occupancy,
+      ? { label: edit.label, share_weight: String(edit.share_weight), share_source_ref: edit.share_source_ref ?? '', occupancy: edit.occupancy,
           opening_balance: edit.opening_balance ? String(edit.opening_balance) : '',
           opening_balance_date: edit.opening_balance_date ?? '' }
-      : { label: '', share_weight: '1', occupancy: 'occupied', opening_balance: '', opening_balance_date: '' });
+      : { label: '', share_weight: '1', share_source_ref: '', occupancy: 'occupied', opening_balance: '', opening_balance_date: '' });
     // Edit: reflect the unit's current license; create: default to assigning one.
     setAssignLicense(edit ? !!licensedMap[edit.id] : true);
     setUnitModal({ open: true, edit });
@@ -171,6 +171,9 @@ export default function Structure() {
       building_id: buildingId,
       label: unitForm.label.trim(),
       share_weight: Number(unitForm.share_weight) || 1,
+      // Where the Nizam fixes this share (0103). Empty means 'not cited', which
+      // is a different thing from an empty string.
+      share_source_ref: unitForm.share_source_ref.trim() || null,
       occupancy: unitForm.occupancy,
       opening_balance: Number.isFinite(ob) ? ob : 0,
       opening_balance_date: ob !== 0 ? unitForm.opening_balance_date : null,
@@ -493,7 +496,20 @@ export default function Structure() {
         <div className="space-y-4">
           <Input label={t('structure.unitLabel')} value={unitForm.label} onChange={(e) => setUnitForm({ ...unitForm, label: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('structure.shareWeight')} type="number" step="0.01" min="0" value={unitForm.share_weight} onChange={(e) => setUnitForm({ ...unitForm, share_weight: e.target.value })} />
+            <div>
+              <Input label={t('structure.shareWeight')} type="number" step="0.01" min="0" value={unitForm.share_weight} onChange={(e) => setUnitForm({ ...unitForm, share_weight: e.target.value })} />
+              {/* The share decides how every expense splits, so it is worth
+                  being able to say where it comes from. Shown on the Nizam
+                  page beside the document that fixes it (0103). */}
+              <Input
+                className="mt-2"
+                label={t('structure.shareSourceRef')}
+                placeholder="art. 7"
+                value={unitForm.share_source_ref}
+                onChange={(e) => setUnitForm({ ...unitForm, share_source_ref: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{t('structure.shareSourceRefHint')}</p>
+            </div>
             <SelectField label={t('structure.occupancy')} value={unitForm.occupancy} onValueChange={(v) => setUnitForm({ ...unitForm, occupancy: v as Occupancy })}>
               <SelectItem value="occupied">{t('structure.occupied')}</SelectItem>
               <SelectItem value="vacant">{t('structure.vacant')}</SelectItem>

@@ -69,7 +69,8 @@
     "settings": "Paramètres",
     "notifications": "Notifications",
     "profile": "Profil",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "bylaws": "Règlement de copropriété"
   },
   "auth": {
     "login": "Se connecter",
@@ -962,7 +963,9 @@
     "openingCredit": "Le lot démarre avec {{amt}} $ de crédit.",
     "oneMemberPerTenure": "Ce lot a déjà un {{role}} actif. Retirez d'abord celui qui est en place.",
     "tenantNeedsOwner": "Ajoutez un propriétaire à ce lot avant d'y attribuer un locataire.",
-    "tenantBalanceMoved": "Locataire retiré. Un solde de {{amt}} a été transféré au propriétaire."
+    "tenantBalanceMoved": "Locataire retiré. Un solde de {{amt}} a été transféré au propriétaire.",
+    "shareSourceRef": "Référence au règlement",
+    "shareSourceRefHint": "Facultatif. L'article ou le tableau qui fixe les tantièmes de ce lot, par exemple « art. 7 »."
   },
   "finance": {
     "title": "Finances",
@@ -1490,5 +1493,42 @@
     "reposted": "Cycle mis à jour : {{amount}} recomptabilisés ; les anciennes charges ont été remplacées.",
     "deleteConfirm": "Supprimer ce cycle ? La dépense comptabilisée et toutes les charges qui en découlent sont supprimées avec lui, et les soldes des résidents reviennent en arrière. Les paiements déjà reçus restent au crédit.",
     "deleted": "Cycle supprimé : sa dépense et ses charges ont été retirées."
+  },
+  "bylaws": {
+    "title": "Règlement de copropriété",
+    "subtitle": "Le règlement de {{entity}} et les tantièmes qu'il fixe.",
+    "referenceOnly": "Ceci est la copie de référence de l'immeuble. L'original juridique est le Nizam notarié enregistré auprès du Cadastre.",
+    "upload": "Téléverser le règlement",
+    "uploadNewVersion": "Téléverser une nouvelle version",
+    "uploaded": "Règlement téléversé",
+    "uploadFailed": "Le fichier n'a pas pu être téléversé. Réessayez.",
+    "deleted": "Version supprimée",
+    "confirmDelete": "Supprimer la version {{version}} ? Le fichier reste stocké, seule la fiche est supprimée.",
+    "current": "En vigueur",
+    "versionN": "v{{n}}",
+    "adopted": "Adopté le {{date}}",
+    "uploadedOn": "Téléversé le {{date}}",
+    "openDoc": "Ouvrir",
+    "document": "Document",
+    "empty": "Aucun règlement enregistré",
+    "emptyAdminHint": "Téléversez le règlement de l'immeuble pour que les résidents puissent le consulter et que le tableau des tantièmes ci-dessous ait une source déclarée.",
+    "emptyResidentHint": "La gestion de l'immeuble n'a pas encore téléversé le règlement.",
+    "hideHistory": "Masquer les versions antérieures",
+    "supersedes": "Cette version devient la v{{next}} et remplace la v{{n}}. La version antérieure est conservée.",
+    "file": "Fichier",
+    "docTitle": "Titre",
+    "docTitlePlaceholder": "Règlement de copropriété",
+    "effectiveDate": "Adopté le",
+    "effectiveDateHint": "La date à laquelle l'assemblée générale a adopté ce texte, et non la date du téléversement.",
+    "note": "Note",
+    "notePlaceholder": "Ce qui a changé dans cette version",
+    "sharesTitle": "Tantièmes fixés par le règlement",
+    "sharesHint": "La base de répartition de chaque charge. Les tantièmes de chaque lot viennent du règlement ; indiquez l'article correspondant depuis la page Structure.",
+    "sharePct": "Part du total",
+    "sourceRef": "Référence au règlement",
+    "totalShares": "Total",
+    "pickEntity": "Choisissez un immeuble ou une résidence pour voir son règlement.",
+    "showHistory_one": "Afficher {{count}} version antérieure",
+    "showHistory_other": "Afficher {{count}} versions antérieures"
   }
 }

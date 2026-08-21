@@ -69,7 +69,8 @@
     "settings": "Settings",
     "notifications": "Notifications",
     "profile": "Profile",
-    "logout": "Sign Out"
+    "logout": "Sign Out",
+    "bylaws": "Nizam el Bineye"
   },
   "auth": {
     "login": "Sign In",
@@ -962,7 +963,9 @@
     "openingCredit": "Unit starts with ${{amt}} credit.",
     "oneMemberPerTenure": "This unit already has an active {{role}}. Remove the existing one first.",
     "tenantNeedsOwner": "Add an owner to this unit before assigning a tenant.",
-    "tenantBalanceMoved": "Tenant removed. Balance of {{amt}} transferred to the owner."
+    "tenantBalanceMoved": "Tenant removed. Balance of {{amt}} transferred to the owner.",
+    "shareSourceRef": "Where in the Nizam",
+    "shareSourceRefHint": "Optional. The article or table that fixes this unit's share, e.g. \"art. 7\"."
   },
   "finance": {
     "title": "Finance",
@@ -1490,5 +1493,42 @@
     "reposted": "Cycle updated - {{amount}} re-posted; the old charges were replaced.",
     "deleteConfirm": "Delete this cycle? Its posted expense and every charge derived from it are removed together, and residents' balances move back. Payments already made stay as credit.",
     "deleted": "Cycle deleted - its expense and charges were removed."
+  },
+  "bylaws": {
+    "title": "Nizam el Bineye",
+    "subtitle": "The bylaws for {{entity}}, and the shares they fix.",
+    "referenceOnly": "This is the building's reference copy. The legal original is the notarized Nizam registered with the Land Registry.",
+    "upload": "Upload Nizam",
+    "uploadNewVersion": "Upload new version",
+    "uploaded": "Nizam uploaded",
+    "uploadFailed": "The file could not be uploaded. Try again.",
+    "deleted": "Version removed",
+    "confirmDelete": "Remove version {{version}}? The file stays in storage but the record is deleted.",
+    "current": "Current",
+    "versionN": "v{{n}}",
+    "adopted": "Adopted {{date}}",
+    "uploadedOn": "Uploaded {{date}}",
+    "openDoc": "Open",
+    "document": "Document",
+    "empty": "No Nizam on file yet",
+    "emptyAdminHint": "Upload the building's bylaws so residents can read them, and so the share table below has a stated source.",
+    "emptyResidentHint": "Your building admin has not uploaded the bylaws yet.",
+    "hideHistory": "Hide earlier versions",
+    "supersedes": "This becomes v{{next}} and supersedes v{{n}}. The earlier version is kept.",
+    "file": "File",
+    "docTitle": "Title",
+    "docTitlePlaceholder": "Nizam el Bineye",
+    "effectiveDate": "Adopted on",
+    "effectiveDateHint": "The date the general assembly adopted this text, not the date you upload it.",
+    "note": "Note",
+    "notePlaceholder": "What changed in this version",
+    "sharesTitle": "Shares fixed by the Nizam",
+    "sharesHint": "How every expense is split. Each unit's share comes from the Nizam; add the article it appears in from the Structure page.",
+    "sharePct": "Share of total",
+    "sourceRef": "Where in the Nizam",
+    "totalShares": "Total",
+    "pickEntity": "Pick a building or compound to see its Nizam.",
+    "showHistory_one": "Show {{count}} earlier version",
+    "showHistory_other": "Show {{count}} earlier versions"
   }
 }

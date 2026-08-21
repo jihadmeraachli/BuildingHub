@@ -183,6 +183,8 @@ export interface Unit {
   building_id: string;
   label: string;
   share_weight: number;
+  /** Where in the Nizam this share is fixed, e.g. 'art. 7'. Optional. (0103) */
+  share_source_ref?: string | null;
   occupancy: Occupancy;
   /** Balance carried in when the unit joined. Signed: + = credit, − = owes. Excluded from P&L. (0033) */
   opening_balance: number;
@@ -546,5 +548,25 @@ export interface BudgetLine {
   amount_usd: number;
   amount_lbp: number | null;
   lbp_rate: number | null;
+  created_at: string;
+}
+
+/** A governance document for a building or compound — Nizam el Bineye first.
+ *  A REFERENCE copy: the legal original is at the Land Registry. Versioned,
+ *  because bylaws are amended by assembly vote and the superseded text still
+ *  matters in a dispute; current = the highest version. (0103) */
+export interface BuildingDocument {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  doc_type: 'nizam' | 'other';
+  version: number;
+  title: string | null;
+  file_url: string;
+  file_name: string | null;
+  /** When the assembly adopted this text, not when it was uploaded. */
+  effective_date: string | null;
+  note: string | null;
+  uploaded_by: string | null;
   created_at: string;
 }
