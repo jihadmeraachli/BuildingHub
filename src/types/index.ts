@@ -251,6 +251,9 @@ export interface Expense {
 export interface Charge {
   id: string;
   expense_id: string | null;
+  /** The catalog type (0085) copied off the expense, so a resident sees the
+   *  real name rather than the legacy enum. NULL on manual charges (0102). */
+  expense_type_id?: string | null;
   unit_id: string;
   building_id: string;
   category: string;

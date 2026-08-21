@@ -67,21 +67,29 @@ function ResidentReports() {
     ]).then(([c, p]) => { setMyCharges(c); setMyPayments(p); });
   }, [myUnitIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const myLedger = useMemo(() => buildResidentLedger(myCharges, myPayments, {
-    // charges carry a copy of their expense's category, so no join is needed
-    categoryName: (c) => (c.category ? t(`finance.cats.${c.category}`) : t('finance.cats.other')),
-    unitLabel: (uid) => myUnits.find((m) => m.unit.id === uid)?.unit.label ?? '—',
-    paymentWord: t('reports.custom.payment'),
-  }), [myCharges, myPayments, myUnits]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // The building's OWN spending — the transparency view (0069). Kept strictly
-  // separate from "my charges": a charge is a share of an expense, so one list
-  // containing both would count every figure twice.
+  // The catalog for whichever building is selected. Both ledgers below name
+  // their rows from it, so a custom expense type reads as the building named
+  // it rather than as the enum bucket it fell into. Before 0102 a resident saw
+  // "Other" where an admin saw "Gardening" — the exact failure
+  // REPORTING_GUIDANCE warns about.
   const myBuilding = bldgs.find((b) => b.id === buildingId) ?? null;
   const { types: bldgExpenseTypes } = useExpenseTypes(
     myBuilding?.compound_id ? 'compound' : 'building',
     myBuilding?.compound_id ?? myBuilding?.id,
   );
+
+  const myLedger = useMemo(() => buildResidentLedger(myCharges, myPayments, {
+    // charges carry the catalog type since 0102; the enum is the fallback for
+    // manual charges, which never had one
+    categoryName: (c) => bldgExpenseTypes.find((x) => x.id === c.expense_type_id)?.name
+      ?? (c.category ? t(`finance.cats.${c.category}`) : t('finance.cats.other')),
+    unitLabel: (uid) => myUnits.find((m) => m.unit.id === uid)?.unit.label ?? '—',
+    paymentWord: t('reports.custom.payment'),
+  }), [myCharges, myPayments, myUnits, bldgExpenseTypes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The building's OWN spending — the transparency view (0069). Kept strictly
+  // separate from "my charges": a charge is a share of an expense, so one list
+  // containing both would count every figure twice.
   const [bldgExpenses, setBldgExpenses] = useState<Expense[]>([]);
   useEffect(() => {
     if (!myBuilding) { setBldgExpenses([]); return; }
