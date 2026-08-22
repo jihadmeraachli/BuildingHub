@@ -25,7 +25,7 @@ It's all **additive** — existing single buildings keep working (default billin
 
 ## 2. Architecture (where things live)
 
-- **Frontend:** React 19 + TypeScript + Vite + Tailwind v4, i18n (en/ar). Pages in `src/pages`, shared UI in `src/components/ui`, hooks/helpers in `src/lib`.
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind v4, i18n (en/ar/fr, RTL for Arabic). Pages in `src/pages`, shared UI in `src/components/ui`, hooks/helpers in `src/lib`.
 - **Backend:** Supabase (Postgres + Auth + Storage + Edge Functions). All security is **Row-Level Security** routed through one SQL function, `user_can(building, capability)`.
 - **Email:** Supabase Edge Functions send email via **Resend**. `dynamic-action` handles transactional emails (triggered by Database Webhooks). `send-reminders` handles scheduled weekly reminders (triggered by pg_cron).
 - **Repo:** `jihadmeraachli/BuildingHub` (private), branch `master`. Both Jey and Ahmad push/pull directly — always `git pull origin master` before starting.
@@ -125,6 +125,15 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0095 | `0095_audit_fk_set_null.sql` | Finishes 0026: walks the catalog converting every nullable NO ACTION/RESTRICT FK on `profiles`/`auth.users` to `ON DELETE SET NULL`. `subscriptions.created_by` was blocking `delete_user()` outright. NOT NULL ones are reported, not touched. |
 
 | 0096 | `0096_entity_read_scope.sql` | **Buildings and compounds stop being world-readable.** `buildings_select_active` was v1 schema ("for registration" — v3 never reads it), so any authenticated user could list every building, and Buildings/Compounds render unscoped: a building admin saw the whole platform. Compounds were worse — 0022's scoped policy never took effect because 0002's open one was never dropped. Reads now go through `user_sees_building()`/`user_sees_compound()` (grant, or a membership in it). Building creation moves to the sealed `create_building()`, because the auto-grant trigger fires AFTER RETURNING is projected and a plain insert would be rejected on its own new row. |
+| 0097 | `0097_party_read_scope.sql` | **A tenant stops being able to read the owner's money.** `user_owns_unit()` / `user_tenants_unit()`; an owner sees both sub-ledgers on their unit, a tenant sees only their own rows. |
+| 0098 | `0098_invoice_payment.sql` | `mark_invoice_paid(invoice, method, ref)` — one atomic, idempotent operation, with a UNIQUE `payment_ref` so a retry cannot double-pay. |
+| 0099 | `0099_whish_collect.sql` | `collect_url` / `collect_status` / `collect_at` on invoices + `set_invoice_collect()`. Dormant until Whish credentials arrive. |
+| 0100 | `0100_pricing_bands.sql` | A building pays one monthly price for its size, not a rate per unit. `monthly_price_cents()`, `annual_price_cents()`, `subscription_price_cents()`. Mirrored in `src/lib/pricing.ts` — **keep the two in step**. |
+| 0101 | `0101_language_fr.sql` | Widens the `preferred_language` CHECK to include `fr`. Without it, choosing French fails on save. |
+| 0102 | `0102_charge_expense_type.sql` | `charges.expense_type_id`, backfilled from each charge's expense, plus a trigger keeping it in step. A resident now sees the catalog name instead of Other. |
+| 0103 | `0103_building_documents.sql` | `building_documents` (Nizam el Bineye, versioned, compound-or-block) + `units.share_source_ref`. Reading is a resident right, so SELECT follows `user_sees_building`, not an admin capability. |
+| 0104 | `0104_waitlist.sql` | `waitlist` — the first table an anonymous stranger may write to. INSERT only for `anon`, no SELECT, email shape checked in the DB. |
+| 0105 | `0105_storage_scope.sql` | **The attachments bucket stops being open to every signed-in user.** It was readable AND writable platform-wide; the policy now reads the first path segment through `user_sees_building` / `user_sees_compound`. See §7. |
 
 ⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
 metered expense, migrations included. A future backfill over those rows must
@@ -359,6 +368,8 @@ npm install
 #   VITE_SUPABASE_URL=https://miyrsnlpftybmudiuhbi.supabase.co
 #   VITE_SUPABASE_ANON_KEY=<shared anon key — ask Jey or Ahmad>
 npm run dev         # http://localhost:5173
+npm test            # vitest, ~200ms
+npm run build       # tsc -b && vite build — MUST pass before committing
 ```
 - **Migrations & webhooks live on the shared Supabase project** — already applied, you inherit them automatically.
 - Bootstrap a platform admin: `UPDATE profiles SET is_platform_admin = true WHERE id = (SELECT id FROM auth.users WHERE email = '<you>')`.
@@ -371,22 +382,6 @@ npm run dev         # http://localhost:5173
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
 - **Compound inspection admins** — `get_due_inspections()` finds org admins via `org_buildings` join; platform-admin-only compounds (no `org_id`) won't have anyone to notify for inspection reminders.
 - **WhatsApp notifications** — dedicated number still being sourced; email is the only active channel for now.
-- **No test runner exists.** No vitest, no test files, nothing in `package.json`.
-  `docs/REPORTING_GUIDANCE.md` says to add a test alongside each new
-  `reportData` function, and commit messages have referred to suites passing —
-  neither is true today. The ledger builders (`buildLedger`,
-  `buildResidentLedger`, `filterLedger`, `ledgerTotals`, `groupLedger`) are pure
-  and are the obvious first thing to cover once a runner is added.
-- **`charges` do not carry `expense_type_id`** — only the legacy `category`
-  enum copied from their expense. So a RESIDENT's Custom report shows a custom
-  expense type by its enum fallback ("Other") instead of its catalog name; the
-  admin view resolves properly. Fixing it means denormalising `expense_type_id`
-  onto `charges` (a small additive migration) or joining back through the
-  expense.
-- **`ExpensesReportDoc` (pdf.tsx) is now unreferenced** — the resident card that
-  used it was folded into the Custom report. Left in place rather than deleted
-  in case the admin side wants it; delete it or wire it up, but don't leave it
-  drifting indefinitely.
 - **Every deploy can blank an open tab.** Hashed chunks + an open tab mid-
   rollout = the browser asks for a hash the edge doesn't have yet, Pages
   answers with `index.html`, and `React.lazy` reads `.default` off undefined.
@@ -394,6 +389,23 @@ npm run dev         # http://localhost:5173
   cache and reload". **Wait for the Cloudflare deployment to show Success
   before reloading**, and when triaging remember: reproduces in a private
   window = real bug, doesn't = cache.
+- **Tests exist now, and they are narrow on purpose.** `npm test` runs vitest
+  over the pure builders in `src/lib/reportData.ts` (35 tests, ~200ms, own
+  `vitest.config.ts` so the React/Tailwind/PWA plugins stay out of the way).
+  They were checked by breaking the source nine ways and confirming each break
+  fails something. **Everything else in the app is still untested** — this is a
+  foothold, not coverage. `REPORTING_GUIDANCE` rule 4 (a test alongside each
+  new `reportData` function) is now actually enforceable.
+- **Orphaned storage objects.** About ten files under a uuid that is no longer
+  a building, left behind by the 2026-08-21 database wipe. Invisible since
+  `0105` and referenced by nothing. Safe to delete whenever the space is
+  wanted; the diagnostic at the top of `0105` lists them.
+- **Storage was open platform-wide until `0105`** (2026-08-22). Any signed-in
+  user could enumerate the `attachments` bucket and read — or write — any
+  building’s files. Note *why* it survived so long: `0094`’s demo read-only
+  guard is a trigger on 33 **tables**, so it never covered storage at all.
+  `node scripts/check-storage-scope.mjs` drives the bucket as a real signed-in
+  user; run it after any storage or policy change.
 - **shadcn/ui migration** — Ahmad's dark Tatawwor theme is ✅ **merged to master**. Next UI step: migrate components to shadcn/ui for a professional design system, keeping the Tatawwor brand tokens (cyan `#57D6E2` → blue `#349ECD`, Poppins display font) and the dark theme. Note: the dark theme is currently a scoped `.app-dark` override layer in `src/index.css` — shadcn uses CSS variables + `dark:` variants, so that layer should be **replaced by** shadcn theme tokens during the migration rather than stacked on top.
 
 ---
