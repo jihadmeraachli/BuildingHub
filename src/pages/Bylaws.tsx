@@ -93,7 +93,11 @@ export default function Bylaws() {
   async function save() {
     if (!scope || !file) return;
     setSaving(true);
-    const folder = scope.compound_id ? `nizam/c-${scope.compound_id}` : `nizam/b-${scope.building_id}`;
+    // {scopeId}/nizam, matching every other upload in the app. The storage
+    // policy (0105) reads that first segment to decide who may open the file,
+    // so a path shaped any other way is a file nobody but a platform admin
+    // can ever see.
+    const folder = `${scope.compound_id ?? scope.building_id}/nizam`;
     const url = await uploadFile('attachments', folder, file);
     if (!url) { toast.error(t('bylaws.uploadFailed')); setSaving(false); return; }
     const { error } = await supabase.from('building_documents').insert({

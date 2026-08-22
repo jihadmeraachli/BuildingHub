@@ -1446,7 +1446,17 @@ export default function Finance() {
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
               ))}
             </div>
-            {detailExpense.invoice_url && <a href={detailExpense.invoice_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"><FileText size={15} /> {t('finance.viewInvoice')}</a>}
+            {/* Through AttachmentLink like every other attachment: the bucket is
+                private, so a stored URL opened directly is a dead link. This one
+                was the last raw href left. */}
+            {detailExpense.invoice_url && (
+              <AttachmentLink
+                url={detailExpense.invoice_url}
+                label={t('finance.viewInvoice')}
+                icon={FileText}
+                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+              />
+            )}
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('finance.billedToUnits')}</p>
               <div className="rounded-xl border border-border overflow-hidden divide-y divide-border max-h-72 overflow-y-auto">
