@@ -135,6 +135,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0104 | `0104_waitlist.sql` | `waitlist` — the first table an anonymous stranger may write to. INSERT only for `anon`, no SELECT, email shape checked in the DB. |
 | 0105 | `0105_storage_scope.sql` | **The attachments bucket stops being open to every signed-in user.** It was readable AND writable platform-wide; the policy now reads the first path segment through `user_sees_building` / `user_sees_compound`. See §7. |
 | 0106 | `0106_fund.sql` | **Cash on hand, separated from what residents owe.** `expenses.funded_by_fund_usd` (the unbilled part, **backfilled** from history: whatever was never charged came out of the building's money), `funds` (opening cash per compound/standalone block), `fund_entries` (other income / outflows), and `fund_position(ids, asof)` — cash, credits, arrears, available, reserve. Residents may call the function (aggregates only). Closes the C1 finding: a short custom split used to vanish from the book. |
+| 0107 | `0107_fund_position_residents.sql` | `fund_position()` redefined with the unit balance computed **inline**. 0106 called `unit_balance_asof()`, whose per-unit gate (0043) made the whole call fail 42501 for a resident. Same numbers for managers; residents now get their aggregates. |
 
 ⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
 metered expense, migrations included. A future backfill over those rows must
