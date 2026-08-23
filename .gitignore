@@ -49,3 +49,6 @@ assets/marketing/reel-final/
 
 # RLS audit personas — contains real passwords.
 scripts/rls-personas.json
+
+# test-snapshot.mjs output (per-step DB snapshots, may hold names)
+.snapshots/
