@@ -33,9 +33,25 @@ function daysLeft(iso: string | null): number | null {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
 }
 
+// preview-date helpers (0117): the server recomputes these authoritatively
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
+function addMonths(d: Date, n: number) { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
+
 interface UnitRow extends Unit {
   buildingName: string;
   assignment: LicenseAssignment | null;
+}
+
+/** What the customer is about to buy — a client-side PREVIEW only. The
+ *  authoritative amount and dates come from create_payment_intent (0117). */
+interface PayIntent {
+  kind: 'period' | 'topup';
+  plan: 'monthly' | 'annual';
+  add?: number;
+  amountCents: number | null;
+  periodStart: string;
+  periodEnd: string;
 }
 
 export default function Licenses() {
@@ -56,15 +72,17 @@ export default function Licenses() {
 
   /**
    * Hand the payer to Whish's hosted page. We never see the OTP, and nothing
-   * here settles anything: the invoice is marked paid only by whish-callback,
-   * after asking Whish what actually happened. A browser that "came back
-   * successful" is not evidence of payment.
+   * here settles anything: the payment intent is settled only by
+   * whish-callback, after asking Whish what actually happened. 0117: no
+   * invoice exists yet — we send WHAT is being bought and the server computes
+   * the amount; the invoice is created, already paid, when money confirms.
    */
-  async function payWithWhish(inv: Invoice) {
-    setPaying(inv.id);
+  async function payWithWhish(pi: PayIntent) {
+    if (!sub) return;
+    setPaying('whish');
     try {
       const { data, error } = await supabase.functions.invoke('whish-pay', {
-        body: { invoice_id: inv.id },
+        body: { subscription_id: sub.id, kind: pi.kind, plan: pi.plan, add: pi.add ?? 0 },
       });
       if (error || !data?.collectUrl) {
         toast.error(data?.error ?? error?.message ?? t('licensesPage.payFailed'));
@@ -91,12 +109,12 @@ export default function Licenses() {
   // 0114: subscribe / renew / cancel / auto-renew
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [subscribePlan, setSubscribePlan] = useState<'monthly' | 'annual'>('monthly');
-  const [subscribeSaving, setSubscribeSaving] = useState(false);
   const [lifecycleSaving, setLifecycleSaving] = useState(false);
-  // 0116: no separate "issue invoice" step — the subscribe modal goes plan →
-  // payment options, and a band-crossing licence add is paid before it lands.
+  // 0117 pay-first: the subscribe modal goes plan → payment options; nothing
+  // is issued before the money is confirmed. payIntent is the preview of what
+  // is being bought — the server recomputes the real amount at payment time.
   const [subscribeStep, setSubscribeStep] = useState<'plan' | 'pay'>('plan');
-  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [payIntent, setPayIntent] = useState<PayIntent | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -230,10 +248,10 @@ export default function Licenses() {
     loadDetail();
   }
 
-  /** 0116: adds go through request_license_increase. On trial, within the
+  /** 0117: adds go through request_license_increase. On trial, within the
    *  band, or on a negotiated price the licences apply immediately; a
-   *  band-crossing add on an active subscription comes back as a top-up
-   *  invoice that must be paid first — mark_invoice_paid applies the licences. */
+   *  band-crossing add on an active subscription returns the prorated
+   *  difference to pay — the licences land when the payment is confirmed. */
   async function addLicenses() {
     if (!sub || addCount < 1) return;
     setAddSaving(true);
@@ -242,16 +260,20 @@ export default function Licenses() {
     });
     setAddSaving(false);
     if (error) { toast.error(error.message); return; }
-    const row = (Array.isArray(data) ? data[0] : data) as { applied: boolean; invoice_id: string | null } | null;
+    const row = (Array.isArray(data) ? data[0] : data) as { applied: boolean; amount_cents: number | null } | null;
     setAddOpen(false);
-    await reloadSub();
     if (row?.applied) {
       toast.success(t('licensesPage.addedToast', { count: addCount }));
-    } else if (row?.invoice_id) {
-      // Band crossed: the licences land when the top-up invoice is paid.
+      await reloadSub();
+    } else if (row) {
+      // Band crossed: pay the prorated difference now, licences follow.
       toast.info(t('billing.topupHold'));
-      const { data: inv } = await supabase.from('invoices').select('*').eq('id', row.invoice_id).single();
-      if (inv) { setPayInvoice(inv as Invoice); setSubscribeStep('pay'); setSubscribeOpen(true); }
+      setPayIntent({
+        kind: 'topup', plan: sub.plan, add: addCount, amountCents: row.amount_cents,
+        periodStart: iso(new Date()), periodEnd: sub.current_period_end ?? '',
+      });
+      setSubscribeStep('pay');
+      setSubscribeOpen(true);
     }
   }
 
@@ -277,23 +299,21 @@ export default function Licenses() {
     toast.success(t('licensesPage.removedToast', { count: removeCount }));
   }
 
-  // ── Lifecycle (0114/0116): the buttons call SECURITY DEFINER functions ────
-  /** Subscribe (from trial) or renew early (active): starts/queues the paid
-   *  period, then flips the same modal to the payment options for its invoice. */
-  async function subscribeNow() {
+  // ── Lifecycle (0117 pay-first): nothing is issued before money moves ──────
+  /** "Continue to payment": build a preview of what is being bought. The
+   *  authoritative amount and dates are recomputed server-side by
+   *  create_payment_intent the moment a pay button is pressed. */
+  function subscribeNow() {
     if (!sub) return;
-    setSubscribeSaving(true);
-    const { error } = await supabase.rpc('start_subscription', { p_subscription: sub.id, p_plan: subscribePlan });
-    setSubscribeSaving(false);
-    if (error) { toast.error(error.message); return; }
-    await reloadSub();
-    // Straight to payment: find the open period invoice we just issued.
-    const { data: inv } = await supabase.from('invoices').select('*')
-      .eq('subscription_id', sub.id).eq('status', 'open').eq('kind', 'period')
-      .order('created_at', { ascending: false }).limit(1);
-    const open = (inv as Invoice[] | null)?.[0] ?? null;
-    if (open) { setPayInvoice(open); setSubscribeStep('pay'); }
-    else { setSubscribeOpen(false); toast.success(t('billing.invoiceReady')); }
+    const start = sub.status === 'trial' && sub.trial_ends_at
+      ? addDays(new Date(sub.trial_ends_at), 1)
+      : sub.status === 'active' && sub.current_period_end
+        ? addDays(new Date(sub.current_period_end + 'T00:00:00'), 1)
+        : new Date();
+    const end = addDays(addMonths(start, subscribePlan === 'annual' ? 12 : 1), -1);
+    const cents = subscribePlan === 'annual' ? annualPriceCents(sub.license_count) : monthlyPriceCents(sub.license_count);
+    setPayIntent({ kind: 'period', plan: subscribePlan, amountCents: cents, periodStart: iso(start), periodEnd: iso(end) });
+    setSubscribeStep('pay');
   }
   /** The in-app modal (cancelOpen) confirms; no browser confirm() dialogs. */
   async function doCancel() {
@@ -326,12 +346,15 @@ export default function Licenses() {
     }
     await reloadSub();
   }
-  /** Card via Areeba — same shape as Whish: server builds the session from the
-   *  invoice, we just follow the redirect. 503 until the keys exist. */
-  async function payWithCard(inv: Invoice) {
-    setPaying(inv.id);
+  /** Card — same shape as Whish: the server builds the session from what is
+   *  being bought, we just follow the redirect. 503 until the keys exist. */
+  async function payWithCard(pi: PayIntent) {
+    if (!sub) return;
+    setPaying('areeba');
     try {
-      const { data, error } = await supabase.functions.invoke('areeba-pay', { body: { invoice_id: inv.id } });
+      const { data, error } = await supabase.functions.invoke('areeba-pay', {
+        body: { subscription_id: sub.id, kind: pi.kind, plan: pi.plan, add: pi.add ?? 0 },
+      });
       if (error || !data?.checkoutUrl) {
         toast.error(data?.error ?? error?.message ?? t('billing.cardUnavailable'));
         return;
@@ -480,6 +503,13 @@ export default function Licenses() {
                     {t('licensesPage.assignedOf', { assigned: assignedCount, total: sub.license_count })}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1.5">{t('licensesPage.availableCount', { count: availableCount })}</p>
+                  {/* #0117: the pre-payment signal is TIME, not an open invoice */}
+                  {sub.status === 'active' && sub.current_period_end && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t(sub.cancel_at_period_end ? 'billing.expiresIn' : 'billing.renewsIn',
+                        { count: daysLeft(sub.current_period_end) ?? 0, date: sub.current_period_end })}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -517,13 +547,15 @@ export default function Licenses() {
                 {/* Subscribe only while there is nothing subscribed; Cancel only
                     once there is. Grace/locked point at the open invoice. */}
                 <div className="flex flex-wrap gap-2">
-                  {sub.status === 'trial' && !sub.cancel_at_period_end && (
+                  {(sub.status === 'trial' || sub.status === 'grace') && !sub.cancel_at_period_end && (
                     <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
                       {t('billing.subscribeNow')}
                     </Button>
                   )}
-                  {(sub.status === 'grace' || sub.status === 'locked') && (
-                    <Button onClick={() => setActiveTab('invoices')}>{t('billing.payOpenInvoice')}</Button>
+                  {(sub.status === 'active' || sub.status === 'locked') && !sub.cancel_at_period_end && (
+                    <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
+                      {t('billing.renewNow')}
+                    </Button>
                   )}
                   <Button variant="outline" onClick={() => setAddOpen(true)}>
                     <Plus size={15} /> {t('licensesPage.addLicenses')}
@@ -643,7 +675,6 @@ export default function Licenses() {
                           <TableHead>{t('licensesPage.amount')}</TableHead>
                           <TableHead>{t('common.status')}</TableHead>
                           <TableHead>{t('licensesPage.paid')}</TableHead>
-                          <TableHead className="text-end">{t('common.actions')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -663,19 +694,6 @@ export default function Licenses() {
                             <TableCell className="text-muted-foreground">
                               {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '—'}
                             </TableCell>
-                            <TableCell className="text-end">
-                              {inv.status === 'open' && (
-                                <div className="inline-flex gap-2">
-                                  {/* both channels styled the same — no favourite */}
-                                  <Button size="sm" variant="outline" onClick={() => payWithWhish(inv)} loading={paying === inv.id}>
-                                    {t('licensesPage.payWithWhish')}
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={() => payWithCard(inv)} loading={paying === inv.id}>
-                                    {t('billing.payWithCard')}
-                                  </Button>
-                                </div>
-                              )}
-                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -689,7 +707,7 @@ export default function Licenses() {
       )}
 
       {/* 0116: Subscribe / Renew — choose the cycle, see the dates, pay */}
-      <Modal open={subscribeOpen} onClose={() => { setSubscribeOpen(false); setSubscribeStep('plan'); setPayInvoice(null); }}
+      <Modal open={subscribeOpen} onClose={() => { setSubscribeOpen(false); setSubscribeStep('plan'); setPayIntent(null); }}
         title={subscribeStep === 'pay' ? t('billing.choosePayment') : sub?.status === 'active' ? t('billing.renewNow') : t('billing.subscribeNow')} size="sm">
         {sub && subscribeStep === 'plan' && (
           <div className="space-y-4">
@@ -718,20 +736,22 @@ export default function Licenses() {
             </p>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setSubscribeOpen(false)}>{t('common.cancel')}</Button>
-              <Button loading={subscribeSaving} onClick={subscribeNow}>{t('billing.continueToPayment')}</Button>
+              <Button onClick={subscribeNow}>{t('billing.continueToPayment')}</Button>
             </div>
           </div>
         )}
-        {sub && subscribeStep === 'pay' && payInvoice && (
+        {sub && subscribeStep === 'pay' && payIntent && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {t('billing.payDesc', { amount: usd(payInvoice.amount_cents), start: payInvoice.period_start ?? '', end: payInvoice.period_end ?? '' })}
+              {payIntent.amountCents != null
+                ? t('billing.payDesc', { amount: usd(payIntent.amountCents), start: payIntent.periodStart, end: payIntent.periodEnd })
+                : t('licensesPage.priceTalk')}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" loading={paying === payInvoice.id} onClick={() => payWithWhish(payInvoice)}>
+              <Button variant="outline" loading={paying === 'whish'} onClick={() => payWithWhish(payIntent)}>
                 {t('licensesPage.payWithWhish')}
               </Button>
-              <Button variant="outline" loading={paying === payInvoice.id} onClick={() => payWithCard(payInvoice)}>
+              <Button variant="outline" loading={paying === 'areeba'} onClick={() => payWithCard(payIntent)}>
                 {t('billing.payWithCard')}
               </Button>
             </div>

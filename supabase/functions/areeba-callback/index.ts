@@ -1,18 +1,19 @@
 // ============================================================
-// areeba-callback — confirm a card payment and settle the licence invoice.
+// areeba-callback — confirm a card payment and settle the PAYMENT INTENT.
 //
-// Same discipline as whish-callback: the browser returning "successfully" is
-// not evidence of payment. This function asks Areeba for the order status
-// server-side and settles only on a captured/successful result, through
-// mark_invoice_paid (idempotent). A failure settles nothing; the invoice
-// stays open and the customer retries.
+// PAY-FIRST (0117): settling the intent CREATES the invoice already paid (the
+// receipt) and applies the effect, via settle_payment_intent(). Same
+// discipline as whish-callback: the browser returning "successfully" is not
+// evidence of payment. This function asks Areeba for the order status
+// server-side (order id = intent id) and settles only on a captured result.
+// A failure settles nothing; the customer simply retries.
 //
 // Also stores the card token (when tokenization is enabled on the account) on
 // the subscription as provider_customer_ref, which is what turns the
 // auto-renew toggle on in the UI.
 //
-// GET  ?invoice=<id>           verify one invoice (the return redirect hits this)
-// GET  ?reconcile=1            sweep open card invoices (cron, CRON_SECRET)
+// GET  ?intent=<id>            verify one intent (the return redirect hits this)
+// GET  ?reconcile=1            sweep pending card intents (cron, CRON_SECRET)
 //
 // ⚠️ INTEGRATION SHELL like areeba-pay: 503 until AREEBA_* secrets exist;
 // verify the ORDER endpoint path against the onboarding pack when keys arrive.
@@ -35,9 +36,9 @@ const db = () => createClient(FN_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-/** Ask Areeba what actually happened to the order (order id = invoice id). */
-async function orderResult(invoiceId: string): Promise<{ paid: boolean; token: string | null; ref: string | null }> {
-  const res = await fetch(`${AREEBA_BASE}/merchant/${AREEBA_MERCHANT}/order/${invoiceId}`, {
+/** Ask Areeba what actually happened to the order (order id = intent id). */
+async function orderResult(intentId: string): Promise<{ paid: boolean; token: string | null; ref: string | null }> {
+  const res = await fetch(`${AREEBA_BASE}/merchant/${AREEBA_MERCHANT}/order/${intentId}`, {
     headers: { Authorization: areebaAuth() },
   });
   const body = await res.json().catch(() => null);
@@ -48,16 +49,20 @@ async function orderResult(invoiceId: string): Promise<{ paid: boolean; token: s
   return { paid, token, ref };
 }
 
-async function settleOne(invoiceId: string): Promise<string> {
+async function settleOne(intentId: string): Promise<string> {
   const admin = db();
-  const { paid, token, ref } = await orderResult(invoiceId);
+  const { paid, token, ref } = await orderResult(intentId);
   if (!paid) return 'unpaid';
-  const { data: settled } = await admin.rpc('mark_invoice_paid', { p_invoice: invoiceId, p_method: 'areeba', p_ref: ref });
-  if (token) {
-    const { data: inv } = await admin.from('invoices').select('subscription_id').eq('id', invoiceId).single();
-    if (inv) await admin.from('subscriptions').update({ provider_customer_ref: token, payment_provider: 'areeba' }).eq('id', inv.subscription_id);
+  const { error } = await admin.rpc('settle_payment_intent', { p_intent: intentId, p_method: 'areeba', p_ref: ref ?? intentId });
+  if (error) {
+    console.error('settle_payment_intent failed', intentId, error.message);
+    return 'error';
   }
-  return settled ? 'settled' : 'already-settled';
+  if (token) {
+    const { data: intent } = await admin.from('payment_intents').select('subscription_id').eq('id', intentId).single();
+    if (intent) await admin.from('subscriptions').update({ provider_customer_ref: token, payment_provider: 'areeba' }).eq('id', intent.subscription_id);
+  }
+  return 'settled';
 }
 
 Deno.serve(async (req) => {
@@ -70,15 +75,15 @@ Deno.serve(async (req) => {
     if (url.searchParams.get('reconcile') === '1') {
       if (CRON_SECRET && req.headers.get('Authorization') !== `Bearer ${CRON_SECRET}`) return json({ error: 'Unauthorized' }, 401);
       const admin = db();
-      const { data: open } = await admin.from('invoices').select('id').eq('status', 'open').not('payment_ref', 'is', null).limit(50);
+      const { data: pending } = await admin.from('payment_intents').select('id').eq('status', 'pending').eq('provider', 'areeba').limit(50);
       const results: Record<string, string> = {};
-      for (const inv of open ?? []) results[inv.id] = await settleOne(inv.id);
+      for (const row of pending ?? []) results[row.id] = await settleOne(row.id);
       return json({ results });
     }
 
-    const invoiceId = url.searchParams.get('invoice');
-    if (!invoiceId) return json({ error: 'invoice is required.' }, 400);
-    const outcome = await settleOne(invoiceId);
+    const intentId = url.searchParams.get('intent');
+    if (!intentId) return json({ error: 'intent is required.' }, 400);
+    const outcome = await settleOne(intentId);
     // the payer lands back on the Licences page either way; it re-reads status
     return Response.redirect(`${APP_URL}/licenses?payment=${outcome}`, 302);
   } catch (err) {

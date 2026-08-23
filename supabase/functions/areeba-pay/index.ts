@@ -1,11 +1,10 @@
 // ============================================================
-// areeba-pay — start a card payment for a licence invoice (Areeba hosted page).
+// areeba-pay — start a card payment for a subscription (Areeba hosted page).
 //
-// Same contract as whish-pay: the client sends { invoice_id }, gets back a
-// { checkoutUrl } to redirect to, and NOTHING here settles anything — only
-// areeba-callback does, after verifying with Areeba. The amount is read from
-// the invoice server-side; an amount from the browser is an invitation to pay
-// $1 for a $200 licence.
+// PAY-FIRST (0117): same contract as whish-pay — the client sends
+// { subscription_id, kind: 'period'|'topup', plan?, add? }, the amount is
+// computed server-side by create_payment_intent(), and NOTHING here settles
+// anything — only areeba-callback does, after verifying with Areeba.
 //
 // ⚠️ INTEGRATION SHELL. Areeba's merchant API (MPGS-based hosted checkout) is
 // wired here against the endpoint shape their docs describe, but the account
@@ -52,18 +51,26 @@ Deno.serve(async (req) => {
     const { data: userRes } = await admin.auth.getUser(jwt);
     if (!userRes?.user) return json({ error: 'Not signed in.' }, 401);
 
-    const { invoice_id } = await req.json().catch(() => ({}));
-    if (!invoice_id) return json({ error: 'invoice_id is required.' }, 400);
-    const { data: inv } = await admin.from('invoices').select('id, amount_cents, status, subscription_id').eq('id', invoice_id).single();
-    if (!inv) return json({ error: 'Invoice not found.' }, 404);
-    if (inv.status !== 'open') return json({ error: 'This invoice is not open.' }, 409);
+    const { subscription_id, kind, plan, add } = await req.json().catch(() => ({}));
+    if (!subscription_id || !['period', 'topup'].includes(kind)) {
+      return json({ error: 'subscription_id and kind are required.' }, 400);
+    }
 
     // caller must manage the subscription (same rule as the SQL buttons)
     const caller = createClient(FN_URL, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: `Bearer ${jwt}` } } });
-    const { data: allowed } = await caller.rpc('user_manages_subscription', { p_subscription: inv.subscription_id });
+    const { data: allowed } = await caller.rpc('user_manages_subscription', { p_subscription: subscription_id });
     if (!allowed) return json({ error: 'Not allowed.' }, 403);
 
-    // Hosted Checkout session: amount from the invoice, order id = invoice id,
+    // the intent: amount and dates computed in SQL, never trusted
+    const { data: intents, error: intErr } = await admin.rpc('create_payment_intent', {
+      p_subscription: subscription_id, p_kind: kind,
+      p_plan: plan ?? null, p_add: add || null,
+    });
+    if (intErr) return json({ error: intErr.message }, 400);
+    const intent = Array.isArray(intents) ? intents[0] : intents;
+    if (!intent?.intent_id) return json({ error: 'Could not prepare the payment.' }, 500);
+
+    // Hosted Checkout session: amount from the intent, order id = intent id,
     // and tokenization requested so auto-renew becomes possible.
     const res = await fetch(`${AREEBA_BASE}/merchant/${AREEBA_MERCHANT}/session`, {
       method: 'POST',
@@ -72,10 +79,10 @@ Deno.serve(async (req) => {
         apiOperation: 'INITIATE_CHECKOUT',
         interaction: {
           operation: 'PURCHASE',
-          returnUrl: `${APP_URL}/licenses?paid=${inv.id}`,
+          returnUrl: `${FN_URL}/functions/v1/areeba-callback?intent=${intent.intent_id}`,
           merchant: { name: 'Abniyah' },
         },
-        order: { id: inv.id, amount: (inv.amount_cents / 100).toFixed(2), currency: 'USD', description: 'Abniyah licence invoice' },
+        order: { id: intent.intent_id, amount: (intent.amount_cents / 100).toFixed(2), currency: 'USD', description: 'Abniyah subscription' },
       }),
     });
     const body = await res.json().catch(() => null);
@@ -84,7 +91,9 @@ Deno.serve(async (req) => {
       console.error('areeba session failed', res.status, JSON.stringify(body).slice(0, 400));
       return json({ error: 'Could not start the card payment.' }, 502);
     }
-    await admin.from('invoices').update({ payment_ref: sessionId }).eq('id', inv.id);
+    await admin.from('payment_intents')
+      .update({ provider: 'areeba', provider_ref: sessionId })
+      .eq('id', intent.intent_id);
     // the hosted payment page for the session
     return json({ checkoutUrl: `${AREEBA_BASE.replace('/api/rest', '')}/checkout/pay/${sessionId}` });
   } catch (err) {

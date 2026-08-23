@@ -1144,7 +1144,9 @@ Deno.serve(async (req) => {
         const scope = await subscriptionScopeName(sub);
         const ids = await subscriptionAdminIds(sub);
         const period = `${record.period_start} → ${record.period_end}`;
-        const isReceipt = type === 'UPDATE';
+        // 0117 pay-first: invoices are born already paid — an INSERT with
+        // status 'paid' is a receipt, not an "invoice issued".
+        const isReceipt = type === 'UPDATE' || record.status === 'paid';
         await emailToUserIds(ids, (L) => ({
           subject: isReceipt ? L.billing.receiptSubj(scope, centsFmt(record.amount_cents)) : L.billing.invoiceSubj(scope, centsFmt(record.amount_cents)),
           html: emailHtml(L, isReceipt ? L.billing.receiptTitle : L.billing.invoiceTitle,

@@ -1,20 +1,19 @@
 // ============================================================
-// whish-pay — start (or resume) a Whish payment for a licence invoice.
+// whish-pay — start (or resume) a Whish payment for a subscription.
 //
-// SCOPE: licence invoices ONLY. Resident dues are not collected through this;
-// a building advertises its own whish_number and residents pay it directly.
-// This is our own corporate wallet taking our own subscription fees.
+// PAY-FIRST (0117): there is no invoice yet. The client sends what it wants
+// to buy — { subscription_id, kind: 'period'|'topup', plan?, add? } — and the
+// AMOUNT IS COMPUTED SERVER-SIDE by create_payment_intent(). The Whish
+// session hangs off the intent id; the invoice is created, already paid, by
+// settle_payment_intent() in whish-callback once Whish confirms the money.
 //
-// Flow (Whish Pay v1.4.4):
-//   client → this function → POST /payment/whish → { collectUrl }
-//   client redirects the payer → hosted Whish page → OTP in the Whish app
-//   Whish GETs our callback → whish-callback verifies and settles
+// SCOPE: subscription fees ONLY. Resident dues are not collected through
+// this; a building advertises its own whish_number and residents pay it
+// directly. This is our own corporate wallet taking our own fees.
 //
 // TWO THINGS THIS DELIBERATELY DOES NOT DO:
 //   · settle anything — only whish-callback does, after verifying with Whish
-//   · trust the caller's amount — it is read from the invoice, server side.
-//     An amount coming from the browser is an invitation to pay $1 for a
-//     $200 licence.
+//   · trust the caller's amount — there IS no amount in the request at all.
 // ============================================================
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -64,45 +63,45 @@ Deno.serve(async (req) => {
     const jwt = req.headers.get('Authorization')?.replace('Bearer ', '');
     if (!jwt) return json({ error: 'Not signed in.' }, 401);
     const { data: userRes } = await admin.auth.getUser(jwt);
-    const caller = userRes?.user;
-    if (!caller) return json({ error: 'Not signed in.' }, 401);
+    if (!userRes?.user) return json({ error: 'Not signed in.' }, 401);
 
-    const { invoice_id } = await req.json();
-    if (!invoice_id) return json({ error: 'invoice_id is required.' }, 400);
+    const { subscription_id, kind, plan, add } = await req.json().catch(() => ({}));
+    if (!subscription_id || !['period', 'topup'].includes(kind)) {
+      return json({ error: 'subscription_id and kind are required.' }, 400);
+    }
 
-    // ── may this caller pay this invoice? ────────────────────────────────
-    // Asked as the CALLER (their own JWT), so the invoices RLS policy from
-    // 0031 answers it. Reading it on the service key would bypass exactly the
-    // check we want, and hand anyone a link to anyone's invoice.
+    // ── may this caller pay for this subscription? ───────────────────────
+    // Asked as the CALLER (their own JWT) so the SQL gate answers it; the
+    // service key would bypass exactly the check we want.
     const asCaller = createClient(FN_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: inv, error: invErr } = await asCaller
-      .from('invoices')
-      .select('id, status, amount_cents, collect_url, period_start, period_end')
-      .eq('id', invoice_id)
-      .maybeSingle();
-    if (invErr) return json({ error: invErr.message }, 400);
-    if (!inv) return json({ error: 'Invoice not found.' }, 404);
-    if (inv.status === 'paid') return json({ error: 'That invoice is already paid.' }, 409);
-    if (inv.status === 'void') return json({ error: 'That invoice was voided.' }, 409);
+    const { data: allowed } = await asCaller.rpc('user_manages_subscription', { p_subscription: subscription_id });
+    if (!allowed) return json({ error: 'Not allowed.' }, 403);
+
+    // ── the intent: amount and dates computed in SQL, never trusted ──────
+    const { data: intents, error: intErr } = await admin.rpc('create_payment_intent', {
+      p_subscription: subscription_id, p_kind: kind,
+      p_plan: plan ?? null, p_add: add || null,
+    });
+    if (intErr) return json({ error: intErr.message }, 400);
+    const intent = Array.isArray(intents) ? intents[0] : intents;
+    if (!intent?.intent_id) return json({ error: 'Could not prepare the payment.' }, 500);
 
     // ── resume rather than re-create ─────────────────────────────────────
     // A failed attempt leaves the link payable, so the customer should land
-    // back on the SAME one. A second link would be a second way to pay one
-    // invoice.
-    if (inv.collect_url) {
-      return json({ collectUrl: inv.collect_url, resumed: true });
+    // back on the SAME one. A second link would be a second way to pay once.
+    if (intent.collect_url) {
+      return json({ collectUrl: intent.collect_url, resumed: true });
     }
 
-    // Amount from the invoice, never from the request. USD with 2 decimals,
-    // sent as a STRING — their API rejects a JSON number.
-    const amount = (inv.amount_cents / 100).toFixed(2);
+    // USD with 2 decimals, sent as a STRING — their API rejects a JSON number.
+    const amount = (intent.amount_cents / 100).toFixed(2);
 
     // Our own reference rides on the callback URL: Whish adds no identifying
     // parameters of its own and forwards ours unchanged.
-    const cb = `${FN_URL}/functions/v1/whish-callback?invoice=${inv.id}`;
+    const cb = `${FN_URL}/functions/v1/whish-callback?intent=${intent.intent_id}`;
 
     const res = await fetch(`${WHISH_BASE}/payment/whish`, {
       method: 'POST',
@@ -110,8 +109,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         amount,
         currency: 'USD',
-        invoice: `Abniyah licence ${inv.period_start} to ${inv.period_end}`,
-        externalId: inv.id,               // the invoice id IS the reference
+        invoice: `Abniyah subscription ${intent.period_start} to ${intent.period_end}`,
+        externalId: intent.intent_id,     // the intent id IS the reference
         successCallbackUrl: `${cb}&outcome=success`,
         failureCallbackUrl: `${cb}&outcome=failure`,
         successRedirectUrl: `${APP_URL}/licenses?paid=1`,
@@ -128,8 +127,8 @@ Deno.serve(async (req) => {
     }
 
     const collectUrl = body.data.collectUrl as string;
-    await admin.rpc('set_invoice_collect', {
-      p_invoice: inv.id, p_url: collectUrl, p_status: 'pending',
+    await admin.rpc('set_intent_collect', {
+      p_intent: intent.intent_id, p_url: collectUrl, p_status: 'pending',
     });
 
     return json({ collectUrl, resumed: false });

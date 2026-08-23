@@ -1,5 +1,9 @@
 // ============================================================
-// whish-callback — confirm a Whish payment and settle the licence invoice.
+// whish-callback — confirm a Whish payment and settle the PAYMENT INTENT.
+//
+// PAY-FIRST (0117): settling an intent is what CREATES the invoice — already
+// paid, the receipt — and applies the effect (period activated, or held
+// licences landed) in one transaction, via settle_payment_intent().
 //
 // THE CALLBACK IS NOT PROOF. Whish calls this as an UNAUTHENTICATED GET with
 // no body and no signature; their own documentation says to treat it as "a
@@ -9,15 +13,13 @@
 //
 // A FAILURE CALLBACK IS NOT A FAILED ORDER. The link stays payable after a
 // failed attempt, and the customer can simply retry on it; status stays
-// 'pending'. Only a successful payment or an expiry is settled. Cancelling an
-// invoice on a failure callback would be a genuine bug, so this does nothing
-// on failure except record where things got to.
+// 'pending'. This does nothing on failure except record where things got to.
 //
 // ALSO THE RECONCILER. A callback can be lost to a transient network failure,
 // and their docs say to reconcile by polling rather than treat it as a
-// failure. GET ?reconcile=1 (cron, with CRON_SECRET) sweeps open invoices that
-// have a payment link and asks about each. Same verification path — one place
-// where a payment can settle, not two that can disagree.
+// failure. GET ?reconcile=1 (cron, with CRON_SECRET) sweeps pending intents
+// that have a payment link and asks about each. Same verification path — one
+// place where a payment can settle, not two that can disagree.
 // ============================================================
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -61,27 +63,27 @@ async function collectStatus(externalId: string): Promise<string | null> {
   return (body?.data?.collectStatus as string) ?? null;
 }
 
-/** Verify one invoice against Whish and settle it if, and only if, Whish says
- *  the money arrived. Safe to call repeatedly: mark_invoice_paid (0098) is
- *  idempotent and returns false when the invoice was already settled. */
-async function reconcileOne(invoiceId: string): Promise<string> {
+/** Verify one intent against Whish and settle it if, and only if, Whish says
+ *  the money arrived. Safe to call repeatedly: settle_payment_intent (0117)
+ *  is idempotent — an already-paid intent returns its existing receipt. */
+async function reconcileOne(intentId: string): Promise<string> {
   const db = admin();
-  const status = await collectStatus(invoiceId);
+  const status = await collectStatus(intentId);
   if (!status) return 'unknown';
 
-  await db.rpc('set_invoice_collect', { p_invoice: invoiceId, p_url: null, p_status: status });
+  await db.rpc('set_intent_collect', { p_intent: intentId, p_url: null, p_status: status });
 
   if (status === 'success') {
-    const { data: settled, error } = await db.rpc('mark_invoice_paid', {
-      p_invoice: invoiceId,
+    const { error } = await db.rpc('settle_payment_intent', {
+      p_intent: intentId,
       p_method: 'whish',
-      p_ref: invoiceId,     // externalId IS the invoice id; unique by construction
+      p_ref: intentId,      // externalId IS the intent id; unique by construction
     });
     if (error) {
-      console.error('mark_invoice_paid failed', invoiceId, error.message);
+      console.error('settle_payment_intent failed', intentId, error.message);
       return 'error';
     }
-    return settled ? 'settled' : 'already-settled';
+    return 'settled';
   }
   // pending / failed / refunded — recorded above, nothing to release
   return status;
@@ -97,25 +99,25 @@ Deno.serve(async (req) => {
         return new Response('forbidden', { status: 403 });
       }
       const db = admin();
-      const { data: open } = await db
-        .from('invoices')
+      const { data: pending } = await db
+        .from('payment_intents')
         .select('id')
-        .eq('status', 'open')
+        .eq('status', 'pending')
         .not('collect_url', 'is', null)
         .limit(200);
       const results: Record<string, string> = {};
-      for (const row of open ?? []) results[row.id] = await reconcileOne(row.id);
+      for (const row of pending ?? []) results[row.id] = await reconcileOne(row.id);
       return new Response(JSON.stringify({ checked: Object.keys(results).length, results }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     // ── the callback itself ──────────────────────────────────────────────
-    const invoiceId = url.searchParams.get('invoice');
-    if (!invoiceId) return new Response('missing invoice', { status: 400 });
+    const intentId = url.searchParams.get('intent');
+    if (!intentId) return new Response('missing intent', { status: 400 });
 
-    const outcome = await reconcileOne(invoiceId);
-    console.log('whish callback', invoiceId, url.searchParams.get('outcome'), '→', outcome);
+    const outcome = await reconcileOne(intentId);
+    console.log('whish callback', intentId, url.searchParams.get('outcome'), '→', outcome);
 
     // ALWAYS 200. Whish retries on a non-200, and every outcome here — settled,
     // already settled, still pending — means "received and handled". A retry
@@ -124,8 +126,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error('whish-callback error', e);
     // Still 200: an exception here is ours to fix from the logs, and the cron
-    // sweep will pick the payment up regardless. Making Whish retry forever
-    // would not fix it.
+    // sweep will pick the payment up regardless.
     return new Response('ok', { status: 200 });
   }
 });
