@@ -28,6 +28,10 @@ const FINANCE_CAPS: Capability[] = [
 
 const VIEWER_CAPS: Capability[] = ['finance.view', 'issue.view_all'];
 
+// The collector (0110): the person who takes the cash door to door. Writes a
+// receipt and sees nothing else — no book, no balances, no other receipts.
+const BUILDING_COLLECTOR_CAPS: Capability[] = ['payment.record'];
+
 // The superintendent (ناطور): on the ground for issues, never sees money.
 const BUILDING_SUPER_CAPS: Capability[] = [
   'issue.view_all', 'issue.update', 'meeting.manage',
@@ -42,6 +46,7 @@ const ROLE_CAPS: Record<GrantRole, Capability[]> = {
   compound_admin: BUILDING_ADMIN_CAPS,
   building_admin: BUILDING_ADMIN_CAPS,
   building_super: BUILDING_SUPER_CAPS,
+  building_collector: BUILDING_COLLECTOR_CAPS,
   org_finance: FINANCE_CAPS,
   compound_finance: FINANCE_CAPS,
   building_finance: FINANCE_CAPS,
@@ -57,6 +62,7 @@ export const ROLE_RANK: Record<GrantRole, number> = {
   org_finance: 40,
   compound_finance: 40,
   building_finance: 40,
+  building_collector: 30,
   viewer: 20,
 };
 

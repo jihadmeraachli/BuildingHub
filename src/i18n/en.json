@@ -71,7 +71,8 @@
     "profile": "Profile",
     "logout": "Sign Out",
     "bylaws": "Nizam el Bineye",
-    "projects": "Projects"
+    "projects": "Projects",
+    "collect": "Collect"
   },
   "auth": {
     "login": "Sign In",
@@ -749,7 +750,8 @@
       "compound_admin": "Compound Admin",
       "compound_finance": "Compound Finance",
       "building_super": "Superintendent",
-      "platform_admin": "Platform Admin"
+      "platform_admin": "Platform Admin",
+      "building_collector": "Collector"
     },
     "statuses": {
       "pending": "Pending",
@@ -1650,5 +1652,17 @@
     "howActualWorks": "Spent is never typed in here: it is the sum of the expenses tagged to this project in Finance.",
     "deleteConfirm": "Delete this project? Its expenses stay in the book, untagged.",
     "pickBlock": "Pick a block, or apply it to the whole compound."
+  },
+  "collect": {
+    "title": "Collect",
+    "subtitle": "Write the receipt for what you took. Nothing else to see here.",
+    "record": "Record a payment",
+    "save": "Save receipt",
+    "photo": "Photo of the receipt (optional)",
+    "mine": "My collections",
+    "none": "Nothing recorded yet.",
+    "todayTotal": "Today: {{amount}}",
+    "saved": "Recorded {{amount}} for unit {{unit}}.",
+    "ownerNote": "Receipts land on the owner’s account. If a tenant paid, finance can move it afterwards."
   }
 }

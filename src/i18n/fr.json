@@ -71,7 +71,8 @@
     "profile": "Profil",
     "logout": "Se déconnecter",
     "bylaws": "Règlement de copropriété",
-    "projects": "Projets"
+    "projects": "Projets",
+    "collect": "Encaisser"
   },
   "auth": {
     "login": "Se connecter",
@@ -749,7 +750,8 @@
       "compound_admin": "Gestionnaire de complexe",
       "compound_finance": "Finances du complexe",
       "building_super": "Gardien",
-      "platform_admin": "Administrateur de la plateforme"
+      "platform_admin": "Administrateur de la plateforme",
+      "building_collector": "Collecteur"
     },
     "statuses": {
       "pending": "En attente",
@@ -1650,5 +1652,17 @@
     "howActualWorks": "Le montant dépensé ne se saisit pas ici : c’est la somme des dépenses rattachées à ce projet dans Finances.",
     "deleteConfirm": "Supprimer ce projet ? Ses dépenses restent dans le livret, sans rattachement.",
     "pickBlock": "Choisissez un bloc, ou appliquez-le à tout le complexe."
+  },
+  "collect": {
+    "title": "Encaisser",
+    "subtitle": "Écrivez le reçu de ce que vous avez pris. Rien d’autre à voir ici.",
+    "record": "Enregistrer un paiement",
+    "save": "Enregistrer le reçu",
+    "photo": "Photo du reçu (facultatif)",
+    "mine": "Mes encaissements",
+    "none": "Rien d’enregistré pour l’instant.",
+    "todayTotal": "Aujourd’hui : {{amount}}",
+    "saved": "{{amount}} enregistrés pour le logement {{unit}}.",
+    "ownerNote": "Les reçus vont sur le compte du propriétaire. Si un locataire a payé, la comptabilité peut le déplacer ensuite."
   }
 }

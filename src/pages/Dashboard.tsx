@@ -350,6 +350,10 @@ export default function Dashboard() {
     sessionStorage.setItem('abniyah_gs_routed', '1');
     return <Navigate to="/getting-started" replace />;
   }
+  // A collector (0110) has no book and no unit: their screen is /collect.
+  if (!isManager && !myUnitIds.length && canAny('payment.record')) {
+    return <Navigate to="/collect" replace />;
+  }
 
   // ── Resident view ──────────────────────────────────────────────────────────
   if (!isManager) {

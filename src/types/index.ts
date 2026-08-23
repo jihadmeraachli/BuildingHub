@@ -129,7 +129,7 @@ export type Capability =
 export type GrantRole =
   | 'org_admin' | 'org_finance'
   | 'compound_admin' | 'compound_finance'
-  | 'building_admin' | 'building_finance' | 'building_super'
+  | 'building_admin' | 'building_finance' | 'building_super' | 'building_collector'
   | 'viewer';
 
 export type GrantScope = 'org' | 'compound' | 'building';

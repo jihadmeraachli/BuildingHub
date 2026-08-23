@@ -41,7 +41,7 @@ const inviteStatusColor: Record<InviteRow['status'], 'green' | 'yellow' | 'red' 
 };
 
 // A compound grant covers every block in the compound, incl. future ones (0027).
-const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_super', 'building_finance', 'viewer'];
+const BUILDING_ROLES: GrantRole[] = ['building_admin', 'building_super', 'building_finance', 'building_collector', 'viewer'];
 const COMPOUND_ROLES: GrantRole[] = ['compound_admin', 'compound_finance', 'viewer'];
 const ORG_ROLES: GrantRole[] = ['org_admin', 'org_finance'];
 
