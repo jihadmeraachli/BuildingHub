@@ -308,6 +308,51 @@ CREATE TRIGGER subscription_topup_trg AFTER UPDATE OF license_count ON subscript
   FOR EACH ROW EXECUTE FUNCTION trg_subscription_topup();
 
 -- ------------------------------------------------------------
+-- 5b. The lock gates (defined BEFORE the functions that reference them:
+--     SQL function bodies are validated at CREATE time)
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION subscription_locked_for(p_building UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT COALESCE((SELECT status = 'locked' FROM subscriptions WHERE id = building_subscription_id(p_building)), FALSE);
+$$;
+
+CREATE OR REPLACE FUNCTION user_can_unlocked(p_building UUID, p_cap TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
+DECLARE r TEXT;
+BEGIN
+  IF is_platform_admin() THEN RETURN TRUE; END IF;
+  FOR r IN
+    SELECT g.role FROM grants g
+    WHERE g.user_id = auth.uid()
+      AND (g.expires_at IS NULL OR g.expires_at >= CURRENT_DATE)
+      AND (
+        (g.scope_type = 'building' AND g.building_id = p_building)
+        OR (g.scope_type = 'compound' AND EXISTS (SELECT 1 FROM buildings b WHERE b.id = p_building AND b.compound_id = g.compound_id))
+        OR (g.scope_type = 'org' AND EXISTS (SELECT 1 FROM org_buildings ob WHERE ob.org_id = g.org_id AND ob.building_id = p_building))
+      )
+  LOOP
+    IF role_has_cap(r, p_cap) THEN RETURN TRUE; END IF;
+  END LOOP;
+  RETURN FALSE;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION user_can_unlocked(UUID, TEXT) TO authenticated;
+
+CREATE OR REPLACE FUNCTION user_can(p_building UUID, p_cap TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
+BEGIN
+  IF is_platform_admin() THEN RETURN TRUE; END IF;
+  IF NOT user_can_unlocked(p_building, p_cap) THEN RETURN FALSE; END IF;
+  -- locked: reading is fine, everything else waits for the invoice
+  IF p_cap NOT IN ('finance.view', 'issue.view_all') AND subscription_locked_for(p_building) THEN
+    RETURN FALSE;
+  END IF;
+  RETURN TRUE;
+END;
+$$;
+
+
+-- ------------------------------------------------------------
 -- 6. The admin's buttons
 -- ------------------------------------------------------------
 -- who may run them: the scope's managing admin (through the UNLOCKED check,
@@ -435,49 +480,9 @@ END;
 $$;
 
 -- ------------------------------------------------------------
--- 8. The lock, inside user_can(). Read capabilities survive; writes do not.
---    Billing policies use user_can_unlocked() so the renewal page works.
+-- 8. Billing policies route through user_can_unlocked() so the renewal
+--    page stays writable while locked (the gates are in 5b).
 -- ------------------------------------------------------------
-CREATE OR REPLACE FUNCTION subscription_locked_for(p_building UUID)
-RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT COALESCE((SELECT status = 'locked' FROM subscriptions WHERE id = building_subscription_id(p_building)), FALSE);
-$$;
-
-CREATE OR REPLACE FUNCTION user_can_unlocked(p_building UUID, p_cap TEXT)
-RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
-DECLARE r TEXT;
-BEGIN
-  IF is_platform_admin() THEN RETURN TRUE; END IF;
-  FOR r IN
-    SELECT g.role FROM grants g
-    WHERE g.user_id = auth.uid()
-      AND (g.expires_at IS NULL OR g.expires_at >= CURRENT_DATE)
-      AND (
-        (g.scope_type = 'building' AND g.building_id = p_building)
-        OR (g.scope_type = 'compound' AND EXISTS (SELECT 1 FROM buildings b WHERE b.id = p_building AND b.compound_id = g.compound_id))
-        OR (g.scope_type = 'org' AND EXISTS (SELECT 1 FROM org_buildings ob WHERE ob.org_id = g.org_id AND ob.building_id = p_building))
-      )
-  LOOP
-    IF role_has_cap(r, p_cap) THEN RETURN TRUE; END IF;
-  END LOOP;
-  RETURN FALSE;
-END;
-$$;
-GRANT EXECUTE ON FUNCTION user_can_unlocked(UUID, TEXT) TO authenticated;
-
-CREATE OR REPLACE FUNCTION user_can(p_building UUID, p_cap TEXT)
-RETURNS BOOLEAN LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
-BEGIN
-  IF is_platform_admin() THEN RETURN TRUE; END IF;
-  IF NOT user_can_unlocked(p_building, p_cap) THEN RETURN FALSE; END IF;
-  -- locked: reading is fine, everything else waits for the invoice
-  IF p_cap NOT IN ('finance.view', 'issue.view_all') AND subscription_locked_for(p_building) THEN
-    RETURN FALSE;
-  END IF;
-  RETURN TRUE;
-END;
-$$;
-
 -- billing tables: the building branch goes through the unlocked check
 DROP POLICY IF EXISTS "subscriptions_read_scope_admin" ON subscriptions;
 CREATE POLICY "subscriptions_read_scope_admin" ON subscriptions FOR SELECT TO authenticated USING (
