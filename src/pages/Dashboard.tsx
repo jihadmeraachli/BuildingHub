@@ -10,7 +10,7 @@ import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
 import { supabase } from '@/lib/supabase';
 import { tenantTitle } from '@/lib/reportData';
-import type { Meeting, AdjustmentKind } from '@/types';
+import type { Meeting, AdjustmentKind, FundPosition } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 import { TrendChart } from '@/components/ui/Charts';
 import { PendingInvites } from '@/components/PendingInvites';
@@ -60,6 +60,10 @@ export default function Dashboard() {
 
   const [agg, setAgg] = useState<Agg>({ collected: 0, spent: 0, billed: 0, outstanding: 0, ytd: 0, units: 0, openIssues: 0, carry: 0 });
   const [monthly, setMonthly] = useState<{ labels: string[]; collected: number[]; spent: number[] }>({ labels: [], collected: [], spent: [] });
+  // 0106: cash on hand, apart from what residents owe. null until the RPC
+  // exists (migration not applied) — the hero then falls back to the net
+  // position it always showed, under its honest name.
+  const [fundPos, setFundPos] = useState<FundPosition | null>(null);
   const [rRaw, setRRaw] = useState<{
     unitIds: string[]; charges: RCharge[]; payments: RPayment[];
     adjustments: RAdjustment[]; units: RUnit[]; memberships: RMembership[];
@@ -141,12 +145,14 @@ export default function Dashboard() {
       }
       return { ...res, degraded: false };
     };
-    const [statsRes, monthlyRes, carryRes] = await Promise.all([
+    const [statsRes, monthlyRes, carryRes, fundRes] = await Promise.all([
       rpcWithPeriod('dashboard_stats', { p_from: mFrom, p_to: mTo }),
       rpcWithPeriod('dashboard_monthly', { p_to: mTo }),
       // T2: net carry (opening balances + adjustments) so the Fund balance
       // reflects units that joined with a balance (0061).
       rpcWithPeriod('dashboard_carry', { p_to: mTo }),
+      // 0106: cash on hand. Missing function (PGRST202) = not applied yet → null.
+      supabase.rpc('fund_position', { p_building_ids: inIds, p_to: mTo }),
     ]);
     // Say so rather than showing all-time numbers under a period label.
     if (statsRes.degraded && mPeriod !== 'all' && seq === loadSeq.current) {
@@ -179,12 +185,18 @@ export default function Dashboard() {
     const monthlyCollected = monthsRows.map((m) => Number(m.collected));
     const monthlySpent = monthsRows.map((m) => Number(m.spent));
 
+    const fundRow = fundRes.error ? null : ((Array.isArray(fundRes.data) ? fundRes.data[0] : fundRes.data) as FundPosition | undefined) ?? null;
+
     const avgMonthlySpend = monthlySpent.reduce((a, b) => a + b, 0) / 12;
-    const reserve = Math.round((collected - spent) * 100) / 100;
+    // Runway is months of spend the building can pay WITHOUT billing anyone:
+    // that is "available" (cash minus what is held for residents), not the
+    // net position it used to be (0106). Falls back when the RPC is absent.
+    const reserve = fundRow ? Number(fundRow.available) : Math.round((collected - spent) * 100) / 100;
     const runwayMonths = avgMonthlySpend > 0 ? Math.floor(Math.max(0, reserve) / avgMonthlySpend) : 0;
 
     // A newer load started while this one was in flight — discard, don't overwrite.
     if (seq !== loadSeq.current) return;
+    setFundPos(fundRow);
     setCoverage({ runwayMonths, duesIssued: Number(s?.dues_issued ?? 0), duesPeriod: s?.dues_period ?? '' });
     setAgg({
       collected, spent, billed, carry,
@@ -208,6 +220,15 @@ export default function Dashboard() {
       // ended memberships included so a departed tenant still resolves by name
       supabase.from('memberships').select('unit_id, user_id, tenure, ended_at, profiles(full_name)').in('unit_id', inIds),
     ]);
+    // 0106: the building's cash, as aggregates only (the function is gated to
+    // members). Transparency is the pitch; nobody else's credit is shown.
+    const rBuildingIds = [...new Set(((u.data ?? []) as unknown as RUnit[]).map((x) => x.building_id))];
+    if (rBuildingIds.length) {
+      supabase.rpc('fund_position', { p_building_ids: rBuildingIds }).then(({ data, error }) => {
+        const row = error ? null : (Array.isArray(data) ? data[0] : data) as FundPosition | undefined;
+        setFundPos(row ?? null);
+      });
+    }
     // Rows are kept RAW so the period filter re-slices them without a refetch.
     setRRaw({
       unitIds: inIds,
@@ -396,6 +417,27 @@ export default function Dashboard() {
             { label: t('dashboard.totalPaid'),    value: money(shownPaid) },
           ]}
         />
+        {/* 0106: the building's fund, two lines. What it holds and what is
+            genuinely its own — never another resident's balance. */}
+        {fundPos && (
+          <Card><CardContent className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('dashboard.buildingFund')}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-3">
+              <div>
+                <p className="text-xs text-muted-foreground">{t('dashboard.cashOnHand')}</p>
+                <p className={cn('text-xl font-semibold tnum mt-0.5', Number(fundPos.cash) < 0 && 'text-red-500')}>{money(Number(fundPos.cash))}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('dashboard.reserveLabel')}</p>
+                <p className={cn('text-xl font-semibold tnum mt-0.5', Number(fundPos.reserve) < 0 && 'text-red-500')}>{money(Number(fundPos.reserve))}</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">{t('dashboard.buildingFundHint')}</p>
+          </CardContent></Card>
+        )}
+
         {/* Portfolio: one card per unit when the account spans several (investor case) */}
         {myUnits.length > 1 && (
           <div>
@@ -478,17 +520,35 @@ export default function Dashboard() {
       )}
 
       {/* Hero card */}
-      <HeroCard
-        label={`${t('dashboard.fundBalance')}${mAsOfLabel ? ` · ${t('finance.asOf', { date: mAsOfLabel })}` : ''}`}
-        amount={money(fund)}
-        negative={fund < 0}
-        pill={t('dashboard.percentCollected', { pct: collectionRate })}
-        stats={[
-          { label: t('dashboard.collected'), value: money(agg.collected) },
-          { label: t('dashboard.spent'),     value: money(agg.spent) },
-          { label: t('dashboard.yearToDate'), value: money(agg.ytd) },
-        ]}
-      />
+      {/* 0106: the hero is CASH, apart from what residents owe. Until the
+          migration lands it shows the net position it always did, but named
+          for what it is — that number was never the drawer. */}
+      {fundPos ? (
+        <HeroCard
+          label={`${t('dashboard.cashOnHand')}${mAsOfLabel ? ` · ${t('finance.asOf', { date: mAsOfLabel })}` : ''}`}
+          amount={money(Number(fundPos.cash))}
+          negative={Number(fundPos.cash) < 0}
+          pill={t('dashboard.percentCollected', { pct: collectionRate })}
+          stats={[
+            { label: t('dashboard.heldForResidents'), value: money(Number(fundPos.credits)) },
+            { label: t('dashboard.availableToSpend'), value: money(Number(fundPos.available)) },
+            { label: t('dashboard.stillToCollect'),   value: money(Number(fundPos.arrears)) },
+            { label: t('dashboard.reserveLabel'),     value: money(Number(fundPos.reserve)) },
+          ]}
+        />
+      ) : (
+        <HeroCard
+          label={`${t('dashboard.fundBalance')}${mAsOfLabel ? ` · ${t('finance.asOf', { date: mAsOfLabel })}` : ''}`}
+          amount={money(fund)}
+          negative={fund < 0}
+          pill={t('dashboard.percentCollected', { pct: collectionRate })}
+          stats={[
+            { label: t('dashboard.collected'), value: money(agg.collected) },
+            { label: t('dashboard.spent'),     value: money(agg.spent) },
+            { label: t('dashboard.yearToDate'), value: money(agg.ytd) },
+          ]}
+        />
+      )}
 
       {/* Stat row. Outstanding / Units / Open issues are AS-OF snapshots (0072);
           Billed is a flow inside the period. The suffix keeps that visible. */}

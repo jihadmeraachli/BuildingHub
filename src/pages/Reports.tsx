@@ -11,9 +11,9 @@ import { fetchAll } from '@/lib/fetchAll';
 import { useExpenseTypes } from '@/lib/expenseTypes';
 import { fmtDate } from '@/lib/dateFmt';
 import { computeBalance } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, type TenancyRow } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, fundPosition, type TenancyRow } from '@/lib/reportData';
 import { CustomReportCard } from '@/components/CustomReportCard';
-import type { Unit, Charge, Payment, Expense, Adjustment, Budget, BudgetLine } from '@/types';
+import type { Unit, Charge, Payment, Expense, Adjustment, Budget, BudgetLine, Fund, FundEntry } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SelectField, SelectItem } from '@/components/ui/Select';
@@ -173,6 +173,18 @@ export default function Reports() {
   const [bvaBudgetId, setBvaBudgetId] = useState('');
   const [bvaLines, setBvaLines] = useState<BudgetLine[]>([]);
   const { types: allExpenseTypes } = useExpenseTypes(entity?.kind, entity?.id);
+
+  // 0106: the fund row and its entries, at the entity level like budgets.
+  const [fund, setFund] = useState<Fund | null>(null);
+  const [fundEntries, setFundEntries] = useState<FundEntry[]>([]);
+  useEffect(() => {
+    if (!entity) { setFund(null); setFundEntries([]); return; }
+    const col = entity.kind === 'compound' ? 'compound_id' : 'building_id';
+    Promise.all([
+      supabase.from('funds').select('*').eq(col, entity.id).maybeSingle(),
+      supabase.from('fund_entries').select('*').eq(col, entity.id).order('entry_date', { ascending: false }),
+    ]).then(([{ data: f }, { data: e }]) => { setFund((f as Fund | null) ?? null); setFundEntries((e as FundEntry[]) ?? []); });
+  }, [entityKey, entity?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!entity) { setBudgets([]); return; }
     const q = entity.kind === 'compound'
@@ -267,6 +279,51 @@ export default function Reports() {
     : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
   const round2 = (n: number) => Math.round(n * 100) / 100;
 
+  // 0106: the page that answers "where did the money go".
+  async function downloadFundStatement() {
+    if (!entity) return;
+    setBusy('fund');
+    try {
+      const { FundStatementDoc, downloadPdf } = await import('@/lib/pdf');
+      const periodEnd = range ? range.to : null;
+      const inputs = {
+        units, charges, payments, adjustments, expenses, entries: fundEntries,
+        opening: Number(fund?.opening_balance_usd ?? 0), openingDate: fund?.opening_date ?? null,
+      };
+      const closing = fundPosition(inputs, periodEnd);
+      // opening of the period = closing the day before it starts (all-time: the fund's own opening)
+      const before = range ? fundPosition(inputs, new Date(range.from.getTime() - 1)) : null;
+      const openingOfPeriod = before ? before.cash : closing.opening;
+      // flows INSIDE the period = all-time flows at the end minus those before it
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      const flows = {
+        payments_in:  r2(closing.payments_in  - (before?.payments_in  ?? 0)),
+        other_in:     r2(closing.other_in     - (before?.other_in     ?? 0)),
+        expenses_out: r2(closing.expenses_out - (before?.expenses_out ?? 0)),
+        other_out:    r2(closing.other_out    - (before?.other_out    ?? 0)),
+        refunds_out:  r2(closing.refunds_out  - (before?.refunds_out  ?? 0)),
+      };
+      const el = (
+        <FundStatementDoc
+          entityName={entity.name}
+          period={periodLabel}
+          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          billingMode={entity.billingMode}
+          openingOfPeriod={openingOfPeriod}
+          flows={flows}
+          position={closing}
+          entries={fundEntries.filter((e) => !e.voided_at && inRange(e.entry_date)).map((e) => ({
+            id: e.id, date: e.entry_date, kind: e.kind, description: e.description, counterparty: e.counterparty, amount: Number(e.amount_usd),
+          }))}
+          fundPaidExpenses={expenses.filter((e) => inRange(e.expense_date) && Number(e.funded_by_fund_usd ?? 0) > 0).map((e) => ({
+            id: e.id, date: e.expense_date, description: e.description, amount: Number(e.amount_usd), fundPart: Number(e.funded_by_fund_usd),
+          }))}
+        />
+      );
+      await downloadPdf(el, `fund-${entity.name.replace(/\s+/g, '-')}-${period}.pdf`);
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(''); }
+  }
+
   async function downloadBuildingReport() {
     if (!entity) return;
     setBusy('report');
@@ -285,6 +342,11 @@ export default function Reports() {
         return s + (bal < 0 ? -bal : 0);
       }, 0));
       const book = buildBook(units, charges, payments, adjustments, null, th);
+      // 0106: cash apart from receivables, as of the period end
+      const fundKpi = fundPosition({
+        units, charges, payments, adjustments, expenses, entries: fundEntries,
+        opening: Number(fund?.opening_balance_usd ?? 0), openingDate: fund?.opening_date ?? null,
+      }, periodEnd);
       const unitLabel = (uid: string) => units.find((u) => u.id === uid)?.label ?? '—';
       const el = (
         <BuildingReportDoc
@@ -292,6 +354,7 @@ export default function Reports() {
           period={periodLabel}
           generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
           kpi={{ collected, billed, outstanding }}
+          fund={fundKpi}
           book={book}
           expenses={pExpenses}
           payments={pPayments.map((p) => ({ id: p.id, date: p.paid_on, unit: unitLabel(p.unit_id), method: p.method, amount: Number(p.amount_usd) }))}
@@ -357,6 +420,18 @@ export default function Reports() {
               you are already looking at that unit — this was a second door to
               the identical PDF, in a place where you first had to find the unit
               in a dropdown. Same reasoning that removed the two resident cards. */}
+
+          {/* ── Fund statement (0106): where did the money go ── */}
+          <Card><CardBody>
+            <div className="flex items-center gap-2.5 mb-2">
+              <FileBarChart2 size={18} className="text-primary" />
+              <p className="font-semibold text-foreground">{t('reports.fundStatement')}</p>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.fundStatementDesc')}</p>
+            <Button onClick={downloadFundStatement} loading={busy === 'fund'} disabled={!entity} variant="secondary" className="w-full">
+              <Download size={15} /> {t('reports.download')}
+            </Button>
+          </CardBody></Card>
 
           {/* Budget vs actual (0087): how well did the prepaid budget perform */}
           <Card className="md:col-span-2"><CardBody>

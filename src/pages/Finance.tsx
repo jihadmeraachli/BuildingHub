@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send, Gauge } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send, Gauge, Landmark, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -11,10 +11,10 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle, requestLinesAsOf } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle, requestLinesAsOf, fundPosition } from '@/lib/reportData';
 import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
 import { composeUsdTotal, usdPartOf, currencyTag, currencyBreakdown } from '@/lib/currency';
-import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode } from '@/types';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode, Fund, FundEntry, FundEntryKind } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -72,13 +72,26 @@ type ExpForm = {
   // T5: for units that HAVE a tenant, charge this party. Owner-only units always
   // go to the owner regardless. (No more 'both' / 'all members'.)
   leasedTo: Tenure;
+  // 0106: who bears it. 'residents' bills the whole amount; 'fund' bills nobody
+  // (the building's own money); 'mixed' bills what is allocated and the
+  // remainder is the fund's. The remainder is never silent: under 'residents'
+  // a short allocation blocks save until it is named.
+  funding: ExpFunding;
+};
+type ExpFunding = 'residents' | 'fund' | 'mixed';
+const fundingOf = (e: Expense): ExpFunding => {
+  const fp = Number(e.funded_by_fund_usd ?? 0);
+  if (fp <= 0) return 'residents';
+  return Math.abs(fp - Number(e.amount_usd)) < 0.005 ? 'fund' : 'mixed';
 };
 const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
   cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
   category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false,
-  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner',
+  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner', funding: 'residents',
 });
+type FundEntryForm = { kind: FundEntryKind; amount: string; amount_lbp: string; lbp_rate: string; entry_date: string; description: string; counterparty: string };
+const newFundEntryForm = (): FundEntryForm => ({ kind: 'income', amount: '', amount_lbp: '', lbp_rate: '', entry_date: new Date().toISOString().slice(0, 10), description: '', counterparty: '' });
 type PayForm = { unit_id: string; amount: string; amount_lbp: string; lbp_rate: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure };
 const newPayForm = (): PayForm => ({ unit_id: '', amount: '', amount_lbp: '', lbp_rate: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner' });
 
@@ -117,7 +130,7 @@ export default function Finance() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
   useEffect(() => { setBlockFilters([]); }, [entityKey]);
 
-  const [tab, setTab] = useState<'book' | 'expenses' | 'payments' | 'adjustments' | 'metering'>('book');
+  const [tab, setTab] = useState<'book' | 'expenses' | 'payments' | 'adjustments' | 'metering' | 'fund'>('book');
   // Book "as of" date — empty = today/live. Lets you pull a statement position
   // at a past date (e.g. year-end). Only affects the Book tab. (0033)
   const [asOf, setAsOf] = useState<string>('');
@@ -203,6 +216,68 @@ export default function Finance() {
 
   const [expOpen, setExpOpen] = useState(false);
   const [expForm, setExpForm] = useState<ExpForm>(newExpForm());
+
+  // ── Fund (0106): cash on hand, apart from what residents owe ──
+  const [fund, setFund] = useState<Fund | null>(null);
+  const [fundEntries, setFundEntries] = useState<FundEntry[]>([]);
+  const [fundEntryOpen, setFundEntryOpen] = useState(false);
+  const [fundEntryForm, setFundEntryForm] = useState<FundEntryForm>(newFundEntryForm());
+  const [fundEntryFile, setFundEntryFile] = useState<File | null>(null);
+  const [openingOpen, setOpeningOpen] = useState(false);
+  const [openingForm, setOpeningForm] = useState({ amount: '', date: '', note: '' });
+
+  function openFundEntry(kind: FundEntryKind) {
+    setFundEntryForm({ ...newFundEntryForm(), kind, lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' });
+    setFundEntryFile(null); setFundEntryOpen(true);
+  }
+  function openOpening() {
+    setOpeningForm({ amount: fund ? String(fund.opening_balance_usd) : '', date: fund?.opening_date ?? '', note: fund?.note ?? '' });
+    setOpeningOpen(true);
+  }
+  async function saveFundEntry() {
+    if (!entity) return;
+    const lbpPart = Number(fundEntryForm.amount_lbp) || 0;
+    const rate = Number(fundEntryForm.lbp_rate) || 0;
+    if (lbpPart > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
+    const amount = composeUsdTotal(Number(fundEntryForm.amount) || 0, lbpPart, rate);
+    if (!(amount > 0) || !fundEntryForm.description.trim()) return;
+    setSaving(true);
+    const attachment_url = fundEntryFile ? await uploadFile('attachments', `${entity.id}/fund`, fundEntryFile) : null;
+    const { error } = await supabase.from('fund_entries').insert({
+      building_id: entity.kind === 'building' ? entity.id : null,
+      compound_id: entity.kind === 'compound' ? entity.id : null,
+      kind: fundEntryForm.kind, amount_usd: amount,
+      amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
+      entry_date: fundEntryForm.entry_date, description: fundEntryForm.description.trim(),
+      counterparty: fundEntryForm.counterparty.trim() || null, attachment_url, created_by: profile?.id,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('fund.entrySaved')); setFundEntryOpen(false); loadScope();
+  }
+  async function voidFundEntry(id: string) {
+    const reason = window.prompt(t('fund.voidReason'));
+    if (reason === null) return;
+    const { error } = await supabase.from('fund_entries').update({ voided_at: new Date().toISOString(), voided_by: profile?.id, void_reason: reason || null }).eq('id', id);
+    if (error) toast.error(error.message); else { toast.success(t('fund.entryVoided')); loadScope(); }
+  }
+  async function saveOpening() {
+    if (!entity) return;
+    const amount = Number(openingForm.amount) || 0;
+    setSaving(true);
+    const row = {
+      building_id: entity.kind === 'building' ? entity.id : null,
+      compound_id: entity.kind === 'compound' ? entity.id : null,
+      opening_balance_usd: amount, opening_date: openingForm.date || null, note: openingForm.note.trim() || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = fund
+      ? await supabase.from('funds').update(row).eq('id', fund.id)
+      : await supabase.from('funds').insert({ ...row, created_by: profile?.id });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('fund.openingSaved')); setOpeningOpen(false); loadScope();
+  }
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [expFile, setExpFile] = useState<File | null>(null);
   const [payOpen, setPayOpen] = useState(false);
@@ -245,6 +320,17 @@ export default function Finance() {
     setPayments(paymentRows);
     setExpenses(expenseRows);
     setAdjustments(adjRows);
+    // 0106: the fund row and its entries live at the entity level (compound
+    // or standalone block), never per block inside a compound.
+    {
+      const scopeCol = entity.kind === 'compound' ? 'compound_id' : 'building_id';
+      const [{ data: fr }, { data: fe }] = await Promise.all([
+        supabase.from('funds').select('*').eq(scopeCol, entity.id).maybeSingle(),
+        supabase.from('fund_entries').select('*').eq(scopeCol, entity.id).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
+      ]);
+      setFund((fr as Fund | null) ?? null);
+      setFundEntries((fe as FundEntry[]) ?? []);
+    }
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
       const [{ data: ug }, { data: mem }] = await Promise.all([
@@ -365,6 +451,21 @@ export default function Finance() {
   const billedP = round2(pCharges.reduce((s, c) => s + Number(c.amount_usd), 0));
   const netP = round2(collectedP - billedP);
 
+  // 0106: the position as of the period end, from the rows already loaded.
+  // Same pure function the tests pin; SQL fund_position() is its twin for the
+  // dashboard, where rows are not fetched.
+  const position = useMemo(() => fundPosition({
+    units, charges, payments, adjustments, expenses, entries: fundEntries,
+    opening: Number(fund?.opening_balance_usd ?? 0), openingDate: fund?.opening_date ?? null,
+  }, asOfDate), [units, charges, payments, adjustments, expenses, fundEntries, fund, asOfDate]);
+  // the guard list: expenses whose charges + fund part do not explain the amount
+  const unreconciledExpenses = useMemo(() => {
+    const billed = new Map<string, number>();
+    charges.forEach((c) => { if (c.expense_id && !c.voided_at) billed.set(c.expense_id, (billed.get(c.expense_id) ?? 0) + Number(c.amount_usd)); });
+    return expenses.filter((e) => Math.abs(Number(e.amount_usd) - (billed.get(e.id) ?? 0) - Number(e.funded_by_fund_usd ?? 0)) > 0.005);
+  }, [charges, expenses]);
+  const pFundEntries = fundEntries.filter((e) => inRange(e.entry_date));
+
   // per-unit book. Balance folds in the opening balance and, when an "as of"
   // date is set, only counts transactions up to that date. The row math lives
   // in lib/reportData (shared with the Reports tab, #62).
@@ -445,7 +546,7 @@ export default function Finance() {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner' });
+    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e) });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -460,7 +561,15 @@ export default function Finance() {
     const rate = Number(expForm.lbp_rate) || 0;
     if (lbpPart > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
     const amount = composeUsdTotal(Number(expForm.amount) || 0, lbpPart, rate);
-    if (!entity || !amount || amount <= 0 || targetUnits.length === 0) return;
+    // 0106: a fund-paid expense targets nobody; the others need units and a
+    // split that is fully explained (C1 — a short custom split is never saved
+    // silently; the form makes the user name the remainder first).
+    const fromFund = expForm.funding === 'fund';
+    if (!entity || !amount || amount <= 0 || (!fromFund && targetUnits.length === 0)) return;
+    const allocatedNow = fromFund ? 0 : round2(allocate(amount, targetUnits, expForm.method, custom).reduce((s, r) => s + r.amount, 0));
+    if (!fromFund && allocatedNow - amount > 0.005) { toast.error(t('finance.fundOverAllocated')); return; }
+    if (expForm.funding === 'residents' && amount - allocatedNow > 0.005) { toast.error(t('finance.fundRemainderUnnamed')); return; }
+    const funded_by_fund_usd = fromFund ? amount : round2(Math.max(0, amount - allocatedNow));
     setSaving(true);
     const chosenType = activeTypes.find((x) => x.id === expForm.expense_type_id);
     const desc = expForm.description.trim()
@@ -474,7 +583,7 @@ export default function Finance() {
 
     let expenseId = editingExpenseId;
     if (editingExpenseId) {
-      const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, expense_date: expForm.expense_date, scope_type, method: expForm.method };
+      const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, expense_date: expForm.expense_date, scope_type, method: expForm.method, funded_by_fund_usd };
       if (invoice_url) patch.invoice_url = invoice_url;
       await supabase.from('expenses').update(patch).eq('id', editingExpenseId);
       await supabase.from('charges').delete().eq('expense_id', editingExpenseId);
@@ -484,14 +593,15 @@ export default function Finance() {
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
         expense_type_id: expForm.expense_type_id || null,
         amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
-        is_extraordinary: !editingExpenseId && expForm.extraordinary,
+        is_extraordinary: !editingExpenseId && !fromFund && expForm.extraordinary,
+        funded_by_fund_usd,
       }).select().single();
       if (error || !exp) { setSaving(false); toast.error(error?.message ?? 'Could not save expense'); return; }
       expenseId = (exp as Expense).id;
     }
 
     // each charge carries the UNIT's own block_id → compound book slices by block
-    const rows = allocate(amount, targetUnits, expForm.method, custom).filter((r) => r.amount !== 0).map((r) => {
+    const rows = (fromFund ? [] : allocate(amount, targetUnits, expForm.method, custom)).filter((r) => r.amount !== 0).map((r) => {
       // owner-only units → owner; leased units → the chosen party (T5).
       // Tenant charges are stamped with the current tenant's id (0066).
       const billedTo = hasTenant(r.unit_id) ? expForm.leasedTo : 'owner';
@@ -983,6 +1093,7 @@ export default function Finance() {
                 { key: 'payments', label: t('finance.payments'), icon: HandCoins },
                 { key: 'adjustments', label: t('finance.adjustments'), icon: Scale },
                 { key: 'metering', label: t('metering.tab'), icon: Gauge },
+                { key: 'fund', label: t('fund.tab'), icon: Landmark },
               ]}
             />
             {/* Contextual toolbar: each tab shows ITS action. Record Payment
@@ -993,6 +1104,12 @@ export default function Finance() {
                 <>
                   {tab === 'adjustments' && (
                     <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.recordAdjustment')}</Button>
+                  )}
+                  {tab === 'fund' && (
+                    <>
+                      <Button variant="secondary" onClick={() => openFundEntry('outflow')}><ArrowUpFromLine size={16} /> {t('fund.recordOutflow')}</Button>
+                      <Button variant="tinted" onClick={() => openFundEntry('income')}><ArrowDownToLine size={16} /> {t('fund.recordIncome')}</Button>
+                    </>
                   )}
                   {(tab === 'expenses' || tab === 'book') && (
                     <Button variant="secondary" onClick={openExpense} disabled={units.length === 0}><Plus size={16} /> {t('finance.recordExpense')}</Button>
@@ -1024,6 +1141,113 @@ export default function Finance() {
             </div></CardBody></Card>
           ) : loading ? <SkeletonTable rows={6} cols={5} /> : (
             <>
+              {/* ── Fund (0106): the drawer, apart from what residents owe ── */}
+              {tab === 'fund' && entity && (
+                <div className="space-y-4">
+                  <Card><CardBody>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t('fund.cashOnHand')}{asOfLabel ? ` · ${t('finance.asOf', { date: asOfLabel })}` : ''}
+                        </p>
+                        <p className={`text-4xl font-bold tracking-tight mt-1 tnum ${position.cash < 0 ? 'text-red-500' : 'text-foreground'}`}>{money(position.cash)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('fund.cashHint')}</p>
+                      </div>
+                      {canManageFinance && (
+                        <Button variant="secondary" size="sm" onClick={openOpening}>
+                          <Pencil size={14} /> {fund ? t('fund.editOpening') : t('fund.setOpening')}
+                        </Button>
+                      )}
+                    </div>
+                    {/* the breakdown, one line each, signs shown as they read */}
+                    <div className="mt-5 rounded-xl border border-border divide-y divide-border text-sm">
+                      {[
+                        { k: 'fund.lineCredits', v: -position.credits, hint: entity.billingMode === 'dues' ? t('fund.creditsHintDues') : t('fund.creditsHintArrears') },
+                        { k: 'fund.lineAvailable', v: position.available, strong: true },
+                        { k: 'fund.lineArrears', v: position.arrears },
+                        { k: 'fund.lineReserve', v: position.reserve, strong: true },
+                      ].map((r) => (
+                        <div key={r.k} className={`flex items-center justify-between gap-3 px-3 py-2 ${r.strong ? 'bg-secondary/60' : ''}`}>
+                          <div>
+                            <p className={`${r.strong ? 'font-semibold text-foreground' : 'text-foreground'}`}>{t(r.k)}</p>
+                            {r.hint && <p className="text-xs text-muted-foreground">{r.hint}</p>}
+                          </div>
+                          <span className={`tnum ${r.strong ? 'font-semibold' : ''} ${r.v < 0 ? 'text-red-500' : 'text-foreground'}`}>{money(r.v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* how the cash got there */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4 text-xs">
+                      {[
+                        ['fund.flowOpening', position.opening], ['fund.flowPayments', position.payments_in], ['fund.flowOtherIn', position.other_in],
+                        ['fund.flowExpenses', -position.expenses_out], ['fund.flowOtherOut', -position.other_out], ['fund.flowRefunds', -position.refunds_out],
+                      ].map(([k, v]) => (
+                        <div key={k as string} className="rounded-lg bg-secondary px-3 py-2 flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground">{t(k as string)}</span>
+                          <span className={`tnum font-medium ${(v as number) < 0 ? 'text-red-500' : 'text-foreground'}`}>{money(v as number)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {position.fund_paid > 0 && (
+                      <p className="text-xs text-muted-foreground mt-3">{t('fund.fundPaidNote', { amount: money(position.fund_paid) })}</p>
+                    )}
+                  </CardBody></Card>
+
+                  {/* the guard: expenses nobody explained. Empty after the 0106 backfill. */}
+                  {unreconciledExpenses.length > 0 && (
+                    <Card className="border-amber-300 dark:border-amber-800"><CardBody>
+                      <p className="text-sm font-semibold text-foreground">{t('fund.unreconciledTitle', { count: unreconciledExpenses.length })}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 mb-2">{t('fund.unreconciledHint')}</p>
+                      <div className="divide-y divide-border rounded-xl border border-border">
+                        {unreconciledExpenses.slice(0, 20).map((e) => (
+                          <button key={e.id} type="button" onClick={() => openExpenseEdit(e)} className="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-start hover:bg-accent">
+                            <span className="text-foreground">{fmtDate(e.expense_date, 'MMM d, yyyy')} · {e.description}</span>
+                            <span className="tnum text-muted-foreground">{money(Number(e.amount_usd))}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </CardBody></Card>
+                  )}
+
+                  {/* entries: money that is not a unit payment or an expense */}
+                  {pFundEntries.length === 0 ? <Empty body={t('fund.noEntries')} /> : (
+                    <Card><div className="overflow-x-auto"><table className="w-full text-sm">
+                      <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                        <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
+                        <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
+                        <th className="px-5 py-3 text-start font-medium">{t('fund.counterparty')}</th>
+                        <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
+                        {canManageFinance && <th className="px-5 py-3" />}
+                      </tr></thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {pFundEntries.map((e) => (
+                          <tr key={e.id} className={e.voided_at ? 'opacity-50' : ''}>
+                            <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.entry_date, 'MMM d, yyyy')}</td>
+                            <td className="px-5 py-3 font-medium text-foreground dark:text-white">
+                              <span className="inline-flex items-center gap-1.5">
+                                {e.description}
+                                {e.attachment_url && <AttachmentLink url={e.attachment_url} label="" icon={Paperclip} className="text-muted-foreground" />}
+                                {e.voided_at && <Badge variant="slate">{t('finance.voided')}</Badge>}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-muted-foreground">{e.counterparty ?? '—'}</td>
+                            <td className={`px-5 py-3 text-end font-semibold tnum ${e.kind === 'income' ? 'text-emerald-600' : 'text-red-500'}`}>
+                              {currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}
+                              {e.kind === 'income' ? '+' : '−'}{money(Number(e.amount_usd))}
+                            </td>
+                            {canManageFinance && (
+                              <td className="px-5 py-3 text-end">
+                                {!e.voided_at && <button type="button" onClick={() => voidFundEntry(e.id)} className="text-xs text-muted-foreground hover:text-red-500 inline-flex items-center gap-1"><Ban size={12} /> {t('finance.void')}</button>}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table></div></Card>
+                  )}
+                </div>
+              )}
+
               {tab === 'metering' && entity && (
                 <MeteringPanel
                   entity={{ kind: entity.kind, id: entity.id, name: entity.name }}
@@ -1116,7 +1340,11 @@ export default function Finance() {
                     {pExpenses.map((e) => (
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'MMM d, yyyy')}</td>
-                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}</span></td>
+                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}
+                          {/* 0106: who bore it. Only shown when the fund did, fully or partly. */}
+                          {Number(e.funded_by_fund_usd ?? 0) > 0 && (
+                            <Badge variant="yellow">{fundingOf(e) === 'fund' ? t('fund.paidFromFund') : t('fund.partFromFund', { amount: money(Number(e.funded_by_fund_usd)) })}</Badge>
+                          )}</span></td>
                         <td className="px-5 py-3"><Badge>{typeLabel(e)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
                         <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}{money(Number(e.amount_usd))}</td>
@@ -1241,7 +1469,7 @@ export default function Finance() {
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
-            {!editingExpenseId && (
+            {!editingExpenseId && expForm.funding !== 'fund' && (
               <label className="flex items-start gap-2.5 cursor-pointer rounded-xl border border-border p-3">
                 <input type="checkbox" checked={expForm.extraordinary}
                   onChange={(e) => setExpForm({ ...expForm, extraordinary: e.target.checked })}
@@ -1310,13 +1538,35 @@ export default function Finance() {
             </div>
           )}
 
-          <SelectField label={t('finance.splitMethod')} value={expForm.method} onValueChange={(v) => setExpForm({ ...expForm, method: v as AllocationMethod })}>
-            <SelectItem value="by_shares">{t('finance.byShares')}</SelectItem>
-            <SelectItem value="equal">{t('finance.equally')}</SelectItem>
-            <SelectItem value="custom">{t('finance.customAmounts')}</SelectItem>
-          </SelectField>
+          {/* 0106: who bears it. Their three buttons, our wording. 'mixed' is
+              reached from the remainder prompt below rather than chosen up
+              front — you only split once you have seen what is left over. */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-600">{t('fund.whoPays')}</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['residents', 'fund'] as const).map((k) => {
+                const on = expForm.funding === k || (k === 'residents' && expForm.funding === 'mixed');
+                return (
+                  <button key={k} type="button"
+                    onClick={() => setExpForm({ ...expForm, funding: k, extraordinary: k === 'fund' ? false : expForm.extraordinary })}
+                    className={`rounded-xl border px-3 py-2.5 text-start transition-colors ${on ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'}`}>
+                    <span className="block text-sm font-medium text-foreground">{t(`fund.pay_${k}`)}</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">{t(`fund.pay_${k}_hint`)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-          {targetUnits.length > 0 && (
+          {expForm.funding !== 'fund' && (
+            <SelectField label={t('finance.splitMethod')} value={expForm.method} onValueChange={(v) => setExpForm({ ...expForm, method: v as AllocationMethod })}>
+              <SelectItem value="by_shares">{t('finance.byShares')}</SelectItem>
+              <SelectItem value="equal">{t('finance.equally')}</SelectItem>
+              <SelectItem value="custom">{t('finance.customAmounts')}</SelectItem>
+            </SelectField>
+          )}
+
+          {expForm.funding !== 'fund' && targetUnits.length > 0 && (
             <div className="rounded-xl border border-border overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 bg-secondary text-xs font-medium text-muted-foreground">
                 <span>{t('finance.previewUnits', { count: targetUnits.length })}</span>
@@ -1338,13 +1588,46 @@ export default function Finance() {
             </div>
           )}
 
+          {/* 0106 — the remainder is never silent. Allocated less than the
+              amount? Say whether the fund bears the rest, or go back and fix
+              the split. Allocated more? That is simply an error. */}
+          {expForm.funding !== 'fund' && targetUnits.length > 0 && (() => {
+            const total = composeUsdTotal(Number(expForm.amount) || 0, Number(expForm.amount_lbp) || 0, Number(expForm.lbp_rate) || 0);
+            const rest = round2(total - previewSum);
+            if (Math.abs(rest) <= 0.005) return null;
+            if (rest < 0) return (
+              <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-3 py-2.5 text-sm text-red-700 dark:text-red-300">
+                {t('finance.fundOverAllocated')}
+              </div>
+            );
+            return (
+              <div className={`rounded-xl border px-3 py-3 ${expForm.funding === 'mixed' ? 'border-primary/40 bg-primary/5' : 'border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800'}`}>
+                <p className="text-sm font-medium text-foreground">{t('fund.remainderTitle', { amount: money(rest) })}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {expForm.funding === 'mixed' ? t('fund.remainderNamed') : t('fund.remainderAsk')}
+                </p>
+                {expForm.funding !== 'mixed' && (
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    <Button size="sm" variant="secondary" onClick={() => setExpForm({ ...expForm, funding: 'mixed' })}>{t('fund.remainderFromFund')}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setExpForm({ ...expForm, method: 'by_shares', funding: 'residents' })}>{t('fund.remainderFixSplit')}</Button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.invoiceOptional')}</label>
             <input type="file" accept="application/pdf,image/*" onChange={(e) => setExpFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setExpOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={saveExpense} loading={saving} disabled={targetUnits.length === 0 || !(Number(expForm.amount) > 0)}>{editingExpenseId ? t('finance.saveChanges') : `${t('finance.createAndBill')} ${targetUnits.length || ''}`}</Button>
+            <Button onClick={saveExpense} loading={saving}
+              disabled={(expForm.funding !== 'fund' && targetUnits.length === 0) || !(Number(expForm.amount) > 0)}>
+              {editingExpenseId ? t('finance.saveChanges')
+                : expForm.funding === 'fund' ? t('fund.recordFromFund')
+                : `${t('finance.createAndBill')} ${targetUnits.length || ''}`}
+            </Button>
           </div>
         </div>
       </Modal>
@@ -1433,6 +1716,47 @@ export default function Finance() {
       </Modal>
 
       {/* Expense detail */}
+      {/* 0106: a fund entry — money that is not a unit payment or an expense */}
+      <Modal open={fundEntryOpen} onClose={() => setFundEntryOpen(false)} title={fundEntryForm.kind === 'income' ? t('fund.recordIncome') : t('fund.recordOutflow')}>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{fundEntryForm.kind === 'income' ? t('fund.incomeHint') : t('fund.outflowHint')}</p>
+          <Input label={t('finance.description')} value={fundEntryForm.description} onChange={(e) => setFundEntryForm({ ...fundEntryForm, description: e.target.value })} placeholder={fundEntryForm.kind === 'income' ? t('fund.incomeExample') : t('fund.outflowExample')} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={fundEntryForm.amount} onChange={(e) => setFundEntryForm({ ...fundEntryForm, amount: e.target.value })} />
+            <Input label={t('finance.date')} type="date" value={fundEntryForm.entry_date} onChange={(e) => setFundEntryForm({ ...fundEntryForm, entry_date: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={fundEntryForm.amount_lbp} onChange={(e) => setFundEntryForm({ ...fundEntryForm, amount_lbp: e.target.value })} />
+            <Input label={t('finance.lbpRate')} type="number" step="1" min="0" value={fundEntryForm.lbp_rate} onChange={(e) => setFundEntryForm({ ...fundEntryForm, lbp_rate: e.target.value })} />
+          </div>
+          <Input label={t('fund.counterparty')} value={fundEntryForm.counterparty} onChange={(e) => setFundEntryForm({ ...fundEntryForm, counterparty: e.target.value })} placeholder={t('fund.counterpartyExample')} />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-600">{t('finance.invoiceOptional')}</label>
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setFundEntryFile(e.target.files?.[0] ?? null)} className="text-sm text-slate-600 file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setFundEntryOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={saveFundEntry} loading={saving} disabled={!(Number(fundEntryForm.amount) > 0 || Number(fundEntryForm.amount_lbp) > 0) || !fundEntryForm.description.trim()}>{t('common.save')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 0106: the opening cash — what was in the drawer the day the book started */}
+      <Modal open={openingOpen} onClose={() => setOpeningOpen(false)} title={t('fund.openingTitle')}>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('fund.openingHint')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('finance.amountUsd')} type="number" step="0.01" value={openingForm.amount} onChange={(e) => setOpeningForm({ ...openingForm, amount: e.target.value })} />
+            <Input label={t('fund.openingDate')} type="date" value={openingForm.date} onChange={(e) => setOpeningForm({ ...openingForm, date: e.target.value })} />
+          </div>
+          <Input label={t('finance.note')} value={openingForm.note} onChange={(e) => setOpeningForm({ ...openingForm, note: e.target.value })} />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setOpeningOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={saveOpening} loading={saving}>{t('common.save')}</Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={!!detailExpense} onClose={() => setDetailExpense(null)} title={detailExpense?.description ?? t('finance.expenses')} size="lg">
         {detailExpense && (
           <div className="space-y-4">
@@ -1442,6 +1766,9 @@ export default function Finance() {
                 { l: t('finance.category'), v: allTypes.find((x) => x.id === detailExpense.expense_type_id)?.key == null && detailExpense.expense_type_id ? (allTypes.find((x) => x.id === detailExpense.expense_type_id)?.name ?? t(`finance.cats.${detailExpense.category}`)) : t(`finance.cats.${detailExpense.category}`) },
                 { l: t('finance.date'), v: fmtDate(detailExpense.expense_date, 'MMM d, yyyy') },
                 { l: t('finance.split'), v: detailExpense.building_id ? (blockName[detailExpense.building_id] ?? t('finance.aBlock')) : (detailExpense.compound_id ? t('finance.wholeCompound') : detailExpense.scope_type) },
+                // 0106: only when the fund bore some of it — a fully billed expense says nothing extra
+                ...(Number(detailExpense.funded_by_fund_usd ?? 0) > 0
+                  ? [{ l: t('fund.fundPart'), v: money(Number(detailExpense.funded_by_fund_usd)) }] : []),
               ].map((x) => (
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
               ))}

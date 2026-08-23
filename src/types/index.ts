@@ -246,8 +246,66 @@ export interface Expense {
   scope_type: AllocationScope;
   method: AllocationMethod;
   invoice_url: string | null;
+  /** Part NOT billed to units — paid from the building's own money (0106).
+   *  charges + this = amount_usd. 0 = fully billed to residents. */
+  funded_by_fund_usd?: number;
   created_by: string | null;
   created_at: string;
+}
+
+/** One per compound or standalone block: the opening cash (0106). */
+export interface Fund {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  name: string;
+  opening_balance_usd: number;
+  opening_date: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type FundEntryKind = 'income' | 'outflow';
+
+/** Cash that is not a unit payment or an expense (0106): rent from a third
+ *  party, bank interest, a cash refund handed over, a withdrawal. */
+export interface FundEntry {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  kind: FundEntryKind;
+  amount_usd: number;
+  amount_lbp?: number | null;
+  lbp_rate?: number | null;
+  entry_date: string;
+  description: string;
+  counterparty: string | null;
+  attachment_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  voided_at?: string | null;
+  voided_by?: string | null;
+  void_reason?: string | null;
+}
+
+/** The building's cash, separated from what residents owe (0106).
+ *  cash − credits = available; available + arrears = reserve (= cash − N). */
+export interface FundPosition {
+  opening: number;
+  payments_in: number;
+  other_in: number;
+  expenses_out: number;
+  other_out: number;
+  refunds_out: number;
+  cash: number;
+  credits: number;
+  arrears: number;
+  available: number;
+  reserve: number;
+  fund_paid: number;
+  unreconciled: number;
 }
 
 export interface Charge {

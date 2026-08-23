@@ -6,7 +6,7 @@
 // and both pages follow.
 // ============================================================
 import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure, Expense } from '@/types';
-import { computeUnitBalances, adjustmentEffect } from '@/lib/balance';
+import { computeUnitBalances, computeBalance, adjustmentEffect, type OpeningInfo } from '@/lib/balance';
 import { currencyTag } from '@/lib/currency';
 import type { StatementBucket } from '@/lib/pdf';
 
@@ -789,4 +789,79 @@ export function groupLedger(
   return by === 'month'
     ? out.sort((a, b) => (a.key < b.key ? 1 : -1))
     : out.sort((a, b) => (b.expenses + b.payments) - (a.expenses + a.payments));
+}
+
+// ── Fund position (0106) ─────────────────────────────────────────────────────
+// The client twin of SQL fund_position(). Same inputs → same numbers, so the
+// Finance tab, the dashboard and the PDF agree by construction.
+//
+//   N  residents' net position = Σ unit balances
+//   C  cash on hand            = opening + Σ payments + Σ other in
+//                                − Σ expenses − Σ other out − Σ refunds paid
+//   R  reserve                 = C − N
+//
+// A neighbour's overpayment is a credit inside N: it sits in the drawer (in C)
+// but is held for them and never counts as the building's own money.
+
+export interface FundInputs {
+  units: (OpeningInfo & { id: string })[];
+  charges: Charge[];
+  payments: Payment[];
+  adjustments: Adjustment[];
+  expenses: Expense[];
+  entries: { kind: 'income' | 'outflow'; amount_usd: number; entry_date: string; voided_at?: string | null }[];
+  opening: number;
+  openingDate?: string | null;
+}
+
+export interface FundPositionResult {
+  opening: number; payments_in: number; other_in: number;
+  expenses_out: number; other_out: number; refunds_out: number;
+  cash: number; credits: number; arrears: number; available: number; reserve: number;
+  fund_paid: number; unreconciled: number;
+}
+
+export function fundPosition(inp: FundInputs, asOf?: string | Date | null): FundPositionResult {
+  const cut = asOf ? new Date(asOf) : null;
+  const within = (d: string) => !cut || new Date(d) <= cut;
+  const live = (r: { voided_at?: string | null }) => !r.voided_at;
+  const sum = (xs: number[]) => round2(xs.reduce((s, n) => s + n, 0));
+
+  const openingCounts = !cut || !inp.openingDate || new Date(inp.openingDate) <= cut;
+  const opening = openingCounts ? round2(inp.opening) : 0;
+  const payments_in = sum(inp.payments.filter((p) => live(p) && within(p.paid_on)).map((p) => Number(p.amount_usd)));
+  const other_in = sum(inp.entries.filter((e) => e.kind === 'income' && live(e) && within(e.entry_date)).map((e) => Number(e.amount_usd)));
+  const pExp = inp.expenses.filter((e) => within(e.expense_date));
+  const expenses_out = sum(pExp.map((e) => Number(e.amount_usd)));
+  const other_out = sum(inp.entries.filter((e) => e.kind === 'outflow' && live(e) && within(e.entry_date)).map((e) => Number(e.amount_usd)));
+  const refunds_out = sum(inp.adjustments.filter((a) => a.kind === 'refund' && live(a) && within(a.effective_date)).map((a) => Number(a.amount_usd)));
+  const cash = round2(opening + payments_in + other_in - expenses_out - other_out - refunds_out);
+
+  let credits = 0, arrears = 0;
+  for (const u of inp.units) {
+    const bal = computeBalance(u,
+      inp.charges.filter((c) => c.unit_id === u.id),
+      inp.payments.filter((p) => p.unit_id === u.id),
+      cut, inp.adjustments.filter((a) => a.unit_id === u.id));
+    if (bal > 0) credits += bal; else arrears -= bal;
+  }
+  credits = round2(credits); arrears = round2(arrears);
+
+  const fund_paid = sum(pExp.map((e) => Number(e.funded_by_fund_usd ?? 0)));
+  // the guard: every expense must be fully explained by its charges + fund part
+  const billedBy = new Map<string, number>();
+  inp.charges.forEach((c) => {
+    if (!c.expense_id || !live(c)) return;
+    billedBy.set(c.expense_id, (billedBy.get(c.expense_id) ?? 0) + Number(c.amount_usd));
+  });
+  const unreconciled = pExp.filter((e) =>
+    Math.abs(Number(e.amount_usd) - (billedBy.get(e.id) ?? 0) - Number(e.funded_by_fund_usd ?? 0)) > 0.005).length;
+
+  return {
+    opening, payments_in, other_in, expenses_out, other_out, refunds_out,
+    cash, credits, arrears,
+    available: round2(cash - credits),
+    reserve: round2(cash - credits + arrears),
+    fund_paid, unreconciled,
+  };
 }

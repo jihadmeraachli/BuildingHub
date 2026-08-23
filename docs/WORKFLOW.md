@@ -271,19 +271,45 @@ resident card and the PDF statements, so no two surfaces can drift apart.
 
 ## 8. The building book (financial ledger)
 
-```
-BUILDING BOOK (per compound / standalone building; sliceable by block_id)
-  opening balance
-    + Σ payments in (owners settling charges)
-    − Σ expenses paid out
-  ───────────────────────────────────────────────
-  = FUND BALANCE   ── positive = reserve / احتياطي (over-collection shows here)
+Two numbers, deliberately kept apart (migration `0106`). The first is what
+residents owe; the second is what is in the drawer. They are not the same
+thing, and the difference is the building's own money.
 
+```
 PER-UNIT ACCOUNT (statement)  —  sign convention:
-  balance = Σ payments − Σ charges
+  balance = opening + Σ payments − Σ charges (+ adjustments)
     balance > 0  →  POSITIVE = credit / prepayment (paid more than owed)
     balance < 0  →  NEGATIVE = owed / arrears / متأخرات (paid less than owed)
+
+N  RESIDENTS' NET POSITION = Σ unit balances        (what the old hero called "fund")
+
+C  CASH ON HAND (per compound / standalone block — one drawer)
+     opening cash (funds.opening_balance_usd)
+       + Σ unit payments
+       + Σ other income        (fund_entries 'income': antenna rent, interest)
+       − Σ expenses            (billed or not)
+       − Σ other outflows      (fund_entries 'outflow': cash to the bank)
+       − Σ refunds paid        (adjustments kind 'refund')
+
+R  RESERVE = C − N   ── the building's OWN money / احتياطي
+     shown as:  cash − held-for-residents (credits) = AVAILABLE TO SPEND
+                available + still-to-collect (arrears) = RESERVE ONCE COLLECTED
 ```
+
+- In a pass-through arrears building charges equal expenses, so **R is zero by
+  construction**. A reserve is built only by charges that are not expenses
+  (dues, levies) and is drawn down only by an expense the residents are not
+  billed for.
+- **A neighbour who overpays** raises C and N equally: the money is in the
+  drawer but it is theirs, and future charges will consume it. It never
+  appears in R. A dues prepayment is the same arithmetic under a different
+  label ("prepaid for the budget" instead of "held").
+- **An expense carries `funded_by_fund_usd`**, the part NOT billed to units.
+  `Σ charges + funded_by_fund = amount` always; the expense form shows any
+  unallocated remainder and makes the user name it (fund, or fix the split).
+  Nothing is ever blocked and nothing is ever silent.
+- **One USD fund per scope** for now. LBP stays per-transaction at its frozen
+  rate; a per-currency fund later is a second `funds` row, not a rewrite.
 
 - **USD only** in v1 — every money row stores a USD amount; no FX/LBP.
 - Reports that fall out for free: fund balance (whole compound and per block),

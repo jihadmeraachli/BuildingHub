@@ -47,6 +47,7 @@ const TABLES = [
   'buildings', 'compounds', 'units', 'charges', 'payments', 'adjustments',
   'expenses', 'dues', 'budgets', 'meetings', 'issues', 'inspections',
   'service_contracts', 'profiles', 'grants', 'memberships', 'invoices',
+  'funds', 'fund_entries',
 ];
 
 const findings = [];

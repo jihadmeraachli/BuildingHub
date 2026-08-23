@@ -259,9 +259,20 @@ export interface BuildingReportProps {
     showFormer?: boolean; fmrTenant?: number; fmrTenantNames?: string[] }[];
   expenses: Pick<Expense, 'id' | 'description' | 'category' | 'amount_usd' | 'expense_date'>[];
   payments?: { id: string; date: string; unit: string; method: string; amount: number }[];
+  /** 0106: cash apart from receivables. Optional so old callers still render. */
+  fund?: FundKpi;
 }
 
-export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, expenses, payments = [] }: BuildingReportProps) {
+/** The fund numbers a PDF prints (0106). Mirrors FundPositionResult without
+ *  importing it, so pdf.tsx stays a leaf module. */
+export interface FundKpi {
+  opening: number; payments_in: number; other_in: number;
+  expenses_out: number; other_out: number; refunds_out: number;
+  cash: number; credits: number; arrears: number; available: number; reserve: number;
+  fund_paid: number;
+}
+
+export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, expenses, payments = [], fund }: BuildingReportProps) {
   return (
     <Document title={`Financial Report — ${entityName}`} author="Abniyah">
       <Page size="A4" style={s.page}>
@@ -298,6 +309,29 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
             <Text style={[s.kpiValue, { color: kpi.outstanding > 0 ? C.amber : C.slate5 }]}>{money(kpi.outstanding)}</Text>
           </View>
         </View>
+
+        {/* 0106: the drawer, apart from the book. Cash is what is there;
+            available is what the building may call its own today. */}
+        {fund && (
+          <View style={s.kpiRow}>
+            <View style={s.kpiBox}>
+              <Text style={s.kpiLabel}>Cash on hand</Text>
+              <Text style={[s.kpiValue, { color: fund.cash < 0 ? C.rose : C.slate9 }]}>{money(fund.cash)}</Text>
+            </View>
+            <View style={s.kpiBox}>
+              <Text style={s.kpiLabel}>Held for residents</Text>
+              <Text style={[s.kpiValue, { color: C.slate5 }]}>{money(fund.credits)}</Text>
+            </View>
+            <View style={s.kpiBox}>
+              <Text style={s.kpiLabel}>Available to spend</Text>
+              <Text style={[s.kpiValue, { color: fund.available < 0 ? C.rose : C.emerald }]}>{money(fund.available)}</Text>
+            </View>
+            <View style={s.kpiBox}>
+              <Text style={s.kpiLabel}>Reserve once collected</Text>
+              <Text style={[s.kpiValue, { color: fund.reserve < 0 ? C.rose : C.slate9 }]}>{money(fund.reserve)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Book — three sections: All units, then Owner-only, then Tenant-only.
             Tenant section lists only units that have/had a tenant (split). */}
@@ -532,6 +566,138 @@ export function LedgerReportDoc({ entityName, filterSummary, generatedOn, rows, 
 }
 
 // ─── Download helper ──────────────────────────────────────────────────────────
+
+// ─── Fund Statement (0106) ────────────────────────────────────────────────────
+// Opening cash → in → out → closing, then the position, then the rows that are
+// not on any unit's statement. The page that answers "where did the money go".
+
+export interface FundStatementProps {
+  entityName: string;
+  period: string;
+  generatedOn: string;
+  billingMode: 'arrears' | 'dues';
+  /** cash the day the period started (all-time: the fund's own opening) */
+  openingOfPeriod: number;
+  /** flows INSIDE the period; opening + these = position.cash */
+  flows: Pick<FundKpi, 'payments_in' | 'other_in' | 'expenses_out' | 'other_out' | 'refunds_out'>;
+  position: FundKpi;
+  entries: { id: string; date: string; kind: 'income' | 'outflow'; description: string; counterparty: string | null; amount: number }[];
+  fundPaidExpenses: { id: string; date: string; description: string; amount: number; fundPart: number }[];
+}
+
+export function FundStatementDoc({ entityName, period, generatedOn, billingMode, openingOfPeriod, flows, position, entries, fundPaidExpenses }: FundStatementProps) {
+  const line = (label: string, value: number, opts: { bold?: boolean; color?: string; indent?: boolean } = {}) => (
+    <View style={[s.tableRow, opts.bold ? { backgroundColor: C.slate1 } : {}]}>
+      <Text style={[s.tableCell, { flex: 3, paddingLeft: opts.indent ? 12 : 0, fontFamily: opts.bold ? 'Helvetica-Bold' : 'Helvetica' }]}>{label}</Text>
+      <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: opts.bold ? 'Helvetica-Bold' : 'Helvetica', color: opts.color ?? (value < 0 ? C.rose : C.slate9) }]}>{money(value)}</Text>
+    </View>
+  );
+  const heldLabel = billingMode === 'dues' ? 'Prepaid by residents, not yet consumed' : 'Held for residents in credit';
+  return (
+    <Document title={`Fund Statement — ${entityName}`} author="Abniyah">
+      <Page size="A4" style={s.page}>
+        <View style={s.header}>
+          <View>
+            <Text style={s.brand}>ABNIYAH</Text>
+            <Text style={s.brandSub}>{entityName}</Text>
+          </View>
+          <View style={s.metaRight}>
+            <Text style={s.metaLabel}>Period</Text>
+            <Text style={s.metaValue}>{period}</Text>
+            <Text style={[s.metaLabel, { marginTop: 6 }]}>Generated</Text>
+            <Text style={s.metaValue}>{generatedOn}</Text>
+          </View>
+        </View>
+
+        <Text style={s.title}>Fund Statement</Text>
+        <Text style={s.subtitle}>{entityName} · {period}</Text>
+
+        <View style={s.kpiRow}>
+          <View style={s.kpiBox}>
+            <Text style={s.kpiLabel}>Cash on hand</Text>
+            <Text style={[s.kpiValue, { color: position.cash < 0 ? C.rose : C.slate9 }]}>{money(position.cash)}</Text>
+          </View>
+          <View style={s.kpiBox}>
+            <Text style={s.kpiLabel}>Available to spend</Text>
+            <Text style={[s.kpiValue, { color: position.available < 0 ? C.rose : C.emerald }]}>{money(position.available)}</Text>
+          </View>
+          <View style={s.kpiBox}>
+            <Text style={s.kpiLabel}>Reserve once collected</Text>
+            <Text style={[s.kpiValue, { color: position.reserve < 0 ? C.rose : C.slate9 }]}>{money(position.reserve)}</Text>
+          </View>
+        </View>
+
+        {/* Cash movement INSIDE the period (the caller subtracts what preceded
+            it), so opening + flows = closing on the page. */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Cash movement · {period}</Text>
+          {line('Opening cash', openingOfPeriod, { bold: true })}
+          {line('Payments from units', flows.payments_in, { indent: true, color: C.emerald })}
+          {line('Other income', flows.other_in, { indent: true, color: C.emerald })}
+          {line('Expenses', -flows.expenses_out, { indent: true })}
+          {line('Other outflows', -flows.other_out, { indent: true })}
+          {line('Refunds paid', -flows.refunds_out, { indent: true })}
+          {line('Closing cash', position.cash, { bold: true })}
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Position · end of period</Text>
+          {line('Cash on hand', position.cash)}
+          {line(heldLabel, -position.credits, { indent: true })}
+          {line('Available to spend', position.available, { bold: true })}
+          {line('Still to collect from residents', position.arrears, { indent: true })}
+          {line('Reserve once collected', position.reserve, { bold: true })}
+        </View>
+
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Other income and outflows · {period}</Text>
+          {entries.length === 0 ? (
+            <Text style={s.empty}>None in this period. Unit payments and expenses are on the building report.</Text>
+          ) : (
+            <>
+              <View style={s.tableHead}>
+                <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+                <Text style={[s.tableHeadCell, { flex: 3 }]}>Description</Text>
+                <Text style={[s.tableHeadCell, { flex: 2 }]}>Counterparty</Text>
+                <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+              </View>
+              {entries.map((e) => (
+                <View key={e.id} style={s.tableRow}>
+                  <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{e.date}</Text>
+                  <Text style={[s.tableCell, { flex: 3 }]}>{e.description}</Text>
+                  <Text style={[s.tableCell, { flex: 2, color: C.slate5 }]}>{e.counterparty ?? '—'}</Text>
+                  <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: e.kind === 'income' ? C.emerald : C.rose }]}>{e.kind === 'income' ? '+' : '-'}{money(e.amount)}</Text>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+
+        {fundPaidExpenses.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Expenses paid from the fund · {period}</Text>
+            <View style={s.tableHead}>
+              <Text style={[s.tableHeadCell, { flex: 1 }]}>Date</Text>
+              <Text style={[s.tableHeadCell, { flex: 3 }]}>Description</Text>
+              <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Expense</Text>
+              <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>From fund</Text>
+            </View>
+            {fundPaidExpenses.map((e) => (
+              <View key={e.id} style={s.tableRow}>
+                <Text style={[s.tableCell, { flex: 1, color: C.slate5 }]}>{e.date}</Text>
+                <Text style={[s.tableCell, { flex: 3 }]}>{e.description}</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: 'right', color: C.slate5 }]}>{money(e.amount)}</Text>
+                <Text style={[s.tableCell, { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{money(e.fundPart)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Text style={s.footer}>Cash on hand = opening cash + payments + other income - expenses - other outflows - refunds. Reserve = cash - what is held for residents + what is still to collect. Generated by Abniyah.</Text>
+      </Page>
+    </Document>
+  );
+}
 
 export async function downloadPdf(element: React.ReactElement, filename: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

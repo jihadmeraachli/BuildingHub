@@ -134,6 +134,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0103 | `0103_building_documents.sql` | `building_documents` (Nizam el Bineye, versioned, compound-or-block) + `units.share_source_ref`. Reading is a resident right, so SELECT follows `user_sees_building`, not an admin capability. |
 | 0104 | `0104_waitlist.sql` | `waitlist` — the first table an anonymous stranger may write to. INSERT only for `anon`, no SELECT, email shape checked in the DB. |
 | 0105 | `0105_storage_scope.sql` | **The attachments bucket stops being open to every signed-in user.** It was readable AND writable platform-wide; the policy now reads the first path segment through `user_sees_building` / `user_sees_compound`. See §7. |
+| 0106 | `0106_fund.sql` | **Cash on hand, separated from what residents owe.** `expenses.funded_by_fund_usd` (the unbilled part, **backfilled** from history: whatever was never charged came out of the building's money), `funds` (opening cash per compound/standalone block), `fund_entries` (other income / outflows), and `fund_position(ids, asof)` — cash, credits, arrears, available, reserve. Residents may call the function (aggregates only). Closes the C1 finding: a short custom split used to vanish from the book. |
 
 ⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
 metered expense, migrations included. A future backfill over those rows must
@@ -272,7 +273,7 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
   depend on `entities.length` — on mount with a persisted key, `entities` is
   still loading and the effect must refire once it resolves.
 - **Dashboard:** gradient balance hero, KPIs, collected-vs-spent interactive chart, **coverage** (reserve + runway + dues issued), upcoming meetings — all filterable by **compound / block / building**.
-- **Finance:** entity comes from the sidebar selector; block filter + period (all/year/month) stay in-page. Record expense with scope (whole compound / a block / group / selected units / one unit) and method (by shares/equal/custom); per-unit **Book**, **Expenses**, **Payments** tabs; detail + edit/delete + attachments. Residents get a read-only **"My Account"** statement.
+- **Finance:** entity comes from the sidebar selector; block filter + period (all/year/month) stay in-page. Record expense with scope (whole compound / a block / group / selected units / one unit) and method (by shares/equal/custom); per-unit **Book**, **Expenses**, **Payments** tabs; detail + edit/delete + attachments. Residents get a read-only **"My Account"** statement. **Fund tab (0106):** cash on hand → held for residents → available → still to collect → reserve, the flows behind it, other income/outflow entries, opening cash, and the reconciliation list (expenses whose charges + fund part ≠ amount). The expense form has a **Who bears it** choice (residents / the building fund) and shows any unallocated remainder, which must be named before save.
 - **Dues:** per building/compound plan (cadence + by-shares/equal/manual/B2). "Generate dues for a period" auto-trues-up (`amount_due = max(0, base − balance)`). Residents see a **Dues card**.
 - **⚠️ DUES ARE PARTY-AWARE (2026-08-02, #61, migration 0070).** A plan now has
   **two pools**: `pool_amount` (the recurring budget — billed to the **tenant**
@@ -400,6 +401,20 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   a building, left behind by the 2026-08-21 database wipe. Invisible since
   `0105` and referenced by nothing. Safe to delete whenever the space is
   wanted; the diagnostic at the top of `0105` lists them.
+- **The book was receivables only until `0106`** (2026-08-23). "Fund balance"
+  on the dashboard was Σ unit balances — what residents owe, net — and was
+  never the money in the drawer. Two consequences, both now closed: an expense
+  with a short custom split (no sum check) silently vanished from the headline,
+  and money that was not a unit payment or an expense (the antenna rent, a cash
+  refund) had no row type. `0106` adds `funded_by_fund_usd` on expenses (the
+  form now makes the user NAME any unallocated remainder; it never blocks),
+  `funds` + `fund_entries`, and `fund_position()`; the Finance **Fund** tab,
+  the dashboard hero and the Fund statement PDF read from it. The identity to
+  remember: **reserve = cash − (credits − arrears)**. A neighbour's overpayment
+  is a credit inside N: in the drawer, but held for them, never the
+  building's. **Still open:** one USD fund per scope (LBP stays per-transaction
+  at its frozen rate); per-currency funds are a second `funds` row later, not a
+  rewrite.
 - **Storage was open platform-wide until `0105`** (2026-08-22). Any signed-in
   user could enumerate the `attachments` bucket and read — or write — any
   building’s files. Note *why* it survived so long: `0094`’s demo read-only
