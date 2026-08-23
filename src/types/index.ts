@@ -277,6 +277,8 @@ export interface Expense {
   funded_by_fund_usd?: number;
   /** The project this expense belongs to (0109). */
   project_id?: string | null;
+  /** The amenity it concerns (0112): the lift, the generator. */
+  amenity_id?: string | null;
   created_by: string | null;
   created_at: string;
 }
@@ -472,6 +474,8 @@ export interface Inspection {
   outcome: string | null;
   next_due_date: string | null;
   attachment_url: string | null;
+  /** The amenity inspected (0112). */
+  amenity_id?: string | null;
   created_by: string | null;
   created_at: string;
 }
@@ -493,6 +497,8 @@ export interface ServiceContract {
   amount_usd: number | null;
   billing_cycle: BillingCycle | null;
   notes: string | null;
+  /** The amenity the contract covers (0112). */
+  amenity_id?: string | null;
   attachment_url: string | null;
   created_by: string | null;
   created_at: string;
@@ -513,6 +519,31 @@ export interface Project {
   start_date: string | null;
   end_date: string | null;
   attachment_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AmenityKind =
+  | 'elevator' | 'generator' | 'water_tank' | 'water_pump' | 'solar' | 'hvac'
+  | 'fire_safety' | 'gate' | 'intercom' | 'parking' | 'storage' | 'roof' | 'other';
+
+/** A named physical thing (0112): the lift, the generator, the tank. Contracts,
+ *  inspections, expenses and issues hang off it; cost + install date +
+ *  expected life give replacement planning for free. */
+export interface Amenity {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  kind: AmenityKind;
+  name: string;
+  location: string | null;
+  install_date: string | null;
+  cost_usd: number | null;
+  expected_life_years: number | null;
+  notes: string | null;
+  attachment_url: string | null;
+  active: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;

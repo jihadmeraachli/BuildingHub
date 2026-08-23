@@ -16,7 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
-  Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins,
+  Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins, Cog,
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2,
   ContactRound, ScrollText,
 } from 'lucide-react';
@@ -127,6 +127,8 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     // Projects sit in the PRIMARY list for residents too (0109): estimate vs
     // spent on the lift is exactly what a resident wants to see.
     { to: '/projects',    label: t('nav.projects'),      icon: HardHat },
+    // The inventory (0112): residents may read it, it is their building's kit.
+    { to: '/amenities',   label: t('nav.amenities'),     icon: Cog },
     // The collector's only screen (0110). Managers already have Finance.
     { to: '/collect',     label: t('nav.collect'),       icon: HandCoins, show: !residentLens && canAny('payment.record') && !canAny('finance.view') },
   ].filter(l => l.show !== false);

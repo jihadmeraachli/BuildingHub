@@ -72,7 +72,8 @@
     "logout": "Sign Out",
     "bylaws": "Nizam el Bineye",
     "projects": "Projects",
-    "collect": "Collect"
+    "collect": "Collect",
+    "amenities": "Amenities"
   },
   "auth": {
     "login": "Sign In",
@@ -1664,5 +1665,54 @@
     "todayTotal": "Today: {{amount}}",
     "saved": "Recorded {{amount}} for unit {{unit}}.",
     "ownerNote": "Receipts land on the owner’s account. If a tenant paid, finance can move it afterwards."
+  },
+  "amenities": {
+    "title": "Amenities",
+    "subtitle": "The lift, the generator, the tank. What the building has, and everything attached to each one.",
+    "add": "Add amenity",
+    "edit": "Edit amenity",
+    "kind": "Kind",
+    "name": "Name",
+    "namePlaceholder": "e.g. Lift A, Generator 250 kVA",
+    "location": "Location",
+    "locationPlaceholder": "e.g. Block B, basement",
+    "installedLabel": "Installed",
+    "cost": "Cost (USD)",
+    "life": "Expected life (years)",
+    "allKinds": "All kinds",
+    "none": "No amenities yet. Add the lift and the generator first: contracts, inspections and expenses can then be attached to them.",
+    "retired": "Retired",
+    "retireLabel": "Retired (keep for history, hide from forms)",
+    "replace": "Replace around",
+    "installed": "installed {{date}}",
+    "replaceNow": "due for replacement ({{year}})",
+    "replaceSoon": "replace by {{year}}",
+    "replaceAround": "replace around {{year}}",
+    "linkLabel": "Amenity",
+    "linkNone": "Not about a specific amenity",
+    "linked": {
+      "contracts": "Contracts",
+      "inspections": "Inspections",
+      "expenses": "Expenses",
+      "issues": "Issues"
+    },
+    "linkedNone": "None.",
+    "lifetimeSpend": "Spent on it so far: {{amount}}.",
+    "deleteConfirm": "Delete this amenity? Contracts, inspections and expenses stay, unlinked.",
+    "kinds": {
+      "elevator": "Elevator",
+      "generator": "Generator",
+      "water_tank": "Water tank",
+      "water_pump": "Water pump",
+      "solar": "Solar",
+      "hvac": "HVAC",
+      "fire_safety": "Fire safety",
+      "gate": "Gate / door",
+      "intercom": "Intercom",
+      "parking": "Parking",
+      "storage": "Storage room",
+      "roof": "Roof",
+      "other": "Other"
+    }
   }
 }

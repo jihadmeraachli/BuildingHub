@@ -72,7 +72,8 @@
     "logout": "Se déconnecter",
     "bylaws": "Règlement de copropriété",
     "projects": "Projets",
-    "collect": "Encaisser"
+    "collect": "Encaisser",
+    "amenities": "Équipements"
   },
   "auth": {
     "login": "Se connecter",
@@ -1664,5 +1665,54 @@
     "todayTotal": "Aujourd’hui : {{amount}}",
     "saved": "{{amount}} enregistrés pour le logement {{unit}}.",
     "ownerNote": "Les reçus vont sur le compte du propriétaire. Si un locataire a payé, la comptabilité peut le déplacer ensuite."
+  },
+  "amenities": {
+    "title": "Équipements",
+    "subtitle": "L’ascenseur, le générateur, le réservoir. Ce que l’immeuble possède, et tout ce qui s’y rattache.",
+    "add": "Ajouter un équipement",
+    "edit": "Modifier l’équipement",
+    "kind": "Type",
+    "name": "Nom",
+    "namePlaceholder": "p. ex. Ascenseur A, Générateur 250 kVA",
+    "location": "Emplacement",
+    "locationPlaceholder": "p. ex. Bloc B, sous-sol",
+    "installedLabel": "Installé le",
+    "cost": "Coût (USD)",
+    "life": "Durée de vie prévue (années)",
+    "allKinds": "Tous les types",
+    "none": "Aucun équipement pour l’instant. Ajoutez d’abord l’ascenseur et le générateur ; contrats, contrôles et dépenses pourront ensuite s’y rattacher.",
+    "retired": "Retiré",
+    "retireLabel": "Retiré (conservé pour l’historique, masqué des formulaires)",
+    "replace": "Remplacer vers",
+    "installed": "installé {{date}}",
+    "replaceNow": "à remplacer ({{year}})",
+    "replaceSoon": "à remplacer d’ici {{year}}",
+    "replaceAround": "à remplacer vers {{year}}",
+    "linkLabel": "Équipement",
+    "linkNone": "Sans équipement particulier",
+    "linked": {
+      "contracts": "Contrats",
+      "inspections": "Contrôles",
+      "expenses": "Dépenses",
+      "issues": "Incidents"
+    },
+    "linkedNone": "Aucun.",
+    "lifetimeSpend": "Dépensé à ce jour : {{amount}}.",
+    "deleteConfirm": "Supprimer cet équipement ? Contrats, contrôles et dépenses restent, sans rattachement.",
+    "kinds": {
+      "elevator": "Ascenseur",
+      "generator": "Générateur",
+      "water_tank": "Réservoir d’eau",
+      "water_pump": "Pompe à eau",
+      "solar": "Solaire",
+      "hvac": "Climatisation",
+      "fire_safety": "Sécurité incendie",
+      "gate": "Portail / porte",
+      "intercom": "Interphone",
+      "parking": "Parking",
+      "storage": "Cave / débarras",
+      "roof": "Toit",
+      "other": "Autre"
+    }
   }
 }

@@ -9,6 +9,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
+import { useAmenities, amenityLabel } from '@/lib/amenities';
 import type { ServiceContract, ServiceType, BillingCycle } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -28,10 +29,11 @@ type Form = {
   service: ServiceType; service_other: string; provider_name: string; contact_name: string; contact_phone: string;
   start_date: string; end_date: string; amount: string; billing_cycle: BillingCycle; notes: string;
   scope: 'all' | 'block'; block_id: string;
+  amenity_id: string; // 0112: '' = none
 };
 const newForm = (): Form => ({
   service: 'elevator', service_other: '', provider_name: '', contact_name: '', contact_phone: '',
-  start_date: '', end_date: '', amount: '', billing_cycle: 'monthly', notes: '', scope: 'all', block_id: '',
+  start_date: '', end_date: '', amount: '', billing_cycle: 'monthly', notes: '', scope: 'all', block_id: '', amenity_id: '',
 });
 
 export default function Contracts() {
@@ -44,6 +46,7 @@ export default function Contracts() {
   const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState('');
   const entity = entities.find((e) => e.key === entityKey) ?? null;
+  const amenities = useAmenities(entity?.kind, entity?.id); // 0112
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
   // Category + status filters (#51). Status derives from end_date exactly like
@@ -104,6 +107,7 @@ export default function Contracts() {
       service: r.service, service_other: r.service_other ?? '', provider_name: r.provider_name, contact_name: r.contact_name ?? '', contact_phone: r.contact_phone ?? '',
       start_date: r.start_date ?? '', end_date: r.end_date ?? '', amount: r.amount_usd != null ? String(r.amount_usd) : '',
       billing_cycle: r.billing_cycle ?? 'monthly', notes: r.notes ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '',
+      amenity_id: r.amenity_id ?? '',
     });
     setOpen(true);
   }
@@ -122,7 +126,7 @@ export default function Contracts() {
       provider_name: form.provider_name.trim(), contact_name: form.contact_name.trim() || null,
       contact_phone: form.contact_phone.trim() || null, start_date: form.start_date || null, end_date: form.end_date || null,
       amount_usd: form.amount ? Number(form.amount) : null, billing_cycle: form.billing_cycle, notes: form.notes.trim() || null,
-      building_id, compound_id,
+      building_id, compound_id, amenity_id: form.amenity_id || null,
     };
     if (attachment_url) base.attachment_url = attachment_url;
     if (serviceOther !== null || (editId && rows.find((r) => r.id === editId)?.service_other)) base.service_other = serviceOther;
@@ -254,6 +258,13 @@ export default function Contracts() {
               value={form.service_other}
               onChange={(e) => setForm({ ...form, service_other: e.target.value })}
             />
+          )}
+          {/* 0112: which lift, which generator */}
+          {amenities.length > 0 && (
+            <SelectField label={t('amenities.linkLabel')} value={form.amenity_id || '__none__'} onValueChange={(v) => setForm({ ...form, amenity_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('amenities.linkNone')}</SelectItem>
+              {amenities.filter((a) => a.active || a.id === form.amenity_id).map((a) => <SelectItem key={a.id} value={a.id}>{amenityLabel(a)}</SelectItem>)}
+            </SelectField>
           )}
           {entity?.kind === 'compound' && (
             <div className="grid grid-cols-2 gap-3">

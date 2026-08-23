@@ -9,6 +9,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
+import { useAmenities, amenityLabel } from '@/lib/amenities';
 import type { Inspection, InspectionCategory, InspectionStatus } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -25,10 +26,11 @@ const statusColor: Record<InspectionStatus, 'green' | 'red' | 'yellow' | 'slate'
 type Form = {
   category: InspectionCategory; title: string; inspector: string; inspection_date: string;
   status: InspectionStatus; outcome: string; next_due_date: string; scope: 'all' | 'block'; block_id: string;
+  amenity_id: string; // 0112: '' = none
 };
 const newForm = (): Form => ({
   category: 'generator', title: '', inspector: '', inspection_date: new Date().toISOString().slice(0, 10),
-  status: 'pending', outcome: '', next_due_date: '', scope: 'all', block_id: '',
+  status: 'pending', outcome: '', next_due_date: '', scope: 'all', block_id: '', amenity_id: '',
 });
 
 export default function Inspections() {
@@ -41,6 +43,7 @@ export default function Inspections() {
   const { entityKey } = useAuth();
   const [blockFilter, setBlockFilter] = useState('');
   const entity = entities.find((e) => e.key === entityKey) ?? null;
+  const amenities = useAmenities(entity?.kind, entity?.id); // 0112
   useEffect(() => { setBlockFilter(''); }, [entityKey]);
 
   // Time filter (#51): scoped on the inspection date, filtered client-side —
@@ -92,7 +95,7 @@ export default function Inspections() {
   function openNew() { setEditId(null); setForm(newForm()); setFile(null); setOpen(true); }
   function openEdit(r: Inspection) {
     setEditId(r.id); setFile(null);
-    setForm({ category: r.category, title: r.title, inspector: r.inspector ?? '', inspection_date: r.inspection_date, status: r.status, outcome: r.outcome ?? '', next_due_date: r.next_due_date ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '' });
+    setForm({ category: r.category, title: r.title, inspector: r.inspector ?? '', inspection_date: r.inspection_date, status: r.status, outcome: r.outcome ?? '', next_due_date: r.next_due_date ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '', amenity_id: r.amenity_id ?? '' });
     setOpen(true);
   }
 
@@ -106,6 +109,7 @@ export default function Inspections() {
       category: form.category, title: form.title.trim(), inspector: form.inspector.trim() || null,
       inspection_date: form.inspection_date, status: form.status, outcome: form.outcome.trim() || null,
       next_due_date: form.next_due_date || null, building_id, compound_id,
+      amenity_id: form.amenity_id || null,
     };
     if (attachment_url) base.attachment_url = attachment_url;
     const { error } = editId
@@ -213,6 +217,13 @@ export default function Inspections() {
               {STATUSES.map((s) => <SelectItem key={s} value={s}>{t(`inspections.statuses.${s}`)}</SelectItem>)}
             </SelectField>
           </div>
+          {/* 0112: which lift, which generator */}
+          {amenities.length > 0 && (
+            <SelectField label={t('amenities.linkLabel')} value={form.amenity_id || '__none__'} onValueChange={(v) => setForm({ ...form, amenity_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('amenities.linkNone')}</SelectItem>
+              {amenities.filter((a) => a.active || a.id === form.amenity_id).map((a) => <SelectItem key={a.id} value={a.id}>{amenityLabel(a)}</SelectItem>)}
+            </SelectField>
+          )}
           <Input label={t('inspections.inspectionTitle')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Input label={t('inspections.inspector')} value={form.inspector} onChange={(e) => setForm({ ...form, inspector: e.target.value })} />
           {entity?.kind === 'compound' && (
