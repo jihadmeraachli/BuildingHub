@@ -243,10 +243,10 @@ page's `دفتر المبنى، حتى آخر قرش`. Same reasoning as the Eng
 ## 3. App Store: French
 
 Written from the register `src/i18n/fr.json` already sets, not translated from
-the English block above: vouvoiement throughout, and the syndic's own words
-(tantièmes, appel de fonds, budget prévisionnel, procès-verbal, gardien) rather
+the English block above: vouvoiement throughout, and the gestionnaire's own words
+(quotes-parts, appel de fonds, budget prévisionnel, procès-verbal, gardien) rather
 than generic real-estate French. This is the one listing where the language
-itself is the pitch: it is aimed at the Lebanese syndics and notaries who work
+itself is the pitch: it is aimed at the Lebanese gestionnaires and notaries who work
 in French day to day, the audience Binayati already reaches and Abniyah did
 not, until now.
 
@@ -265,21 +265,21 @@ so the noun phrase does the work, same reasoning as the English name.
 Dépenses, charges, résidents
 ```
 
-Three concrete nouns, the same move as the English subtitle: what a syndic
+Three concrete nouns, the same move as the English subtitle: what a gestionnaire
 records (dépenses), what a unit owes (charges), who the app is ultimately for
 (résidents).
 
 ### Mots-clés · 100 / 100
 
 ```
-syndic,copropriété,résidence,bâtiment,lot,tantièmes,appel de fonds,gardien,contrôle,générateur,Liban
+gestionnaire,copropriété,résidence,bâtiment,logement,quotes-parts,appel de fonds,gardien,contrôle,générateur,Liban
 ```
 
 No spaces after the commas. None of these repeat a word already in the name or
 subtitle, since Apple indexes those separately. This is a different list from
-the English one on purpose: `syndic` here is not a hedge against Arabic
+the English one on purpose: `gestionnaire` here is not a hedge against Arabic
 mokhtar-style search, it is the primary word a francophone building manager in
-Lebanon actually types, alongside `copropriété`, `tantièmes` and `appel de
+Lebanon actually types, alongside `copropriété`, `quotes-parts` and `appel de
 fonds`, none of which an English or Arabic keyword list would carry.
 
 ### Texte promotionnel · 164 / 170
@@ -296,7 +296,7 @@ trigger a new review.
 ```
 Abniyah est un logiciel de gestion d'immeuble conçu pour le Liban : un seul endroit pour l'argent, les personnes, et tout ce qui a besoin d'être réparé.
 
-Enregistrez une dépense une seule fois. Abniyah la répartit entre les lots selon leurs tantièmes, facture la bonne partie, et tient chaque solde à jour. Les propriétaires voient ce qu'ils doivent. Les syndics voient qui a payé.
+Enregistrez une dépense une seule fois. Abniyah la répartit entre les logements selon leurs quotes-parts, facture la bonne partie, et tient chaque solde à jour. Les propriétaires voient ce qu'ils doivent. Les gestionnaires voient qui a payé.
 
 LE LIVRE DE L'IMMEUBLE
 • Dépenses, charges et paiements dans un seul registre, rapproché au centime près, pour toute la résidence et pour chaque bâtiment
@@ -306,24 +306,24 @@ LE LIVRE DE L'IMMEUBLE
 • Soldes d'ouverture, avoirs, remises, exonérations, passages en perte, et une annulation qui garde l'historique
 
 GÉNÉRATEUR ET EAU, AU COMPTEUR
-• Enregistrez le stock initial, le fioul ou l'eau achetés, et les relevés de compteurs de chaque lot et des parties communes
-• Abniyah calcule le coût moyen par unité, répartit la part des parties communes au prorata, et comptabilise une seule dépense avec une charge sur chaque lot
+• Enregistrez le stock initial, le fioul ou l'eau achetés, et les relevés de compteurs de chaque logement et des parties communes
+• Abniyah calcule le coût moyen par unité, répartit la part des parties communes au prorata, et comptabilise une seule dépense avec une charge sur chaque logement
 • Le cycle reste comme trace d'audit : quiconque le demande peut voir le calcul
 
 LE RAPPORT PERSONNALISÉ
-• Filtrez chaque dépense et chaque paiement par type, date, lot, partie et devise
+• Filtrez chaque dépense et chaque paiement par type, date, logement, partie et devise
 • Regroupez par mois ou par catégorie
 • Exportez ce qui est filtré en CSV ou en PDF
 • Les totaux décrivent toujours exactement ce qui est à l'écran
 
 GÉRER L'IMMEUBLE AU QUOTIDIEN
-• Incidents avec photos, du signalement à la résolution : les résidents voient les incidents des parties communes et de leurs propres lots, jamais ceux d'un voisin
+• Incidents avec photos, du signalement à la résolution : les résidents voient les incidents des parties communes et de leurs propres logements, jamais ceux d'un voisin
 • Réunions avec un ordre du jour construit à partir des incidents réellement ouverts, plus invitations d'agenda, procès-verbaux et pièces jointes
 • Contrôles et contrats de prestation (ascenseur, générateur, sécurité) au niveau du bâtiment ou de la résidence
 • Un répertoire de contacts : le conseil syndical, le gardien, l'électricien, et chaque prestataire avec son numéro
 
 TROIS LANGUES, PAS DES TRADUCTIONS
-Anglais, arabe et français. Toute l'application fonctionne de droite à gauche en arabe, et chacun choisit sa langue en une touche. Et cette fiche elle-même en est la preuve : Abniyah est l'une des rares solutions de gestion d'immeuble à vraiment parler français, la langue de travail d'une grande partie des syndics et des notaires au Liban.
+Anglais, arabe et français. Toute l'application fonctionne de droite à gauche en arabe, et chacun choisit sa langue en une touche. Et cette fiche elle-même en est la preuve : Abniyah est l'une des rares solutions de gestion d'immeuble à vraiment parler français, la langue de travail d'une grande partie des gestionnaires et des notaires au Liban.
 
 SUR VOTRE TÉLÉPHONE
 • Connectez-vous avec Face ID ou Touch ID au lieu de taper votre mot de passe
@@ -335,7 +335,7 @@ SUR VOTRE TÉLÉPHONE
 Conseils syndicaux, gardiens d'immeuble et sociétés de gestion immobilière, d'un seul bâtiment à un portefeuille de résidences. Un seul identifiant par personne : gérez vos immeubles, ou suivez simplement votre propre logement.
 
 TARIFS
-Un prix mensuel unique pour tout l'immeuble, selon sa taille : à partir de 85 $ par mois jusqu'à 20 lots, et plus l'immeuble est grand, moins le prix par lot est élevé. En payant à l'année, vous avez 12 mois pour le prix de 10. Au-delà de 500 lots, nous convenons d'un prix avec vous. 30 jours gratuits, sans carte bancaire. Toutes les fonctions incluses, dans les trois langues.
+Un prix mensuel unique pour tout l'immeuble, selon sa taille : à partir de 85 $ par mois jusqu'à 20 logements, et plus l'immeuble est grand, moins le prix par logement est élevé. En payant à l'année, vous avez 12 mois pour le prix de 10. Au-delà de 500 logements, nous convenons d'un prix avec vous. 30 jours gratuits, sans carte bancaire. Toutes les fonctions incluses, dans les trois langues.
 
 Abniyah est un produit de Tatawwor.
 ```
@@ -404,7 +404,7 @@ RUNNING THE BUILDING
 • A building contacts directory: the committee, the natour, the electrician, and every service provider with a number
 
 THREE LANGUAGES, NOT TRANSLATIONS
-English, Arabic and French. The entire app runs right to left in Arabic and switches with one tap. Every person picks their own language, and their notifications arrive in it. French matters here: it is the working language of a large share of Lebanese syndics and notaries.
+English, Arabic and French. The entire app runs right to left in Arabic and switches with one tap. Every person picks their own language, and their notifications arrive in it. French matters here: it is the working language of a large share of Lebanese gestionnaires and notaries.
 
 WHO IT IS FOR
 Owners' committees, building supervisors and property-management companies, from one block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.
@@ -520,46 +520,46 @@ Charges, appels de fonds, compteurs et incidents de votre immeuble, en français
 ```
 Abniyah est un logiciel de gestion d'immeuble conçu pour le Liban : un seul endroit pour l'argent de l'immeuble, ses habitants, et tout ce qui a besoin d'être réparé.
 
-Enregistrez une dépense une seule fois. Abniyah la répartit entre les lots selon leurs tantièmes, facture la bonne partie, et tient chaque solde à jour. Les propriétaires voient ce qu'ils doivent ; les syndics voient qui a payé et qui ne l'a pas encore fait.
+Enregistrez une dépense une seule fois. Abniyah la répartit entre les logements selon leurs quotes-parts, facture la bonne partie, et tient chaque solde à jour. Les propriétaires voient ce qu'ils doivent ; les gestionnaires voient qui a payé et qui ne l'a pas encore fait.
 
 LE LIVRE DE L'IMMEUBLE
-Chaque dépense, chaque charge et chaque paiement dans un seul registre, rapproché au centime près, pour toute la résidence et pour chaque bâtiment qui la compose. Le solde d'un lot est le même chiffre, vu depuis le bâtiment ou depuis la résidence.
+Chaque dépense, chaque charge et chaque paiement dans un seul registre, rapproché au centime près, pour toute la résidence et pour chaque bâtiment qui la compose. Le solde d'un logement est le même chiffre, vu depuis le bâtiment ou depuis la résidence.
 
 • Propriétaire et locataire gardent des comptes séparés : le solde d'un locataire qui part ne devient jamais un mystère pour le propriétaire
 • Soldes d'ouverture pour les immeubles qui viennent d'un cahier ou d'un tableau Excel
 • Avoirs, remises, exonérations, passages en perte et pénalités, chacun enregistré pour ce qu'il est
 • L'annulation garde l'historique au lieu de le supprimer
-• Importez vos lots et vos registres existants depuis Excel
+• Importez vos logements et vos registres existants depuis Excel
 
 DOLLARS ET LIVRES LIBANAISES, EN TOUTE HONNÊTETÉ
 Saisissez un montant en dollars, en livres libanaises, ou dans les deux. Abniyah garde un chiffre de référence unique et enregistre le taux de cette transaction précise. Changez le taux de l'immeuble demain, et les écritures de l'an dernier restent ce qu'elles étaient.
 
 COMPTEURS DU GÉNÉRATEUR ET DE L'EAU
-Enregistrez le stock initial, le fioul ou l'eau achetés, et les relevés de compteurs de chaque lot et des parties communes. Abniyah calcule le coût moyen par unité, répartit la part commune au prorata, et comptabilise une seule dépense avec une charge sur chaque lot. Le cycle reste comme trace d'audit, pour montrer le calcul à qui le demande.
+Enregistrez le stock initial, le fioul ou l'eau achetés, et les relevés de compteurs de chaque logement et des parties communes. Abniyah calcule le coût moyen par unité, répartit la part commune au prorata, et comptabilise une seule dépense avec une charge sur chaque logement. Le cycle reste comme trace d'audit, pour montrer le calcul à qui le demande.
 
 ENCAISSEMENT
 • Budget prévisionnel, ou facturation de ce qui a réellement été dépensé, au choix de chaque immeuble
 • Appels de fonds qui figent ce que chaque partie doit le jour de leur envoi
 • Rappels de paiement automatiques le jour du mois que vous choisissez
-• Reçus et relevés de compte en PDF, pour un lot ou pour tout l'immeuble
+• Reçus et relevés de compte en PDF, pour un logement ou pour tout l'immeuble
 
 RAPPORTS
-Le rapport personnalisé met chaque dépense et chaque paiement sur un seul écran. Filtrez par type, période, lot, partie et devise ; regroupez par mois ou par catégorie ; exportez en CSV ou en PDF. Les totaux décrivent toujours ce qui est à l'écran.
+Le rapport personnalisé met chaque dépense et chaque paiement sur un seul écran. Filtrez par type, période, logement, partie et devise ; regroupez par mois ou par catégorie ; exportez en CSV ou en PDF. Les totaux décrivent toujours ce qui est à l'écran.
 
 GÉRER L'IMMEUBLE AU QUOTIDIEN
-• Incidents avec photos, du signalement à la résolution. Les résidents voient les incidents des parties communes et de leurs propres lots, jamais l'appartement d'un voisin
+• Incidents avec photos, du signalement à la résolution. Les résidents voient les incidents des parties communes et de leurs propres logements, jamais l'appartement d'un voisin
 • Réunions avec un ordre du jour construit à partir des incidents réellement ouverts, invitations d'agenda, procès-verbaux et pièces jointes
 • Contrôles et contrats de prestation (ascenseur, générateur, sécurité), au niveau du bâtiment ou de la résidence
 • Un répertoire de contacts : le conseil syndical, le gardien, l'électricien, et chaque prestataire avec son numéro
 
 TROIS LANGUES, PAS DES TRADUCTIONS
-Anglais, arabe et français. Toute l'application fonctionne de droite à gauche en arabe, et change de langue en une touche. Cette fiche elle-même en est la preuve : peu de solutions de gestion d'immeuble au Liban parlent vraiment le français, la langue de travail d'une grande partie des syndics et des notaires.
+Anglais, arabe et français. Toute l'application fonctionne de droite à gauche en arabe, et change de langue en une touche. Cette fiche elle-même en est la preuve : peu de solutions de gestion d'immeuble au Liban parlent vraiment le français, la langue de travail d'une grande partie des gestionnaires et des notaires.
 
 À QUI S'ADRESSE ABNIYAH
 Conseils syndicaux, gardiens d'immeuble et sociétés de gestion immobilière, d'un seul bâtiment à un portefeuille de résidences. Un seul identifiant par personne : gérez vos immeubles, ou suivez simplement votre logement.
 
 TARIFS
-Un prix mensuel unique pour tout l'immeuble, selon sa taille : à partir de 85 $ par mois jusqu'à 20 lots, et plus l'immeuble est grand, moins le prix par lot est élevé. À l'année, 12 mois pour le prix de 10. Au-delà de 500 lots, nous convenons d'un prix avec vous. 30 jours gratuits, sans carte bancaire.
+Un prix mensuel unique pour tout l'immeuble, selon sa taille : à partir de 85 $ par mois jusqu'à 20 logements, et plus l'immeuble est grand, moins le prix par logement est élevé. À l'année, 12 mois pour le prix de 10. Au-delà de 500 logements, nous convenons d'un prix avec vous. 30 jours gratuits, sans carte bancaire.
 
 Abniyah est un produit de Tatawwor.
 ```
@@ -623,8 +623,8 @@ one in App Store Connect before planning around the longer name.
 
 **French, verified separately.** Terminology came from `src/i18n/fr.json`
 (1,298 keys, shipped 2026-08-21) rather than from translating the English
-copy; the table of French product terms (immeuble, bâtiment, résidence, lot,
-syndic, tantièmes, appel de fonds, charge, budget prévisionnel, gardien,
+copy; the table of French product terms (immeuble, bâtiment, résidence, logement,
+gestionnaire, quotes-parts, appel de fonds, charge, budget prévisionnel, gardien,
 incident, contrôle, procès-verbal) and its typographic convention (a
 non-breaking space before `: ; ! ?`, matching every colon and semicolon in
 `fr.json`) were both taken from that file, not invented. Everything else that
