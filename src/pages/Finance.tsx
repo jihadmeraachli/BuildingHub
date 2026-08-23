@@ -14,7 +14,7 @@ import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/bal
 import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle, requestLinesAsOf, fundPosition } from '@/lib/reportData';
 import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
 import { composeUsdTotal, usdPartOf, currencyTag, currencyBreakdown } from '@/lib/currency';
-import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode, Fund, FundEntry, FundEntryKind } from '@/types';
+import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode, Fund, FundEntry, FundEntryKind, Project } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -79,6 +79,8 @@ type ExpForm = {
   // remainder is the fund's. The remainder is never silent: under 'residents'
   // a short allocation blocks save until it is named.
   funding: ExpFunding;
+  // 0109: the project this expense belongs to ('' = none)
+  project_id: string;
 };
 type ExpFunding = 'residents' | 'fund' | 'mixed';
 const fundingOf = (e: Expense): ExpFunding => {
@@ -90,7 +92,7 @@ const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
   cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
   category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false,
-  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner', funding: 'residents',
+  scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner', funding: 'residents', project_id: '',
 });
 type FundEntryForm = { kind: FundEntryKind; amount: string; amount_lbp: string; lbp_rate: string; entry_date: string; description: string; counterparty: string };
 const newFundEntryForm = (): FundEntryForm => ({ kind: 'income', amount: '', amount_lbp: '', lbp_rate: '', entry_date: new Date().toISOString().slice(0, 10), description: '', counterparty: '' });
@@ -221,6 +223,8 @@ export default function Finance() {
 
   // ── Fund (0106): cash on hand, apart from what residents owe ──
   const [fund, setFund] = useState<Fund | null>(null);
+  // 0109: open projects in scope, offered on the expense form
+  const [projects, setProjects] = useState<Project[]>([]);
   const [fundEntries, setFundEntries] = useState<FundEntry[]>([]);
   const [fundEntryOpen, setFundEntryOpen] = useState(false);
   const [fundEntryForm, setFundEntryForm] = useState<FundEntryForm>(newFundEntryForm());
@@ -332,6 +336,13 @@ export default function Finance() {
       ]);
       setFund((fr as Fund | null) ?? null);
       setFundEntries((fe as FundEntry[]) ?? []);
+      // 0109: projects an expense can be tagged to — the whole entity's, not
+      // just the block's, since a compound project takes block expenses
+      const pFilter = entity.kind === 'compound'
+        ? `compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`
+        : `building_id.eq.${entity.id}`;
+      const { data: pr } = await supabase.from('projects').select('*').or(pFilter).order('created_at', { ascending: false });
+      setProjects((pr as Project[]) ?? []);
     }
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
@@ -548,7 +559,7 @@ export default function Finance() {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e) });
+    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e), project_id: e.project_id ?? '' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -585,7 +596,7 @@ export default function Finance() {
 
     let expenseId = editingExpenseId;
     if (editingExpenseId) {
-      const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, expense_date: expForm.expense_date, scope_type, method: expForm.method, funded_by_fund_usd };
+      const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, expense_date: expForm.expense_date, scope_type, method: expForm.method, funded_by_fund_usd, project_id: expForm.project_id || null };
       if (invoice_url) patch.invoice_url = invoice_url;
       await supabase.from('expenses').update(patch).eq('id', editingExpenseId);
       await supabase.from('charges').delete().eq('expense_id', editingExpenseId);
@@ -597,6 +608,7 @@ export default function Finance() {
         amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
         is_extraordinary: !editingExpenseId && !fromFund && expForm.extraordinary,
         funded_by_fund_usd,
+        project_id: expForm.project_id || null,
       }).select().single();
       if (error || !exp) { setSaving(false); toast.error(error?.message ?? 'Could not save expense'); return; }
       expenseId = (exp as Expense).id;
@@ -1344,6 +1356,9 @@ export default function Finance() {
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'MMM d, yyyy')}</td>
                         <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}
                           {/* 0106: who bore it. Only shown when the fund did, fully or partly. */}
+                          {e.project_id && projects.find((p) => p.id === e.project_id) && (
+                            <Badge variant="indigo">{projects.find((p) => p.id === e.project_id)?.title}</Badge>
+                          )}
                           {Number(e.funded_by_fund_usd ?? 0) > 0 && (
                             <Badge variant="yellow">{fundingOf(e) === 'fund' ? t('fund.paidFromFund') : t('fund.partFromFund', { amount: money(Number(e.funded_by_fund_usd)) })}</Badge>
                           )}</span></td>
@@ -1538,6 +1553,16 @@ export default function Finance() {
                 })}
               </div>
             </div>
+          )}
+
+          {/* 0109: tag it to a project, so estimate-vs-actual is the book's number */}
+          {projects.length > 0 && (
+            <SelectField label={t('projects.linkLabel')} value={expForm.project_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, project_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('projects.linkNone')}</SelectItem>
+              {projects.filter((p) => p.status !== 'cancelled' && (p.status !== 'done' || p.id === expForm.project_id)).map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectField>
           )}
 
           {/* 0106: who bears it. Their three buttons, our wording. 'mixed' is
@@ -1771,6 +1796,8 @@ export default function Finance() {
                 // 0106: only when the fund bore some of it — a fully billed expense says nothing extra
                 ...(Number(detailExpense.funded_by_fund_usd ?? 0) > 0
                   ? [{ l: t('fund.fundPart'), v: money(Number(detailExpense.funded_by_fund_usd)) }] : []),
+                ...(detailExpense.project_id
+                  ? [{ l: t('projects.one'), v: projects.find((p) => p.id === detailExpense.project_id)?.title ?? '—' }] : []),
               ].map((x) => (
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
               ))}

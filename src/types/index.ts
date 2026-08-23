@@ -275,6 +275,8 @@ export interface Expense {
   /** Part NOT billed to units — paid from the building's own money (0106).
    *  charges + this = amount_usd. 0 = fully billed to residents. */
   funded_by_fund_usd?: number;
+  /** The project this expense belongs to (0109). */
+  project_id?: string | null;
   created_by: string | null;
   created_at: string;
 }
@@ -494,6 +496,26 @@ export interface ServiceContract {
   attachment_url: string | null;
   created_by: string | null;
   created_at: string;
+}
+
+export type ProjectStatus = 'planned' | 'approved' | 'in_progress' | 'done' | 'cancelled';
+
+/** A project (0109): the facade, the generator, the lift. An estimate and a
+ *  status; the actual cost is Σ expenses with this project_id, never stored. */
+export interface Project {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  title: string;
+  description: string | null;
+  status: ProjectStatus;
+  estimate_usd: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  attachment_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Building directory (migration 0073): free-text title + name + phone.

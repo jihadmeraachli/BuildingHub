@@ -70,7 +70,8 @@
     "notifications": "Notifications",
     "profile": "Profile",
     "logout": "Sign Out",
-    "bylaws": "Nizam el Bineye"
+    "bylaws": "Nizam el Bineye",
+    "projects": "Projects"
   },
   "auth": {
     "login": "Sign In",
@@ -1615,5 +1616,39 @@
     "remainderFromFund": "Paid from the fund",
     "remainderFixSplit": "Fix the split",
     "recordFromFund": "Record, paid from fund"
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "The facade, the generator, the lift. What was estimated, what has been spent.",
+    "one": "Project",
+    "add": "New project",
+    "edit": "Edit project",
+    "name": "Project",
+    "namePlaceholder": "e.g. Lift replacement, Facade repainting",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses",
+    "status": {
+      "planned": "Planned",
+      "approved": "Approved",
+      "in_progress": "In progress",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "estimate": "Estimate",
+    "estimateUsd": "Estimate (USD)",
+    "spent": "Spent so far",
+    "remaining": "Remaining",
+    "overBy": "Over the estimate by {{amount}}",
+    "expenses": "Expenses on this project",
+    "noExpenses": "No expense has been tagged to this project yet.",
+    "none": "No projects yet. A project is an estimate with a name; the expenses you record against it become its actual cost.",
+    "linkLabel": "Project",
+    "linkNone": "Not part of a project",
+    "attachment": "Quote or document (optional)",
+    "viewDoc": "View document",
+    "descriptionPlaceholder": "What is being done, by whom, and what the committee agreed.",
+    "howActualWorks": "Spent is never typed in here: it is the sum of the expenses tagged to this project in Finance.",
+    "deleteConfirm": "Delete this project? Its expenses stay in the book, untagged.",
+    "pickBlock": "Pick a block, or apply it to the whole compound."
   }
 }

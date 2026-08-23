@@ -70,7 +70,8 @@
     "notifications": "Notifications",
     "profile": "Profil",
     "logout": "Se déconnecter",
-    "bylaws": "Règlement de copropriété"
+    "bylaws": "Règlement de copropriété",
+    "projects": "Projets"
   },
   "auth": {
     "login": "Se connecter",
@@ -1615,5 +1616,39 @@
     "remainderFromFund": "Payé par la caisse",
     "remainderFixSplit": "Corriger la répartition",
     "recordFromFund": "Enregistrer, payé par la caisse"
+  },
+  "projects": {
+    "title": "Projets",
+    "subtitle": "La façade, le générateur, l’ascenseur. Ce qui était estimé, ce qui a été dépensé.",
+    "one": "Projet",
+    "add": "Nouveau projet",
+    "edit": "Modifier le projet",
+    "name": "Projet",
+    "namePlaceholder": "p. ex. Remplacement de l’ascenseur, Ravalement de façade",
+    "statusLabel": "Statut",
+    "allStatuses": "Tous les statuts",
+    "status": {
+      "planned": "Prévu",
+      "approved": "Approuvé",
+      "in_progress": "En cours",
+      "done": "Terminé",
+      "cancelled": "Annulé"
+    },
+    "estimate": "Estimation",
+    "estimateUsd": "Estimation (USD)",
+    "spent": "Dépensé à ce jour",
+    "remaining": "Restant",
+    "overBy": "Dépassement de l’estimation de {{amount}}",
+    "expenses": "Dépenses de ce projet",
+    "noExpenses": "Aucune dépense n’a encore été rattachée à ce projet.",
+    "none": "Aucun projet pour l’instant. Un projet est une estimation avec un nom ; les dépenses que vous y rattachez deviennent son coût réel.",
+    "linkLabel": "Projet",
+    "linkNone": "Hors projet",
+    "attachment": "Devis ou document (facultatif)",
+    "viewDoc": "Voir le document",
+    "descriptionPlaceholder": "Ce qui est fait, par qui, et ce que le comité a décidé.",
+    "howActualWorks": "Le montant dépensé ne se saisit pas ici : c’est la somme des dépenses rattachées à ce projet dans Finances.",
+    "deleteConfirm": "Supprimer ce projet ? Ses dépenses restent dans le livret, sans rattachement.",
+    "pickBlock": "Choisissez un bloc, ou appliquez-le à tout le complexe."
   }
 }

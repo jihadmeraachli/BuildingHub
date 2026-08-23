@@ -16,7 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
-  Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature,
+  Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat,
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2,
   ContactRound, ScrollText,
 } from 'lucide-react';
@@ -124,6 +124,9 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/bylaws',      label: t('nav.bylaws'),        icon: ScrollText },
     { to: '/inspections', label: t('nav.inspections'),   icon: ClipboardCheck, show: !residentLens },
     { to: '/contracts',   label: t('nav.contracts'),     icon: FileSignature,  show: !residentLens },
+    // Projects sit in the PRIMARY list for residents too (0109): estimate vs
+    // spent on the lift is exactly what a resident wants to see.
+    { to: '/projects',    label: t('nav.projects'),      icon: HardHat },
   ].filter(l => l.show !== false);
 
   const manageLinks = (residentLens ? [] : [
