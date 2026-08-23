@@ -538,7 +538,7 @@
     "periodYear": "an",
     "projected": "{{total}}/{{period}} pour {{count}} licences",
     "needMore": "Besoin de licences supplémentaires ?",
-    "needMoreDesc": "Les licences sont facturées au logement. Ajoutez-en maintenant et attribuez-les aux logements. La facturation est gérée manuellement par l'équipe Abniyah ; vous recevrez une facture.",
+    "needMoreDesc": "Ajoutez des licences pour couvrir plus de logements, ou retirez celles dont vous n’avez plus besoin. Votre prix mensuel dépend de la taille de l’immeuble, pas du nombre de licences.",
     "addLicenses": "Ajouter des licences",
     "unitLicenses": "Licences des logements",
     "assignmentsDesc_one": "Les résidents des logements sans licence ne peuvent pas accéder à Abniyah. {{count}} licence disponible.",
@@ -552,7 +552,7 @@
     "noAvailable": "Aucune licence disponible. Ajoutez d'abord des licences.",
     "assignedTo": "Licence attribuée à {{label}}",
     "removedFrom": "Licence retirée de {{label}}",
-    "addedToast": "{{count}} licences ajoutées. Elles vous seront facturées au prochain cycle.",
+    "addedToast": "{{count}} licences ajoutées.",
     "capReached": "Votre type de compte est limité à {{cap}} licences. Vous gérez davantage de logements ? Il vous faut sans doute un compte complexe ou organisation. Écrivez à l'équipe Abniyah, à support@abniyah.com.",
     "capHint": "Votre compte peut contenir jusqu'à {{cap}} licences ({{remaining}} encore disponibles).",
     "invoicesDesc": "L'historique de facturation de cet abonnement. Les factures sont émises et confirmées manuellement.",
@@ -569,7 +569,13 @@
     "priceBand": "Pour {{count}} logements, environ {{rate}} par logement et par mois.",
     "priceTalk": "Convenu avec vous",
     "priceTalkSub": "Au-delà de 500 logements, nous fixons le prix avec vous plutôt que dans un tableau.",
-    "howManyBanded": "Combien de licences souhaitez-vous ajouter ? Chacune couvre un logement. Votre prix mensuel dépend de la taille de l'immeuble, pas du nombre de licences."
+    "howManyBanded": "Combien de licences souhaitez-vous ajouter ? Chacune couvre un logement. Votre prix mensuel dépend de la taille de l'immeuble, pas du nombre de licences.",
+    "newTotalBanded": "Nouveau total : {{count}} licences. Votre prix reste {{price}}/{{period}} : il dépend de vos {{units}} logements, pas du nombre de licences.",
+    "newTotalTalk": "Nouveau total : {{count}} licences. Votre prix est convenu avec vous et ne change pas ici.",
+    "removeLicenses": "Retirer des licences",
+    "howManyRemove": "Combien de licences souhaitez-vous retirer ? Les licences attribuées à un logement restent ; désattribuez-les d’abord pour descendre plus bas.",
+    "removeFloor": "Vous pouvez descendre jusqu’à {{assigned}} (les licences actuellement attribuées).",
+    "removedToast": "{{count}} licences retirées."
   },
   "dashboard": {
     "welcome": "Content de vous revoir",

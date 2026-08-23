@@ -85,6 +85,10 @@ export default function Licenses() {
   const [addOpen, setAddOpen] = useState(false);
   const [addCount, setAddCount] = useState(5);
   const [addSaving, setAddSaving] = useState(false);
+  // removing licences: never below what is assigned to a unit
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeCount, setRemoveCount] = useState(1);
+  const [removeSaving, setRemoveSaving] = useState(false);
 
   const sub = subs.find(s => s.id === selectedId) ?? null;
   const assignedCount = units.filter(u => u.assignment).length;
@@ -234,6 +238,28 @@ export default function Licenses() {
     setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, license_count: newCount } : s));
     setAddOpen(false);
     toast.success(t('licensesPage.addedToast', { count: addCount }));
+  }
+
+  /** Lower the licence count. Assigned licences stay assigned: the floor is
+   *  what units currently hold, so unassign first to go lower. The 0113
+   *  audit guard accepts 'licenses_removed'. */
+  async function removeLicenses() {
+    if (!sub || removeCount < 1) return;
+    const floor = assignedCount;
+    const newCount = sub.license_count - removeCount;
+    if (newCount < floor) {
+      toast.error(t('licensesPage.removeFloor', { assigned: floor }));
+      return;
+    }
+    setRemoveSaving(true);
+    const { error } = await supabase.from('subscriptions')
+      .update({ license_count: newCount }).eq('id', sub.id);
+    setRemoveSaving(false);
+    if (error) { toast.error(error.message); return; }
+    await logEvent('licenses_removed', { removed: removeCount, new_total: newCount });
+    setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, license_count: newCount } : s));
+    setRemoveOpen(false);
+    toast.success(t('licensesPage.removedToast', { count: removeCount }));
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -386,9 +412,16 @@ export default function Licenses() {
                 <CardDescription>{t('licensesPage.needMoreDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => setAddOpen(true)}>
-                  <Plus size={15} /> {t('licensesPage.addLicenses')}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => setAddOpen(true)}>
+                    <Plus size={15} /> {t('licensesPage.addLicenses')}
+                  </Button>
+                  {sub && sub.license_count > assignedCount && (
+                    <Button variant="outline" onClick={() => { setRemoveCount(1); setRemoveOpen(true); }}>
+                      {t('licensesPage.removeLicenses')}
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -513,6 +546,38 @@ export default function Licenses() {
       )}
 
       {/* Add-licenses modal */}
+      <Modal open={removeOpen} onClose={() => setRemoveOpen(false)} title={t('licensesPage.removeLicenses')} size="sm">
+        {sub && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">{t('licensesPage.howManyRemove')}</p>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, sub.license_count - assignedCount)}
+              value={removeCount}
+              onChange={e => setRemoveCount(Math.max(1, Number(e.target.value)))}
+              className="w-28 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className={`text-xs ${sub.license_count - removeCount < assignedCount ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {t('licensesPage.removeFloor', { assigned: assignedCount })}
+              {' '}
+              {priceCents === null
+                ? t('licensesPage.newTotalTalk', { count: Math.max(assignedCount, sub.license_count - removeCount) })
+                : t('licensesPage.newTotalBanded', {
+                    count: Math.max(assignedCount, sub.license_count - removeCount), units: unitCount,
+                    price: usd(priceCents), period: periodWord(sub.plan),
+                  })}
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setRemoveOpen(false)}>{t('common.cancel')}</Button>
+              <Button loading={removeSaving} onClick={removeLicenses} disabled={sub.license_count - removeCount < assignedCount}>
+                {t('licensesPage.removeLicenses')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title={t('licensesPage.addLicenses')} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -528,13 +593,18 @@ export default function Licenses() {
             onChange={e => setAddCount(Math.max(1, Number(e.target.value)))}
             className="w-28 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
+          {/* The price is the BUILDING's band (0100), not licences × a rate: the
+              old line multiplied by the legacy per-unit price and told a
+              15-unit building it would pay $75 when its band is $85. Adding
+              licences never changes the price unless the unit count changes. */}
           {sub && (
             <p className="text-xs text-muted-foreground">
-              {t('licensesPage.newTotal', {
-                count: sub.license_count + addCount,
-                total: usd((sub.license_count + addCount) * sub.price_per_unit_cents),
-                period: periodWord(sub.plan),
-              })}
+              {priceCents === null
+                ? t('licensesPage.newTotalTalk', { count: sub.license_count + addCount })
+                : t('licensesPage.newTotalBanded', {
+                    count: sub.license_count + addCount, units: unitCount,
+                    price: usd(priceCents), period: periodWord(sub.plan),
+                  })}
             </p>
           )}
           {sub && (

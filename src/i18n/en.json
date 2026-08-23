@@ -538,7 +538,7 @@
     "periodYear": "year",
     "projected": "{{total}}/{{period}} for {{count}} licenses",
     "needMore": "Need more licenses?",
-    "needMoreDesc": "Licenses are billed per unit. Add licenses now and assign them to units. Billing is handled manually by the Abniyah team; you'll receive an invoice.",
+    "needMoreDesc": "Add licenses to cover more units, or remove ones you no longer need. Your monthly price is set by the size of the building, not by the number of licenses.",
     "addLicenses": "Add licenses",
     "unitLicenses": "Unit licenses",
     "assignmentsDesc_one": "Residents of unlicensed units can't access Abniyah. {{count}} license available.",
@@ -552,7 +552,7 @@
     "noAvailable": "No licenses available. Add more licenses first.",
     "assignedTo": "License assigned to {{label}}",
     "removedFrom": "License removed from {{label}}",
-    "addedToast": "{{count}} licenses added. You'll be invoiced on your next billing cycle.",
+    "addedToast": "{{count}} licenses added.",
     "capReached": "Your account type is limited to {{cap}} licenses. Managing more units? You may need a compound or organization account. Contact the Abniyah team at support@abniyah.com.",
     "capHint": "Your account can hold up to {{cap}} licenses ({{remaining}} more available).",
     "invoicesDesc": "Billing history for this subscription. Invoices are issued and confirmed manually.",
@@ -569,7 +569,13 @@
     "priceBand": "For {{count}} units, about {{rate}} per unit per month.",
     "priceTalk": "Agreed with you",
     "priceTalkSub": "Above 500 units we price it with you rather than from a table.",
-    "howManyBanded": "How many licenses do you want to add? Each covers one unit. Your monthly price is set by the size of the building, not by the number of licenses."
+    "howManyBanded": "How many licenses do you want to add? Each covers one unit. Your monthly price is set by the size of the building, not by the number of licenses.",
+    "newTotalBanded": "New total: {{count}} licenses. Your price stays {{price}}/{{period}}: it is set by your {{units}} units, not by the number of licenses.",
+    "newTotalTalk": "New total: {{count}} licenses. Your price is agreed with you and does not change here.",
+    "removeLicenses": "Remove licenses",
+    "howManyRemove": "How many licenses do you want to remove? Licenses assigned to a unit stay; unassign them first to go lower.",
+    "removeFloor": "You can go down to {{assigned}} (the licenses currently assigned).",
+    "removedToast": "{{count}} licenses removed."
   },
   "dashboard": {
     "welcome": "Welcome back",
