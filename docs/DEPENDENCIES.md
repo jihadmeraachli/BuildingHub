@@ -129,6 +129,39 @@ entirely and is the fastest way to get current code live in ~30s.
 - [ ] Cloudflare Pages — free tier fine for now
 - [ ] GitHub — private repo on free plan, fine
 
+## 💳 Payments — PCI-DSS stance (rules, not suggestions)
+
+Abniyah is **SAQ-A by architecture**: cardholder data never touches our
+servers, our client, or our database. Every payment is a redirect to the
+gateway's **hosted page** (Whish collect page / Areeba MPGS hosted checkout);
+what comes back to us is a session id and, at most, an opaque token. These
+rules keep it that way — breaking any of them changes our compliance scope
+from "a questionnaire" to "an audit":
+
+1. **Never render a card input** in our app — no PAN, no CVV, no expiry
+   field, ever, not even "temporarily for testing". Hosted pages only.
+2. **Never store card numbers** — the only thing allowed in our DB is the
+   gateway's tokenized reference (`subscriptions.provider_customer_ref`) and
+   gateway session/transaction ids (`payment_intents.provider_ref`). A token
+   is not card data; a PAN anywhere (DB, logs, emails) is an incident.
+3. **Never log gateway response bodies wholesale** on success paths — MPGS
+   order lookups can include masked card details; log ids and statuses, not
+   payloads. (Failure-path logging in the functions logs envelopes without
+   card data — keep it that way when editing.)
+4. **Amounts are computed server-side, always** (`create_payment_intent`);
+   a browser-supplied amount is never trusted.
+5. **A redirect back is never proof of payment** — settlement happens only
+   in the callbacks after verifying with the gateway server-side
+   (`settle_payment_intent`, service-role only).
+6. **Payment secrets** (`WHISH_*`, `AREEBA_*`) live only in Supabase Edge
+   Function secrets — never in client code, git, or chat.
+7. TLS everywhere (Supabase/Cloudflare enforce it); callback endpoints
+   authenticate by verifying with the gateway, not by trusting the caller.
+
+When Areeba onboarding lands: confirm the account's tokenization mode, and
+keep the token-only rule — auto-renew (roadmap) must charge via the stored
+token at the gateway, never via anything card-shaped on our side.
+
 ## Single points of failure worth knowing
 
 1. **One Supabase project = production.** There is no staging; migrations run

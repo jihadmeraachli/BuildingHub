@@ -335,17 +335,9 @@ export default function Licenses() {
     toast.success(t('billing.resumeDone'));
     await reloadSub();
   }
-  async function toggleAutoRenew() {
-    if (!sub) return;
-    setLifecycleSaving(true);
-    const { error } = await supabase.rpc('set_auto_renew', { p_subscription: sub.id, p_on: !sub.auto_renew });
-    setLifecycleSaving(false);
-    if (error) {
-      toast.error(error.message.includes('Save a card') ? t('billing.autoRenewNeedsCard') : error.message);
-      return;
-    }
-    await reloadSub();
-  }
+  // Auto-renew removed from the UI for now (roadmap): the charge engine needs
+  // Areeba tokenization + a dunning window; showing a toggle that cannot
+  // charge would be a promise the app can't keep. set_auto_renew stays in SQL.
   /** Card — same shape as Whish: the server builds the session from what is
    *  being bought, we just follow the redirect. 503 until the keys exist. */
   async function payWithCard(pi: PayIntent) {
@@ -573,17 +565,6 @@ export default function Licenses() {
                     </Button>
                   )}
                 </div>
-                {/* auto-renew: only real once a card is stored at the gateway */}
-                <label className={`flex items-start gap-2.5 ${sub.provider_customer_ref ? 'cursor-pointer' : 'opacity-60'}`}>
-                  <input type="checkbox" checked={!!sub.auto_renew} disabled={!sub.provider_customer_ref || lifecycleSaving}
-                    onChange={toggleAutoRenew} className="mt-0.5 accent-primary" />
-                  <span>
-                    <span className="text-sm font-medium text-foreground">{t('billing.autoRenew')}</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">
-                      {sub.provider_customer_ref ? t('billing.autoRenewHint') : t('billing.autoRenewNeedsCard')}
-                    </span>
-                  </span>
-                </label>
                 <p className="text-xs text-muted-foreground">{t('billing.paymentMethodsNote')}</p>
               </CardContent>
             </Card>
