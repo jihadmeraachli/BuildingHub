@@ -13,7 +13,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SkeletonTable } from '@/components/ui/Skeleton';
-import { KeyRound, Plus, CalendarClock, Wallet, Boxes } from 'lucide-react';
+import { KeyRound, Plus, CalendarClock, Wallet, Boxes, Download } from 'lucide-react';
+import { TaxInvoiceDoc, downloadPdf } from '@/lib/pdf';
 import { monthlyPriceCents, annualPriceCents, effectivePerUnitCents, fmtPerUnit } from '@/lib/pricing';
 
 const STATUS_COLOR: Record<Subscription['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
@@ -364,6 +365,16 @@ export default function Licenses() {
       setPaying('');
     }
   }
+  /** 0118: the receipt as a Lebanese tax invoice (VAT 11%, amounts inclusive). */
+  function downloadInvoice(inv: Invoice) {
+    if (!sub) return;
+    void downloadPdf(
+      <TaxInvoiceDoc inv={inv} entityName={entityName} scopeType={sub.scope_type}
+        plan={sub.plan} billingEmail={sub.billing_email} />,
+      `abniyah-invoice-${inv.id.slice(0, 8)}.pdf`,
+    );
+  }
+
   async function reloadSub() {
     const { data } = await supabase.from('subscriptions').select('*').neq('status', 'cancelled').order('created_at', { ascending: false });
     setSubs((data as Subscription[]) ?? []);
@@ -675,6 +686,7 @@ export default function Licenses() {
                           <TableHead>{t('licensesPage.amount')}</TableHead>
                           <TableHead>{t('common.status')}</TableHead>
                           <TableHead>{t('licensesPage.paid')}</TableHead>
+                          <TableHead className="text-end">{t('licensesPage.downloadPdf')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -693,6 +705,13 @@ export default function Licenses() {
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '—'}
+                            </TableCell>
+                            <TableCell className="text-end">
+                              {inv.status === 'paid' && (
+                                <Button size="sm" variant="ghost" onClick={() => downloadInvoice(inv)} title={t('licensesPage.downloadPdf')}>
+                                  <Download size={15} />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

@@ -582,7 +582,8 @@
     "removeKeepUntil": "You paid for this cycle, so nothing is taken away now: all licenses stay usable until {{date}}. The lower count and price apply at the renewal — and you can revert this any time before then.",
     "scheduledReduction": "Drops to {{next}} at renewal ({{date}}) — revertible until then",
     "revertReduction": "Revert scheduled reduction",
-    "removalReverted": "Scheduled reduction reverted — the renewal keeps the current count."
+    "removalReverted": "Scheduled reduction reverted — the renewal keeps the current count.",
+    "downloadPdf": "Invoice PDF"
   },
   "dashboard": {
     "welcome": "Welcome back",

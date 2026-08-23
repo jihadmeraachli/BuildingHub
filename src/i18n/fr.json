@@ -582,7 +582,8 @@
     "removeKeepUntil": "Vous avez payé ce cycle, rien ne vous est retiré maintenant : toutes les licences restent utilisables jusqu'au {{date}}. Le nombre et le prix réduits s'appliquent au renouvellement — et vous pouvez annuler à tout moment avant.",
     "scheduledReduction": "Passe à {{next}} au renouvellement ({{date}}) — annulable jusque-là",
     "revertReduction": "Annuler la réduction programmée",
-    "removalReverted": "Réduction programmée annulée — le renouvellement garde le nombre actuel."
+    "removalReverted": "Réduction programmée annulée — le renouvellement garde le nombre actuel.",
+    "downloadPdf": "Facture PDF"
   },
   "dashboard": {
     "welcome": "Content de vous revoir",
