@@ -14,7 +14,6 @@ import { RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } fr
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { KeyRound, Plus, CalendarClock, Wallet, Boxes } from 'lucide-react';
-import { licenseCap } from '@/lib/licenseCaps';
 import { monthlyPriceCents, annualPriceCents, effectivePerUnitCents, fmtPerUnit } from '@/lib/pricing';
 
 const STATUS_COLOR: Record<Subscription['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
@@ -94,6 +93,12 @@ export default function Licenses() {
   const [subscribePlan, setSubscribePlan] = useState<'monthly' | 'annual'>('monthly');
   const [subscribeSaving, setSubscribeSaving] = useState(false);
   const [lifecycleSaving, setLifecycleSaving] = useState(false);
+  // 0116: no separate "issue invoice" step — the subscribe modal goes plan →
+  // payment options, and a band-crossing licence add is paid before it lands.
+  const [subscribeStep, setSubscribeStep] = useState<'plan' | 'pay'>('plan');
+  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const sub = subs.find(s => s.id === selectedId) ?? null;
   const assignedCount = units.filter(u => u.assignment).length;
@@ -225,24 +230,29 @@ export default function Licenses() {
     loadDetail();
   }
 
+  /** 0116: adds go through request_license_increase. On trial, within the
+   *  band, or on a negotiated price the licences apply immediately; a
+   *  band-crossing add on an active subscription comes back as a top-up
+   *  invoice that must be paid first — mark_invoice_paid applies the licences. */
   async function addLicenses() {
     if (!sub || addCount < 1) return;
-    // Client mirror of the 0071 cap trigger — same numbers, friendlier message.
-    const cap = licenseCap(sub.scope_type, sub.cap_override);
-    if (sub.license_count + addCount > cap) {
-      toast.error(t('licensesPage.capReached', { cap }));
-      return;
-    }
     setAddSaving(true);
-    const newCount = sub.license_count + addCount;
-    const { error } = await supabase.from('subscriptions')
-      .update({ license_count: newCount }).eq('id', sub.id);
+    const { data, error } = await supabase.rpc('request_license_increase', {
+      p_subscription: sub.id, p_add: addCount,
+    });
     setAddSaving(false);
     if (error) { toast.error(error.message); return; }
-    await logEvent('licenses_added', { added: addCount, new_total: newCount });
-    setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, license_count: newCount } : s));
+    const row = (Array.isArray(data) ? data[0] : data) as { applied: boolean; invoice_id: string | null } | null;
     setAddOpen(false);
-    toast.success(t('licensesPage.addedToast', { count: addCount }));
+    await reloadSub();
+    if (row?.applied) {
+      toast.success(t('licensesPage.addedToast', { count: addCount }));
+    } else if (row?.invoice_id) {
+      // Band crossed: the licences land when the top-up invoice is paid.
+      toast.info(t('billing.topupHold'));
+      const { data: inv } = await supabase.from('invoices').select('*').eq('id', row.invoice_id).single();
+      if (inv) { setPayInvoice(inv as Invoice); setSubscribeStep('pay'); setSubscribeOpen(true); }
+    }
   }
 
   /** Lower the licence count. Assigned licences stay assigned: the floor is
@@ -267,25 +277,31 @@ export default function Licenses() {
     toast.success(t('licensesPage.removedToast', { count: removeCount }));
   }
 
-  // ── Lifecycle (0114): the buttons call SECURITY DEFINER functions ─────────
-  /** Subscribe (from trial/grace/locked) or renew early (active): issues the
-   *  period invoice and opens the invoices tab to pay it. */
+  // ── Lifecycle (0114/0116): the buttons call SECURITY DEFINER functions ────
+  /** Subscribe (from trial) or renew early (active): starts/queues the paid
+   *  period, then flips the same modal to the payment options for its invoice. */
   async function subscribeNow() {
     if (!sub) return;
     setSubscribeSaving(true);
-    const { data, error } = await supabase.rpc('start_subscription', { p_subscription: sub.id, p_plan: subscribePlan });
+    const { error } = await supabase.rpc('start_subscription', { p_subscription: sub.id, p_plan: subscribePlan });
     setSubscribeSaving(false);
     if (error) { toast.error(error.message); return; }
-    setSubscribeOpen(false);
-    toast.success(t('billing.invoiceReady'));
     await reloadSub();
-    void data;
+    // Straight to payment: find the open period invoice we just issued.
+    const { data: inv } = await supabase.from('invoices').select('*')
+      .eq('subscription_id', sub.id).eq('status', 'open').eq('kind', 'period')
+      .order('created_at', { ascending: false }).limit(1);
+    const open = (inv as Invoice[] | null)?.[0] ?? null;
+    if (open) { setPayInvoice(open); setSubscribeStep('pay'); }
+    else { setSubscribeOpen(false); toast.success(t('billing.invoiceReady')); }
   }
+  /** The in-app modal (cancelOpen) confirms; no browser confirm() dialogs. */
   async function doCancel() {
-    if (!sub || !confirm(t('billing.cancelConfirm'))) return;
+    if (!sub) return;
     setLifecycleSaving(true);
     const { error } = await supabase.rpc('cancel_subscription', { p_subscription: sub.id });
     setLifecycleSaving(false);
+    setCancelOpen(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('billing.cancelDone'));
     await reloadSub();
@@ -404,9 +420,10 @@ export default function Licenses() {
       </div>
 
       {sub && (
-        <Tabs defaultValue="overview">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="overview">{t('licensesPage.tabOverview')}</TabsTrigger>
+            <TabsTrigger value="manage">{t('billing.tabManage')}</TabsTrigger>
             <TabsTrigger value="assignments">{t('licensesPage.tabAssignments')}</TabsTrigger>
             <TabsTrigger value="invoices">{t('licensesPage.tabInvoices')}</TabsTrigger>
           </TabsList>
@@ -426,6 +443,9 @@ export default function Licenses() {
                       {sub.plan === 'monthly' ? t('register.monthly') : t('register.annual')}
                     </span>
                   </div>
+                  {sub.status === 'trial' && (
+                    <p className="text-xs text-muted-foreground mt-1.5">{t('billing.trialNoSub')}</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -478,24 +498,32 @@ export default function Licenses() {
               </Card>
             </div>
 
-            {/* ── Manage subscription (0114) ── */}
+          </TabsContent>
+
+          {/* ── Manage subscription: its own tab (0116) ── */}
+          <TabsContent value="manage">
             <Card>
               <CardHeader>
                 <CardTitle>{t('billing.manageTitle')}</CardTitle>
                 <CardDescription>
-                  {sub.status === 'trial' ? t('billing.manageTrial')
+                  {sub.status === 'trial' ? t('billing.manageTrial', { date: sub.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : '' })
                     : sub.status === 'grace' ? t('billing.manageGrace', { date: sub.grace_ends_at ? new Date(sub.grace_ends_at).toLocaleDateString() : '' })
                     : sub.status === 'locked' ? t('billing.manageLocked')
                     : sub.cancel_at_period_end ? t('billing.manageEnding', { date: sub.current_period_end ?? '' })
-                    : t('billing.manageActive')}
+                    : t('billing.manageActive', { start: sub.current_period_start ?? '', end: sub.current_period_end ?? '' })}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Subscribe only while there is nothing subscribed; Cancel only
+                    once there is. Grace/locked point at the open invoice. */}
                 <div className="flex flex-wrap gap-2">
-                  {(sub.status !== 'active' || !sub.cancel_at_period_end) && (
-                    <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeOpen(true); }}>
-                      {sub.status === 'active' ? t('billing.renewNow') : t('billing.subscribeNow')}
+                  {sub.status === 'trial' && !sub.cancel_at_period_end && (
+                    <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
+                      {t('billing.subscribeNow')}
                     </Button>
+                  )}
+                  {(sub.status === 'grace' || sub.status === 'locked') && (
+                    <Button onClick={() => setActiveTab('invoices')}>{t('billing.payOpenInvoice')}</Button>
                   )}
                   <Button variant="outline" onClick={() => setAddOpen(true)}>
                     <Plus size={15} /> {t('licensesPage.addLicenses')}
@@ -507,8 +535,8 @@ export default function Licenses() {
                   )}
                   {sub.cancel_at_period_end ? (
                     <Button variant="outline" loading={lifecycleSaving} onClick={doResume}>{t('billing.resume')}</Button>
-                  ) : sub.status !== 'cancelled' && (
-                    <Button variant="ghost" loading={lifecycleSaving} onClick={doCancel} className="text-destructive">
+                  ) : sub.status !== 'trial' && sub.status !== 'cancelled' && (
+                    <Button variant="ghost" loading={lifecycleSaving} onClick={() => setCancelOpen(true)} className="text-destructive">
                       {t('billing.cancel')}
                     </Button>
                   )}
@@ -638,7 +666,8 @@ export default function Licenses() {
                             <TableCell className="text-end">
                               {inv.status === 'open' && (
                                 <div className="inline-flex gap-2">
-                                  <Button size="sm" onClick={() => payWithWhish(inv)} loading={paying === inv.id}>
+                                  {/* both channels styled the same — no favourite */}
+                                  <Button size="sm" variant="outline" onClick={() => payWithWhish(inv)} loading={paying === inv.id}>
                                     {t('licensesPage.payWithWhish')}
                                   </Button>
                                   <Button size="sm" variant="outline" onClick={() => payWithCard(inv)} loading={paying === inv.id}>
@@ -659,10 +688,10 @@ export default function Licenses() {
         </Tabs>
       )}
 
-      {/* Add-licenses modal */}
-      {/* 0114: Subscribe / Renew — pick the plan, get the invoice, pay it */}
-      <Modal open={subscribeOpen} onClose={() => setSubscribeOpen(false)} title={sub?.status === 'active' ? t('billing.renewNow') : t('billing.subscribeNow')} size="sm">
-        {sub && (
+      {/* 0116: Subscribe / Renew — choose the cycle, see the dates, pay */}
+      <Modal open={subscribeOpen} onClose={() => { setSubscribeOpen(false); setSubscribeStep('plan'); setPayInvoice(null); }}
+        title={subscribeStep === 'pay' ? t('billing.choosePayment') : sub?.status === 'active' ? t('billing.renewNow') : t('billing.subscribeNow')} size="sm">
+        {sub && subscribeStep === 'plan' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">{t('billing.subscribeHint', { count: sub.license_count })}</p>
             <div className="grid grid-cols-2 gap-2">
@@ -681,13 +710,52 @@ export default function Licenses() {
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground">{t('billing.subscribeNote')}</p>
+            {/* #13: say when the paid period starts and renews */}
+            <p className="text-xs text-muted-foreground">
+              {sub.status === 'trial' && sub.trial_ends_at
+                ? t('billing.startsAfterTrial', { date: new Date(sub.trial_ends_at).toLocaleDateString() })
+                : t('billing.startsOn', { date: sub.current_period_end ?? new Date().toLocaleDateString() })}
+            </p>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setSubscribeOpen(false)}>{t('common.cancel')}</Button>
-              <Button loading={subscribeSaving} onClick={subscribeNow}>{t('billing.issueInvoice')}</Button>
+              <Button loading={subscribeSaving} onClick={subscribeNow}>{t('billing.continueToPayment')}</Button>
             </div>
           </div>
         )}
+        {sub && subscribeStep === 'pay' && payInvoice && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t('billing.payDesc', { amount: usd(payInvoice.amount_cents), start: payInvoice.period_start ?? '', end: payInvoice.period_end ?? '' })}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" loading={paying === payInvoice.id} onClick={() => payWithWhish(payInvoice)}>
+                {t('licensesPage.payWithWhish')}
+              </Button>
+              <Button variant="outline" loading={paying === payInvoice.id} onClick={() => payWithCard(payInvoice)}>
+                {t('billing.payWithCard')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('billing.payLater')}</p>
+            <div className="flex justify-end pt-1">
+              <Button variant="ghost" onClick={() => { setSubscribeOpen(false); setSubscribeStep('plan'); setPayInvoice(null); }}>
+                {t('billing.payLaterBtn')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* #4: in-app confirmation instead of the browser's "app.abniyah.com says" */}
+      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title={t('billing.cancel')} size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('billing.cancelConfirm')}</p>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="outline" loading={lifecycleSaving} onClick={doCancel} className="text-destructive">
+              {t('billing.cancelYes')}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       <Modal open={removeOpen} onClose={() => setRemoveOpen(false)} title={t('licensesPage.removeLicenses')} size="sm">
@@ -753,13 +821,10 @@ export default function Licenses() {
                   })}
             </p>
           )}
-          {sub && (
-            <p className={`text-xs ${sub.license_count + addCount > licenseCap(sub.scope_type, sub.cap_override) ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {t('licensesPage.capHint', {
-                cap: licenseCap(sub.scope_type, sub.cap_override),
-                remaining: Math.max(0, licenseCap(sub.scope_type, sub.cap_override) - sub.license_count),
-              })}
-            </p>
+          {/* 0116: paid first when the add crosses the band */}
+          {sub && sub.status === 'active' && !sub.price_monthly_cents
+            && monthlyPriceCents(sub.license_count + addCount) !== monthlyPriceCents(sub.license_count) && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{t('billing.topupNotice')}</p>
           )}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={() => setAddOpen(false)}>{t('common.cancel')}</Button>
