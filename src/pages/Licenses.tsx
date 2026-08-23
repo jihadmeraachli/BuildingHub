@@ -736,11 +736,6 @@ export default function Licenses() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">{t('billing.payLater')}</p>
-            <div className="flex justify-end pt-1">
-              <Button variant="ghost" onClick={() => { setSubscribeOpen(false); setSubscribeStep('plan'); setPayInvoice(null); }}>
-                {t('billing.payLaterBtn')}
-              </Button>
-            </div>
           </div>
         )}
       </Modal>
