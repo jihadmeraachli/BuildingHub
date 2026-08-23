@@ -27,6 +27,7 @@ import { MonthPicker } from '@/components/ui/MonthPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { fmtMoney } from '@/lib/money';
 
 const CATEGORIES: ExpenseCategory[] = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
 const CAT_LABEL: Record<ExpenseCategory, string> = {
@@ -34,7 +35,8 @@ const CAT_LABEL: Record<ExpenseCategory, string> = {
   projects: 'Projects', contracts: 'Contracts', fines: 'Fines', other: 'Other',
 };
 const PAY_METHODS: PaymentMethod[] = ['cash', 'bank_transfer', 'cheque', 'other'];
-const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Split `amount` across `units` by method; rounding fixed so parts sum to total. */

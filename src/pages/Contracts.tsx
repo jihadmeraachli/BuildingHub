@@ -18,11 +18,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { SkeletonCards } from '@/components/ui/Skeleton';
+import { fmtMoney } from '@/lib/money';
 
 const SERVICES: ServiceType[] = ['elevator', 'generator', 'landscape', 'security', 'cleaning', 'water', 'internet', 'maintenance', 'other'];
 const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly', 'one_time'];
-const money = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 type Form = {
   service: ServiceType; service_other: string; provider_name: string; contact_name: string; contact_phone: string;
   start_date: string; end_date: string; amount: string; billing_cycle: BillingCycle; notes: string;

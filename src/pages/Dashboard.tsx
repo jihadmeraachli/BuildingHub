@@ -23,10 +23,10 @@ import {
   AlertTriangle, Home, TrendingUp, AlertCircle, Wallet, Building2,
   Plus, HandCoins, Layers, ArrowRight, CalendarDays,
 } from 'lucide-react';
+import { fmtMoney } from '@/lib/money';
 
-const money = (n: number) =>
-  `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 interface Agg {
   collected: number; spent: number; billed: number; outstanding: number; ytd: number;
   units: number; openIssues: number;

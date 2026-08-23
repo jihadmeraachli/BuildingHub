@@ -22,9 +22,11 @@ import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { fmtMoney } from '@/lib/money';
 
 const METHODS: DuesMethod[] = ['by_shares', 'equal', 'custom'];
-const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 /** Carry-in sign colors match Finance: a credit is good, arrears are not. */
 const carryTone = (n: number) =>
   n < 0 ? 'text-emerald-600 dark:text-emerald-400'

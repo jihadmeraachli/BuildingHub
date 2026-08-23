@@ -403,6 +403,14 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   a building, left behind by the 2026-08-21 database wipe. Invisible since
   `0105` and referenced by nothing. Safe to delete whenever the space is
   wanted; the diagnostic at the top of `0105` lists them.
+- **Money was formatted as English everywhere until 2026-08-23.** Every page
+  carried its own `$${n.toLocaleString(...)}`; French read `$105.00` on the
+  landing page and `$1 234,56` in the app. One formatter now, `src/lib/money.ts`
+  (`fmtMoney`, Intl with the reader's language: `105,00 $` / `$105.00` / Latin
+  digits in Arabic). PDFs keep en-US on purpose. The French landing hero is now
+  a French screenshot (`public/marketing/shot-dashboard-fr.jpg`, captured from
+  the live app, demo banner hidden). **Still English:** chart month labels
+  (`fmtDate 'MMM yy'`), not localised.
 - **Grants never expired until `0108`** (2026-08-23). A treasurer who left
   kept finance access until someone remembered. Now a grant can carry a last
   valid day; the DB gates ignore it the moment it passes, the Security page

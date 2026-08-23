@@ -157,7 +157,9 @@ export default function Landing() {
           <span className="text-sm text-white/50 basis-full text-center">{t('landing.trialNote')}</span>
         </div>
         <div className="mt-12 max-w-4xl mx-auto">
-          <Shot src="/marketing/shot-dashboard-en.jpg" alt="Abniyah dashboard" />
+          {/* The hero follows the page language (S8): a French headline about
+              three languages above an English screenshot undercut itself. */}
+          <Shot src={`/marketing/shot-dashboard-${['ar', 'fr'].includes(i18n.language.slice(0, 2)) ? i18n.language.slice(0, 2) : 'en'}.jpg`} alt="Abniyah dashboard" />
         </div>
       </section>
 

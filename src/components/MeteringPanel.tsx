@@ -21,9 +21,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { fmtMoney } from '@/lib/money';
 
-const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 interface CycleRow {
   id: string; expense_type_id: string; period_start: string; period_end: string;
   opening_stock: number; added_qty: number; added_cost_usd: number; closing_stock: number;

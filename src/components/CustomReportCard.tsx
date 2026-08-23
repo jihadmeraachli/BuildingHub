@@ -20,10 +20,10 @@ import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { LedgerReportDoc, downloadPdf } from '@/lib/pdf';
 import { filterLedger, ledgerTotals, groupLedger, emptyLedgerFilters, type LedgerRow, type LedgerFilters, type LedgerGrouping } from '@/lib/reportData';
+import { fmtMoney } from '@/lib/money';
 
-const money = (n: number) =>
-  `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 /** CSV that Excel opens correctly: quotes doubled, BOM so Arabic and accents
  *  survive, CRLF line endings. Without the BOM, Excel mangles every name. */
 function toCsv(rows: LedgerRow[], head: string[]): string {

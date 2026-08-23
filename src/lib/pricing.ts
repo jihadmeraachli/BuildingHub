@@ -37,6 +37,7 @@
 //
 // ⚠️ Mirrored by monthly_price_cents() in SQL (migration 0100). Change both.
 // ============================================================
+import { fmtMoneyCents } from '@/lib/money';
 
 export interface PricingBand {
   /** inclusive lower bound */
@@ -100,9 +101,8 @@ export function effectivePerUnitCents(units: number): number | null {
   return m === null ? null : m / n;
 }
 
-const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', {
-  minimumFractionDigits: 2, maximumFractionDigits: 2,
-})}`;
+// Follows the reader's language (S7): "105,00 $" in French, not "$105.00".
+const money = (cents: number) => fmtMoneyCents(cents);
 
 export const fmtMonthly = (units: number): string => {
   const c = monthlyPriceCents(units);

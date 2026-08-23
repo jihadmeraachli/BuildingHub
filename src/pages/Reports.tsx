@@ -18,9 +18,10 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { SkeletonCards } from '@/components/ui/Skeleton';
+import { fmtMoney } from '@/lib/money';
 
-const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
+// one formatter, following the reader's language (src/lib/money.ts)
+const money = (n: number) => fmtMoney(n);
 /**
  * Reports (#62) — the output room. Finance stays the operational workbench
  * (record & reconcile); every downloadable report lives here, one card each,
