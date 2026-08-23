@@ -8,6 +8,39 @@
 
 ## 1. TL;DR — what this iteration did
 
+### Latest: 23 August 2026 — the Binayati review, and what it changed
+
+A competitor teardown (Binayati, from a trial account) produced a ranked
+action list; the parts that mattered were built the same day. Migrations
+**0106–0111** are applied, `send-reminders` is redeployed, all commits are
+on `master`.
+
+- **Cash on hand, apart from what residents owe** (`0106`/`0107`). The old
+  dashboard "Fund balance" was Σ unit balances, never the drawer. Now:
+  `reserve = cash − (credits − arrears)`; `expenses.funded_by_fund_usd`
+  (backfilled); `funds` + `fund_entries`; a Fund tab, a Fund statement PDF,
+  residents see cash and reserve. The expense form makes the user **name any
+  unallocated remainder** (never blocks, never silent). Verified live as
+  admin, resident and anonymous; 13 tests pin the arithmetic.
+- **Grants that expire** (`0108`, gate fixed in `0111`). `expires_at`,
+  `grant_history`, DB gates ignore an expired grant at once, Security page
+  editor, cron sweep + 7-day warning. The cron functions were callable
+  anonymously after 0108; found and closed the same day.
+- **Money in the reader's language** (`src/lib/money.ts`) and a **French
+  landing hero**. French now reads `105,00 $`.
+- **Projects** (`0109`): estimate vs Σ tagged expenses, `/projects`,
+  residents read-only, Project selector on the expense form.
+- **Collector** (`0110`): `building_collector` = `payment.record` only;
+  `/collect` page; sees units and their own receipts, nothing else.
+
+**Untested by a real admin click** (recipes on the roadmap artifact): the
+remainder prompt, an expiring grant end to end, a project with two
+expenses, a collector account. Still in the queue: Amenities (one row per
+lift/generator/tank to join the three drifting enums), then the long tail.
+Features agreed but not scheduled: Lost and found (#77), Votes (#78).
+
+### The iteration before
+
 We took BuildingHub from a single-building, role-based app to a **multi-tenant platform** that supports:
 
 - **Organizations / management companies**, **compounds → blocks → units → owners**, all optional and additive.
