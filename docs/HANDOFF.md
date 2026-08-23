@@ -136,6 +136,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0105 | `0105_storage_scope.sql` | **The attachments bucket stops being open to every signed-in user.** It was readable AND writable platform-wide; the policy now reads the first path segment through `user_sees_building` / `user_sees_compound`. See §7. |
 | 0106 | `0106_fund.sql` | **Cash on hand, separated from what residents owe.** `expenses.funded_by_fund_usd` (the unbilled part, **backfilled** from history: whatever was never charged came out of the building's money), `funds` (opening cash per compound/standalone block), `fund_entries` (other income / outflows), and `fund_position(ids, asof)` — cash, credits, arrears, available, reserve. Residents may call the function (aggregates only). Closes the C1 finding: a short custom split used to vanish from the book. |
 | 0107 | `0107_fund_position_residents.sql` | `fund_position()` redefined with the unit balance computed **inline**. 0106 called `unit_balance_asof()`, whose per-unit gate (0043) made the whole call fail 42501 for a resident. Same numbers for managers; residents now get their aggregates. |
+| 0108 | `0108_grant_expiry.sql` | **Management access that ends on its own.** `grants.expires_at` (last valid day, NULL = open-ended), `grant_history` (every ended grant: revoked / expired / user deleted, by whom), and `user_can()` / `user_sees_*` / `user_max_rank()` ignore an expired grant **at once**. `sweep_expired_grants()` and `expiring_grants(days)` are service-role only; the morning cron (`send-reminders`, **redeploy**) sweeps and sends the 7-day warning to the holder and the scope's admins, once per grant. |
 
 ⚠️ The `guard_metered_expense` trigger (0092) fires on **every** update to a
 metered expense, migrations included. A future backfill over those rows must
@@ -402,6 +403,15 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   a building, left behind by the 2026-08-21 database wipe. Invisible since
   `0105` and referenced by nothing. Safe to delete whenever the space is
   wanted; the diagnostic at the top of `0105` lists them.
+- **Grants never expired until `0108`** (2026-08-23). A treasurer who left
+  kept finance access until someone remembered. Now a grant can carry a last
+  valid day; the DB gates ignore it the moment it passes, the Security page
+  shows it (open-ended / until date / expired), the cron sweeps it into
+  `grant_history` and warns holder + admins seven days out. **Redeploy
+  `send-reminders`** for the sweep and the warning to run. Other grant readers
+  (licensing counts, profile visibility, `can_delete_user`) lag until the
+  sweep, by design: a day of extra *visibility* is harmless, a day of extra
+  *capability* is not.
 - **The book was receivables only until `0106`** (2026-08-23). "Fund balance"
   on the dashboard was Σ unit balances — what residents owe, net — and was
   never the money in the drawer. Two consequences, both now closed: an expense

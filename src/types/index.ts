@@ -176,7 +176,33 @@ export interface Grant {
   building_id: string | null;
   role: GrantRole;
   created_at: string;
+  /** Last valid day, inclusive. null = open-ended (0108). */
+  expires_at?: string | null;
+  expiry_notified_on?: string | null;
 }
+
+/** A grant that ended: revoked by a person, expired by date, or the user was
+ *  deleted (0108). The answer to "who was treasurer last year". */
+export interface GrantHistory {
+  id: string;
+  grant_id: string;
+  user_id: string;
+  scope_type: GrantScope;
+  org_id: string | null;
+  compound_id: string | null;
+  building_id: string | null;
+  role: GrantRole;
+  granted_at: string;
+  expires_at: string | null;
+  ended_at: string;
+  ended_by: string | null;
+  reason: 'revoked' | 'expired' | 'user_deleted';
+}
+
+/** True while a grant still confers anything. Mirrors the SQL gate in 0108:
+ *  expires_at is the last VALID day. */
+export const grantIsLive = (g: { expires_at?: string | null }, today = new Date().toISOString().slice(0, 10)) =>
+  !g.expires_at || g.expires_at >= today;
 
 export interface Unit {
   id: string;

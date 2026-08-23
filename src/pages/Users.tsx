@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/lib/entities';
 import type { Profile, UserStatus, Building, Grant, GrantRole, Organization } from '@/types';
+import { grantIsLive } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -231,6 +232,7 @@ export default function Users() {
       .from('grants').select('user_id, role, scope_type, building_id, compound_id, org_id');
     const roleMap: Record<string, GrantRole[]> = {};
     for (const g of (gRows as Grant[]) ?? []) {
+      if (!grantIsLive(g)) continue; // expired = no access (0108)
       const covers =
         (g.scope_type === 'building' && !!g.building_id && listBuildingIds.includes(g.building_id))
         || (g.scope_type === 'compound' && !!g.compound_id && compoundIdSet.has(g.compound_id))

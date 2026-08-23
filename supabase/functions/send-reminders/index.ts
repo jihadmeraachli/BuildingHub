@@ -73,6 +73,18 @@ const EN = {
     whish: (n: string) => `You can pay directly through <strong>Whish</strong> to <strong>${n}</strong>.`,
     tail: 'Details and payment options are in your account.',
   },
+  access: {
+    subjHolder: (scope: string) => `Your access to ${scope} ends soon`,
+    subjAdmin: (name: string, scope: string) => `${name}'s access to ${scope} ends soon`,
+    title: 'Management access ending',
+    holder: (role: string, scope: string, d: string) =>
+      `Your <strong>${role}</strong> access to <strong>${scope}</strong> ends on <strong>${d}</strong>. After that day you will no longer see its finances or manage it. If it should continue, ask an administrator to extend it.`,
+    admin: (name: string, role: string, scope: string, d: string) =>
+      `<strong>${name}</strong>'s <strong>${role}</strong> access to <strong>${scope}</strong> ends on <strong>${d}</strong>. Extend it from Security if it should continue; otherwise nothing to do, it ends on its own.`,
+    cta: 'Open Security',
+    inapp: (name: string, role: string, d: string) => `${name}: ${role} access ends ${d}`,
+    inappHolder: (role: string, d: string) => `Your ${role} access ends ${d}`,
+  },
   inspection: {
     subj: (overdue: boolean, cat: string, loc: string) =>
       overdue ? `Inspection overdue: ${cat}, ${loc}` : `Inspection due soon: ${cat}, ${loc}`,
@@ -109,6 +121,18 @@ const AR: Dict = {
     whish: (n: string) => `يمكنك الدفع مباشرة عبر <strong>Whish</strong> إلى <strong>${n}</strong>.`,
     tail: 'التفاصيل وخيارات الدفع متوفرة في حسابك.',
   },
+  access: {
+    subjHolder: (scope: string) => `صلاحيتك على ${scope} تنتهي قريباً`,
+    subjAdmin: (name: string, scope: string) => `صلاحية ${name} على ${scope} تنتهي قريباً`,
+    title: 'صلاحية إدارية تنتهي',
+    holder: (role: string, scope: string, d: string) =>
+      `صلاحيتك كـ<strong>${role}</strong> على <strong>${scope}</strong> تنتهي في <strong>${d}</strong>. بعد ذلك اليوم لن ترى ماليّتها ولن تتمكن من إدارتها. إن كان يجب أن تستمر، اطلب من مسؤول تمديدها.`,
+    admin: (name: string, role: string, scope: string, d: string) =>
+      `صلاحية <strong>${name}</strong> كـ<strong>${role}</strong> على <strong>${scope}</strong> تنتهي في <strong>${d}</strong>. مدّدها من صفحة الأمان إن كان يجب أن تستمر؛ وإلا فلا شيء عليك فعله، ستنتهي وحدها.`,
+    cta: 'فتح الأمان',
+    inapp: (name: string, role: string, d: string) => `${name}: صلاحية ${role} تنتهي ${d}`,
+    inappHolder: (role: string, d: string) => `صلاحيتك كـ${role} تنتهي ${d}`,
+  },
   inspection: {
     subj: (overdue: boolean, cat: string, loc: string) =>
       overdue ? `فحص متأخر: ${cat}، ${loc}` : `فحص مستحق قريباً: ${cat}، ${loc}`,
@@ -144,6 +168,18 @@ const FR: Dict = {
     settleBy: (d: string) => `Merci de le régler avant le <strong>${d}</strong>.`,
     whish: (n: string) => `Vous pouvez régler directement via <strong>Whish</strong> au <strong>${n}</strong>.`,
     tail: 'Le détail et les moyens de paiement sont disponibles dans votre compte.',
+  },
+  access: {
+    subjHolder: (scope: string) => `Votre accès à ${scope} prend fin bientôt`,
+    subjAdmin: (name: string, scope: string) => `L’accès de ${name} à ${scope} prend fin bientôt`,
+    title: 'Accès de gestion qui prend fin',
+    holder: (role: string, scope: string, d: string) =>
+      `Votre accès <strong>${role}</strong> à <strong>${scope}</strong> prend fin le <strong>${d}</strong>. Passé ce jour, vous ne verrez plus ses finances et ne pourrez plus le gérer. S’il doit continuer, demandez à un administrateur de le prolonger.`,
+    admin: (name: string, role: string, scope: string, d: string) =>
+      `L’accès <strong>${role}</strong> de <strong>${name}</strong> à <strong>${scope}</strong> prend fin le <strong>${d}</strong>. Prolongez-le depuis Sécurité s’il doit continuer ; sinon rien à faire, il prend fin tout seul.`,
+    cta: 'Ouvrir Sécurité',
+    inapp: (name: string, role: string, d: string) => `${name} : accès ${role} prend fin le ${d}`,
+    inappHolder: (role: string, d: string) => `Votre accès ${role} prend fin le ${d}`,
   },
   inspection: {
     subj: (overdue: boolean, cat: string, loc: string) =>
@@ -483,6 +519,48 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── 4. Management access (0108): sweep what has lapsed, warn what is about to ─
+    // The sweep moves expired grants to grant_history; user_can() already
+    // ignores them, so this is bookkeeping, not enforcement. The reminder goes
+    // once per grant (expiry_notified_on), to the holder and to the scope's
+    // admins, 7 days out.
+    let expiredGrants = 0, expiringGrants = 0;
+    {
+      const { data: swept, error: swErr } = await admin.rpc('sweep_expired_grants');
+      if (swErr) errors.push(`sweep_expired_grants: ${swErr.message}`);
+      else expiredGrants = Number(swept ?? 0);
+
+      type Expiring = { grant_id: string; user_id: string; role: string; expires_at: string; scope_name: string; building_id: string | null; admin_user_ids: string[] };
+      const { data: exp, error: exErr } = await admin.rpc('expiring_grants', { p_days: 7 });
+      if (exErr) errors.push(`expiring_grants: ${exErr.message}`);
+      for (const g of (exp as Expiring[] ?? [])) {
+        expiringGrants++;
+        const holderName = profileMap[g.user_id]?.full_name || 'A user';
+        const roleWord = g.role.replace(/_/g, ' ');
+        const dayFmt = (L: Dict) => new Date(g.expires_at).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' });
+        await deliverEmail(g.user_id, (L) => ({
+          subject: L.access.subjHolder(g.scope_name),
+          html: emailHtml(L, L.access.title,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.access.holder(roleWord, g.scope_name, dayFmt(L))}</p>`,
+            L.ctaAccount, `${APP_URL}/dashboard`),
+        }));
+        if (g.building_id) await deliverInApp(g.user_id, g.building_id, DICT[langOf(profileMap[g.user_id]?.preferred_language)].access.title,
+          DICT[langOf(profileMap[g.user_id]?.preferred_language)].access.inappHolder(roleWord, g.expires_at));
+        for (const uid of (g.admin_user_ids ?? [])) {
+          await deliverEmail(uid, (L) => ({
+            subject: L.access.subjAdmin(holderName, g.scope_name),
+            html: emailHtml(L, L.access.title,
+              `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.access.admin(holderName, roleWord, g.scope_name, dayFmt(L))}</p>`,
+              L.access.cta, `${APP_URL}/security`),
+          }));
+          if (g.building_id) await deliverInApp(uid, g.building_id, DICT[langOf(profileMap[uid]?.preferred_language)].access.title,
+            DICT[langOf(profileMap[uid]?.preferred_language)].access.inapp(holderName, roleWord, g.expires_at));
+        }
+        const { error: mkErr } = await admin.from('grants').update({ expiry_notified_on: beirutToday() }).eq('id', g.grant_id);
+        if (mkErr) errors.push(`expiry_notified_on: ${mkErr.message}`);
+      }
+    }
+
     return json({
       success: true,
       sent: { email: sentEmail, whatsapp: sentWhatsApp, in_app: sentInApp },
@@ -492,6 +570,8 @@ Deno.serve(async (req) => {
         overdue_units: (overdueUnits as unknown[])?.length ?? 0,
         overdue_dues: (overdueDues as unknown[])?.length ?? 0,
         due_inspections: dueInspections.length,
+        expired_grants: expiredGrants,
+        expiring_grants: expiringGrants,
       },
     });
   } catch (err: unknown) {

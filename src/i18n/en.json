@@ -849,7 +849,16 @@
     "compoundScopeNote": "Compound access covers every block in the compound, including blocks added later.",
     "acrossBlocks": "across {{count}} blocks",
     "block": "Block",
-    "roleUpdated": "Role updated"
+    "roleUpdated": "Role updated",
+    "validUntil": "Valid until",
+    "validUntilOptional": "Valid until (optional, last day included)",
+    "openEnded": "Open-ended",
+    "expiredOn": "Expired {{date}}",
+    "expiryEdit": "Set or change the last valid day",
+    "expiryPrompt": "Last valid day (YYYY-MM-DD). Leave empty for open-ended.",
+    "expiryFormat": "Use the YYYY-MM-DD form.",
+    "expirySet": "Access now ends on {{date}}.",
+    "expiryCleared": "Access is open-ended again."
   },
   "buildings": {
     "title": "Buildings",

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import i18n, { setLanguage } from '@/i18n';
 import { rolesHaveCap } from '@/lib/permissions';
 import type { Profile, Grant, Membership, Capability, GrantRole } from '@/types';
+import { grantIsLive } from '@/types';
 import { disablePush } from '@/lib/push';
 
 interface AuthContextValue {
@@ -133,7 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from('memberships').select('*, unit:units(*)').eq('user_id', userId).is('ended_at', null),
     ]);
 
-    const g = (grantData as Grant[]) ?? [];
+    // An expired grant is inert in the DB at once (0108) and swept each morning;
+    // dropping it here keeps the UI gate (can()) honest in between.
+    const g = ((grantData as Grant[]) ?? []).filter((x) => grantIsLive(x));
     const m = (memberData as Membership[]) ?? [];
     setGrants(g);
     setMemberships(m);

@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Boxes, Network, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Boxes, Network, Shield, Trash2, UserPlus, CalendarClock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { fmtDate } from '@/lib/dateFmt';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEntities } from '@/lib/entities';
 import type { Profile, Building, Grant, GrantRole, Organization } from '@/types';
+import { grantIsLive } from '@/types';
+import { Input } from '@/components/ui/Input';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -62,6 +65,8 @@ export default function Security() {
   const [grantModal, setGrantModal] = useState(false);
   const [grantUserId, setGrantUserId] = useState('');
   const [grantRole, setGrantRole] = useState<GrantRole>('building_finance');
+  // 0108: optional last valid day, shared by the three grant modals
+  const [grantExpires, setGrantExpires] = useState('');
   const [grantSearch, setGrantSearch] = useState('');
   const [compoundGrantModal, setCompoundGrantModal] = useState(false);
   const [compoundGrantUserId, setCompoundGrantUserId] = useState('');
@@ -149,23 +154,24 @@ export default function Security() {
   async function openGrantModal() {
     await loadProfiles();
     setGrantUserId(''); setGrantRole('building_finance'); setGrantSearch('');
-    setGrantModal(true);
+    setGrantExpires(''); setGrantModal(true);
   }
   async function openCompoundGrantModal() {
     await loadProfiles();
     setCompoundGrantUserId(''); setCompoundGrantRole('compound_admin'); setCompoundGrantSearch('');
-    setCompoundGrantModal(true);
+    setGrantExpires(''); setCompoundGrantModal(true);
   }
   async function openOrgGrantModal() {
     await loadProfiles();
     setOrgGrantUserId(''); setOrgGrantRole('org_admin'); setOrgGrantSearch('');
-    setOrgGrantModal(true);
+    setGrantExpires(''); setOrgGrantModal(true);
   }
 
   async function addGrant() {
     if (!grantUserId || !accessBuildingId) return;
     const { error } = await supabase.from('grants').insert({
       user_id: grantUserId, scope_type: 'building', building_id: accessBuildingId, org_id: null, role: grantRole,
+      expires_at: grantExpires || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.grantAdded'));
@@ -176,6 +182,7 @@ export default function Security() {
     const { error } = await supabase.from('grants').insert({
       user_id: compoundGrantUserId, scope_type: 'compound',
       compound_id: selectedCompoundId, building_id: null, org_id: null, role: compoundGrantRole,
+      expires_at: grantExpires || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.grantAdded'));
@@ -185,6 +192,7 @@ export default function Security() {
     if (!orgGrantUserId || !selectedOrgId) return;
     const { error } = await supabase.from('grants').insert({
       user_id: orgGrantUserId, scope_type: 'org', org_id: selectedOrgId, building_id: null, role: orgGrantRole,
+      expires_at: grantExpires || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.grantAdded'));
@@ -202,6 +210,17 @@ export default function Security() {
     const { error } = await supabase.from('grants').update({ role }).eq('id', id);
     if (error) { toast.error(error.message); return; }
     toast.success(t('users.roleUpdated'));
+    reload();
+  }
+  /** 0108: set, move or clear a grant's last valid day. Empty = open-ended. */
+  async function updateGrantExpiry(id: string, reload: () => void, current: string | null | undefined) {
+    const v = window.prompt(t('users.expiryPrompt'), current ?? '');
+    if (v === null) return;
+    const expires_at = v.trim() || null;
+    if (expires_at && !/^\d{4}-\d{2}-\d{2}$/.test(expires_at)) { toast.error(t('users.expiryFormat')); return; }
+    const { error } = await supabase.from('grants').update({ expires_at }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(expires_at ? t('users.expirySet', { date: expires_at }) : t('users.expiryCleared'));
     reload();
   }
 
@@ -228,6 +247,7 @@ export default function Security() {
               <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
                 <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
                 <th className="px-4 py-3 text-start font-medium">{t('users.role')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('users.validUntil')}</th>
                 <th className="px-4 py-3 text-start font-medium">{t('common.actions')}</th>
               </tr>
             </thead>
@@ -251,6 +271,19 @@ export default function Security() {
                         ))}
                       </SelectContent>
                     </RadixSelect>
+                  </td>
+                  {/* 0108: the last valid day. Expired rows stay listed until the
+                      morning sweep moves them to history; they confer nothing. */}
+                  <td className="px-4 py-3">
+                    <button onClick={() => updateGrantExpiry(g.id, reload, g.expires_at)}
+                      className={`inline-flex items-center gap-1.5 text-xs rounded-lg border px-2 py-1 transition cursor-pointer ${
+                        !g.expires_at ? 'border-border text-muted-foreground hover:text-foreground'
+                        : grantIsLive(g) ? 'border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30'
+                        : 'border-red-300 text-red-600 bg-red-50 dark:bg-red-950/30'}`}
+                      title={t('users.expiryEdit')}>
+                      <CalendarClock size={13} />
+                      {!g.expires_at ? t('users.openEnded') : grantIsLive(g) ? fmtDate(g.expires_at, 'MMM d, yyyy') : t('users.expiredOn', { date: fmtDate(g.expires_at, 'MMM d, yyyy') })}
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => removeGrantRow(g.id, reload)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
@@ -407,6 +440,7 @@ export default function Security() {
           <SelectField label={t('users.role')} value={grantRole} onValueChange={v => setGrantRole(v as GrantRole)}>
             {BUILDING_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
           </SelectField>
+          <Input label={t('users.validUntilOptional')} type="date" value={grantExpires} onChange={e => setGrantExpires(e.target.value)} />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addGrant} disabled={!grantUserId}>{t('users.addAccess')}</Button>
@@ -422,6 +456,7 @@ export default function Security() {
           <SelectField label={t('users.role')} value={compoundGrantRole} onValueChange={v => setCompoundGrantRole(v as GrantRole)}>
             {COMPOUND_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
           </SelectField>
+          <Input label={t('users.validUntilOptional')} type="date" value={grantExpires} onChange={e => setGrantExpires(e.target.value)} />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setCompoundGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addCompoundGrant} disabled={!compoundGrantUserId}>{t('users.addCompoundAccess')}</Button>
@@ -436,6 +471,7 @@ export default function Security() {
           <SelectField label={t('users.role')} value={orgGrantRole} onValueChange={v => setOrgGrantRole(v as GrantRole)}>
             {ORG_ROLES.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`, { defaultValue: r })}</SelectItem>)}
           </SelectField>
+          <Input label={t('users.validUntilOptional')} type="date" value={grantExpires} onChange={e => setGrantExpires(e.target.value)} />
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setOrgGrantModal(false)}>{t('common.cancel')}</Button>
             <Button onClick={addOrgGrant} disabled={!orgGrantUserId}>{t('users.addOrgAccess')}</Button>

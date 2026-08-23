@@ -857,7 +857,16 @@
     "compoundScopeNote": "صلاحية المجمّع تشمل كل المباني ضمن المجمّع، بما في ذلك المباني التي تُضاف لاحقًا.",
     "acrossBlocks": "عبر {{count}} مبانٍ",
     "block": "المبنى",
-    "roleUpdated": "تم تحديث الدور"
+    "roleUpdated": "تم تحديث الدور",
+    "validUntil": "صالحة حتى",
+    "validUntilOptional": "صالحة حتى (اختياري، اليوم الأخير مشمول)",
+    "openEnded": "غير محدودة",
+    "expiredOn": "انتهت في {{date}}",
+    "expiryEdit": "تحديد أو تغيير آخر يوم صالح",
+    "expiryPrompt": "آخر يوم صالح (YYYY-MM-DD). اتركه فارغاً لتكون غير محدودة.",
+    "expiryFormat": "استخدم الصيغة YYYY-MM-DD.",
+    "expirySet": "تنتهي الصلاحية الآن في {{date}}.",
+    "expiryCleared": "عادت الصلاحية غير محدودة."
   },
   "buildings": {
     "title": "المباني",

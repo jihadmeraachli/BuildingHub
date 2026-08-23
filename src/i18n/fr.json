@@ -849,7 +849,16 @@
     "compoundScopeNote": "L'accès complexe couvre tous les blocs du complexe, y compris ceux ajoutés par la suite.",
     "acrossBlocks": "sur {{count}} blocs",
     "block": "Bloc",
-    "roleUpdated": "Rôle mis à jour"
+    "roleUpdated": "Rôle mis à jour",
+    "validUntil": "Valide jusqu’au",
+    "validUntilOptional": "Valide jusqu’au (facultatif, dernier jour inclus)",
+    "openEnded": "Sans limite",
+    "expiredOn": "Expiré le {{date}}",
+    "expiryEdit": "Définir ou modifier le dernier jour de validité",
+    "expiryPrompt": "Dernier jour de validité (AAAA-MM-JJ). Laissez vide pour sans limite.",
+    "expiryFormat": "Utilisez la forme AAAA-MM-JJ.",
+    "expirySet": "L’accès prend fin le {{date}}.",
+    "expiryCleared": "L’accès est de nouveau sans limite."
   },
   "buildings": {
     "title": "Immeubles",
