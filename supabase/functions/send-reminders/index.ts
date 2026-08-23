@@ -73,6 +73,32 @@ const EN = {
     whish: (n: string) => `You can pay directly through <strong>Whish</strong> to <strong>${n}</strong>.`,
     tail: 'Details and payment options are in your account.',
   },
+  billing: {
+    subj: (kind: string, scope: string) => ({
+      trial_7: `Your Abniyah trial for ${scope} ends in 7 days`,
+      trial_1: `Your Abniyah trial for ${scope} ends tomorrow`,
+      trial_ended: `Your Abniyah trial for ${scope} has ended`,
+      renewal_7: `Renewal invoice for ${scope}`,
+      autorenew_7: `${scope}: your card will be charged in 7 days`,
+      ending_7: `${scope}: your subscription ends in 7 days`,
+      grace: `${scope}: payment overdue, access at risk`,
+      locked: `${scope}: account locked until payment`,
+      cancelled: `${scope}: subscription ended`,
+    } as Record<string, string>)[kind] ?? `Abniyah billing: ${scope}`,
+    title: 'Subscription',
+    body: (kind: string, scope: string, d: string, amount: string) => ({
+      trial_7: `The free trial for <strong>${scope}</strong> ends on <strong>${d}</strong>. Subscribe from the Billing page to keep everything running — nothing is charged before you do.`,
+      trial_1: `The free trial for <strong>${scope}</strong> ends <strong>tomorrow</strong> (${d}). Subscribe from the Billing page to keep everything running.`,
+      trial_ended: `The free trial for <strong>${scope}</strong> has ended. An invoice of <strong>${amount}</strong> is ready on the Billing page; you have 7 days of full access to settle it (until ${d}), after which the account locks until payment.`,
+      renewal_7: `The next period for <strong>${scope}</strong> starts after <strong>${d}</strong>. The renewal invoice of <strong>${amount}</strong> is on the Billing page. Unpaid, the account enters a 7-day grace period and then locks.`,
+      autorenew_7: `Auto-renew is on for <strong>${scope}</strong>: the saved card will be charged <strong>${amount}</strong> around <strong>${d}</strong>. Nothing to do; turn auto-renew off on the Billing page if you do not want this.`,
+      ending_7: `The subscription for <strong>${scope}</strong> was cancelled and ends on <strong>${d}</strong>. Access continues until then. Resume from the Billing page to keep it.`,
+      grace: `The renewal for <strong>${scope}</strong> was not paid. Everything still works until <strong>${d}</strong>; after that the account locks until the invoice (<strong>${amount}</strong>) is settled.`,
+      locked: `The account for <strong>${scope}</strong> is locked: pages are read-only and residents cannot sign in. Paying the open invoice (<strong>${amount}</strong>) on the Billing page unlocks it immediately.`,
+      cancelled: `The subscription for <strong>${scope}</strong> has ended. The data is kept; subscribing again from the Billing page brings everything back.`,
+    } as Record<string, string>)[kind] ?? '',
+    cta: 'Open Billing',
+  },
   access: {
     subjHolder: (scope: string) => `Your access to ${scope} ends soon`,
     subjAdmin: (name: string, scope: string) => `${name}'s access to ${scope} ends soon`,
@@ -121,6 +147,32 @@ const AR: Dict = {
     whish: (n: string) => `يمكنك الدفع مباشرة عبر <strong>Whish</strong> إلى <strong>${n}</strong>.`,
     tail: 'التفاصيل وخيارات الدفع متوفرة في حسابك.',
   },
+  billing: {
+    subj: (kind: string, scope: string) => ({
+      trial_7: `تنتهي تجربة أبنية لـ${scope} خلال 7 أيام`,
+      trial_1: `تنتهي تجربة أبنية لـ${scope} غداً`,
+      trial_ended: `انتهت تجربة أبنية لـ${scope}`,
+      renewal_7: `فاتورة تجديد لـ${scope}`,
+      autorenew_7: `${scope}: سيُقتطع من بطاقتك خلال 7 أيام`,
+      ending_7: `${scope}: ينتهي اشتراكك خلال 7 أيام`,
+      grace: `${scope}: دفعة متأخرة، الوصول مهدد`,
+      locked: `${scope}: الحساب مقفل حتى السداد`,
+      cancelled: `${scope}: انتهى الاشتراك`,
+    } as Record<string, string>)[kind] ?? `فوترة أبنية: ${scope}`,
+    title: 'الاشتراك',
+    body: (kind: string, scope: string, d: string, amount: string) => ({
+      trial_7: `تنتهي التجربة المجانية لـ<strong>${scope}</strong> في <strong>${d}</strong>. اشترك من صفحة الفوترة ليبقى كل شيء شغالاً — لا يُقتطع شيء قبل ذلك.`,
+      trial_1: `تنتهي التجربة المجانية لـ<strong>${scope}</strong> <strong>غداً</strong> (${d}). اشترك من صفحة الفوترة ليبقى كل شيء شغالاً.`,
+      trial_ended: `انتهت التجربة المجانية لـ<strong>${scope}</strong>. فاتورة بقيمة <strong>${amount}</strong> جاهزة في صفحة الفوترة؛ أمامك 7 أيام من الوصول الكامل لتسديدها (حتى ${d})، بعدها يُقفل الحساب حتى الدفع.`,
+      renewal_7: `تبدأ الفترة التالية لـ<strong>${scope}</strong> بعد <strong>${d}</strong>. فاتورة التجديد بقيمة <strong>${amount}</strong> في صفحة الفوترة. إن لم تُسدَّد، يدخل الحساب مهلة 7 أيام ثم يُقفل.`,
+      autorenew_7: `التجديد التلقائي مفعّل لـ<strong>${scope}</strong>: سيُقتطع <strong>${amount}</strong> من البطاقة المحفوظة حوالي <strong>${d}</strong>. لا شيء عليك فعله؛ أطفئ التجديد التلقائي من صفحة الفوترة إن لم ترده.`,
+      ending_7: `أُلغي اشتراك <strong>${scope}</strong> وينتهي في <strong>${d}</strong>. يستمر الوصول حتى ذلك الحين. استأنف من صفحة الفوترة للإبقاء عليه.`,
+      grace: `لم يُسدَّد تجديد <strong>${scope}</strong>. كل شيء يعمل حتى <strong>${d}</strong>؛ بعدها يُقفل الحساب حتى تسديد الفاتورة (<strong>${amount}</strong>).`,
+      locked: `حساب <strong>${scope}</strong> مقفل: الصفحات للقراءة فقط ولا يستطيع السكان الدخول. تسديد الفاتورة المفتوحة (<strong>${amount}</strong>) من صفحة الفوترة يفتحه فوراً.`,
+      cancelled: `انتهى اشتراك <strong>${scope}</strong>. البيانات محفوظة؛ الاشتراك مجدداً من صفحة الفوترة يعيد كل شيء.`,
+    } as Record<string, string>)[kind] ?? '',
+    cta: 'فتح الفوترة',
+  },
   access: {
     subjHolder: (scope: string) => `صلاحيتك على ${scope} تنتهي قريباً`,
     subjAdmin: (name: string, scope: string) => `صلاحية ${name} على ${scope} تنتهي قريباً`,
@@ -168,6 +220,32 @@ const FR: Dict = {
     settleBy: (d: string) => `Merci de le régler avant le <strong>${d}</strong>.`,
     whish: (n: string) => `Vous pouvez régler directement via <strong>Whish</strong> au <strong>${n}</strong>.`,
     tail: 'Le détail et les moyens de paiement sont disponibles dans votre compte.',
+  },
+  billing: {
+    subj: (kind: string, scope: string) => ({
+      trial_7: `Votre essai Abniyah pour ${scope} se termine dans 7 jours`,
+      trial_1: `Votre essai Abniyah pour ${scope} se termine demain`,
+      trial_ended: `Votre essai Abniyah pour ${scope} est terminé`,
+      renewal_7: `Facture de renouvellement pour ${scope}`,
+      autorenew_7: `${scope} : votre carte sera débitée dans 7 jours`,
+      ending_7: `${scope} : votre abonnement se termine dans 7 jours`,
+      grace: `${scope} : paiement en retard, accès menacé`,
+      locked: `${scope} : compte verrouillé jusqu’au paiement`,
+      cancelled: `${scope} : abonnement terminé`,
+    } as Record<string, string>)[kind] ?? `Facturation Abniyah : ${scope}`,
+    title: 'Abonnement',
+    body: (kind: string, scope: string, d: string, amount: string) => ({
+      trial_7: `L’essai gratuit pour <strong>${scope}</strong> se termine le <strong>${d}</strong>. Abonnez-vous depuis la page Facturation pour que tout continue — rien n’est débité avant.`,
+      trial_1: `L’essai gratuit pour <strong>${scope}</strong> se termine <strong>demain</strong> (${d}). Abonnez-vous depuis la page Facturation.`,
+      trial_ended: `L’essai gratuit pour <strong>${scope}</strong> est terminé. Une facture de <strong>${amount}</strong> vous attend sur la page Facturation ; vous avez 7 jours d’accès complet pour la régler (jusqu’au ${d}), après quoi le compte se verrouille.`,
+      renewal_7: `La prochaine période pour <strong>${scope}</strong> commence après le <strong>${d}</strong>. La facture de renouvellement de <strong>${amount}</strong> est sur la page Facturation. Impayée, le compte entre en délai de grâce de 7 jours puis se verrouille.`,
+      autorenew_7: `Le renouvellement automatique est actif pour <strong>${scope}</strong> : la carte enregistrée sera débitée de <strong>${amount}</strong> vers le <strong>${d}</strong>. Rien à faire ; désactivez-le depuis la page Facturation si vous ne le souhaitez pas.`,
+      ending_7: `L’abonnement pour <strong>${scope}</strong> a été annulé et se termine le <strong>${d}</strong>. L’accès continue jusque-là. Reprenez-le depuis la page Facturation pour le garder.`,
+      grace: `Le renouvellement pour <strong>${scope}</strong> n’a pas été réglé. Tout fonctionne jusqu’au <strong>${d}</strong> ; ensuite le compte se verrouille jusqu’au règlement de la facture (<strong>${amount}</strong>).`,
+      locked: `Le compte de <strong>${scope}</strong> est verrouillé : lecture seule, et les résidents ne peuvent plus se connecter. Régler la facture ouverte (<strong>${amount}</strong>) sur la page Facturation le déverrouille immédiatement.`,
+      cancelled: `L’abonnement pour <strong>${scope}</strong> est terminé. Les données sont conservées ; se réabonner depuis la page Facturation remet tout en place.`,
+    } as Record<string, string>)[kind] ?? '',
+    cta: 'Ouvrir la facturation',
   },
   access: {
     subjHolder: (scope: string) => `Votre accès à ${scope} prend fin bientôt`,
@@ -561,6 +639,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── 5. Billing (0114): lifecycle transitions and their notices ──────────
+    // billing_tick() flips trial→grace→locked, issues renewal invoices, and
+    // returns the notices not yet sent; billing_notice_sent() is the dedup.
+    // Card sweeps: areeba-callback?reconcile=1 settles paid sessions on its
+    // own cron; the stored-token auto-charge lands with Areeba's onboarding.
+    let billingNotices = 0, autorenewDue = 0;
+    {
+      type Notice = { subscription_id: string; kind: string; ref: string; scope_name: string; billing_email: string | null; admin_user_ids: string[]; invoice_id: string | null; amount_cents: number | null; date_ref: string | null };
+      const { data: ticks, error: btErr } = await admin.rpc('billing_tick');
+      if (btErr) errors.push(`billing_tick: ${btErr.message}`);
+      for (const n of (ticks as Notice[] ?? [])) {
+        billingNotices++;
+        const amount = n.amount_cents != null ? `${(n.amount_cents / 100).toFixed(2)}` : '';
+        const dayFmt = (L: Dict) => n.date_ref ? new Date(n.date_ref).toLocaleDateString(L.locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        const build = (L: Dict) => ({
+          subject: L.billing.subj(n.kind, n.scope_name),
+          html: emailHtml(L, L.billing.title,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.billing.body(n.kind, n.scope_name, dayFmt(L), amount)}</p>`,
+            L.billing.cta, `${APP_URL}/licenses`),
+        });
+        for (const uid of (n.admin_user_ids ?? [])) await deliverEmail(uid, build);
+        // the billing address may not be a user account: send it the EN copy
+        if (n.billing_email && !(n.admin_user_ids ?? []).some((uid) => emailMap[uid] === n.billing_email)) {
+          const { subject, html } = build(DICT.en);
+          const err = await sendEmail(n.billing_email, subject, html);
+          if (err) errors.push(`billing email ${n.billing_email}: ${err}`); else sentEmail++;
+        }
+        const { error: nsErr } = await admin.rpc('billing_notice_sent', { p_subscription: n.subscription_id, p_kind: n.kind, p_ref: n.ref });
+        if (nsErr) errors.push(`billing_notice_sent: ${nsErr.message}`);
+      }
+      const { data: due } = await admin.rpc('autorenew_due');
+      autorenewDue = (due as unknown[] ?? []).length;
+    }
+
     return json({
       success: true,
       sent: { email: sentEmail, whatsapp: sentWhatsApp, in_app: sentInApp },
@@ -572,6 +684,8 @@ Deno.serve(async (req) => {
         due_inspections: dueInspections.length,
         expired_grants: expiredGrants,
         expiring_grants: expiringGrants,
+        billing_notices: billingNotices,
+        autorenew_due: autorenewDue,
       },
     });
   } catch (err: unknown) {

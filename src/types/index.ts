@@ -564,7 +564,7 @@ export interface BuildingContact {
 // ── Licensing (migration 0031) ───────────────────────────────
 
 export type SubscriptionPlan = 'monthly' | 'annual';
-export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'cancelled';
+export type SubscriptionStatus = 'trial' | 'active' | 'grace' | 'locked' | 'past_due' | 'cancelled';
 export type InvoiceStatus = 'open' | 'paid' | 'void';
 
 export interface Subscription {
@@ -587,6 +587,15 @@ export interface Subscription {
   /** The whole monthly price. NULL = use the band for the unit count (0100).
    *  Set only for a negotiated deal, which is everything above 500 units. */
   price_monthly_cents?: number | null;
+  /** Lifecycle (0114). grace = unpaid but working; locked = read-only until paid. */
+  auto_renew?: boolean;
+  cancel_at_period_end?: boolean;
+  cancelled_at?: string | null;
+  grace_ends_at?: string | null;
+  locked_at?: string | null;
+  payment_provider?: 'whish' | 'areeba' | null;
+  /** Gateway token for a stored card — enables auto-renew. Never card data. */
+  provider_customer_ref?: string | null;
   billing_email: string | null;
   notes: string | null;
   created_by: string | null;
@@ -612,6 +621,13 @@ export interface Invoice {
   period_end: string;
   paid_at: string | null;
   paid_by: string | null;
+  /** 'period' renews the subscription; 'topup' covers a mid-period band rise (0114). */
+  kind?: 'period' | 'topup';
+  due_date?: string | null;
+  description?: string | null;
+  license_count?: number | null;
+  payment_method?: string | null;
+  payment_ref?: string | null;
   notes: string | null;
   created_at: string;
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import { BillingBanner } from '@/components/BillingBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoEmail } from '@/lib/demo';
 import { usePullToRefresh, PullIndicator } from '@/components/PullToRefresh';
@@ -49,6 +50,7 @@ export function AppShell() {
             </button>
           </div>
         )}
+        <BillingBanner />
         <Header onMenuClick={() => setSidebarOpen(true)} />
         <main ref={mainRef} className="relative flex-1 overflow-y-auto p-4 lg:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-6">
           <PullIndicator innerRef={ptrRef} />

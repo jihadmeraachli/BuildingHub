@@ -188,6 +188,25 @@ async function whatsappToUserIds(ids: string[], templateName: string, buildParam
   }
 }
 
+
+// ── Billing recipients (0114): the scope's managing admins ───────────────────
+async function subscriptionAdminIds(sub: { scope_type: string; building_id?: string | null; compound_id?: string | null; org_id?: string | null }): Promise<string[]> {
+  let q = supabase.from('grants').select('user_id, expires_at');
+  if (sub.scope_type === 'building') q = q.eq('building_id', sub.building_id).eq('role', 'building_admin');
+  else if (sub.scope_type === 'compound') q = q.eq('compound_id', sub.compound_id).eq('role', 'compound_admin');
+  else q = q.eq('org_id', sub.org_id).eq('role', 'org_admin');
+  const { data } = await q;
+  const today = new Date().toISOString().slice(0, 10);
+  return [...new Set(((data ?? []) as { user_id: string; expires_at: string | null }[])
+    .filter((g) => !g.expires_at || g.expires_at >= today).map((g) => g.user_id))];
+}
+async function subscriptionScopeName(sub: { scope_type: string; building_id?: string | null; compound_id?: string | null; org_id?: string | null }): Promise<string> {
+  const t = sub.scope_type === 'building' ? ['buildings', sub.building_id] : sub.scope_type === 'compound' ? ['compounds', sub.compound_id] : ['organizations', sub.org_id];
+  const { data } = await supabase.from(t[0] as string).select('name').eq('id', t[1]).single();
+  return (data as { name: string } | null)?.name ?? '';
+}
+const centsFmt = (c: number) => `${(c / 100).toFixed(2)}`;
+
 // ── Recipient resolution (v3 model: memberships, with legacy fallback) ────────
 async function getBuilding(buildingId: string) {
   const { data } = await supabase.from('buildings').select('name, address, city, country, whish_number').eq('id', buildingId).single();
@@ -462,6 +481,21 @@ const EN = {
   tenure: { owner: 'Owner', tenant: 'Tenant' } as Record<string, string>,
   whish: (n: string) => `You can pay directly through <strong>Whish</strong> to <strong>${n}</strong>.`,
 
+  billing: {
+    trialSubj: (scope: string) => `Welcome to Abniyah — your 30-day trial for ${scope} has started`,
+    trialTitle: 'Your trial has started',
+    trialBody: (scope: string, d: string) =>
+      `Everything is unlocked for <strong>${scope}</strong> until <strong>${d}</strong>: unlimited licences, every feature, no card. We will remind you before it ends; nothing is ever charged until you subscribe.`,
+    invoiceSubj: (scope: string, amount: string) => `Invoice for ${scope}: ${amount}`,
+    invoiceTitle: 'Invoice issued',
+    invoiceBody: (scope: string, amount: string, due: string, period: string) =>
+      `An invoice of <strong>${amount}</strong> for <strong>${scope}</strong> (${period}) is ready. Pay it from the Billing page by <strong>${due}</strong> — Whish or card.`,
+    receiptSubj: (scope: string, amount: string) => `Payment received for ${scope}: ${amount}`,
+    receiptTitle: 'Payment received',
+    receiptBody: (scope: string, amount: string, period: string) =>
+      `Thank you — <strong>${amount}</strong> received for <strong>${scope}</strong> (${period}). Your subscription is active; the receipt is on the Billing page.`,
+    cta: 'Open Billing',
+  },
   reg: {
     subj: 'New resident registration awaiting approval',
     title: 'New resident registration',
@@ -576,6 +610,21 @@ const AR: Dict = {
   tenure: { owner: 'مالك', tenant: 'مستأجر' },
   whish: (n: string) => `يمكنك الدفع مباشرة عبر <strong>Whish</strong> إلى <strong>${n}</strong>.`,
 
+  billing: {
+    trialSubj: (scope: string) => `أهلاً بك في أبنية — بدأت تجربتك المجانية لـ${scope} لمدة 30 يوماً`,
+    trialTitle: 'بدأت تجربتك',
+    trialBody: (scope: string, d: string) =>
+      `كل شيء مفتوح لـ<strong>${scope}</strong> حتى <strong>${d}</strong>: رخص غير محدودة، كل الميزات، بلا بطاقة. سنذكّرك قبل النهاية؛ لا يُقتطع شيء أبداً قبل أن تشترك.`,
+    invoiceSubj: (scope: string, amount: string) => `فاتورة لـ${scope}: ${amount}`,
+    invoiceTitle: 'صدرت فاتورة',
+    invoiceBody: (scope: string, amount: string, due: string, period: string) =>
+      `فاتورة بقيمة <strong>${amount}</strong> لـ<strong>${scope}</strong> (${period}) جاهزة. سدّدها من صفحة الفوترة قبل <strong>${due}</strong> — عبر Whish أو البطاقة.`,
+    receiptSubj: (scope: string, amount: string) => `استلمنا دفعة لـ${scope}: ${amount}`,
+    receiptTitle: 'استلمنا الدفعة',
+    receiptBody: (scope: string, amount: string, period: string) =>
+      `شكراً — استلمنا <strong>${amount}</strong> لـ<strong>${scope}</strong> (${period}). اشتراكك فعّال؛ الإيصال في صفحة الفوترة.`,
+    cta: 'فتح الفوترة',
+  },
   reg: {
     subj: 'تسجيل ساكن جديد بانتظار الموافقة',
     title: 'تسجيل ساكن جديد',
@@ -692,6 +741,21 @@ const FR: Dict = {
   tenure: { owner: 'Propriétaire', tenant: 'Locataire' },
   whish: (n: string) => `Vous pouvez régler directement via <strong>Whish</strong> au <strong>${n}</strong>.`,
 
+  billing: {
+    trialSubj: (scope: string) => `Bienvenue sur Abniyah — votre essai de 30 jours pour ${scope} a commencé`,
+    trialTitle: 'Votre essai a commencé',
+    trialBody: (scope: string, d: string) =>
+      `Tout est ouvert pour <strong>${scope}</strong> jusqu’au <strong>${d}</strong> : licences illimitées, toutes les fonctions, sans carte. Nous vous préviendrons avant la fin ; rien n’est débité tant que vous ne vous abonnez pas.`,
+    invoiceSubj: (scope: string, amount: string) => `Facture pour ${scope} : ${amount}`,
+    invoiceTitle: 'Facture émise',
+    invoiceBody: (scope: string, amount: string, due: string, period: string) =>
+      `Une facture de <strong>${amount}</strong> pour <strong>${scope}</strong> (${period}) est prête. Réglez-la depuis la page Facturation avant le <strong>${due}</strong> — Whish ou carte.`,
+    receiptSubj: (scope: string, amount: string) => `Paiement reçu pour ${scope} : ${amount}`,
+    receiptTitle: 'Paiement reçu',
+    receiptBody: (scope: string, amount: string, period: string) =>
+      `Merci — <strong>${amount}</strong> reçus pour <strong>${scope}</strong> (${period}). Votre abonnement est actif ; le reçu est sur la page Facturation.`,
+    cta: 'Ouvrir la facturation',
+  },
   reg: {
     subj: "Nouvelle inscription de résident en attente d'approbation",
     title: 'Nouvelle inscription de résident',
@@ -1062,6 +1126,37 @@ Deno.serve(async (req) => {
     }
 
     // 6. Scheduled meeting → all building residents (+ .ics)
+    // ── Billing (0114): trial started / invoice issued / payment received ──
+    if (tbl === 'subscriptions' && type === 'INSERT' && record.status === 'trial') {
+      const scope = await subscriptionScopeName(record);
+      const ids = await subscriptionAdminIds(record);
+      await emailToUserIds(ids, (L) => ({
+        subject: L.billing.trialSubj(scope),
+        html: emailHtml(L, L.billing.trialTitle,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.billing.trialBody(esc(scope), String(record.trial_ends_at).slice(0, 10))}</p>`,
+          L.billing.cta, `${APP_URL}/licenses`),
+      }));
+      return json({ ok: true });
+    }
+    if (tbl === 'invoices' && (type === 'INSERT' || (type === 'UPDATE' && old_record?.status !== 'paid' && record.status === 'paid'))) {
+      const { data: sub } = await supabase.from('subscriptions').select('*').eq('id', record.subscription_id).single();
+      if (sub) {
+        const scope = await subscriptionScopeName(sub);
+        const ids = await subscriptionAdminIds(sub);
+        const period = `${record.period_start} → ${record.period_end}`;
+        const isReceipt = type === 'UPDATE';
+        await emailToUserIds(ids, (L) => ({
+          subject: isReceipt ? L.billing.receiptSubj(scope, centsFmt(record.amount_cents)) : L.billing.invoiceSubj(scope, centsFmt(record.amount_cents)),
+          html: emailHtml(L, isReceipt ? L.billing.receiptTitle : L.billing.invoiceTitle,
+            `<p style="color:#475569;font-size:14px;line-height:1.6;">${isReceipt
+              ? L.billing.receiptBody(esc(scope), centsFmt(record.amount_cents), period)
+              : L.billing.invoiceBody(esc(scope), centsFmt(record.amount_cents), record.due_date ?? '', period)}</p>`,
+            L.billing.cta, `${APP_URL}/licenses`),
+        }));
+      }
+      return json({ ok: true });
+    }
+
     if (tbl === 'meetings' && type === 'INSERT' && record.meeting_type === 'scheduled') {
       const b = await getBuilding(record.building_id);
       const ics = b ? generateIcs(record.id, record.title, record.meeting_date, record.meeting_time ?? null, record.summary ?? '', b) : null;

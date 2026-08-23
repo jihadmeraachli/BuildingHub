@@ -7,6 +7,7 @@ import {
 import type { Grant } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import i18n from '@/i18n';
 
 // 0085: an imported expense must point at its scope's catalog row, or it sits
 // as "Uncategorized" in budget-vs-actual forever. Seeded types carry the legacy
@@ -587,7 +588,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
             share_weight: parseFloat(row.share_weight) || 1,
           })
           .select('id').single();
-        if (uErr) throw new Error(uErr.message);
+        if (uErr) throw new Error(uErr.message.includes('LICENSE_LIMIT') ? i18n.t('structure.licenseLimit') : uErr.message);
 
         // Link owner
         if (row.owner_email.includes('@')) {

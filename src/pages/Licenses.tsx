@@ -18,7 +18,7 @@ import { licenseCap } from '@/lib/licenseCaps';
 import { monthlyPriceCents, annualPriceCents, effectivePerUnitCents, fmtPerUnit } from '@/lib/pricing';
 
 const STATUS_COLOR: Record<Subscription['status'], 'green' | 'yellow' | 'red' | 'slate'> = {
-  trial: 'yellow', active: 'green', past_due: 'red', cancelled: 'slate',
+  trial: 'yellow', active: 'green', grace: 'red', locked: 'red', past_due: 'red', cancelled: 'slate',
 };
 
 const INVOICE_COLOR: Record<Invoice['status'], 'green' | 'yellow' | 'slate'> = {
@@ -89,6 +89,11 @@ export default function Licenses() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeCount, setRemoveCount] = useState(1);
   const [removeSaving, setRemoveSaving] = useState(false);
+  // 0114: subscribe / renew / cancel / auto-renew
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [subscribePlan, setSubscribePlan] = useState<'monthly' | 'annual'>('monthly');
+  const [subscribeSaving, setSubscribeSaving] = useState(false);
+  const [lifecycleSaving, setLifecycleSaving] = useState(false);
 
   const sub = subs.find(s => s.id === selectedId) ?? null;
   const assignedCount = units.filter(u => u.assignment).length;
@@ -262,6 +267,71 @@ export default function Licenses() {
     toast.success(t('licensesPage.removedToast', { count: removeCount }));
   }
 
+  // ── Lifecycle (0114): the buttons call SECURITY DEFINER functions ─────────
+  /** Subscribe (from trial/grace/locked) or renew early (active): issues the
+   *  period invoice and opens the invoices tab to pay it. */
+  async function subscribeNow() {
+    if (!sub) return;
+    setSubscribeSaving(true);
+    const { data, error } = await supabase.rpc('start_subscription', { p_subscription: sub.id, p_plan: subscribePlan });
+    setSubscribeSaving(false);
+    if (error) { toast.error(error.message); return; }
+    setSubscribeOpen(false);
+    toast.success(t('billing.invoiceReady'));
+    await reloadSub();
+    void data;
+  }
+  async function doCancel() {
+    if (!sub || !confirm(t('billing.cancelConfirm'))) return;
+    setLifecycleSaving(true);
+    const { error } = await supabase.rpc('cancel_subscription', { p_subscription: sub.id });
+    setLifecycleSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('billing.cancelDone'));
+    await reloadSub();
+  }
+  async function doResume() {
+    if (!sub) return;
+    setLifecycleSaving(true);
+    const { error } = await supabase.rpc('resume_subscription', { p_subscription: sub.id });
+    setLifecycleSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('billing.resumeDone'));
+    await reloadSub();
+  }
+  async function toggleAutoRenew() {
+    if (!sub) return;
+    setLifecycleSaving(true);
+    const { error } = await supabase.rpc('set_auto_renew', { p_subscription: sub.id, p_on: !sub.auto_renew });
+    setLifecycleSaving(false);
+    if (error) {
+      toast.error(error.message.includes('Save a card') ? t('billing.autoRenewNeedsCard') : error.message);
+      return;
+    }
+    await reloadSub();
+  }
+  /** Card via Areeba — same shape as Whish: server builds the session from the
+   *  invoice, we just follow the redirect. 503 until the keys exist. */
+  async function payWithCard(inv: Invoice) {
+    setPaying(inv.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('areeba-pay', { body: { invoice_id: inv.id } });
+      if (error || !data?.checkoutUrl) {
+        toast.error(data?.error ?? error?.message ?? t('billing.cardUnavailable'));
+        return;
+      }
+      window.location.href = data.checkoutUrl as string;
+    } finally {
+      setPaying('');
+    }
+  }
+  async function reloadSub() {
+    const { data } = await supabase.from('subscriptions').select('*').neq('status', 'cancelled').order('created_at', { ascending: false });
+    setSubs((data as Subscription[]) ?? []);
+    const { data: inv } = await supabase.from('invoices').select('*').eq('subscription_id', sub?.id ?? '').order('created_at', { ascending: false });
+    if (inv) setInvoices(inv as Invoice[]);
+  }
+
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const trialDays = daysLeft(sub?.trial_ends_at ?? null);
@@ -269,13 +339,15 @@ export default function Licenses() {
   // half-licensed building is still that size, so the count that matters is
   // units in scope. price_monthly_cents overrides the band for a negotiated
   // deal; above the top band there is no price, only a conversation.
-  const unitCount = units.length;
+  // 0114: the band follows LICENCES BOUGHT, not the units that happen to
+  // exist — an empty trial building with 32 licences is a 21-40-band account.
+  const licenseBasis = sub?.license_count ?? 0;
   const negotiated = sub?.price_monthly_cents ?? null;
-  const bandCents = sub?.plan === 'annual' ? annualPriceCents(unitCount) : monthlyPriceCents(unitCount);
+  const bandCents = sub?.plan === 'annual' ? annualPriceCents(licenseBasis) : monthlyPriceCents(licenseBasis);
   const priceCents = negotiated !== null
     ? (sub?.plan === 'annual' ? negotiated * 10 : negotiated)
     : bandCents;
-  const perUnitCents = effectivePerUnitCents(unitCount);
+  const perUnitCents = effectivePerUnitCents(licenseBasis);
   const priceLabel = priceCents === null
     ? t('licensesPage.priceTalk')
     : t('licensesPage.perPeriod', { price: usd(priceCents), period: periodWord(sub?.plan ?? 'monthly') });
@@ -400,28 +472,59 @@ export default function Licenses() {
                   <p className="text-xs text-muted-foreground mt-1.5">
                     {priceCents === null
                       ? t('licensesPage.priceTalkSub')
-                      : t('licensesPage.priceBand', { count: unitCount, rate: fmtPerUnit(perUnitCents) })}
+                      : t('licensesPage.priceBand', { count: licenseBasis, rate: fmtPerUnit(perUnitCents) })}
                   </p>
                 </CardContent>
               </Card>
             </div>
 
+            {/* ── Manage subscription (0114) ── */}
             <Card>
               <CardHeader>
-                <CardTitle>{t('licensesPage.needMore')}</CardTitle>
-                <CardDescription>{t('licensesPage.needMoreDesc')}</CardDescription>
+                <CardTitle>{t('billing.manageTitle')}</CardTitle>
+                <CardDescription>
+                  {sub.status === 'trial' ? t('billing.manageTrial')
+                    : sub.status === 'grace' ? t('billing.manageGrace', { date: sub.grace_ends_at ? new Date(sub.grace_ends_at).toLocaleDateString() : '' })
+                    : sub.status === 'locked' ? t('billing.manageLocked')
+                    : sub.cancel_at_period_end ? t('billing.manageEnding', { date: sub.current_period_end ?? '' })
+                    : t('billing.manageActive')}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => setAddOpen(true)}>
+                  {(sub.status !== 'active' || !sub.cancel_at_period_end) && (
+                    <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeOpen(true); }}>
+                      {sub.status === 'active' ? t('billing.renewNow') : t('billing.subscribeNow')}
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setAddOpen(true)}>
                     <Plus size={15} /> {t('licensesPage.addLicenses')}
                   </Button>
-                  {sub && sub.license_count > assignedCount && (
+                  {sub.license_count > assignedCount && (
                     <Button variant="outline" onClick={() => { setRemoveCount(1); setRemoveOpen(true); }}>
                       {t('licensesPage.removeLicenses')}
                     </Button>
                   )}
+                  {sub.cancel_at_period_end ? (
+                    <Button variant="outline" loading={lifecycleSaving} onClick={doResume}>{t('billing.resume')}</Button>
+                  ) : sub.status !== 'cancelled' && (
+                    <Button variant="ghost" loading={lifecycleSaving} onClick={doCancel} className="text-destructive">
+                      {t('billing.cancel')}
+                    </Button>
+                  )}
                 </div>
+                {/* auto-renew: only real once a card is stored at the gateway */}
+                <label className={`flex items-start gap-2.5 ${sub.provider_customer_ref ? 'cursor-pointer' : 'opacity-60'}`}>
+                  <input type="checkbox" checked={!!sub.auto_renew} disabled={!sub.provider_customer_ref || lifecycleSaving}
+                    onChange={toggleAutoRenew} className="mt-0.5 accent-primary" />
+                  <span>
+                    <span className="text-sm font-medium text-foreground">{t('billing.autoRenew')}</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      {sub.provider_customer_ref ? t('billing.autoRenewHint') : t('billing.autoRenewNeedsCard')}
+                    </span>
+                  </span>
+                </label>
+                <p className="text-xs text-muted-foreground">{t('billing.paymentMethodsNote')}</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -518,7 +621,13 @@ export default function Licenses() {
                       <TableBody>
                         {invoices.map(inv => (
                           <TableRow key={inv.id}>
-                            <TableCell>{inv.period_start} → {inv.period_end}</TableCell>
+                            <TableCell>
+                              {inv.period_start} → {inv.period_end}
+                              {inv.kind === 'topup' && <Badge color="indigo" className="ms-2">{t('billing.topup')}</Badge>}
+                              {inv.status === 'open' && inv.due_date && (
+                                <span className="block text-xs text-muted-foreground">{t('billing.dueBy', { date: inv.due_date })}</span>
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">{usd(inv.amount_cents)}</TableCell>
                             <TableCell>
                               <Badge color={INVOICE_COLOR[inv.status]}>{t(`licensesPage.invoiceStatuses.${inv.status}`)}</Badge>
@@ -528,9 +637,14 @@ export default function Licenses() {
                             </TableCell>
                             <TableCell className="text-end">
                               {inv.status === 'open' && (
-                                <Button size="sm" onClick={() => payWithWhish(inv)} loading={paying === inv.id}>
-                                  {t('licensesPage.payWithWhish')}
-                                </Button>
+                                <div className="inline-flex gap-2">
+                                  <Button size="sm" onClick={() => payWithWhish(inv)} loading={paying === inv.id}>
+                                    {t('licensesPage.payWithWhish')}
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => payWithCard(inv)} loading={paying === inv.id}>
+                                    {t('billing.payWithCard')}
+                                  </Button>
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>
@@ -546,6 +660,36 @@ export default function Licenses() {
       )}
 
       {/* Add-licenses modal */}
+      {/* 0114: Subscribe / Renew — pick the plan, get the invoice, pay it */}
+      <Modal open={subscribeOpen} onClose={() => setSubscribeOpen(false)} title={sub?.status === 'active' ? t('billing.renewNow') : t('billing.subscribeNow')} size="sm">
+        {sub && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">{t('billing.subscribeHint', { count: sub.license_count })}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(['monthly', 'annual'] as const).map((plan) => {
+                const cents = plan === 'annual' ? annualPriceCents(sub.license_count) : monthlyPriceCents(sub.license_count);
+                const on = subscribePlan === plan;
+                return (
+                  <button key={plan} type="button" onClick={() => setSubscribePlan(plan)}
+                    className={`rounded-xl border px-3 py-2.5 text-start transition-colors ${on ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'}`}>
+                    <span className="block text-sm font-medium text-foreground">{plan === 'monthly' ? t('register.monthly') : t('register.annual')}</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      {cents != null ? `${usd(cents)}/${periodWord(plan)}` : t('licensesPage.priceTalk')}
+                      {plan === 'annual' && cents != null ? ` · ${t('register.save17')}` : ''}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">{t('billing.subscribeNote')}</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setSubscribeOpen(false)}>{t('common.cancel')}</Button>
+              <Button loading={subscribeSaving} onClick={subscribeNow}>{t('billing.issueInvoice')}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal open={removeOpen} onClose={() => setRemoveOpen(false)} title={t('licensesPage.removeLicenses')} size="sm">
         {sub && (
           <div className="space-y-4">
@@ -564,8 +708,9 @@ export default function Licenses() {
               {priceCents === null
                 ? t('licensesPage.newTotalTalk', { count: Math.max(assignedCount, sub.license_count - removeCount) })
                 : t('licensesPage.newTotalBanded', {
-                    count: Math.max(assignedCount, sub.license_count - removeCount), units: unitCount,
-                    price: usd(priceCents), period: periodWord(sub.plan),
+                    count: Math.max(assignedCount, sub.license_count - removeCount),
+                    price: usd((sub.plan === 'annual' ? annualPriceCents(Math.max(assignedCount, sub.license_count - removeCount)) : monthlyPriceCents(Math.max(assignedCount, sub.license_count - removeCount))) ?? priceCents ?? 0),
+                    period: periodWord(sub.plan),
                   })}
             </p>
             <div className="flex justify-end gap-2 pt-1">
@@ -602,8 +747,9 @@ export default function Licenses() {
               {priceCents === null
                 ? t('licensesPage.newTotalTalk', { count: sub.license_count + addCount })
                 : t('licensesPage.newTotalBanded', {
-                    count: sub.license_count + addCount, units: unitCount,
-                    price: usd(priceCents), period: periodWord(sub.plan),
+                    count: sub.license_count + addCount,
+                    price: usd((sub.plan === 'annual' ? annualPriceCents(sub.license_count + addCount) : monthlyPriceCents(sub.license_count + addCount)) ?? priceCents ?? 0),
+                    period: periodWord(sub.plan),
                   })}
             </p>
           )}

@@ -18,6 +18,8 @@ import { licenseCap } from '@/lib/licenseCaps';
 const STATUS_BADGE: Record<Subscription['status'], { color: 'green' | 'yellow' | 'red' | 'slate'; label: string }> = {
   trial:     { color: 'yellow', label: 'Trial' },
   active:    { color: 'green',  label: 'Active' },
+  grace:     { color: 'red',    label: 'Grace' },
+  locked:    { color: 'red',    label: 'Locked' },
   past_due:  { color: 'red',    label: 'Past due' },
   cancelled: { color: 'slate',  label: 'Canceled' },
 };

@@ -217,7 +217,12 @@ export default function Structure() {
       }
     } else {
       const { data: created, error } = await supabase.from('units').insert(payload).select('id').single();
-      if (error) { toast.error(error.message); return; }
+      if (error) {
+        // 0114: the database refuses a unit beyond the licence count
+        if (error.message.includes('LICENSE_LIMIT')) toast.error(t('structure.licenseLimit'));
+        else toast.error(error.message);
+        return;
+      }
       // Assign-on-create: consume one license from the pool for the new unit.
       if (assignLicense && subInfo && subInfo.available_count > 0 && created) {
         const { error: licErr } = await supabase.from('license_assignments').insert({

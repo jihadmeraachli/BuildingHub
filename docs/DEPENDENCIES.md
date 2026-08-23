@@ -64,6 +64,7 @@ shared mailbox.
 | `CRON_SECRET` | Supabase → Edge Functions → secrets | `send-reminders` (cron auth), and the `whish-callback?reconcile=1` sweep |
 | `WHISH_CHANNEL`, `WHISH_SECRET`, `WHISH_WEBSITE_URL` | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** (awaiting Whish approval) | `whish-pay`, `whish-callback`. `WHISH_WEBSITE_URL` must be the **exact** value Whish issues with the keys, not just our domain. ⚠️ These authorize money movement — never in client code or git. |
 | `WHISH_BASE_URL` | Supabase → Edge Functions → secrets | Defaults to **sandbox**. Set to `https://api.whish.money/itel-service/api` to go live — this is the only switch between test and real money. |
+| `AREEBA_BASE_URL`, `AREEBA_MERCHANT_ID`, `AREEBA_API_PASSWORD` | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** (Areeba merchant account not opened) | `areeba-pay`, `areeba-callback` (card payments + stored-card token for auto-renew). Functions return 503 until set. ⚠️ Verify the two endpoint paths in the functions against Areeba's onboarding pack when keys arrive — they are written to the MPGS hosted-checkout shape. |
 | `WEBHOOK_SECRET` | Supabase → Edge Functions → secrets — **⚠️ NOT YET SET** | `dynamic-action` forgery check (armed only once set; also add `x-webhook-secret` header on every Database Webhook) |
 | Beta access code(s) | DB table `beta_access_codes` (SQL editor to manage) | Beta gate screen |
 
@@ -123,6 +124,8 @@ entirely and is the fastest way to get current code live in ~30s.
 - [ ] Resend plan — free tier is 100 emails/day; watch as buildings onboard
 - [ ] Anthropic API — pay-as-you-go credit balance (AI import stops silently at $0)
 - [ ] Meta WhatsApp — per-message billing on the Business account card; sender SIM must stay alive (number re-verification)
+- [ ] Whish merchant wallet — subscription fees land here; keys pending approval
+- [ ] Areeba merchant account — card payments + tokenization (auto-renew); account not opened yet, functions ship as 503 until keys exist
 - [ ] Cloudflare Pages — free tier fine for now
 - [ ] GitHub — private repo on free plan, fine
 
