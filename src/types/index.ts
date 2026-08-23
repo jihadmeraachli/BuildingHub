@@ -579,6 +579,9 @@ export interface Subscription {
   current_period_start: string | null;
   current_period_end: string | null;
   license_count: number;
+  /** 0118: a scheduled downgrade — the count the NEXT renewal applies. NULL =
+   *  renew at license_count. Paid licences stay usable until period end. */
+  renews_license_count?: number | null;
   /** Platform-set cap override for legit outliers; null = license_cap(scope). (0071) */
   cap_override?: number | null;
   /** LEGACY (pre-0100): the per-unit rate this subscription was originally

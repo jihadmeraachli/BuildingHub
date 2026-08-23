@@ -277,26 +277,34 @@ export default function Licenses() {
     }
   }
 
-  /** Lower the licence count. Assigned licences stay assigned: the floor is
-   *  what units currently hold, so unassign first to go lower. The 0113
-   *  audit guard accepts 'licenses_removed'. */
+  /** 0118: a paid cycle keeps what it paid for. On an active subscription the
+   *  reduction is SCHEDULED — full access until period end, the renewal is
+   *  priced at the lower count, revertible any time before. On trial (nothing
+   *  paid) it still applies immediately. */
   async function removeLicenses() {
     if (!sub || removeCount < 1) return;
-    const floor = assignedCount;
-    const newCount = sub.license_count - removeCount;
-    if (newCount < floor) {
-      toast.error(t('licensesPage.removeFloor', { assigned: floor }));
-      return;
-    }
     setRemoveSaving(true);
-    const { error } = await supabase.from('subscriptions')
-      .update({ license_count: newCount }).eq('id', sub.id);
+    const { data, error } = await supabase.rpc('schedule_license_reduction', {
+      p_subscription: sub.id, p_remove: removeCount,
+    });
     setRemoveSaving(false);
     if (error) { toast.error(error.message); return; }
-    await logEvent('licenses_removed', { removed: removeCount, new_total: newCount });
-    setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, license_count: newCount } : s));
+    const row = (Array.isArray(data) ? data[0] : data) as { immediate: boolean; new_count: number; effective_date: string } | null;
     setRemoveOpen(false);
-    toast.success(t('licensesPage.removedToast', { count: removeCount }));
+    await reloadSub();
+    if (row?.immediate) toast.success(t('licensesPage.removedToast', { count: removeCount }));
+    else toast.success(t('licensesPage.removalScheduled', { count: row?.new_count ?? 0, date: row?.effective_date ?? '' }));
+  }
+
+  /** Undo a scheduled reduction — allowed any time before the renewal. */
+  async function revertReduction() {
+    if (!sub) return;
+    setLifecycleSaving(true);
+    const { error } = await supabase.rpc('cancel_license_reduction', { p_subscription: sub.id });
+    setLifecycleSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('licensesPage.removalReverted'));
+    await reloadSub();
   }
 
   // ── Lifecycle (0117 pay-first): nothing is issued before money moves ──────
@@ -502,6 +510,12 @@ export default function Licenses() {
                         { count: daysLeft(sub.current_period_end) ?? 0, date: sub.current_period_end })}
                     </p>
                   )}
+                  {/* 0118: a scheduled downgrade — visible, dated, revertible */}
+                  {sub.renews_license_count != null && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                      {t('licensesPage.scheduledReduction', { next: sub.renews_license_count, date: sub.current_period_end ?? '' })}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -555,6 +569,11 @@ export default function Licenses() {
                   {sub.license_count > assignedCount && (
                     <Button variant="outline" onClick={() => { setRemoveCount(1); setRemoveOpen(true); }}>
                       {t('licensesPage.removeLicenses')}
+                    </Button>
+                  )}
+                  {sub.renews_license_count != null && (
+                    <Button variant="outline" loading={lifecycleSaving} onClick={revertReduction}>
+                      {t('licensesPage.revertReduction')}
                     </Button>
                   )}
                   {sub.cancel_at_period_end ? (
@@ -777,6 +796,12 @@ export default function Licenses() {
                     period: periodWord(sub.plan),
                   })}
             </p>
+            {/* 0118: nothing is taken away mid-cycle — say so before they confirm */}
+            {sub.status === 'active' && sub.current_period_end && (
+              <p className="text-xs text-muted-foreground">
+                {t('licensesPage.removeKeepUntil', { date: sub.current_period_end })}
+              </p>
+            )}
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setRemoveOpen(false)}>{t('common.cancel')}</Button>
               <Button loading={removeSaving} onClick={removeLicenses} disabled={sub.license_count - removeCount < assignedCount}>

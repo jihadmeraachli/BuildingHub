@@ -577,7 +577,12 @@
     "removeLicenses": "Remove licenses",
     "howManyRemove": "How many licenses do you want to remove? Never below your units or assigned licenses. No refund; the lower band applies from your next period.",
     "removeFloor": "You can go down to {{assigned}} (the licenses currently assigned).",
-    "removedToast": "{{count}} licenses removed."
+    "removedToast": "{{count}} licenses removed.",
+    "removalScheduled": "Scheduled: {{count}} licenses from {{date}}. You keep everything until then.",
+    "removeKeepUntil": "You paid for this cycle, so nothing is taken away now: all licenses stay usable until {{date}}. The lower count and price apply at the renewal — and you can revert this any time before then.",
+    "scheduledReduction": "Drops to {{next}} at renewal ({{date}}) — revertible until then",
+    "revertReduction": "Revert scheduled reduction",
+    "removalReverted": "Scheduled reduction reverted — the renewal keeps the current count."
   },
   "dashboard": {
     "welcome": "Welcome back",

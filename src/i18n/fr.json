@@ -577,7 +577,12 @@
     "removeLicenses": "Retirer des licences",
     "howManyRemove": "Combien de licences souhaitez-vous retirer ? Jamais en dessous de vos logements ou licences attribuées. Sans remboursement ; le palier inférieur s’applique à la période suivante.",
     "removeFloor": "Vous pouvez descendre jusqu’à {{assigned}} (les licences actuellement attribuées).",
-    "removedToast": "{{count}} licences retirées."
+    "removedToast": "{{count}} licences retirées.",
+    "removalScheduled": "Programmé : {{count}} licences à partir du {{date}}. Vous gardez tout jusque-là.",
+    "removeKeepUntil": "Vous avez payé ce cycle, rien ne vous est retiré maintenant : toutes les licences restent utilisables jusqu'au {{date}}. Le nombre et le prix réduits s'appliquent au renouvellement — et vous pouvez annuler à tout moment avant.",
+    "scheduledReduction": "Passe à {{next}} au renouvellement ({{date}}) — annulable jusque-là",
+    "revertReduction": "Annuler la réduction programmée",
+    "removalReverted": "Réduction programmée annulée — le renouvellement garde le nombre actuel."
   },
   "dashboard": {
     "welcome": "Content de vous revoir",
