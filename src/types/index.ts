@@ -476,6 +476,8 @@ export interface Inspection {
   attachment_url: string | null;
   /** The amenity inspected (0112). */
   amenity_id?: string | null;
+  /** The inspector/company, picked from Contacts (0123). */
+  contact_id?: string | null;
   created_by: string | null;
   created_at: string;
 }
@@ -489,6 +491,8 @@ export interface ServiceContract {
   compound_id: string | null;
   service: ServiceType;
   service_other: string | null;
+  /** Denormalized display text, set FROM the linked contact (0123). Nullable
+   *  at the DB level now; a legacy row without a contact keeps its old value. */
   provider_name: string;
   contact_name: string | null;
   contact_phone: string | null;
@@ -499,6 +503,8 @@ export interface ServiceContract {
   notes: string | null;
   /** The amenity the contract covers (0112). */
   amenity_id?: string | null;
+  /** The provider, picked from Contacts (0123) — the source of truth going forward. */
+  contact_id?: string | null;
   attachment_url: string | null;
   created_by: string | null;
   created_at: string;
@@ -519,6 +525,8 @@ export interface Project {
   start_date: string | null;
   end_date: string | null;
   attachment_url: string | null;
+  /** The contractor/company, picked from Contacts (0123). */
+  contact_id?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -550,10 +558,14 @@ export interface Amenity {
 }
 
 // Building directory (migration 0073): free-text title + name + phone.
+export type ContactKind = 'local' | 'company';
+
 export interface BuildingContact {
   id: string;
   building_id: string | null;
   compound_id: string | null;
+  /** Local Contact (a person) vs Company (0123) — asked before the role/title. */
+  kind: ContactKind;
   title: string;
   name: string;
   phone: string;

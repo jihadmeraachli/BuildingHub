@@ -1320,7 +1320,9 @@
       "quarterly": "Quarterly",
       "yearly": "Yearly",
       "one_time": "One-time"
-    }
+    },
+    "noContactsYet": "No contacts yet.",
+    "addContactLink": "Add one in Contacts →"
   },
   "help": {
     "title": "Help",
@@ -1361,7 +1363,10 @@
       "contractor": "Contractor",
       "security": "Security",
       "finance": "Finance contact"
-    }
+    },
+    "kind": "Type",
+    "kindLocal": "Local Contact",
+    "kindCompany": "Company"
   },
   "dues": {
     "title": "Prepaid Budget",
@@ -1713,7 +1718,8 @@
     "descriptionPlaceholder": "What is being done, by whom, and what the committee agreed.",
     "howActualWorks": "Spent is never typed in here: it is the sum of the expenses tagged to this project in Finance.",
     "deleteConfirm": "Delete this project? Its expenses stay in the book, untagged.",
-    "pickBlock": "Pick a block, or apply it to the whole compound."
+    "pickBlock": "Pick a block, or apply it to the whole compound.",
+    "contractor": "Contractor / Company"
   },
   "collect": {
     "title": "Collect",

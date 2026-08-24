@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
 import { Plus, FileSignature, Pencil, Trash2, Phone } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
@@ -10,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
 import { useAmenities, amenityLabel } from '@/lib/amenities';
-import type { ServiceContract, ServiceType, BillingCycle } from '@/types';
+import type { ServiceContract, ServiceType, BillingCycle, BuildingContact } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -26,13 +27,17 @@ const CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'yearly', 'one_time'];
 // one formatter, following the reader's language (src/lib/money.ts)
 const money = (n: number) => fmtMoney(n);
 type Form = {
-  service: ServiceType; service_other: string; provider_name: string; contact_name: string; contact_phone: string;
+  service: ServiceType; service_other: string;
+  // 0123: the provider is a contact pick, not free text. provider_name rides
+  // along as the denormalized display text — set from the picked contact,
+  // or (editing a legacy row with no pick yet) left as whatever it already was.
+  contact_id: string; provider_name: string; contact_name: string; contact_phone: string;
   start_date: string; end_date: string; amount: string; billing_cycle: BillingCycle; notes: string;
   scope: 'all' | 'block'; block_id: string;
   amenity_id: string; // 0112: '' = none
 };
 const newForm = (): Form => ({
-  service: 'elevator', service_other: '', provider_name: '', contact_name: '', contact_phone: '',
+  service: 'elevator', service_other: '', contact_id: '', provider_name: '', contact_name: '', contact_phone: '',
   start_date: '', end_date: '', amount: '', billing_cycle: 'monthly', notes: '', scope: 'all', block_id: '', amenity_id: '',
 });
 
@@ -56,6 +61,7 @@ export default function Contracts() {
   const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'expiring' | 'expired'>('');
 
   const [rows, setRows] = useState<ServiceContract[]>([]);
+  const [contacts, setContacts] = useState<BuildingContact[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -72,21 +78,26 @@ export default function Contracts() {
   async function load() {
     if (!entity && !buildings.length) return;
     setLoading(true);
-    let q;
-    if (entity) {
-      q = entity.kind === 'compound'
-        ? supabase.from('service_contracts').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`)
-        : supabase.from('service_contracts').select('*').eq('building_id', entity.id);
-    } else {
-      // "All buildings": every block + every compound the user can see
+    // 0123: the same building/compound scope, applied to building_contacts
+    // too — the provider picker only ever offers contacts in scope.
+    const scoped = (table: string) => {
+      if (entity) {
+        return entity.kind === 'compound'
+          ? supabase.from(table).select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`)
+          : supabase.from(table).select('*').eq('building_id', entity.id);
+      }
       const bIds = buildings.map((b) => b.id).join(',');
       const cIds = entities.filter((e) => e.kind === 'compound').map((e) => e.id).join(',');
-      q = cIds
-        ? supabase.from('service_contracts').select('*').or(`compound_id.in.(${cIds}),building_id.in.(${bIds})`)
-        : supabase.from('service_contracts').select('*').in('building_id', buildings.map((b) => b.id));
-    }
-    const { data } = await q.order('service');
+      return cIds
+        ? supabase.from(table).select('*').or(`compound_id.in.(${cIds}),building_id.in.(${bIds})`)
+        : supabase.from(table).select('*').in('building_id', buildings.map((b) => b.id));
+    };
+    const [{ data }, { data: c }] = await Promise.all([
+      scoped('service_contracts').order('service'),
+      scoped('building_contacts').order('title'),
+    ]);
     setRows((data as ServiceContract[]) ?? []);
+    setContacts((c as BuildingContact[]) ?? []);
     setLoading(false);
   }
 
@@ -104,7 +115,8 @@ export default function Contracts() {
   function openEdit(r: ServiceContract) {
     setEditId(r.id); setFile(null);
     setForm({
-      service: r.service, service_other: r.service_other ?? '', provider_name: r.provider_name, contact_name: r.contact_name ?? '', contact_phone: r.contact_phone ?? '',
+      service: r.service, service_other: r.service_other ?? '', contact_id: r.contact_id ?? '',
+      provider_name: r.provider_name ?? '', contact_name: r.contact_name ?? '', contact_phone: r.contact_phone ?? '',
       start_date: r.start_date ?? '', end_date: r.end_date ?? '', amount: r.amount_usd != null ? String(r.amount_usd) : '',
       billing_cycle: r.billing_cycle ?? 'monthly', notes: r.notes ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '',
       amenity_id: r.amenity_id ?? '',
@@ -112,8 +124,17 @@ export default function Contracts() {
     setOpen(true);
   }
 
+  /** 0123: the provider is picked from Contacts, not typed. A brand-new
+   *  contract requires a pick (there is no free text to fall back on); an
+   *  edit of a legacy row that predates this may still have no pick — that
+   *  is fine, its old provider_name display stays exactly as it was. */
+  function pickProvider(contactId: string) {
+    const c = contacts.find((x) => x.id === contactId);
+    setForm({ ...form, contact_id: contactId, provider_name: c ? (c.name || c.title) : form.provider_name });
+  }
+
   async function save() {
-    if (!entity || !form.provider_name.trim()) return;
+    if (!entity || (!editId && !form.contact_id)) return;
     setSaving(true);
     const attachment_url = file ? await uploadFile('attachments', `${entity.id}/contracts`, file) : null;
     const compound_id = entity.kind === 'compound' ? entity.id : null;
@@ -123,11 +144,15 @@ export default function Contracts() {
     const serviceOther = form.service === 'other' ? form.service_other.trim() || null : null;
     const base: Record<string, unknown> = {
       service: form.service,
-      provider_name: form.provider_name.trim(), contact_name: form.contact_name.trim() || null,
+      contact_id: form.contact_id || null, contact_name: form.contact_name.trim() || null,
       contact_phone: form.contact_phone.trim() || null, start_date: form.start_date || null, end_date: form.end_date || null,
       amount_usd: form.amount ? Number(form.amount) : null, billing_cycle: form.billing_cycle, notes: form.notes.trim() || null,
       building_id, compound_id, amenity_id: form.amenity_id || null,
     };
+    // Only overwrite the display text when a contact was actually picked —
+    // never blank out a legacy row's provider_name just because this save
+    // did not touch the provider field.
+    if (form.contact_id) base.provider_name = form.provider_name.trim();
     if (attachment_url) base.attachment_url = attachment_url;
     if (serviceOther !== null || (editId && rows.find((r) => r.id === editId)?.service_other)) base.service_other = serviceOther;
     const { error } = editId
@@ -249,7 +274,21 @@ export default function Contracts() {
             <SelectField label={t('contracts.service')} value={form.service} onValueChange={(v) => setForm({ ...form, service: v as ServiceType })}>
               {SERVICES.map((s) => <SelectItem key={s} value={s}>{t(`contracts.services.${s}`)}</SelectItem>)}
             </SelectField>
-            <Input label={t('contracts.provider')} value={form.provider_name} onChange={(e) => setForm({ ...form, provider_name: e.target.value })} />
+            {/* 0123: the provider is picked from Contacts — add it there first. */}
+            {contacts.length > 0 ? (
+              <SelectField label={t('contracts.provider')} value={form.contact_id || '__none__'} onValueChange={(v) => pickProvider(v === '__none__' ? '' : v)}>
+                <SelectItem value="__none__">—</SelectItem>
+                {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name || c.title}</SelectItem>)}
+              </SelectField>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-muted-foreground">{t('contracts.provider')}</label>
+                <p className="text-xs text-muted-foreground">
+                  {t('contracts.noContactsYet')}{' '}
+                  <Link to="/contacts" className="text-primary hover:underline">{t('contracts.addContactLink')}</Link>
+                </p>
+              </div>
+            )}
           </div>
           {form.service === 'other' && (
             <Input

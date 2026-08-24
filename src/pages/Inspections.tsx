@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
 import { Plus, ClipboardCheck, Pencil, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
@@ -10,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
 import { useAmenities, amenityLabel } from '@/lib/amenities';
-import type { Inspection, InspectionCategory, InspectionStatus } from '@/types';
+import type { Inspection, InspectionCategory, InspectionStatus, BuildingContact } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,12 +25,15 @@ const STATUSES: InspectionStatus[] = ['passed', 'failed', 'action_required', 'pe
 const statusColor: Record<InspectionStatus, 'green' | 'red' | 'yellow' | 'slate'> = { passed: 'green', failed: 'red', action_required: 'yellow', pending: 'slate' };
 
 type Form = {
-  category: InspectionCategory; title: string; inspector: string; inspection_date: string;
+  // 0123: the inspector/company is a contact pick, not free text. `inspector`
+  // rides along as the denormalized display text — set from the picked
+  // contact, or (editing a legacy row with no pick yet) left as it was.
+  category: InspectionCategory; title: string; contact_id: string; inspector: string; inspection_date: string;
   status: InspectionStatus; outcome: string; next_due_date: string; scope: 'all' | 'block'; block_id: string;
   amenity_id: string; // 0112: '' = none
 };
 const newForm = (): Form => ({
-  category: 'generator', title: '', inspector: '', inspection_date: new Date().toISOString().slice(0, 10),
+  category: 'generator', title: '', contact_id: '', inspector: '', inspection_date: new Date().toISOString().slice(0, 10),
   status: 'pending', outcome: '', next_due_date: '', scope: 'all', block_id: '', amenity_id: '',
 });
 
@@ -52,6 +56,7 @@ export default function Inspections() {
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
 
   const [rows, setRows] = useState<Inspection[]>([]);
+  const [contacts, setContacts] = useState<BuildingContact[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
@@ -68,21 +73,26 @@ export default function Inspections() {
   async function load() {
     if (!entity && !buildings.length) return;
     setLoading(true);
-    let q;
-    if (entity) {
-      q = entity.kind === 'compound'
-        ? supabase.from('inspections').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`)
-        : supabase.from('inspections').select('*').eq('building_id', entity.id);
-    } else {
-      // "All buildings": every block + every compound the user can see
+    // 0123: the same building/compound scope, applied to building_contacts
+    // too — the inspector/company picker only ever offers contacts in scope.
+    const scoped = (table: string) => {
+      if (entity) {
+        return entity.kind === 'compound'
+          ? supabase.from(table).select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`)
+          : supabase.from(table).select('*').eq('building_id', entity.id);
+      }
       const bIds = buildings.map((b) => b.id).join(',');
       const cIds = entities.filter((e) => e.kind === 'compound').map((e) => e.id).join(',');
-      q = cIds
-        ? supabase.from('inspections').select('*').or(`compound_id.in.(${cIds}),building_id.in.(${bIds})`)
-        : supabase.from('inspections').select('*').in('building_id', buildings.map((b) => b.id));
-    }
-    const { data } = await q.order('inspection_date', { ascending: false });
+      return cIds
+        ? supabase.from(table).select('*').or(`compound_id.in.(${cIds}),building_id.in.(${bIds})`)
+        : supabase.from(table).select('*').in('building_id', buildings.map((b) => b.id));
+    };
+    const [{ data }, { data: c }] = await Promise.all([
+      scoped('inspections').order('inspection_date', { ascending: false }),
+      scoped('building_contacts').order('title'),
+    ]);
     setRows((data as Inspection[]) ?? []);
+    setContacts((c as BuildingContact[]) ?? []);
     setLoading(false);
   }
 
@@ -95,8 +105,14 @@ export default function Inspections() {
   function openNew() { setEditId(null); setForm(newForm()); setFile(null); setOpen(true); }
   function openEdit(r: Inspection) {
     setEditId(r.id); setFile(null);
-    setForm({ category: r.category, title: r.title, inspector: r.inspector ?? '', inspection_date: r.inspection_date, status: r.status, outcome: r.outcome ?? '', next_due_date: r.next_due_date ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '', amenity_id: r.amenity_id ?? '' });
+    setForm({ category: r.category, title: r.title, contact_id: r.contact_id ?? '', inspector: r.inspector ?? '', inspection_date: r.inspection_date, status: r.status, outcome: r.outcome ?? '', next_due_date: r.next_due_date ?? '', scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '', amenity_id: r.amenity_id ?? '' });
     setOpen(true);
+  }
+
+  /** 0123: the inspector/company is picked from Contacts, not typed. */
+  function pickInspector(contactId: string) {
+    const c = contacts.find((x) => x.id === contactId);
+    setForm({ ...form, contact_id: contactId, inspector: c ? (c.name || c.title) : form.inspector });
   }
 
   async function save() {
@@ -106,11 +122,15 @@ export default function Inspections() {
     const compound_id = entity.kind === 'compound' ? entity.id : null;
     const building_id = entity.kind === 'building' ? entity.id : (form.scope === 'block' ? form.block_id : null);
     const base: Record<string, unknown> = {
-      category: form.category, title: form.title.trim(), inspector: form.inspector.trim() || null,
+      category: form.category, title: form.title.trim(), contact_id: form.contact_id || null,
       inspection_date: form.inspection_date, status: form.status, outcome: form.outcome.trim() || null,
       next_due_date: form.next_due_date || null, building_id, compound_id,
       amenity_id: form.amenity_id || null,
     };
+    // Only overwrite the display text when a contact was actually picked —
+    // never blank out a legacy row's inspector just because this save did
+    // not touch that field.
+    if (form.contact_id) base.inspector = form.inspector.trim();
     if (attachment_url) base.attachment_url = attachment_url;
     const { error } = editId
       ? await supabase.from('inspections').update(base).eq('id', editId)
@@ -225,7 +245,21 @@ export default function Inspections() {
             </SelectField>
           )}
           <Input label={t('inspections.inspectionTitle')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <Input label={t('inspections.inspector')} value={form.inspector} onChange={(e) => setForm({ ...form, inspector: e.target.value })} />
+          {/* 0123: the inspector/company is picked from Contacts — add it there first. */}
+          {contacts.length > 0 ? (
+            <SelectField label={t('inspections.inspector')} value={form.contact_id || '__none__'} onValueChange={(v) => pickInspector(v === '__none__' ? '' : v)}>
+              <SelectItem value="__none__">—</SelectItem>
+              {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name || c.title}</SelectItem>)}
+            </SelectField>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-muted-foreground">{t('inspections.inspector')}</label>
+              <p className="text-xs text-muted-foreground">
+                {t('contracts.noContactsYet')}{' '}
+                <Link to="/contacts" className="text-primary hover:underline">{t('contracts.addContactLink')}</Link>
+              </p>
+            </div>
+          )}
           {entity?.kind === 'compound' && (
             <div className="grid grid-cols-2 gap-3">
               <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>

@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
-import type { BuildingContact, ServiceContract } from '@/types';
+import type { BuildingContact, ServiceContract, ContactKind } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -32,8 +32,8 @@ const SUGGESTIONS = [
   'generator', 'contractor', 'security', 'finance',
 ] as const;
 
-type Form = { title: string; name: string; phone: string; scope: 'all' | 'block'; block_id: string };
-const newForm = (): Form => ({ title: '', name: '', phone: '', scope: 'all', block_id: '' });
+type Form = { kind: ContactKind; title: string; name: string; phone: string; scope: 'all' | 'block'; block_id: string };
+const newForm = (): Form => ({ kind: 'local', title: '', name: '', phone: '', scope: 'all', block_id: '' });
 
 export default function BuildingContacts() {
   const { t } = useTranslation();
@@ -80,8 +80,10 @@ export default function BuildingContacts() {
       scoped('service_contracts').order('service'),
     ]);
     setRows((c as BuildingContact[]) ?? []);
-    // Only contracts that actually carry a phone belong in a call list.
-    setContracts(((sc as ServiceContract[]) ?? []).filter((r) => r.contact_phone));
+    // 0123: once a contract is linked to a real contact, it IS one — showing
+    // it again here would be the same provider twice. Only surface contracts
+    // that predate the link (no contact_id yet) and still carry a phone.
+    setContracts(((sc as ServiceContract[]) ?? []).filter((r) => r.contact_phone && !r.contact_id));
     setLoading(false);
   }
 
@@ -92,7 +94,7 @@ export default function BuildingContacts() {
   function openNew() { setEditId(null); setForm(newForm()); setOpen(true); }
   function openEdit(r: BuildingContact) {
     setEditId(r.id);
-    setForm({ title: r.title, name: r.name, phone: r.phone, scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '' });
+    setForm({ kind: r.kind, title: r.title, name: r.name, phone: r.phone, scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '' });
     setOpen(true);
   }
 
@@ -102,7 +104,7 @@ export default function BuildingContacts() {
     const compound_id = entity.kind === 'compound' && form.scope === 'all' ? entity.id : null;
     const building_id = entity.kind === 'building' ? entity.id : (form.scope === 'block' ? form.block_id : null);
     if (!compound_id && !building_id) { setSaving(false); return; }
-    const base = { title: form.title.trim(), name: form.name.trim(), phone: form.phone.trim(), building_id, compound_id };
+    const base = { kind: form.kind, title: form.title.trim(), name: form.name.trim(), phone: form.phone.trim(), building_id, compound_id };
     const { error } = editId
       ? await supabase.from('building_contacts').update(base).eq('id', editId)
       : await supabase.from('building_contacts').insert({ ...base, created_by: profile?.id });
@@ -160,7 +162,10 @@ export default function BuildingContacts() {
                 <Card key={r.id}><CardBody>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-foreground">{r.title}</h3>
+                      <span className="inline-flex items-center gap-1.5">
+                        <h3 className="font-semibold text-foreground">{r.title}</h3>
+                        {r.kind === 'company' && <Badge color="indigo">{t('bcontacts.kindCompany')}</Badge>}
+                      </span>
                       {scopeLabel(r) && <p className="text-[11px] text-muted-foreground mt-0.5">{scopeLabel(r)}</p>}
                     </div>
                     {canManage && (
@@ -219,6 +224,14 @@ export default function BuildingContacts() {
 
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? t('bcontacts.edit') : t('bcontacts.add')}>
         <div className="space-y-4">
+          {/* Local Contact vs Company, ahead of role/title: this is what makes
+              the contact reusable as a real "who is this" pick everywhere
+              else (Contracts' provider, Inspections' inspector, Projects'
+              contractor) instead of another free-text name to re-type. */}
+          <SelectField label={t('bcontacts.kind')} value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v as ContactKind })}>
+            <SelectItem value="local">{t('bcontacts.kindLocal')}</SelectItem>
+            <SelectItem value="company">{t('bcontacts.kindCompany')}</SelectItem>
+          </SelectField>
           <div>
             <Input label={t('bcontacts.roleTitle')} value={form.title} placeholder={t('bcontacts.rolePlaceholder')} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             <div className="flex flex-wrap gap-1.5 mt-2">

@@ -1320,7 +1320,9 @@
       "quarterly": "Trimestrielle",
       "yearly": "Annuelle",
       "one_time": "Ponctuelle"
-    }
+    },
+    "noContactsYet": "Aucun contact pour le moment.",
+    "addContactLink": "Ajoutez-en un dans Contacts →"
   },
   "help": {
     "title": "Aide",
@@ -1361,7 +1363,10 @@
       "contractor": "Entrepreneur",
       "security": "Sécurité",
       "finance": "Contact finances"
-    }
+    },
+    "kind": "Type",
+    "kindLocal": "Contact local",
+    "kindCompany": "Société"
   },
   "dues": {
     "title": "Budget prévisionnel",
@@ -1713,7 +1718,8 @@
     "descriptionPlaceholder": "Ce qui est fait, par qui, et ce que le comité a décidé.",
     "howActualWorks": "Le montant dépensé ne se saisit pas ici : c’est la somme des dépenses rattachées à ce projet dans Finances.",
     "deleteConfirm": "Supprimer ce projet ? Ses dépenses restent dans le livret, sans rattachement.",
-    "pickBlock": "Choisissez un bloc, ou appliquez-le à tout le complexe."
+    "pickBlock": "Choisissez un bloc, ou appliquez-le à tout le complexe.",
+    "contractor": "Entrepreneur / Société"
   },
   "collect": {
     "title": "Encaisser",

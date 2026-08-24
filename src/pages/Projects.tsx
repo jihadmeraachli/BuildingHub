@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
 import { Plus, HardHat, Pencil, Trash2, Receipt } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
@@ -9,7 +10,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
 import { useEntities } from '@/lib/entities';
-import type { Project, ProjectStatus, Expense } from '@/types';
+import type { Project, ProjectStatus, Expense, BuildingContact } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -33,9 +34,10 @@ const money = (n: number) => fmtMoney(n);
 type Form = {
   title: string; description: string; status: ProjectStatus; estimate: string;
   start_date: string; end_date: string; scope: 'all' | 'block'; block_id: string;
+  contact_id: string; // 0123: the contractor/company, picked from Contacts — '' = none
 };
 const newForm = (): Form => ({
-  title: '', description: '', status: 'planned', estimate: '', start_date: '', end_date: '', scope: 'all', block_id: '',
+  title: '', description: '', status: 'planned', estimate: '', start_date: '', end_date: '', scope: 'all', block_id: '', contact_id: '',
 });
 
 export default function Projects() {
@@ -48,6 +50,7 @@ export default function Projects() {
 
   const [statusFilter, setStatusFilter] = useState<'' | ProjectStatus>('');
   const [rows, setRows] = useState<Project[]>([]);
+  const [contacts, setContacts] = useState<BuildingContact[]>([]);
   const [expenses, setExpenses] = useState<Pick<Expense, 'id' | 'project_id' | 'amount_usd' | 'expense_date' | 'description' | 'funded_by_fund_usd'>[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,13 +72,16 @@ export default function Projects() {
     const bIds = (entity ? entity.buildingIds : buildings.map((b) => b.id)).join(',');
     const cIds = (entity ? (entity.kind === 'compound' ? [entity.id] : []) : entities.filter((e) => e.kind === 'compound').map((e) => e.id)).join(',');
     const filter = cIds ? `compound_id.in.(${cIds}),building_id.in.(${bIds})` : `building_id.in.(${bIds})`;
-    const [{ data: p }, { data: x }] = await Promise.all([
+    const [{ data: p }, { data: x }, { data: c }] = await Promise.all([
       supabase.from('projects').select('*').or(filter).order('created_at', { ascending: false }),
       // the actuals: every expense in scope that points at a project
       supabase.from('expenses').select('id, project_id, amount_usd, expense_date, description, funded_by_fund_usd').or(filter).not('project_id', 'is', null),
+      // 0123: contacts in the same scope — the contractor/company picker
+      supabase.from('building_contacts').select('*').or(filter).order('title'),
     ]);
     setRows((p as Project[]) ?? []);
     setExpenses((x as typeof expenses) ?? []);
+    setContacts((c as BuildingContact[]) ?? []);
     setLoading(false);
   }
 
@@ -84,6 +90,10 @@ export default function Projects() {
     expenses.forEach((e) => { if (e.project_id) m.set(e.project_id, (m.get(e.project_id) ?? 0) + Number(e.amount_usd)); });
     return m;
   }, [expenses]);
+  const contactName = useMemo(
+    () => Object.fromEntries(contacts.map((c) => [c.id, c.name || c.title])),
+    [contacts],
+  );
 
   const vRows = rows.filter((r) => !statusFilter || r.status === statusFilter);
 
@@ -93,6 +103,7 @@ export default function Projects() {
     setForm({
       title: r.title, description: r.description ?? '', status: r.status, estimate: r.estimate_usd != null ? String(r.estimate_usd) : '',
       start_date: r.start_date ?? '', end_date: r.end_date ?? '', scope: r.building_id && entity?.kind === 'compound' ? 'block' : 'all', block_id: r.building_id ?? '',
+      contact_id: r.contact_id ?? '',
     });
     setOpen(true);
   }
@@ -109,6 +120,7 @@ export default function Projects() {
       estimate_usd: form.estimate ? Number(form.estimate) : null,
       start_date: form.start_date || null, end_date: form.end_date || null,
       building_id, compound_id, updated_at: new Date().toISOString(),
+      contact_id: form.contact_id || null,
     };
     if (attachment_url) base.attachment_url = attachment_url;
     const { error } = editId
@@ -176,7 +188,9 @@ export default function Projects() {
                     <div className="min-w-0">
                       <Badge color={statusColor[r.status]}>{t(`projects.status.${r.status}`)}</Badge>
                       <h3 className="font-semibold text-foreground mt-2 truncate">{r.title}</h3>
-                      {scopeLabel(r) && <p className="text-[11px] text-muted-foreground mt-0.5">{scopeLabel(r)}</p>}
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {[scopeLabel(r), r.contact_id ? contactName[r.contact_id] : null].filter(Boolean).join(' · ')}
+                      </p>
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -221,6 +235,9 @@ export default function Projects() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge color={statusColor[detail.status]}>{t(`projects.status.${detail.status}`)}</Badge>
                 {scopeLabel(detail) && <span className="text-xs text-muted-foreground">{scopeLabel(detail)}</span>}
+                {detail.contact_id && contactName[detail.contact_id] && (
+                  <span className="text-xs text-muted-foreground">· {contactName[detail.contact_id]}</span>
+                )}
               </div>
               {detail.description && <p className="text-sm text-muted-foreground">{detail.description}</p>}
               <div className="grid grid-cols-3 gap-3">
@@ -272,6 +289,21 @@ export default function Projects() {
             </SelectField>
             <Input label={t('projects.estimateUsd')} type="number" step="0.01" min="0" value={form.estimate} onChange={(e) => setForm({ ...form, estimate: e.target.value })} />
           </div>
+          {/* 0123: the contractor/company is picked from Contacts — add it there first. */}
+          {contacts.length > 0 ? (
+            <SelectField label={t('projects.contractor')} value={form.contact_id || '__none__'} onValueChange={(v) => setForm({ ...form, contact_id: v === '__none__' ? '' : v })}>
+              <SelectItem value="__none__">{t('amenities.linkNone')}</SelectItem>
+              {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name || c.title}</SelectItem>)}
+            </SelectField>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-muted-foreground">{t('projects.contractor')}</label>
+              <p className="text-xs text-muted-foreground">
+                {t('contracts.noContactsYet')}{' '}
+                <Link to="/contacts" className="text-primary hover:underline">{t('contracts.addContactLink')}</Link>
+              </p>
+            </div>
+          )}
           {entity?.kind === 'compound' && multiBlock && (
             <div className="grid grid-cols-2 gap-3">
               <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>
