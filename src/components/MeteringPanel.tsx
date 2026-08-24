@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Gauge, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
 import { computeMeterCycle, type MeterReadingDraft } from '@/lib/metering';
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { fmtMoney } from '@/lib/money';
 
 // one formatter, following the reader's language (src/lib/money.ts)
@@ -52,6 +53,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
   const type = metered.find((ty) => ty.id === typeId);
 
   const [cycles, setCycles] = useState<CycleRow[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<CycleRow | null>(null);
   async function loadCycles() {
     if (!typeId) { setCycles([]); return; }
     const q = entity.kind === 'compound'
@@ -129,10 +131,10 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
   }
 
   async function deleteCycle(c: CycleRow) {
-    if (!confirm(t('metering.deleteConfirm'))) return;
     // one transaction (0092): the expense, its charges and the cycle go
     // together, or nothing does
     const { error } = await supabase.rpc('delete_meter_cycle', { p_cycle: c.id });
+    setConfirmDelete(null);
     if (error) { toast.error(error.message); return; }
     toast.success(t('metering.deleted'));
     loadCycles(); onPosted();
@@ -301,7 +303,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
                   </td>
                   {canManage && (
                     <td className="px-5 py-3 text-end">
-                      <button onClick={(ev) => { ev.stopPropagation(); deleteCycle(c); }}
+                      <button onClick={(ev) => { ev.stopPropagation(); setConfirmDelete(c); }}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
                         <Trash2 size={15} />
                       </button>
@@ -409,6 +411,13 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && deleteCycle(confirmDelete)}
+        title={t('metering.deleteTitle')} message={t('metering.deleteConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

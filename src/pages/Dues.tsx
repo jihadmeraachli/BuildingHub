@@ -5,7 +5,7 @@ import { composeUsdTotal } from '@/lib/currency';
 import { useExpenseTypes } from '@/lib/expenseTypes';
 import { Plus, Trash2, Info, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { fetchAll } from '@/lib/fetchAll';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 import { fmtMoney } from '@/lib/money';
 
@@ -107,6 +108,8 @@ export default function Dues() {
   const [genScope, setGenScope] = useState<'all' | 'group' | 'units'>('all');
   const [genGroupId, setGenGroupId] = useState('');
   const [genUnitIds, setGenUnitIds] = useState<string[]>([]);
+  const [confirmCancelBudget, setConfirmCancelBudget] = useState<Budget | null>(null);
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<string | null>(null);
 
 
   useEffect(() => { if (entity) load(); }, [entityKey, entities.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -305,17 +308,18 @@ export default function Dues() {
 
 
   async function cancelBudget(b: Budget) {
-    if (!confirm(t('dues.cancelBudgetConfirm', { label: b.label }))) return;
     // one transaction (0092): withdraw the dues AND mark the budget, or neither
     const { error } = await supabase.rpc('cancel_budget', { p_budget: b.id });
+    setConfirmCancelBudget(null);
     if (error) { toast.error(error.message); return; }
     toast.success(t('dues.budgetCancelled'));
     load();
   }
 
   async function removeItem(id: string) {
-    if (!confirm('Delete this dues item?')) return;
-    await supabase.from('dues').delete().eq('id', id);
+    const { error } = await supabase.from('dues').delete().eq('id', id);
+    setConfirmDeleteItem(null);
+    if (error) { toast.error(error.message); return; }
     load();
   }
 
@@ -434,7 +438,7 @@ export default function Dues() {
                         <span className="flex items-center gap-3 shrink-0">
                           <span className="font-semibold text-foreground tnum">{money(Math.round(issued * 100) / 100)}</span>
                           {canManage && (
-                            <button onClick={() => cancelBudget(b)} className="text-xs text-primary hover:text-rose-600 hover:underline cursor-pointer">
+                            <button onClick={() => setConfirmCancelBudget(b)} className="text-xs text-primary hover:text-rose-600 hover:underline cursor-pointer">
                               {t('dues.cancelBudget')}
                             </button>
                           )}
@@ -529,7 +533,7 @@ export default function Dues() {
                             {canManage && (
                               <td className="px-5 py-3 text-end">
                                 {single && (
-                                  <button onClick={(e) => { e.stopPropagation(); removeItem(g.parties[0].lines[0].id); }}
+                                  <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteItem(g.parties[0].lines[0].id); }}
                                     className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
                                     <Trash2 size={15} />
                                   </button>
@@ -563,7 +567,7 @@ export default function Dues() {
                                   <td className="px-5 py-1.5" />
                                   {canManage && (
                                     <td className="px-5 py-1.5 text-end">
-                                      <button onClick={(e) => { e.stopPropagation(); removeItem(d.id); }}
+                                      <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteItem(d.id); }}
                                         className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
                                         <Trash2 size={13} />
                                       </button>
@@ -575,7 +579,7 @@ export default function Dues() {
                                 <tr className="bg-secondary/10">
                                   <td className="px-5 py-1" colSpan={cols - 1} />
                                   <td className="px-5 py-1 text-end">
-                                    <button onClick={(e) => { e.stopPropagation(); removeItem(p.lines[0].id); }}
+                                    <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteItem(p.lines[0].id); }}
                                       className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
                                       <Trash2 size={13} />
                                     </button>
@@ -723,6 +727,19 @@ export default function Dues() {
         </div>
       </Modal>
 
+      <ConfirmModal
+        open={!!confirmCancelBudget} onClose={() => setConfirmCancelBudget(null)}
+        onConfirm={() => confirmCancelBudget && cancelBudget(confirmCancelBudget)}
+        title={t('dues.cancelBudgetTitle')}
+        message={confirmCancelBudget ? t('dues.cancelBudgetConfirm', { label: confirmCancelBudget.label }) : ''}
+        confirmLabel={t('dues.cancelBudgetTitle')}
+      />
+      <ConfirmModal
+        open={!!confirmDeleteItem} onClose={() => setConfirmDeleteItem(null)}
+        onConfirm={() => confirmDeleteItem && removeItem(confirmDeleteItem)}
+        title={t('dues.deleteItemTitle')} message={t('dues.deleteItemConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

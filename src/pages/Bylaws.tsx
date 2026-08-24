@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { ScrollText, Upload, FileText, Download, History, Info, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
 /**
@@ -43,6 +44,7 @@ export default function Bylaws() {
   const entity = entities.find((e) => e.key === entityKey) ?? null;
 
   const [docs, setDocs] = useState<BuildingDocument[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<BuildingDocument | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -123,8 +125,8 @@ export default function Bylaws() {
   }
 
   async function remove(d: BuildingDocument) {
-    if (!confirm(t('bylaws.confirmDelete', { version: d.version }))) return;
     const { error } = await supabase.from('building_documents').delete().eq('id', d.id);
+    setConfirmDelete(null);
     if (error) { toast.error(error.message); return; }
     toast.success(t('bylaws.deleted'));
     load();
@@ -192,7 +194,7 @@ export default function Bylaws() {
                       {t('bylaws.openDoc')}
                     </Button>
                     {canManage && (
-                      <Button variant="ghost" onClick={() => remove(current)} aria-label={t('common.delete')}>
+                      <Button variant="ghost" onClick={() => setConfirmDelete(current)} aria-label={t('common.delete')}>
                         <Trash2 size={15} />
                       </Button>
                     )}
@@ -247,7 +249,7 @@ export default function Bylaws() {
                             <Download size={14} />
                           </Button>
                           {canManage && (
-                            <Button variant="ghost" onClick={() => remove(d)}>
+                            <Button variant="ghost" onClick={() => setConfirmDelete(d)}>
                               <Trash2 size={14} />
                             </Button>
                           )}
@@ -354,6 +356,14 @@ export default function Bylaws() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && remove(confirmDelete)}
+        title={t('bylaws.deleteTitle')}
+        message={confirmDelete ? t('bylaws.confirmDelete', { version: confirmDelete.version }) : ''}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

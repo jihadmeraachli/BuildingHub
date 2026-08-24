@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Network, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Organization } from '@/types';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 
@@ -131,6 +132,7 @@ export default function Organizations() {
   const [addForm, setAddForm] = useState({ name: '', contact_email: '', contact_phone: '' });
 
   const [editOrg, setEditOrg] = useState<Organization | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', contact_email: '', contact_phone: '' });
 
   useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -181,8 +183,9 @@ export default function Organizations() {
   }
 
   async function remove(id: string) {
-    if (!confirm('Delete this organization? Building assignments are removed but buildings are kept.')) return;
-    await supabase.from('organizations').delete().eq('id', id);
+    const { error } = await supabase.from('organizations').delete().eq('id', id);
+    setConfirmDelete(null);
+    if (error) { toast.error(error.message); return; }
     setEditOrg(null);
     loadAll();
   }
@@ -318,7 +321,7 @@ export default function Organizations() {
                         <button onClick={() => openEdit(o)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => remove(o.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
+                        <button onClick={() => setConfirmDelete(o.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -349,7 +352,7 @@ export default function Organizations() {
           <Input label={t('buildings.orgEmail')} type="email" value={editForm.contact_email} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} />
           <PhoneInput label={t('buildings.orgPhone')} value={editForm.contact_phone} onChange={(v) => setEditForm({ ...editForm, contact_phone: v })} />
           <div className="flex justify-between gap-2 pt-1">
-            <Button variant="danger" onClick={() => editOrg && remove(editOrg.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            <Button variant="danger" onClick={() => editOrg && setConfirmDelete(editOrg.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setEditOrg(null)}>{t('common.cancel')}</Button>
               <Button onClick={save}>{t('common.save')}</Button>
@@ -357,6 +360,13 @@ export default function Organizations() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && remove(confirmDelete)}
+        title={t('buildings.deleteOrgTitle')} message={t('buildings.deleteOrgConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

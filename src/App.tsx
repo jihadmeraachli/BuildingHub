@@ -83,7 +83,10 @@ export default function App() {
     <BetaGate>
     <ThemeProvider>
     <AuthProvider>
-      <Toaster position="top-center" richColors closeButton />
+      {/* theme="dark": richColors otherwise defaults to sonner's LIGHT palette
+          regardless of the app's own theme — every toast was a pale card
+          floating on the dark UI until this was set. */}
+      <Toaster position="top-center" richColors theme="dark" closeButton />
       <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>

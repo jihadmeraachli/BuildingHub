@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Phone, Mail, Pencil, Trash2, ContactRound, FileSignature } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
@@ -52,6 +53,7 @@ export default function BuildingContacts() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(newForm());
 
   const canManage = !residentLens && (isPlatformAdmin || !!entity?.buildingIds.some((id) => can('building.manage', id)));
@@ -115,8 +117,8 @@ export default function BuildingContacts() {
   }
 
   async function remove(id: string) {
-    if (!confirm(t('bcontacts.confirmDelete'))) return;
     const { error } = await supabase.from('building_contacts').delete().eq('id', id);
+    setConfirmDelete(null);
     if (error) { toast.error(error.message); return; }
     load();
   }
@@ -171,7 +173,7 @@ export default function BuildingContacts() {
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
-                        <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
                       </div>
                     )}
                   </div>
@@ -280,6 +282,13 @@ export default function BuildingContacts() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && remove(confirmDelete)}
+        title={t('bcontacts.deleteTitle')} message={t('bcontacts.confirmDelete')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
 import { Plus, Cog, Pencil, Trash2, FileSignature, ClipboardCheck, Receipt, AlertTriangle } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { uploadFile } from '@/lib/upload';
 import { AttachmentLink } from '@/components/ui/AttachmentLink';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 
 /**
@@ -54,6 +55,7 @@ export default function Amenities() {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(newForm());
   const [file, setFile] = useState<File | null>(null);
   const [detail, setDetail] = useState<Amenity | null>(null);
@@ -142,8 +144,8 @@ export default function Amenities() {
   }
 
   async function remove(id: string) {
-    if (!confirm(t('amenities.deleteConfirm'))) return;
     const { error } = await supabase.from('amenities').delete().eq('id', id);
+    setConfirmDelete(null);
     if (error) { toast.error(error.message); return; }
     setDetail(null); load();
   }
@@ -198,7 +200,7 @@ export default function Amenities() {
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
-                        <button onClick={() => remove(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
                       </div>
                     )}
                   </div>
@@ -317,6 +319,13 @@ export default function Amenities() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && remove(confirmDelete)}
+        title={t('amenities.deleteTitle')} message={t('amenities.deleteConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

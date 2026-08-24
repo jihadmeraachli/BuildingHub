@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
 import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send, Gauge, Landmark, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { fetchAll } from '@/lib/fetchAll';
 import { uploadFile } from '@/lib/upload';
@@ -24,6 +24,7 @@ import { MultiSelect } from '@/components/ui/MultiSelect';
 import { MeteringPanel } from '@/components/MeteringPanel';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { useConfirm } from '@/lib/useConfirm';
 import { MonthPicker } from '@/components/ui/MonthPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
@@ -145,7 +146,8 @@ export default function Finance() {
   // Defaults to the latest tenant once tenancy loads (see effect below).
   const [residentView, setResidentView] = useState<string>('combined');
   // void (soft-cancel) + adjustments (0034)
-  const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments'; id: string; label: string } | null>(null);
+  const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments' | 'fund_entries'; id: string; label: string } | null>(null);
+  const { confirmAsync, ConfirmDialog } = useConfirm();
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
   const [adjOpen, setAdjOpen] = useState(false);
@@ -265,12 +267,6 @@ export default function Finance() {
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('fund.entrySaved')); setFundEntryOpen(false); loadScope();
-  }
-  async function voidFundEntry(id: string) {
-    const reason = window.prompt(t('fund.voidReason'));
-    if (reason === null) return;
-    const { error } = await supabase.from('fund_entries').update({ voided_at: new Date().toISOString(), voided_by: profile?.id, void_reason: reason || null }).eq('id', id);
-    if (error) toast.error(error.message); else { toast.success(t('fund.entryVoided')); loadScope(); }
   }
   async function saveOpening() {
     if (!entity) return;
@@ -706,9 +702,10 @@ export default function Finance() {
       ? t('finance.deleteExtraordinaryConfirm')
       : e?.meter_cycle_id
         ? t('finance.deleteMeteredConfirm')
-        : 'Delete this expense and the charges it created?';
-    if (!confirm(msg)) return;
-    await supabase.from('expenses').delete().eq('id', id);
+        : t('finance.deleteExpenseConfirm');
+    if (!(await confirmAsync(t('finance.deleteExpenseTitle'), msg))) return;
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
     setDetailExpense(null); loadScope();
   }
 
@@ -1287,7 +1284,7 @@ export default function Finance() {
                             </td>
                             {canManageFinance && (
                               <td className="px-5 py-3 text-end">
-                                {!e.voided_at && <button type="button" onClick={() => voidFundEntry(e.id)} className="text-xs text-muted-foreground hover:text-red-500 inline-flex items-center gap-1"><Ban size={12} /> {t('finance.void')}</button>}
+                                {!e.voided_at && <button type="button" onClick={() => setVoidTarget({ table: 'fund_entries', id: e.id, label: e.description })} className="text-xs text-muted-foreground hover:text-red-500 inline-flex items-center gap-1"><Ban size={12} /> {t('finance.void')}</button>}
                               </td>
                             )}
                           </tr>
@@ -1943,6 +1940,8 @@ export default function Finance() {
           </div>
         </div>
       </Modal>
+
+      {ConfirmDialog}
     </div>
   );
 }

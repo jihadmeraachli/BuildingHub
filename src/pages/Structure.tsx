@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Layers, Home, Users2, Trash2, Pencil, UserPlus, X, Building2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoEmail } from '@/lib/demo';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
 interface MiniProfile { id: string; full_name: string; apartment_number: string | null; }
@@ -71,6 +72,8 @@ export default function Structure() {
   const [groupModal, setGroupModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupUnitsModal, setGroupUnitsModal] = useState<Group | null>(null);
+  const [confirmDeleteUnit, setConfirmDeleteUnit] = useState<string | null>(null);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<string | null>(null);
 
   // auto-select first building in scope
   useEffect(() => {
@@ -244,8 +247,9 @@ export default function Structure() {
     loadAll();
   }
   async function deleteUnit(id: string) {
-    if (!confirm('Delete this unit? Its charges and payments will be removed too.')) return;
-    await supabase.from('units').delete().eq('id', id);
+    const { error } = await supabase.from('units').delete().eq('id', id);
+    setConfirmDeleteUnit(null);
+    if (error) { toast.error(error.message); return; }
     loadAll();
   }
 
@@ -297,8 +301,9 @@ export default function Structure() {
     loadAll();
   }
   async function deleteGroup(id: string) {
-    if (!confirm('Delete this group?')) return;
-    await supabase.from('groups').delete().eq('id', id);
+    const { error } = await supabase.from('groups').delete().eq('id', id);
+    setConfirmDeleteGroup(null);
+    if (error) { toast.error(error.message); return; }
     loadAll();
   }
   async function toggleUnitInGroup(group: Group, unitId: string, isIn: boolean) {
@@ -426,7 +431,7 @@ export default function Structure() {
                                   <div className="flex items-center justify-end gap-1">
                                     <button onClick={() => { setOwnerModal(u); setOwnerPick(''); setOwnerTenure(ownersOf(u.id).some((o) => o.tenure === 'owner') ? 'tenant' : 'owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"><UserPlus size={15} /></button>
                                     <button onClick={() => openUnit(u)} title="Edit" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                                    <button onClick={() => deleteUnit(u.id)} title="Delete" className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
+                                    <button onClick={() => setConfirmDeleteUnit(u.id)} title="Delete" className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
                                   </div>
                                 </td>
                                 )}
@@ -482,7 +487,7 @@ export default function Structure() {
                               <p className="font-semibold text-foreground">{g.name}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">{t('structure.unitsCount', { count })}</p>
                             </div>
-                            <button onClick={() => deleteGroup(g.id)} className="p-1 text-muted-foreground hover:text-rose-500 cursor-pointer"><Trash2 size={15} /></button>
+                            <button onClick={() => setConfirmDeleteGroup(g.id)} className="p-1 text-muted-foreground hover:text-rose-500 cursor-pointer"><Trash2 size={15} /></button>
                           </div>
                           <Button size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setGroupUnitsModal(g)}>{t('structure.manageUnits')}</Button>
                         </CardBody>
@@ -647,6 +652,19 @@ export default function Structure() {
           <Button variant="secondary" onClick={() => setGroupUnitsModal(null)}>{t('structure.done')}</Button>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDeleteUnit} onClose={() => setConfirmDeleteUnit(null)}
+        onConfirm={() => confirmDeleteUnit && deleteUnit(confirmDeleteUnit)}
+        title={t('structure.deleteUnitTitle')} message={t('structure.deleteUnitConfirm')}
+        confirmLabel={t('common.delete')}
+      />
+      <ConfirmModal
+        open={!!confirmDeleteGroup} onClose={() => setConfirmDeleteGroup(null)}
+        onConfirm={() => confirmDeleteGroup && deleteGroup(confirmDeleteGroup)}
+        title={t('structure.deleteGroupTitle')} message={t('structure.deleteGroupConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

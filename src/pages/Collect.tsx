@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { HandCoins, Paperclip } from 'lucide-react';
 import { fmtDate } from '@/lib/dateFmt';
 import { supabase } from '@/lib/supabase';

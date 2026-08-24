@@ -557,7 +557,7 @@
     "addedToast": "{{count}} licenses added.",
     "capReached": "Your account type is limited to {{cap}} licenses. Managing more units? You may need a compound or organization account. Contact the Abniyah team at support@abniyah.com.",
     "capHint": "Your account can hold up to {{cap}} licenses ({{remaining}} more available).",
-    "invoicesDesc": "Your payment history — an invoice is recorded the moment a payment succeeds.",
+    "invoicesDesc": "Your payment history. An invoice is recorded the moment a payment succeeds.",
     "noInvoices": "No invoices yet.",
     "period": "Period",
     "amount": "Amount",
@@ -579,10 +579,10 @@
     "removeFloor": "You can go down to {{assigned}} (the licenses currently assigned).",
     "removedToast": "{{count}} licenses removed.",
     "removalScheduled": "Scheduled: {{count}} licenses from {{date}}. You keep everything until then.",
-    "removeKeepUntil": "You paid for this cycle, so nothing is taken away now: all licenses stay usable until {{date}}. The lower count and price apply at the renewal — and you can revert this any time before then.",
-    "scheduledReduction": "Drops to {{next}} at renewal ({{date}}) — revertible until then",
+    "removeKeepUntil": "You paid for this cycle, so nothing is taken away now: all licenses stay usable until {{date}}. The lower count and price apply at the renewal, and you can revert this any time before then.",
+    "scheduledReduction": "Drops to {{next}} at renewal ({{date}}), revertible until then",
     "revertReduction": "Revert scheduled reduction",
-    "removalReverted": "Scheduled reduction reverted — the renewal keeps the current count.",
+    "removalReverted": "Scheduled reduction reverted. The renewal keeps the current count.",
     "downloadPdf": "Invoice PDF"
   },
   "dashboard": {
@@ -707,11 +707,11 @@
     "markedPaid": "Entry marked as paid.",
     "selectBuildingHint": "Select a building above to view its billing entries.",
     "manageTitle": "Manage subscription",
-    "manageTrial": "You're on a free trial until {{date}} — no active subscription yet. Subscribe whenever you're ready; the paid period starts after the trial ends.",
-    "manageGrace": "Your trial has ended. Subscribe by {{date}} — after that the account locks until you do.",
-    "manageLocked": "The account is locked. Renew — choose a cycle and pay — and it unlocks immediately.",
+    "manageTrial": "You're on a free trial until {{date}}: no active subscription yet. Subscribe whenever you're ready; the paid period starts after the trial ends.",
+    "manageGrace": "Your trial has ended. Subscribe by {{date}}, or the account locks until you do.",
+    "manageLocked": "The account is locked. Renew: choose a cycle and pay, and it unlocks immediately.",
     "manageEnding": "The subscription is cancelled and ends on {{date}}. Access continues until then.",
-    "manageActive": "Your subscription is active — current period {{start}} → {{end}}.",
+    "manageActive": "Your subscription is active. Current period {{start}} → {{end}}.",
     "subscribeNow": "Subscribe now",
     "renewNow": "Renew now",
     "subscribeHint": "For your {{count}} licenses. Pick monthly or yearly; the invoice is issued now and payable by Whish or card.",
@@ -738,7 +738,7 @@
     "bannerEnding": "Your subscription ends on {{date}}.",
     "bannerCta": "Open Billing",
     "tabManage": "Manage",
-    "trialNoSub": "Trial account — no active subscription yet.",
+    "trialNoSub": "Trial account, no active subscription yet.",
     "payOpenInvoice": "Pay open invoice",
     "continueToPayment": "Continue to payment",
     "choosePayment": "Choose a payment method",
@@ -747,7 +747,7 @@
     "payDesc": "{{amount}} for {{start}} → {{end}}. Pay now to activate it.",
     "payLater": "Your subscription activates the moment the payment is confirmed.",
     "payLaterBtn": "I'll pay later",
-    "topupHold": "These licenses move you into the next price band — pay the prorated difference and they'll be added automatically once the payment is confirmed.",
+    "topupHold": "These licenses move you into the next price band: pay the prorated difference and they'll be added automatically once the payment is confirmed.",
     "topupNotice": "This add crosses into the next price band: you'll pay the prorated difference now, and the licenses are added once the payment is confirmed.",
     "cancelYes": "Yes, cancel subscription",
     "renewsIn": "Renews in {{count}} days ({{date}})",
@@ -985,7 +985,13 @@
     "typeEnable": "Enable",
     "newTypePlaceholder": "e.g. Fuel, Gardening, Elevator maintenance",
     "lbpRate": "LBP exchange rate (LL per USD)",
-    "lbpRateHint": "Prefills the LBP rate on expense and payment entry. Each entry freezes the rate it was converted at, so changing this never rewrites older records."
+    "lbpRateHint": "Prefills the LBP rate on expense and payment entry. Each entry freezes the rate it was converted at, so changing this never rewrites older records.",
+    "deleteCompoundTitle": "Delete compound",
+    "deleteCompoundConfirm": "Delete this compound? Its buildings are detached (kept), but compound-level records are removed.",
+    "deleteOrgTitle": "Delete organization",
+    "deleteOrgConfirm": "Delete this organization? Building assignments are removed but buildings are kept.",
+    "deleteBuildingTitle": "Delete building",
+    "deleteBuildingConfirm": "Delete this building and ALL its units, charges, payments, etc.? This cannot be undone."
   },
   "structure": {
     "title": "Structure",
@@ -1049,7 +1055,11 @@
     "tenantBalanceMoved": "Tenant removed. Balance of {{amt}} transferred to the owner.",
     "shareSourceRef": "Where in the Nizam",
     "shareSourceRefHint": "Optional. The article or table that fixes this unit's share, e.g. \"art. 7\".",
-    "licenseLimit": "This subscription already holds as many units as it has licenses. Add licenses on the Billing page, then add the unit."
+    "licenseLimit": "This subscription already holds as many units as it has licenses. Add licenses on the Billing page, then add the unit.",
+    "deleteUnitTitle": "Delete unit",
+    "deleteUnitConfirm": "Delete this unit? Its charges and payments will be removed too.",
+    "deleteGroupTitle": "Delete group",
+    "deleteGroupConfirm": "Delete this group?"
   },
   "finance": {
     "title": "Finance",
@@ -1247,7 +1257,9 @@
     "deleteExtraordinaryConfirm": "Delete this extraordinary expense? Its charges AND the payment ask it issued are withdrawn together.",
     "deleteMeteredConfirm": "Delete this metered expense? Its charges are removed; the metering cycle stays as a record with no money posted.",
     "fundOverAllocated": "The split adds up to more than the expense.",
-    "fundRemainderUnnamed": "Part of this expense is not allocated. Say whether the fund bears it, or fix the split."
+    "fundRemainderUnnamed": "Part of this expense is not allocated. Say whether the fund bears it, or fix the split.",
+    "deleteExpenseTitle": "Delete expense",
+    "deleteExpenseConfirm": "Delete this expense and the charges it created?"
   },
   "inspections": {
     "title": "Inspections",
@@ -1278,7 +1290,9 @@
       "failed": "Failed",
       "action_required": "Action required",
       "pending": "Pending"
-    }
+    },
+    "deleteTitle": "Delete inspection",
+    "deleteConfirm": "Delete this inspection?"
   },
   "contracts": {
     "title": "Service Contracts",
@@ -1322,7 +1336,9 @@
       "one_time": "One-time"
     },
     "noContactsYet": "No contacts yet.",
-    "addContactLink": "Add one in Contacts →"
+    "addContactLink": "Add one in Contacts →",
+    "deleteTitle": "Delete contract",
+    "deleteConfirm": "Delete this contract?"
   },
   "help": {
     "title": "Help",
@@ -1368,7 +1384,8 @@
     "kindLocal": "Local Contact",
     "kindCompany": "Company",
     "email": "Email",
-    "description": "Description"
+    "description": "Description",
+    "deleteTitle": "Delete contact"
   },
   "dues": {
     "title": "Prepaid Budget",
@@ -1472,7 +1489,10 @@
     "issuedBudgets": "Issued budgets",
     "cancelBudget": "Cancel",
     "cancelBudgetConfirm": "Cancel the budget \"{{label}}\"? Its unpaid asks are withdrawn and residents are notified. Payments already made stay on the ledger as credit.",
-    "budgetCancelled": "Budget cancelled and its asks withdrawn"
+    "budgetCancelled": "Budget cancelled and its asks withdrawn",
+    "cancelBudgetTitle": "Cancel budget",
+    "deleteItemTitle": "Delete dues item",
+    "deleteItemConfirm": "Delete this dues item?"
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",
@@ -1585,7 +1605,8 @@
     "refinalize": "Recompute & re-post",
     "reposted": "Cycle updated - {{amount}} re-posted; the old charges were replaced.",
     "deleteConfirm": "Delete this cycle? Its posted expense and every charge derived from it are removed together, and residents' balances move back. Payments already made stay as credit.",
-    "deleted": "Cycle deleted - its expense and charges were removed."
+    "deleted": "Cycle deleted - its expense and charges were removed.",
+    "deleteTitle": "Delete cycle"
   },
   "bylaws": {
     "title": "Nizam el Bineye",
@@ -1622,7 +1643,8 @@
     "totalShares": "Total",
     "pickEntity": "Pick a building or compound to see its Nizam.",
     "showHistory_one": "Show {{count}} earlier version",
-    "showHistory_other": "Show {{count}} earlier versions"
+    "showHistory_other": "Show {{count}} earlier versions",
+    "deleteTitle": "Delete this version"
   },
   "waitlist": {
     "title": "Join the waitlist",
@@ -1721,7 +1743,8 @@
     "howActualWorks": "Spent is never typed in here: it is the sum of the expenses tagged to this project in Finance.",
     "deleteConfirm": "Delete this project? Its expenses stay in the book, untagged.",
     "pickBlock": "Pick a block, or apply it to the whole compound.",
-    "contractor": "Contractor / Company"
+    "contractor": "Contractor / Company",
+    "deleteTitle": "Delete project"
   },
   "collect": {
     "title": "Collect",
@@ -1782,6 +1805,7 @@
       "storage": "Storage room",
       "roof": "Roof",
       "other": "Other"
-    }
+    },
+    "deleteTitle": "Delete amenity"
   }
 }

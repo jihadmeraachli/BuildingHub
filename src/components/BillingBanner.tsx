@@ -38,7 +38,12 @@ export function BillingBanner() {
     iso ? Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)) : null;
 
   let text: string | null = null;
-  let tone = 'bg-amber-500 text-white';
+  // 0125: "ending" used to share the trial's amber nudge, even though it is
+  // a deliberate choice the admin already made, not something running out on
+  // them — a calmer neutral tone says "this is what you asked for", not
+  // "act now". Locked/grace stay red (money is actually blocking access);
+  // trial stays amber (a real nudge to act before access lapses).
+  let tone = 'bg-slate-600 text-white';
   if (sub.status === 'locked') {
     text = t('billing.bannerLocked');
     tone = 'bg-red-600 text-white';
@@ -49,7 +54,7 @@ export function BillingBanner() {
     text = t('billing.bannerEnding', { date: day(sub.current_period_end) });
   } else if (sub.status === 'trial') {
     const n = daysLeft(sub.trial_ends_at);
-    if (n !== null && n <= 10) text = t('billing.bannerTrial', { count: n });
+    if (n !== null && n <= 10) { text = t('billing.bannerTrial', { count: n }); tone = 'bg-amber-500 text-white'; }
   }
   if (!text) return null;
 

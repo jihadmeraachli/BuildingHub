@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { Boxes, Network, Shield, Trash2, UserPlus, CalendarClock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fmtDate } from '@/lib/dateFmt';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/Input';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { PromptModal } from '@/components/ui/PromptModal';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { SkeletonTable } from '@/components/ui/Skeleton';
@@ -68,6 +69,7 @@ export default function Security() {
   // 0108: optional last valid day, shared by the three grant modals
   const [grantExpires, setGrantExpires] = useState('');
   const [grantSearch, setGrantSearch] = useState('');
+  const [expiryPrompt, setExpiryPrompt] = useState<{ id: string; reload: () => void; current: string } | null>(null);
   const [compoundGrantModal, setCompoundGrantModal] = useState(false);
   const [compoundGrantUserId, setCompoundGrantUserId] = useState('');
   const [compoundGrantRole, setCompoundGrantRole] = useState<GrantRole>('compound_admin');
@@ -212,16 +214,18 @@ export default function Security() {
     toast.success(t('users.roleUpdated'));
     reload();
   }
-  /** 0108: set, move or clear a grant's last valid day. Empty = open-ended. */
-  async function updateGrantExpiry(id: string, reload: () => void, current: string | null | undefined) {
-    const v = window.prompt(t('users.expiryPrompt'), current ?? '');
-    if (v === null) return;
+  /** 0108: set, move or clear a grant's last valid day. Empty = open-ended.
+   *  A date input (PromptModal) always returns a valid ISO date or '', so
+   *  there is nothing left to format-validate the way the old free-text
+   *  window.prompt() needed to. */
+  async function updateGrantExpiry(v: string) {
+    if (!expiryPrompt) return;
     const expires_at = v.trim() || null;
-    if (expires_at && !/^\d{4}-\d{2}-\d{2}$/.test(expires_at)) { toast.error(t('users.expiryFormat')); return; }
-    const { error } = await supabase.from('grants').update({ expires_at }).eq('id', id);
+    const { error } = await supabase.from('grants').update({ expires_at }).eq('id', expiryPrompt.id);
     if (error) { toast.error(error.message); return; }
     toast.success(expires_at ? t('users.expirySet', { date: expires_at }) : t('users.expiryCleared'));
-    reload();
+    expiryPrompt.reload();
+    setExpiryPrompt(null);
   }
 
   // ---- derived ----
@@ -275,7 +279,7 @@ export default function Security() {
                   {/* 0108: the last valid day. Expired rows stay listed until the
                       morning sweep moves them to history; they confer nothing. */}
                   <td className="px-4 py-3">
-                    <button onClick={() => updateGrantExpiry(g.id, reload, g.expires_at)}
+                    <button onClick={() => setExpiryPrompt({ id: g.id, reload, current: g.expires_at ?? '' })}
                       className={`inline-flex items-center gap-1.5 text-xs rounded-lg border px-2 py-1 transition cursor-pointer ${
                         !g.expires_at ? 'border-border text-muted-foreground hover:text-foreground'
                         : grantIsLive(g) ? 'border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30'
@@ -478,6 +482,13 @@ export default function Security() {
           </div>
         </div>
       </Modal>
+
+      <PromptModal
+        open={!!expiryPrompt} onClose={() => setExpiryPrompt(null)}
+        onSubmit={updateGrantExpiry}
+        title={t('users.expiryEdit')} label={t('users.expiryPrompt')}
+        defaultValue={expiryPrompt?.current ?? ''} type="date"
+      />
     </div>
   );
 }

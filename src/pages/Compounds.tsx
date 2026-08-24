@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Boxes, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Compound, Organization } from '@/types';
@@ -14,6 +14,7 @@ import { COUNTRIES } from '@/lib/locationData';
 import { CitySelect } from '@/components/ui/CitySelect';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 
@@ -142,6 +143,7 @@ export default function Compounds() {
   const [addForm, setAddForm] = useState({ name: '', city: '', country: 'Lebanon' });
 
   const [editC, setEditC] = useState<Compound | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', city: '', country: 'Lebanon', billing_mode: 'arrears' });
 
   useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -200,8 +202,9 @@ export default function Compounds() {
   }
 
   async function remove(id: string) {
-    if (!confirm('Delete this compound? Its buildings are detached (kept), but compound-level records are removed.')) return;
-    await supabase.from('compounds').delete().eq('id', id);
+    const { error } = await supabase.from('compounds').delete().eq('id', id);
+    setConfirmDelete(null);
+    if (error) { toast.error(error.message); return; }
     setEditC(null);
     loadAll();
   }
@@ -363,7 +366,7 @@ export default function Compounds() {
                         <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
+                        <button onClick={() => setConfirmDelete(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -411,7 +414,7 @@ export default function Compounds() {
             <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
           </SelectField>
           <div className="flex justify-between gap-2 pt-1">
-            <Button variant="danger" onClick={() => editC && remove(editC.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            <Button variant="danger" onClick={() => editC && setConfirmDelete(editC.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setEditC(null)}>{t('common.cancel')}</Button>
               <Button onClick={save}>{t('common.save')}</Button>
@@ -419,6 +422,13 @@ export default function Compounds() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && remove(confirmDelete)}
+        title={t('buildings.deleteCompoundTitle')} message={t('buildings.deleteCompoundConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

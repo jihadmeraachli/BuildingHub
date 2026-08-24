@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { BellRing, Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
 import type { Factor } from '@supabase/supabase-js';
 import Cropper from 'react-easy-crop';

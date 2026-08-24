@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useExpenseTypes } from '@/lib/expenseTypes';
@@ -18,6 +18,7 @@ import { Controller } from 'react-hook-form';
 import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 
@@ -196,6 +197,7 @@ export default function Buildings() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mapBuilding, setMapBuilding] = useState<Building | null>(null);
   const [editB, setEditB] = useState<Building | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [ebForm, setEbForm] = useState({
     name: '', address: '', city: '', country: '',
     contact_email: '', contact_phone: '', maps_url: '',
@@ -442,8 +444,9 @@ export default function Buildings() {
   }
 
   async function deleteB(id: string) {
-    if (!confirm('Delete this building and ALL its units, charges, payments, etc.? This cannot be undone.')) return;
-    await supabase.from('buildings').delete().eq('id', id);
+    const { error } = await supabase.from('buildings').delete().eq('id', id);
+    setConfirmDelete(null);
+    if (error) { toast.error(error.message); return; }
     setEditB(null);
     loadAll();
   }
@@ -789,7 +792,7 @@ export default function Buildings() {
             <span className="text-sm text-foreground">{t('buildings.active')}</span>
           </label>
           <div className="flex justify-between gap-2 pt-2">
-            <Button variant="danger" onClick={() => editB && deleteB(editB.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            <Button variant="danger" onClick={() => editB && setConfirmDelete(editB.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setEditB(null)}>{t('common.cancel')}</Button>
               <Button onClick={saveEditB}>{t('common.save')}</Button>
@@ -822,6 +825,13 @@ export default function Buildings() {
           </div>
         )}
       </Modal>
+
+      <ConfirmModal
+        open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && deleteB(confirmDelete)}
+        title={t('buildings.deleteBuildingTitle')} message={t('buildings.deleteBuildingConfirm')}
+        confirmLabel={t('common.delete')}
+      />
     </div>
   );
 }

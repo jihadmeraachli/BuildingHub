@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ElementType } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { fmtDate } from '@/lib/dateFmt';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';

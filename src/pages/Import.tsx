@@ -5,7 +5,7 @@ import {
   CheckCircle2, Loader2, X, RefreshCw, Undo2,
 } from 'lucide-react';
 import type { Grant } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import i18n from '@/i18n';
 
@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/Button';
 import { RadixSelect, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectSeparator } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
+import { useConfirm } from '@/lib/useConfirm';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -696,6 +697,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
   const [fileHash, setFileHash] = useState<string>('');       // SHA-256 of the upload (dedup)
   const [batches, setBatches] = useState<ImportBatch[]>([]);  // recent imports for this entity
   const [reversingId, setReversingId] = useState<string>('');
+  const { confirmAsync, ConfirmDialog } = useConfirm();
 
   const selectedEntity = entities.find(e => e.key === entityKey) ?? null;
 
@@ -717,7 +719,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
   }, [entityKey]);
 
   async function undoBatch(id: string) {
-    if (!confirm('Undo this import? Every expense, charge and payment it created will be removed.')) return;
+    if (!(await confirmAsync('Undo import', 'Undo this import? Every expense, charge and payment it created will be removed.'))) return;
     setReversingId(id);
     const { error } = await supabase.rpc('reverse_import_batch', { p_batch: id });
     setReversingId('');
@@ -825,7 +827,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         .limit(1);
       if (dup && dup.length) {
         const when = new Date((dup[0] as { created_at: string }).created_at).toLocaleDateString();
-        if (!confirm(`This exact file was already imported here on ${when}. Importing again will DOUBLE those amounts.\n\nContinue anyway?`)) return;
+        if (!(await confirmAsync('Already imported', `This exact file was already imported here on ${when}. Importing again will double those amounts. Continue anyway?`))) return;
       }
     }
 
@@ -1076,6 +1078,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           )}
         </>
       )}
+      {ConfirmDialog}
     </div>
   );
 
@@ -1183,6 +1186,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           <Button onClick={runImport}>Import data</Button>
           <Button variant="outline" onClick={reset}>Cancel</Button>
         </div>
+        {ConfirmDialog}
       </div>
     );
   }

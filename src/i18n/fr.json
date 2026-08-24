@@ -557,7 +557,7 @@
     "addedToast": "{{count}} licences ajoutées.",
     "capReached": "Votre type de compte est limité à {{cap}} licences. Vous gérez davantage de logements ? Il vous faut sans doute un compte complexe ou organisation. Écrivez à l'équipe Abniyah, à support@abniyah.com.",
     "capHint": "Votre compte peut contenir jusqu'à {{cap}} licences ({{remaining}} encore disponibles).",
-    "invoicesDesc": "Votre historique de paiements — une facture est enregistrée dès qu'un paiement aboutit.",
+    "invoicesDesc": "Votre historique de paiements : une facture est enregistrée dès qu'un paiement aboutit.",
     "noInvoices": "Aucune facture pour l'instant.",
     "period": "Période",
     "amount": "Montant",
@@ -579,10 +579,10 @@
     "removeFloor": "Vous pouvez descendre jusqu’à {{assigned}} (les licences actuellement attribuées).",
     "removedToast": "{{count}} licences retirées.",
     "removalScheduled": "Programmé : {{count}} licences à partir du {{date}}. Vous gardez tout jusque-là.",
-    "removeKeepUntil": "Vous avez payé ce cycle, rien ne vous est retiré maintenant : toutes les licences restent utilisables jusqu'au {{date}}. Le nombre et le prix réduits s'appliquent au renouvellement — et vous pouvez annuler à tout moment avant.",
-    "scheduledReduction": "Passe à {{next}} au renouvellement ({{date}}) — annulable jusque-là",
+    "removeKeepUntil": "Vous avez payé ce cycle, rien ne vous est retiré maintenant : toutes les licences restent utilisables jusqu'au {{date}}. Le nombre et le prix réduits s'appliquent au renouvellement, et vous pouvez annuler à tout moment avant.",
+    "scheduledReduction": "Passe à {{next}} au renouvellement ({{date}}), annulable jusque-là",
     "revertReduction": "Annuler la réduction programmée",
-    "removalReverted": "Réduction programmée annulée — le renouvellement garde le nombre actuel.",
+    "removalReverted": "Réduction programmée annulée. Le renouvellement garde le nombre actuel.",
     "downloadPdf": "Facture PDF"
   },
   "dashboard": {
@@ -707,11 +707,11 @@
     "markedPaid": "Écriture marquée comme payée.",
     "selectBuildingHint": "Choisissez un immeuble ci-dessus pour voir ses écritures de facturation.",
     "manageTitle": "Gérer l’abonnement",
-    "manageTrial": "Vous êtes en essai gratuit jusqu'au {{date}} — aucun abonnement actif pour le moment. Abonnez-vous quand vous voulez ; la période payante commence à la fin de l'essai.",
-    "manageGrace": "Votre essai est terminé. Abonnez-vous avant le {{date}} — ensuite le compte se verrouille.",
-    "manageLocked": "Le compte est verrouillé. Renouvelez — choisissez un cycle et payez — et il se déverrouille immédiatement.",
+    "manageTrial": "Vous êtes en essai gratuit jusqu'au {{date}} : aucun abonnement actif pour le moment. Abonnez-vous quand vous voulez ; la période payante commence à la fin de l'essai.",
+    "manageGrace": "Votre essai est terminé. Abonnez-vous avant le {{date}}, sinon le compte se verrouille.",
+    "manageLocked": "Le compte est verrouillé. Renouvelez : choisissez un cycle et payez, et il se déverrouille immédiatement.",
     "manageEnding": "L’abonnement est annulé et se termine le {{date}}. L’accès continue jusque-là.",
-    "manageActive": "Votre abonnement est actif — période en cours {{start}} → {{end}}.",
+    "manageActive": "Votre abonnement est actif. Période en cours {{start}} → {{end}}.",
     "subscribeNow": "S’abonner",
     "renewNow": "Renouveler",
     "subscribeHint": "Pour vos {{count}} licences. Choisissez mensuel ou annuel ; la facture est émise maintenant, payable par Whish ou carte.",
@@ -738,7 +738,7 @@
     "bannerEnding": "Votre abonnement se termine le {{date}}.",
     "bannerCta": "Ouvrir la facturation",
     "tabManage": "Gérer",
-    "trialNoSub": "Compte d'essai — aucun abonnement actif pour le moment.",
+    "trialNoSub": "Compte d'essai, aucun abonnement actif pour le moment.",
     "payOpenInvoice": "Payer la facture en attente",
     "continueToPayment": "Continuer vers le paiement",
     "choosePayment": "Choisissez un moyen de paiement",
@@ -747,7 +747,7 @@
     "payDesc": "{{amount}} pour {{start}} → {{end}}. Payez maintenant pour l'activer.",
     "payLater": "Votre abonnement s'active dès la confirmation du paiement.",
     "payLaterBtn": "Je paierai plus tard",
-    "topupHold": "Ces licences vous font passer à la tranche supérieure — payez la différence au prorata et elles seront ajoutées dès la confirmation du paiement.",
+    "topupHold": "Ces licences vous font passer à la tranche supérieure : payez la différence au prorata et elles seront ajoutées dès la confirmation du paiement.",
     "topupNotice": "Cet ajout franchit la tranche suivante : vous paierez la différence au prorata maintenant, et les licences seront ajoutées après confirmation du paiement.",
     "cancelYes": "Oui, annuler l'abonnement",
     "renewsIn": "Se renouvelle dans {{count}} jours ({{date}})",
@@ -985,7 +985,13 @@
     "typeEnable": "Activer",
     "newTypePlaceholder": "ex. Fioul, Jardinage, Entretien de l'ascenseur",
     "lbpRate": "Taux de change LBP (LL pour 1 USD)",
-    "lbpRateHint": "Préremplit le taux LBP lors de la saisie des dépenses et des paiements. Chaque écriture fige le taux auquel elle a été convertie : modifier ce taux ne réécrit jamais les enregistrements antérieurs."
+    "lbpRateHint": "Préremplit le taux LBP lors de la saisie des dépenses et des paiements. Chaque écriture fige le taux auquel elle a été convertie : modifier ce taux ne réécrit jamais les enregistrements antérieurs.",
+    "deleteCompoundTitle": "Supprimer le complexe",
+    "deleteCompoundConfirm": "Supprimer ce complexe ? Ses immeubles sont détachés (conservés), mais les données au niveau du complexe sont supprimées.",
+    "deleteOrgTitle": "Supprimer l'organisation",
+    "deleteOrgConfirm": "Supprimer cette organisation ? Les rattachements d'immeubles sont supprimés, les immeubles eux-mêmes sont conservés.",
+    "deleteBuildingTitle": "Supprimer l'immeuble",
+    "deleteBuildingConfirm": "Supprimer cet immeuble et TOUS ses lots, charges, paiements, etc. ? Cette action est irréversible."
   },
   "structure": {
     "title": "Logements",
@@ -1049,7 +1055,11 @@
     "tenantBalanceMoved": "Locataire retiré. Un solde de {{amt}} a été transféré au propriétaire.",
     "shareSourceRef": "Référence au règlement",
     "shareSourceRefHint": "Facultatif. L'article ou le tableau qui fixe les tantièmes de ce logement, par exemple « art. 7 ».",
-    "licenseLimit": "Cet abonnement compte déjà autant de logements que de licences. Ajoutez des licences depuis la page Facturation, puis ajoutez le logement."
+    "licenseLimit": "Cet abonnement compte déjà autant de logements que de licences. Ajoutez des licences depuis la page Facturation, puis ajoutez le logement.",
+    "deleteUnitTitle": "Supprimer le lot",
+    "deleteUnitConfirm": "Supprimer ce lot ? Ses charges et paiements seront aussi supprimés.",
+    "deleteGroupTitle": "Supprimer le groupe",
+    "deleteGroupConfirm": "Supprimer ce groupe ?"
   },
   "finance": {
     "title": "Finances",
@@ -1247,7 +1257,9 @@
     "deleteExtraordinaryConfirm": "Supprimer cette dépense extraordinaire ? Ses charges ET l'appel de fonds correspondant sont retirés ensemble.",
     "deleteMeteredConfirm": "Supprimer cette dépense sur relevés ? Ses charges sont supprimées ; le cycle de relevés reste enregistré, sans écriture financière.",
     "fundOverAllocated": "La répartition dépasse le montant de la dépense.",
-    "fundRemainderUnnamed": "Une partie de cette dépense n’est pas répartie. Dites si la caisse la supporte, ou corrigez la répartition."
+    "fundRemainderUnnamed": "Une partie de cette dépense n’est pas répartie. Dites si la caisse la supporte, ou corrigez la répartition.",
+    "deleteExpenseTitle": "Supprimer la charge",
+    "deleteExpenseConfirm": "Supprimer cette charge et les répartitions qu’elle a créées ?"
   },
   "inspections": {
     "title": "Contrôles",
@@ -1278,7 +1290,9 @@
       "failed": "Non conforme",
       "action_required": "Action requise",
       "pending": "En attente"
-    }
+    },
+    "deleteTitle": "Supprimer le contrôle",
+    "deleteConfirm": "Supprimer ce contrôle ?"
   },
   "contracts": {
     "title": "Contrats de prestation",
@@ -1322,7 +1336,9 @@
       "one_time": "Ponctuelle"
     },
     "noContactsYet": "Aucun contact pour le moment.",
-    "addContactLink": "Ajoutez-en un dans Contacts →"
+    "addContactLink": "Ajoutez-en un dans Contacts →",
+    "deleteTitle": "Supprimer le contrat",
+    "deleteConfirm": "Supprimer ce contrat ?"
   },
   "help": {
     "title": "Aide",
@@ -1368,7 +1384,8 @@
     "kindLocal": "Contact local",
     "kindCompany": "Société",
     "email": "E-mail",
-    "description": "Description"
+    "description": "Description",
+    "deleteTitle": "Supprimer le contact"
   },
   "dues": {
     "title": "Budget prévisionnel",
@@ -1472,7 +1489,10 @@
     "issuedBudgets": "Budgets émis",
     "cancelBudget": "Annuler",
     "cancelBudgetConfirm": "Annuler le budget « {{label}} » ? Ses appels impayés sont retirés et les résidents en sont informés. Les paiements déjà reçus restent au crédit du compte.",
-    "budgetCancelled": "Budget annulé et ses appels retirés"
+    "budgetCancelled": "Budget annulé et ses appels retirés",
+    "cancelBudgetTitle": "Annuler le budget",
+    "deleteItemTitle": "Supprimer l'appel de fonds",
+    "deleteItemConfirm": "Supprimer cet appel de fonds ?"
   },
   "invites": {
     "title": "Invitation : logement {{unit}}, {{building}}",
@@ -1585,7 +1605,8 @@
     "refinalize": "Recalculer et recomptabiliser",
     "reposted": "Cycle mis à jour : {{amount}} recomptabilisés ; les anciennes charges ont été remplacées.",
     "deleteConfirm": "Supprimer ce cycle ? La dépense comptabilisée et toutes les charges qui en découlent sont supprimées avec lui, et les soldes des résidents reviennent en arrière. Les paiements déjà reçus restent au crédit.",
-    "deleted": "Cycle supprimé : sa dépense et ses charges ont été retirées."
+    "deleted": "Cycle supprimé : sa dépense et ses charges ont été retirées.",
+    "deleteTitle": "Supprimer le cycle"
   },
   "bylaws": {
     "title": "Règlement de copropriété",
@@ -1622,7 +1643,8 @@
     "totalShares": "Total",
     "pickEntity": "Choisissez un immeuble ou un complexe pour voir son règlement.",
     "showHistory_one": "Afficher {{count}} version antérieure",
-    "showHistory_other": "Afficher {{count}} versions antérieures"
+    "showHistory_other": "Afficher {{count}} versions antérieures",
+    "deleteTitle": "Supprimer cette version"
   },
   "waitlist": {
     "title": "Rejoindre la liste d'attente",
@@ -1721,7 +1743,8 @@
     "howActualWorks": "Le montant dépensé ne se saisit pas ici : c’est la somme des dépenses rattachées à ce projet dans Finances.",
     "deleteConfirm": "Supprimer ce projet ? Ses dépenses restent dans le livret, sans rattachement.",
     "pickBlock": "Choisissez un bloc, ou appliquez-le à tout le complexe.",
-    "contractor": "Entrepreneur / Société"
+    "contractor": "Entrepreneur / Société",
+    "deleteTitle": "Supprimer le projet"
   },
   "collect": {
     "title": "Encaisser",
@@ -1782,6 +1805,7 @@
       "storage": "Cave / débarras",
       "roof": "Toit",
       "other": "Autre"
-    }
+    },
+    "deleteTitle": "Supprimer l'équipement"
   }
 }
