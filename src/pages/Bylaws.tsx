@@ -153,7 +153,7 @@ export default function Bylaws() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={() => setOpen(true)}>
+          <Button variant="tinted" onClick={() => setOpen(true)}>
             <Upload size={16} className="me-1.5" />
             {current ? t('bylaws.uploadNewVersion') : t('bylaws.upload')}
           </Button>
