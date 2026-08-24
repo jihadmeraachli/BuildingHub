@@ -23,6 +23,18 @@ export function isDemoEmail(email: string | null | undefined): boolean {
   return !!email && DEMO_EMAILS.has(email.toLowerCase());
 }
 
+/** The unlock scope the visitor's beta code granted (0126).
+ *  'full' = everything (testers). 'demo' = marketing site + demo only —
+ *  Register refuses these visitors. Legacy unlocks (before scopes existed)
+ *  and gate-off builds count as 'full'. */
+export type BetaScope = 'full' | 'demo';
+export function betaScope(): BetaScope {
+  if (import.meta.env.VITE_BETA_GATE !== '1') return 'full';
+  try {
+    return localStorage.getItem('abniyah_beta_scope') === 'demo' ? 'demo' : 'full';
+  } catch { return 'full'; }
+}
+
 /** Routes hidden from the DEMO personas while the product is pre-release:
  *  the pricing/billing machinery and the differentiators we don't want
  *  browsable by whoever holds the public demo password. The Sidebar filters

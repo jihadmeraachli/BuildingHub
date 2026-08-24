@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { LICENSE_CAPS } from '@/lib/licenseCaps';
 import { monthlyPriceCents, effectivePerUnitCents, fmtPerUnit, ANNUAL_MONTHS_CHARGED } from '@/lib/pricing';
 import { useAuth } from '@/contexts/AuthContext';
+import { betaScope } from '@/lib/demo';
 import { LanguagePicker } from '@/components/ui/LanguagePicker';
 import { Input } from '@/components/ui/Input';
 import { CitySelect } from '@/components/ui/CitySelect';
@@ -125,6 +126,11 @@ export default function Register() {
   });
 
   const set = (patch: Partial<WizardState>) => setState(s => ({ ...s, ...patch }));
+
+  // 0126: a demo-scoped beta code (partner reviews) unlocks the site and the
+  // demo, never registration — the pricing model stays private until launch.
+  // Constant for the whole session, so the early return is hook-safe.
+  if (betaScope() === 'demo') return <Navigate to="/demo" replace />;
 
   /** lowercase noun for sentences ("About your building") */
   const noun = (role: AdminRole | null) => t(`register.nouns.${nounKey(role)}`);

@@ -15,6 +15,9 @@ import { Lock } from 'lucide-react';
  */
 const GATE_ON = import.meta.env.VITE_BETA_GATE === '1';
 const STORAGE_KEY = 'abniyah_beta_ok';
+// 0126: what the entered code unlocked — 'full' (testers) or 'demo' (site +
+// demo only; Register refuses). Read app-wide via betaScope() in lib/demo.ts.
+const SCOPE_KEY = 'abniyah_beta_scope';
 
 export function BetaGate({ children }: { children: ReactNode }) {
   const [unlocked, setUnlocked] = useState(
@@ -31,13 +34,15 @@ export function BetaGate({ children }: { children: ReactNode }) {
     if (!code.trim()) return;
     setChecking(true);
     setError(false);
-    const { data, error: rpcError } = await supabase.rpc('verify_beta_code', { p_code: code });
+    // 0126: the scope-aware check. Returns 'full' | 'demo' | null.
+    const { data, error: rpcError } = await supabase.rpc('beta_code_scope', { p_code: code });
     setChecking(false);
-    if (rpcError || data !== true) {
+    if (rpcError || (data !== 'full' && data !== 'demo')) {
       setError(true);
       return;
     }
     localStorage.setItem(STORAGE_KEY, '1');
+    localStorage.setItem(SCOPE_KEY, data);
     setUnlocked(true);
   }
 
