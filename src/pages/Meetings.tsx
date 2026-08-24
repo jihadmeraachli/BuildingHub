@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { safeHttpUrl } from '@/lib/safeUrl';
 import { useForm } from 'react-hook-form';
 import { fmtDate } from '@/lib/dateFmt';
 import { Plus, CalendarPlus, ChevronDown, ChevronUp, Paperclip, Trash2, Search, X, Video, ExternalLink, AlertTriangle } from 'lucide-react';
@@ -281,8 +282,8 @@ export default function Meetings() {
                       {m.summary && <p className="text-sm text-slate-600 mt-1">{m.summary}</p>}
                       <div className="flex flex-wrap items-center gap-3 mt-2">
                         {m.attendees?.length > 0 && <span className="text-xs text-slate-400">{t('meetings.attendeeCount', { count: m.attendees.length })}</span>}
-                        {m.meeting_url && (
-                          <a href={m.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
+                        {safeHttpUrl(m.meeting_url) && (
+                          <a href={safeHttpUrl(m.meeting_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
                             <Video size={13} /> {t('meetings.joinOnline')} <ExternalLink size={11} />
                           </a>
                         )}
@@ -561,8 +562,8 @@ export default function Meetings() {
             <p className="text-sm text-slate-500">
               {fmtDate(detailMeeting.meeting_date, 'EEEE, MMMM d, yyyy')}{detailMeeting.meeting_time ? ` · ${detailMeeting.meeting_time.slice(0, 5)}` : ''}
             </p>
-            {detailMeeting.meeting_url && (
-              <a href={detailMeeting.meeting_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline">
+            {safeHttpUrl(detailMeeting.meeting_url) && (
+              <a href={safeHttpUrl(detailMeeting.meeting_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline">
                 <Video size={15} /> {t('meetings.joinOnline')} <ExternalLink size={12} />
               </a>
             )}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { safeHttpUrl } from '@/lib/safeUrl';
 import { useForm } from 'react-hook-form';
 import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
 import { toast } from '@/lib/toast';
@@ -817,8 +818,8 @@ export default function Buildings() {
                 referrerPolicy="no-referrer-when-downgrade"
               />
             </div>
-            {mapBuilding.maps_url && (
-              <a href={mapBuilding.maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+            {safeHttpUrl(mapBuilding.maps_url) && (
+              <a href={safeHttpUrl(mapBuilding.maps_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
                 <ExternalLink size={14} /> Open in Google Maps
               </a>
             )}
