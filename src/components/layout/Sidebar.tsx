@@ -21,7 +21,7 @@ import {
   ContactRound, ScrollText,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
-import { isDemoEmail, DEMO_ACCOUNTS } from '@/lib/demo';
+import { isDemoEmail, DEMO_ACCOUNTS, DEMO_HIDDEN_ROUTES } from '@/lib/demo';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 
 interface SidebarProps {
@@ -131,7 +131,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/amenities',   label: t('nav.amenities'),     icon: Cog },
     // The collector's only screen (0110). Managers already have Finance.
     { to: '/collect',     label: t('nav.collect'),       icon: HandCoins, show: !residentLens && canAny('payment.record') && !canAny('finance.view') },
-  ].filter(l => l.show !== false);
+  ].filter(l => l.show !== false && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
 
   const manageLinks = (residentLens ? [] : [
     { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings || isDemoAdmin },
@@ -143,7 +143,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/import',        label: t('nav.import'),        icon: FileUp,    show: canBuildings || canStructure },
     { to: '/licenses',      label: t('nav.licenses'),      icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
     { to: '/licensing-admin', label: 'Platform Licensing', icon: KeyRound,  show: isPlatformAdmin },
-  ]).filter(l => l.show);
+  ]).filter(l => l.show && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');
 

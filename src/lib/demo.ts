@@ -22,3 +22,16 @@ const DEMO_EMAILS = new Set<string>(Object.values(DEMO_ACCOUNTS));
 export function isDemoEmail(email: string | null | undefined): boolean {
   return !!email && DEMO_EMAILS.has(email.toLowerCase());
 }
+
+/** Routes hidden from the DEMO personas while the product is pre-release:
+ *  the pricing/billing machinery and the differentiators we don't want
+ *  browsable by whoever holds the public demo password. The Sidebar filters
+ *  these out of the nav; AppShell redirects a direct URL hit to /dashboard.
+ *  One list — adjust freely, the demo re-shows a page the moment its route
+ *  leaves this set. */
+export const DEMO_HIDDEN_ROUTES = new Set<string>([
+  '/licenses',   // the whole pricing-band + subscription model
+  '/import',     // the AI import
+  '/dues',       // prepaid-budget machinery
+  '/collect',    // collector flow
+]);
