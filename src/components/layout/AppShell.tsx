@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { BillingBanner } from '@/components/BillingBanner';
 import { useAuth } from '@/contexts/AuthContext';
-import { isDemoEmail, DEMO_HIDDEN_ROUTES } from '@/lib/demo';
+import { isDemoEmail, DEMO_HIDDEN_ROUTES, betaScope } from '@/lib/demo';
 import { usePullToRefresh, PullIndicator } from '@/components/PullToRefresh';
 import { BioPrompt } from '@/components/BioPrompt';
 import { pushAlreadyGranted, enablePush } from '@/lib/push';
@@ -51,10 +51,15 @@ export function AppShell() {
           <div className="shrink-0 bg-primary text-primary-foreground text-center text-xs font-medium py-1.5 px-4">
             {t('demo.banner')}{' '}
             <a href="/demo" className="underline font-semibold">{t('demo.switch')}</a>
-            <span className="mx-1.5 opacity-50">·</span>
-            <button onClick={startTrial} className="underline font-semibold cursor-pointer">
-              {t('demo.cta')}
-            </button>
+            {/* 0126: no trial CTA for demo-scoped visitors (partner reviews) */}
+            {betaScope() !== 'demo' && (
+              <>
+                <span className="mx-1.5 opacity-50">·</span>
+                <button onClick={startTrial} className="underline font-semibold cursor-pointer">
+                  {t('demo.cta')}
+                </button>
+              </>
+            )}
           </div>
         )}
         <BillingBanner />

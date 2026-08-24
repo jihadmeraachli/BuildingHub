@@ -15,6 +15,7 @@ import { ArrowLeft, Mail, Smartphone, Fingerprint } from 'lucide-react';
 import { getPref, setPref, PREF_LAST_EMAIL } from '@/lib/devicePrefs';
 import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
 import { getBioSession, restoreBioSession, rememberSessionForBio } from '@/lib/bioSession';
+import { betaScope } from '@/lib/demo';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -234,10 +235,13 @@ export default function Login() {
                 <Button type="submit" loading={isSubmitting} className="w-full mt-2">{t('auth.login')}</Button>
               </form>
 
-              <p className="mt-6 text-center text-sm text-muted-foreground">
-                {t('auth.noAccount')}{' '}
-                <Link to="/register" className="text-primary font-semibold hover:underline">{t('auth.registerHere')}</Link>
-              </p>
+              {/* 0126: demo-scoped visitors get no registration entry point */}
+              {betaScope() !== 'demo' && (
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                  {t('auth.noAccount')}{' '}
+                  <Link to="/register" className="text-primary font-semibold hover:underline">{t('auth.registerHere')}</Link>
+                </p>
+              )}
             </>
           )}
 

@@ -6,6 +6,28 @@
 
 ---
 
+## ⏳ WHISH REVIEW — TEMPORARY MEASURES (Aug 2026) — revert checklist
+
+Whish Money's onboarding team was given a **demo-scoped** beta code to review
+the site and demo pre-launch. What was put in place (all commit-tagged 0126):
+
+1. **Scoped beta codes** (`0126_beta_code_scope.sql`) — the Whish code is
+   `scope='demo'`: unlocks abniyah.com + the demo; `/register` bounces.
+   *Keep permanently* — useful for every future partner review.
+2. **Demo personas hide** Licenses / Import / Prepaid Budget / Collect /
+   Inspections / Contracts / Projects / Amenities
+   (`DEMO_HIDDEN_ROUTES` in `src/lib/demo.ts`). *Revert at public launch*
+   by emptying that list — one line.
+3. **Trial CTAs hidden for demo-scoped visitors only** (`betaScope() !== 'demo'`
+   conditionals in Landing hero + final CTA, Login's register link, the demo
+   banner's trial button). Self-scoping — testers and prospects see everything;
+   *nothing to revert*, delete the conditionals whenever the gate itself goes.
+
+**After Steven confirms the review is done:**
+`UPDATE beta_access_codes SET active = false WHERE code = 'WHISH-REVIEW-2026';`
+(Their already-unlocked browsers keep the demo scope — by design, it grants
+less than a tester code, and the hidden pages stay hidden to it.)
+
 ## 1. TL;DR — what this iteration did
 
 ### Latest: 23 August 2026 — the Binayati review, and what it changed

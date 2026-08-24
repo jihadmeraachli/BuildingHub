@@ -7,6 +7,7 @@ import { LanguagePicker } from '@/components/ui/LanguagePicker';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { PRICING_BANDS, asLowAsPerUnitCents, fmtMonthly, fmtPerUnit } from '@/lib/pricing';
+import { betaScope } from '@/lib/demo';
 
 /**
  * Public marketing page on the ROOT domain (abniyah.com) — see the hostname
@@ -142,19 +143,25 @@ export default function Landing() {
           {t('landing.heroTagline')}
         </p>
         <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
-          <a
-            href="https://app.abniyah.com/register"
-            className="rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-6 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
-          >
-            {t('landing.startTrial')}
-          </a>
+          {/* 0126: a demo-scoped code (partner reviews) sees the site and the
+              demo, never the trial funnel — pricing stays private pre-launch. */}
+          {betaScope() !== 'demo' && (
+            <a
+              href="https://app.abniyah.com/register"
+              className="rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-6 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
+            >
+              {t('landing.startTrial')}
+            </a>
+          )}
           <a
             href="https://app.abniyah.com/demo"
             className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 px-6 py-3 text-sm font-semibold transition-colors"
           >
             {t('landing.liveDemo')}
           </a>
-          <span className="text-sm text-white/50 basis-full text-center">{t('landing.trialNote')}</span>
+          {betaScope() !== 'demo' && (
+            <span className="text-sm text-white/50 basis-full text-center">{t('landing.trialNote')}</span>
+          )}
         </div>
         <div className="mt-12 max-w-4xl mx-auto">
           {/* The hero follows the page language (S8): a French headline about
@@ -300,12 +307,14 @@ export default function Landing() {
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">{t('landing.ctaTitle')}</h2>
           <p className="text-white/70 mb-6">{t('landing.ctaBody')}</p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
-            <a
-              href="https://app.abniyah.com/register"
-              className="inline-block rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-7 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
-            >
-              {t('landing.startTrial')}
-            </a>
+            {betaScope() !== 'demo' && (
+              <a
+                href="https://app.abniyah.com/register"
+                className="inline-block rounded-xl bg-white text-[oklch(0.25_0.08_185)] px-7 py-3 text-sm font-bold hover:bg-white/90 transition-colors"
+              >
+                {t('landing.startTrial')}
+              </a>
+            )}
             <a
               href="https://app.abniyah.com/demo"
               className="inline-block rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 px-7 py-3 text-sm font-semibold transition-colors"

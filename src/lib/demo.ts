@@ -42,8 +42,12 @@ export function betaScope(): BetaScope {
  *  One list — adjust freely, the demo re-shows a page the moment its route
  *  leaves this set. */
 export const DEMO_HIDDEN_ROUTES = new Set<string>([
-  '/licenses',   // the whole pricing-band + subscription model
-  '/import',     // the AI import
-  '/dues',       // prepaid-budget machinery
-  '/collect',    // collector flow
+  '/licenses',    // the whole pricing-band + subscription model
+  '/import',      // the AI import
+  '/dues',        // prepaid-budget machinery
+  '/collect',     // collector flow
+  '/inspections', // inspection workflows
+  '/contracts',   // contract management
+  '/projects',    // project tracking
+  '/amenities',   // amenity booking
 ]);
