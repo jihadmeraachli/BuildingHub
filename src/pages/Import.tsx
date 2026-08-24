@@ -478,7 +478,7 @@ function BuildingsTab({ isPlatformAdmin, grants }: { isPlatformAdmin: boolean; g
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">— No org —</SelectItem>
+              <SelectItem value="__none__">No org</SelectItem>
               {orgs.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
             </SelectContent>
           </RadixSelect>
@@ -1036,7 +1036,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
           </div>
           {selectedEntity?.kind === 'compound' && (
             <p className="text-xs text-muted-foreground/70">
-              Blocks: {selectedEntity.blocks.map(b => b.name).join(' · ')} — {dbUnits.length} units loaded
+              Blocks: {selectedEntity.blocks.map(b => b.name).join(' · ')} · {dbUnits.length} units loaded
             </p>
           )}
           {analyzing ? (

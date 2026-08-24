@@ -234,7 +234,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
               <SelectItem value="__all__">{t('nav.allMyUnits')}</SelectItem>
               {memberships.map(m => m.unit && (
                 <SelectItem key={m.unit_id} value={m.unit_id}>
-                  {m.unit.label}{unitBuildingNames[m.unit.building_id] ? ` — ${unitBuildingNames[m.unit.building_id]}` : ''}
+                  {m.unit.label}{unitBuildingNames[m.unit.building_id] ? ` · ${unitBuildingNames[m.unit.building_id]}` : ''}
                 </SelectItem>
               ))}
             </SelectContent>

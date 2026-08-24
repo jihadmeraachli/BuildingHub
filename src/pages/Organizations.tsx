@@ -346,7 +346,7 @@ export default function Organizations() {
         </div>
       </Modal>
 
-      <Modal open={!!editOrg} onClose={() => setEditOrg(null)} title={`${t('common.edit')} — ${editOrg?.name ?? ''}`} size="sm">
+      <Modal open={!!editOrg} onClose={() => setEditOrg(null)} title={`${t('common.edit')}: ${editOrg?.name ?? ''}`} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.orgName')} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
           <Input label={t('buildings.orgEmail')} type="email" value={editForm.contact_email} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} />

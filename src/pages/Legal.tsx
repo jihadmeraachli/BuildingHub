@@ -100,12 +100,12 @@ function PrivacyEn() {
 
       <h2>Service providers we rely on</h2>
       <ul>
-        <li><strong>Supabase</strong> — database, authentication and file storage (hosted in the Asia-Pacific region).</li>
-        <li><strong>Cloudflare</strong> — website hosting and delivery.</li>
-        <li><strong>Resend</strong> — email delivery.</li>
-        <li><strong>Meta (WhatsApp Business Platform)</strong> — WhatsApp message delivery. Your phone number is shared with Meta only to deliver messages you've opted into.</li>
-        <li><strong>Whish Money and Areeba</strong> — payment processing for subscription fees. Payments happen on the provider's own pages; card and wallet details never pass through Abniyah. When auto-renew is enabled, the provider stores the payment method and we keep only a reference token.</li>
-        <li><strong>Anthropic</strong> — AI-assisted document import. When a building manager uses the import feature, the uploaded document is processed to extract its contents.</li>
+        <li><strong>Supabase</strong>: database, authentication and file storage (hosted in the Asia-Pacific region).</li>
+        <li><strong>Cloudflare</strong>: website hosting and delivery.</li>
+        <li><strong>Resend</strong>: email delivery.</li>
+        <li><strong>Meta (WhatsApp Business Platform)</strong>: WhatsApp message delivery. Your phone number is shared with Meta only to deliver messages you've opted into.</li>
+        <li><strong>Whish Money and Areeba</strong>: payment processing for subscription fees. Payments happen on the provider's own pages; card and wallet details never pass through Abniyah. When auto-renew is enabled, the provider stores the payment method and we keep only a reference token.</li>
+        <li><strong>Anthropic</strong>: AI-assisted document import. When a building manager uses the import feature, the uploaded document is processed to extract its contents.</li>
       </ul>
       <p>These providers process data on our behalf to run the service. <strong>We do not sell personal data, ever.</strong></p>
 
@@ -186,12 +186,12 @@ function PrivacyAr() {
 
       <h2>مزوّدو الخدمات الذين نعتمد عليهم</h2>
       <ul>
-        <li><strong>Supabase</strong> — قاعدة البيانات والمصادقة وتخزين الملفات (استضافة في منطقة آسيا والمحيط الهادئ).</li>
-        <li><strong>Cloudflare</strong> — استضافة الموقع وتوصيله.</li>
-        <li><strong>Resend</strong> — إرسال البريد الإلكتروني.</li>
-        <li><strong>Meta (منصة واتساب للأعمال)</strong> — تسليم رسائل واتساب. يُشارَك رقم هاتفك مع Meta فقط لتسليم الرسائل التي اخترت استلامها.</li>
-        <li><strong>Whish Money وأريبا (Areeba)</strong> — معالجة دفعات الاشتراك. تتم الدفعات على صفحات المزود نفسه؛ بيانات البطاقة أو المحفظة لا تمر بأبنية إطلاقاً. عند تفعيل التجديد التلقائي يحفظ المزود وسيلة الدفع ونحتفظ نحن برمز مرجعي فقط.</li>
-        <li><strong>Anthropic</strong> — استيراد المستندات بمساعدة الذكاء الاصطناعي. عند استخدام مدير المبنى ميزة الاستيراد، يُعالَج المستند المرفوع لاستخراج محتواه.</li>
+        <li><strong>Supabase</strong>: قاعدة البيانات والمصادقة وتخزين الملفات (استضافة في منطقة آسيا والمحيط الهادئ).</li>
+        <li><strong>Cloudflare</strong>: استضافة الموقع وتوصيله.</li>
+        <li><strong>Resend</strong>: إرسال البريد الإلكتروني.</li>
+        <li><strong>Meta (منصة واتساب للأعمال)</strong>: تسليم رسائل واتساب. يُشارَك رقم هاتفك مع Meta فقط لتسليم الرسائل التي اخترت استلامها.</li>
+        <li><strong>Whish Money وأريبا (Areeba)</strong>: معالجة دفعات الاشتراك. تتم الدفعات على صفحات المزود نفسه؛ بيانات البطاقة أو المحفظة لا تمر بأبنية إطلاقاً. عند تفعيل التجديد التلقائي يحفظ المزود وسيلة الدفع ونحتفظ نحن برمز مرجعي فقط.</li>
+        <li><strong>Anthropic</strong>: استيراد المستندات بمساعدة الذكاء الاصطناعي. عند استخدام مدير المبنى ميزة الاستيراد، يُعالَج المستند المرفوع لاستخراج محتواه.</li>
       </ul>
       <p>يعالج هؤلاء المزوّدون البيانات نيابةً عنا لتشغيل الخدمة. <strong>لا نبيع البيانات الشخصية أبداً.</strong></p>
 
@@ -296,7 +296,7 @@ function TermsEn() {
       </p>
       <ul>
         <li><strong>Invoices &amp; renewal.</strong> Renewal invoices are issued 7 days before a period ends, payable by Whish or by card. If auto-renew is enabled, the payment method saved with our payment provider is charged automatically; you are notified 7 days before.</li>
-        <li><strong>Unpaid invoices.</strong> After the trial or a period ends unpaid, access continues unchanged for a <strong>7-day grace period</strong> with reminders. After that the account is <strong>locked</strong> — administrator access becomes read-only except for billing, and residents cannot sign in — until the open invoice is settled, which restores access immediately. Your data is retained throughout.</li>
+        <li><strong>Unpaid invoices.</strong> After the trial or a period ends unpaid, access continues unchanged for a <strong>7-day grace period</strong> with reminders. After that the account is <strong>locked</strong>: administrator access becomes read-only except for billing, and residents cannot sign in until the open invoice is settled, which restores access immediately. Your data is retained throughout.</li>
         <li><strong>Adding licences.</strong> Adding licences that moves you into a higher price band mid-period generates a top-up invoice, prorated by the remaining days of the period.</li>
         <li><strong>Removing licences.</strong> Reducing licences never generates a refund; the lower band applies from your next billing period. Licences cannot drop below the units you hold.</li>
         <li><strong>Cancellation.</strong> You may cancel at any time from the Billing page. Access continues to the end of the paid period (or the trial); no further invoices are issued and amounts already paid are not refunded. Cancellation can be withdrawn before it takes effect.</li>
@@ -394,7 +394,7 @@ function TermsAr() {
       </p>
       <ul>
         <li><strong>الفواتير والتجديد.</strong> تصدر فاتورة التجديد قبل نهاية الفترة بسبعة أيام، وتُدفع عبر Whish أو بالبطاقة. عند تفعيل التجديد التلقائي، تُقتطع وسيلة الدفع المحفوظة لدى مزود الدفع تلقائياً مع إشعارك قبلها بسبعة أيام.</li>
-        <li><strong>الفواتير غير المسددة.</strong> بعد انتهاء التجربة أو الفترة من دون سداد، يستمر الوصول كما هو لمدة <strong>مهلة سبعة أيام</strong> مع تذكيرات. بعدها <strong>يُقفل</strong> الحساب — يصبح وصول المسؤول للقراءة فقط باستثناء الفوترة، ولا يستطيع السكان الدخول — حتى تسديد الفاتورة المفتوحة، فيعود الوصول فوراً. بياناتك محفوظة طوال الوقت.</li>
+        <li><strong>الفواتير غير المسددة.</strong> بعد انتهاء التجربة أو الفترة من دون سداد، يستمر الوصول كما هو لمدة <strong>مهلة سبعة أيام</strong> مع تذكيرات. بعدها <strong>يُقفل</strong> الحساب: يصبح وصول المسؤول للقراءة فقط باستثناء الفوترة، ولا يستطيع السكان الدخول حتى تسديد الفاتورة المفتوحة، فيعود الوصول فوراً. بياناتك محفوظة طوال الوقت.</li>
         <li><strong>إضافة الرخص.</strong> إضافة رخص تنقلك إلى شريحة سعرية أعلى وسط الفترة تولّد فاتورة استكمال محسوبة بالأيام المتبقية من الفترة.</li>
         <li><strong>إزالة الرخص.</strong> تخفيض الرخص لا يولّد أي استرداد؛ الشريحة الأدنى تسري من فترة الفوترة التالية. لا يمكن أن تنزل الرخص تحت عدد وحداتك.</li>
         <li><strong>الإلغاء.</strong> يمكنك الإلغاء في أي وقت من صفحة الفوترة. يستمر الوصول حتى نهاية الفترة المدفوعة (أو التجربة)؛ لا تصدر فواتير أخرى ولا تُسترد المبالغ المدفوعة. يمكن سحب الإلغاء قبل سريانه.</li>

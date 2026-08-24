@@ -131,7 +131,18 @@ export default function Login() {
   async function onResetSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!resetEmail.trim()) return;
+    setError('');
     setResetLoading(true);
+    // 0127: check the address has an account before "sending". Deliberate
+    // product decision (accepts email enumeration for clearer UX; see the
+    // migration header). If the RPC is missing or errors, fall through and
+    // send anyway: the old silent behavior, never a broken reset flow.
+    const { data: exists, error: rpcError } = await supabase.rpc('email_exists', { p_email: resetEmail.trim() });
+    if (!rpcError && exists === false) {
+      setResetLoading(false);
+      setError(t('auth.emailNotFound'));
+      return;
+    }
     await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
       redirectTo: window.location.origin + '/set-password',
     });
@@ -248,7 +259,7 @@ export default function Login() {
           {mode === 'forgot' && (
             <>
               <button
-                onClick={() => setMode('login')}
+                onClick={() => { setError(''); setMode('login'); }}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 cursor-pointer"
               >
                 <ArrowLeft size={14} /> {t('auth.backToLogin')}
@@ -256,6 +267,12 @@ export default function Login() {
 
               <h2 className="text-2xl font-bold text-foreground">{t('auth.resetTitle')}</h2>
               <p className="text-muted-foreground text-sm mt-1 mb-6">{t('auth.resetSubtitle')}</p>
+
+              {error && (
+                <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
 
               <form onSubmit={onResetSubmit} className="space-y-4">
                 <Input

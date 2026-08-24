@@ -283,13 +283,13 @@ export default function Buildings() {
   // Option arrays for searchable filters
   const orgOptions: FilterOption[] = useMemo(() => [
     { value: '', label: 'All organizations' },
-    ...(hasNoOrg ? [{ value: '__none__', label: '— None —' }] : []),
+    ...(hasNoOrg ? [{ value: '__none__', label: 'None' }] : []),
     ...usedOrgs.map(o => ({ value: o.id, label: o.name })),
   ], [usedOrgs, hasNoOrg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const compoundOptions: FilterOption[] = useMemo(() => [
     { value: '', label: 'All compounds' },
-    ...(hasStandalone ? [{ value: '__none__', label: '— Standalone —' }] : []),
+    ...(hasStandalone ? [{ value: '__none__', label: 'Standalone' }] : []),
     ...usedCompounds.map(c => ({ value: c.id, label: c.name })),
   ], [usedCompounds, hasStandalone]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -707,7 +707,7 @@ export default function Buildings() {
       </Modal>
 
       {/* Edit building modal */}
-      <Modal open={!!editB} onClose={() => setEditB(null)} title={`${t('common.edit')} — ${editB?.name ?? ''}`} size="lg">
+      <Modal open={!!editB} onClose={() => setEditB(null)} title={`${t('common.edit')}: ${editB?.name ?? ''}`} size="lg">
         <div className="space-y-4">
           <Input label={t('buildings.name')} value={ebForm.name} onChange={e => setEbForm({ ...ebForm, name: e.target.value })} />
           <Input label={t('buildings.address')} value={ebForm.address} onChange={e => setEbForm({ ...ebForm, address: e.target.value })} />

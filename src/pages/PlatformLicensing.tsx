@@ -504,7 +504,7 @@ export default function PlatformLicensing() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Cap for <span className="font-medium text-foreground">{capSub ? entityName(capSub) : ''}</span>
-            {capSub ? ` — scope default is ${licenseCap(capSub.scope_type)} (${capSub.scope_type}). ` : '. '}
+            {capSub ? `. Scope default is ${licenseCap(capSub.scope_type)} (${capSub.scope_type}). ` : '. '}
             Leave empty to use the default.
           </p>
           <div className="flex items-center gap-3">
@@ -519,7 +519,7 @@ export default function PlatformLicensing() {
           </div>
           {capSub && capSub.license_count > (capValue.trim() === '' ? licenseCap(capSub.scope_type) : Number(capValue)) && (
             <p className="text-xs text-amber-600">
-              Current count ({capSub.license_count}) is above this cap — existing licenses keep working; only further growth is blocked.
+              Current count ({capSub.license_count}) is above this cap: existing licenses keep working; only further growth is blocked.
             </p>
           )}
           <div className="flex justify-end gap-2 pt-1">
@@ -557,7 +557,7 @@ export default function PlatformLicensing() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Invoice for <span className="font-medium text-foreground">{invoiceSub ? entityName(invoiceSub) : ''}</span>
-            {invoiceSub ? ` — ${invoiceSub.license_count} licenses at ${usd(invoiceSub.price_per_unit_cents)}/unit/${invoiceSub.plan === 'monthly' ? 'month' : 'year'}.` : '.'}
+            {invoiceSub ? `: ${invoiceSub.license_count} licenses at ${usd(invoiceSub.price_per_unit_cents)}/unit/${invoiceSub.plan === 'monthly' ? 'month' : 'year'}.` : '.'}
           </p>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Amount (USD)</label>

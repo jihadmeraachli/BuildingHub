@@ -203,7 +203,7 @@ export function UnitStatementDoc({ unitLabel, buildingName, period, generatedOn,
   const totalPaid = buckets.reduce((s, b) => s + b.payments.reduce((x, p) => x + Number(p.amount_usd), 0), 0);
 
   return (
-    <Document title={`Statement — ${unitLabel}`} author="Abniyah">
+    <Document title={`Statement: ${unitLabel}`} author="Abniyah">
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
@@ -281,7 +281,7 @@ export interface FundKpi {
 
 export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, expenses, payments = [], fund }: BuildingReportProps) {
   return (
-    <Document title={`Financial Report — ${entityName}`} author="Abniyah">
+    <Document title={`Financial Report: ${entityName}`} author="Abniyah">
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
@@ -348,7 +348,7 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
           <>
             {/* All units — total balances */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>All Units — Balances (All-Time)</Text>
+              <Text style={s.sectionTitle}>All Units: Balances (All-Time)</Text>
               <View style={s.tableHead}>
                 <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Billed</Text>
@@ -367,7 +367,7 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
 
             {/* Owner-only balances */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>Owner — Balances</Text>
+              <Text style={s.sectionTitle}>Owner: Balances</Text>
               <View style={s.tableHead}>
                 <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
                 <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Owner Balance</Text>
@@ -384,7 +384,7 @@ export function BuildingReportDoc({ entityName, period, generatedOn, kpi, book, 
                 tenant(s) per unit, mirroring the Book. */}
             {book.some((r) => r.hasActiveTenant || r.showFormer) && (
               <View style={s.section}>
-                <Text style={s.sectionTitle}>Tenant — Balances</Text>
+                <Text style={s.sectionTitle}>Tenant: Balances</Text>
                 <View style={s.tableHead}>
                   <Text style={[s.tableHeadCell, { flex: 2 }]}>Unit</Text>
                   <Text style={[s.tableHeadCell, { flex: 2.2 }]}>Tenant</Text>
@@ -491,7 +491,7 @@ interface LedgerReportProps {
 
 export function LedgerReportDoc({ entityName, filterSummary, generatedOn, rows, totals }: LedgerReportProps) {
   return (
-    <Document title={`Custom Report — ${entityName}`} author="Abniyah">
+    <Document title={`Custom Report: ${entityName}`} author="Abniyah">
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View>
@@ -601,7 +601,7 @@ export function FundStatementDoc({ entityName, period, generatedOn, billingMode,
   );
   const heldLabel = billingMode === 'dues' ? 'Prepaid by residents, not yet consumed' : 'Held for residents in credit';
   return (
-    <Document title={`Fund Statement — ${entityName}`} author="Abniyah">
+    <Document title={`Fund Statement: ${entityName}`} author="Abniyah">
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View>
@@ -824,7 +824,7 @@ export function TaxInvoiceDoc({ inv, entityName, scopeType, plan, billingEmail }
           {row('Billing cycle', plan === 'annual' ? 'Annual (10 months for 12)' : 'Monthly')}
           {row(isTopup ? 'Covers until' : 'Period', isTopup
             ? fmtDate(inv.period_end)
-            : `${fmtDate(inv.period_start)} — ${fmtDate(inv.period_end)}`)}
+            : `${fmtDate(inv.period_start)} to ${fmtDate(inv.period_end)}`)}
           {isTopup && fromCount != null && toCount != null ? (
             <>
               {row('Licenses', `${fromCount} to ${toCount}${addedCount ? ` (+${addedCount})` : ''}`)}

@@ -218,7 +218,7 @@ export default function Compounds() {
     const hasNone = compounds.some(c => !c.org_id);
     return [
       { value: '', label: 'All organizations' },
-      ...(hasNone ? [{ value: '__none__', label: '— None —' }] : []),
+      ...(hasNone ? [{ value: '__none__', label: 'None' }] : []),
       ...organizations.map(o => ({ value: o.id, label: o.name })),
     ];
   }, [compounds, organizations]);
@@ -396,7 +396,7 @@ export default function Compounds() {
         </div>
       </Modal>
 
-      <Modal open={!!editC} onClose={() => setEditC(null)} title={`${t('common.edit')} — ${editC?.name ?? ''}`} size="sm">
+      <Modal open={!!editC} onClose={() => setEditC(null)} title={`${t('common.edit')}: ${editC?.name ?? ''}`} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">

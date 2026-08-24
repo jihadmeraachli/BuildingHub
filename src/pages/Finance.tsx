@@ -1874,7 +1874,7 @@ export default function Finance() {
       </Modal>
 
       {/* Payment detail */}
-      <Modal open={!!detailPayment} onClose={() => setDetailPayment(null)} title={detailPayment ? `${t('finance.payment')} — ${unitDisplay(detailPayment.unit_id)}` : t('finance.payment')}>
+      <Modal open={!!detailPayment} onClose={() => setDetailPayment(null)} title={detailPayment ? `${t('finance.payment')}: ${unitDisplay(detailPayment.unit_id)}` : t('finance.payment')}>
         {detailPayment && (
           <div className="space-y-4">
             <div className="rounded-2xl bg-emerald-500/10 px-4 py-3"><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('finance.amount')}</p><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tnum">{money(Number(detailPayment.amount_usd))}</p>{currencyBreakdown(detailPayment) && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">{currencyBreakdown(detailPayment)}</p>}</div>
