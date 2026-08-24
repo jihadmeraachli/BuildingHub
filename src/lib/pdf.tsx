@@ -4,6 +4,7 @@ import { adjustmentEffect } from '@/lib/balance';
 
 const C = {
   indigo: '#4f46e5',
+  teal: '#0F4A3F',   // Abniyah brand teal (matches the logo mark and email header)
   slate9: '#0f172a',
   slate7: '#334155',
   slate5: '#64748b',
@@ -52,6 +53,12 @@ const fmtDate = (d: string) => {
   try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
   catch { return d; }
 };
+
+/** react-pdf's built-in Helvetica is WinAnsi-only: characters outside that
+ *  set (→, −, …) silently render as a blank or a stray glyph instead of
+ *  erroring. Same class of bug as the U+2212 minus fix — swap the arrow for
+ *  words rather than risk it on any text that reaches a PDF verbatim. */
+const pdfSafe = (str: string) => str.replace(/\s*→\s*/g, ' to ').replace(/−/g, '-');
 
 // ─── Unit Statement ───────────────────────────────────────────────────────────
 
@@ -751,10 +758,12 @@ export function TaxInvoiceDoc({ inv, entityName, scopeType, plan, billingEmail }
   const net = Math.round((inv.amount_cents / (1 + VAT_RATE))) / 100;
   const vat = Math.round(inv.amount_cents - inv.amount_cents / (1 + VAT_RATE)) / 100;
   const isTopup = inv.kind === 'topup';
-  // "Top-up: 15 → 25 licences" (0117 description) → the band movement
+  // "Top-up: 15 → 25 licences" (0117 description): parsed from the raw string
+  // (which still has the arrow) before pdfSafe() rewrites it for display.
   const move = isTopup ? /(\d+)\s*→\s*(\d+)/.exec(inv.description ?? '') : null;
   const fromCount = move ? Number(move[1]) : null;
   const toCount = move ? Number(move[2]) : (inv.license_count ?? null);
+  const addedCount = fromCount != null && toCount != null ? toCount - fromCount : null;
   const method = inv.payment_method === 'whish' ? 'Whish Money'
     : inv.payment_method === 'areeba' ? 'Card'
     : inv.payment_method ? inv.payment_method : '—';
@@ -770,12 +779,13 @@ export function TaxInvoiceDoc({ inv, entityName, scopeType, plan, billingEmail }
   return (
     <Document title={`Tax Invoice ${invNo}`} author="Tatawwor L.L.C">
       <Page size="A4" style={s.page}>
-        {/* Header: seller identity vs invoice identity */}
-        <View style={s.header}>
+        {/* Header: seller identity vs invoice identity — brand teal, not the
+            indigo the other report PDFs use for their accent */}
+        <View style={[s.header, { borderBottomColor: C.teal }]}>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Image src="/logo-color.png" style={{ width: 34, height: 34 }} />
             <View>
-              <Text style={s.brand}>ABNIYAH</Text>
+              <Text style={[s.brand, { color: C.teal }]}>ABNIYAH</Text>
               <Text style={s.brandSub}>{SELLER.name}</Text>
               <Text style={s.brandSub}>{SELLER.address}</Text>
               <Text style={s.brandSub}>{SELLER.mof}</Text>
@@ -783,7 +793,7 @@ export function TaxInvoiceDoc({ inv, entityName, scopeType, plan, billingEmail }
             </View>
           </View>
           <View style={s.metaRight}>
-            <Text style={[s.title, { color: C.indigo }]}>TAX INVOICE</Text>
+            <Text style={[s.title, { color: C.teal }]}>TAX INVOICE</Text>
             <Text style={s.metaLabel}>Invoice No.</Text>
             <Text style={s.metaValue}>{invNo}</Text>
             <Text style={[s.metaLabel, { marginTop: 6 }]}>Issued</Text>
@@ -810,15 +820,15 @@ export function TaxInvoiceDoc({ inv, entityName, scopeType, plan, billingEmail }
         {/* What was bought */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>{isTopup ? 'License Top-up' : 'Subscription Period'}</Text>
-          {row('Description', inv.description ?? (isTopup ? 'License top-up' : 'Subscription'))}
+          {row('Description', pdfSafe(inv.description ?? (isTopup ? 'License top-up' : 'Subscription')))}
           {row('Billing cycle', plan === 'annual' ? 'Annual (10 months for 12)' : 'Monthly')}
           {row(isTopup ? 'Covers until' : 'Period', isTopup
             ? fmtDate(inv.period_end)
             : `${fmtDate(inv.period_start)} — ${fmtDate(inv.period_end)}`)}
           {isTopup && fromCount != null && toCount != null ? (
             <>
-              {row('Licenses', `${fromCount} → ${toCount}`)}
-              {row('Band movement', `${bandLabel(fromCount)} → ${bandLabel(toCount)} units`)}
+              {row('Licenses', `${fromCount} to ${toCount}${addedCount ? ` (+${addedCount})` : ''}`)}
+              {row('Band movement', `${bandLabel(fromCount)} units to ${bandLabel(toCount)} units`)}
               {row('Proration', 'Charged for the remaining days of the current period only')}
             </>
           ) : (
