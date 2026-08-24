@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Phone, Pencil, Trash2, ContactRound, FileSignature } from 'lucide-react';
+import { Plus, Phone, Mail, Pencil, Trash2, ContactRound, FileSignature } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -32,8 +32,8 @@ const SUGGESTIONS = [
   'generator', 'contractor', 'security', 'finance',
 ] as const;
 
-type Form = { kind: ContactKind; title: string; name: string; phone: string; scope: 'all' | 'block'; block_id: string };
-const newForm = (): Form => ({ kind: 'local', title: '', name: '', phone: '', scope: 'all', block_id: '' });
+type Form = { kind: ContactKind; title: string; name: string; phone: string; email: string; description: string; scope: 'all' | 'block'; block_id: string };
+const newForm = (): Form => ({ kind: 'local', title: '', name: '', phone: '', email: '', description: '', scope: 'all', block_id: '' });
 
 export default function BuildingContacts() {
   const { t } = useTranslation();
@@ -94,7 +94,7 @@ export default function BuildingContacts() {
   function openNew() { setEditId(null); setForm(newForm()); setOpen(true); }
   function openEdit(r: BuildingContact) {
     setEditId(r.id);
-    setForm({ kind: r.kind, title: r.title, name: r.name, phone: r.phone, scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '' });
+    setForm({ kind: r.kind, title: r.title, name: r.name, phone: r.phone, email: r.email, description: r.description, scope: r.building_id ? 'block' : 'all', block_id: r.building_id ?? '' });
     setOpen(true);
   }
 
@@ -104,7 +104,7 @@ export default function BuildingContacts() {
     const compound_id = entity.kind === 'compound' && form.scope === 'all' ? entity.id : null;
     const building_id = entity.kind === 'building' ? entity.id : (form.scope === 'block' ? form.block_id : null);
     if (!compound_id && !building_id) { setSaving(false); return; }
-    const base = { kind: form.kind, title: form.title.trim(), name: form.name.trim(), phone: form.phone.trim(), building_id, compound_id };
+    const base = { kind: form.kind, title: form.title.trim(), name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), description: form.description.trim(), building_id, compound_id };
     const { error } = editId
       ? await supabase.from('building_contacts').update(base).eq('id', editId)
       : await supabase.from('building_contacts').insert({ ...base, created_by: profile?.id });
@@ -181,6 +181,12 @@ export default function BuildingContacts() {
                       <Phone size={13} /> {r.phone}
                     </a>
                   )}
+                  {r.email && (
+                    <a href={`mailto:${r.email}`} dir="ltr" className="flex items-center gap-1.5 text-sm text-primary hover:underline mt-1 truncate">
+                      <Mail size={13} className="flex-shrink-0" /> <span className="truncate">{r.email}</span>
+                    </a>
+                  )}
+                  {r.description && <p className="text-xs text-muted-foreground mt-2">{r.description}</p>}
                 </CardBody></Card>
               ))}
             </div>
@@ -262,7 +268,14 @@ export default function BuildingContacts() {
             </div>
           )}
           <Input label={t('bcontacts.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <PhoneInput label={t('bcontacts.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          <div className="grid grid-cols-2 gap-3">
+            <PhoneInput label={t('bcontacts.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+            <Input label={t('bcontacts.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-muted-foreground">{t('bcontacts.description')}</label>
+            <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[70px]" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={save} loading={saving} disabled={!form.title.trim()}>{t('common.save')}</Button>

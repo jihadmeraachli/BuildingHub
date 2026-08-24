@@ -569,6 +569,9 @@ export interface BuildingContact {
   title: string;
   name: string;
   phone: string;
+  /** 0124 */
+  email: string;
+  description: string;
   created_by: string | null;
   created_at: string;
 }

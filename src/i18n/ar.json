@@ -1378,7 +1378,9 @@
     },
     "kind": "النوع",
     "kindLocal": "جهة اتصال محلية",
-    "kindCompany": "شركة"
+    "kindCompany": "شركة",
+    "email": "البريد الإلكتروني",
+    "description": "الوصف"
   },
   "dues": {
     "title": "الموازنة المسبقة",

@@ -1366,7 +1366,9 @@
     },
     "kind": "Type",
     "kindLocal": "Contact local",
-    "kindCompany": "Société"
+    "kindCompany": "Société",
+    "email": "E-mail",
+    "description": "Description"
   },
   "dues": {
     "title": "Budget prévisionnel",

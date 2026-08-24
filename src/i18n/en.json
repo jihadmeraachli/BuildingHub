@@ -1366,7 +1366,9 @@
     },
     "kind": "Type",
     "kindLocal": "Local Contact",
-    "kindCompany": "Company"
+    "kindCompany": "Company",
+    "email": "Email",
+    "description": "Description"
   },
   "dues": {
     "title": "Prepaid Budget",
