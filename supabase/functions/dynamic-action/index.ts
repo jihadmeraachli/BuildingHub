@@ -921,7 +921,11 @@ Deno.serve(async (req) => {
     }
 
     // 4. New charge (v3 finance) → the BILLED party only (owner or tenant)
-    if (tbl === 'charges' && type === 'INSERT') {
+    // 0121 (finance audit H4): notify_suppressed marks a charge written by
+    // repost_expense()/repost_metered_expense() — a re-post of an EXISTING
+    // expense, not a new one. Without this, fixing a typo on an expense
+    // re-fired this exact email to every resident on it.
+    if (tbl === 'charges' && type === 'INSERT' && !record.notify_suppressed) {
       const b = await getBuilding(record.building_id);
       // legacy billed_to='both' means owner; only 'tenant' routes to the tenant.
       const chargeRecipients = await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id);

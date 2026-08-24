@@ -7,6 +7,7 @@ import { Plus, Trash2, Info, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { fetchAll } from '@/lib/fetchAll';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeUnitBalances } from '@/lib/balance';
@@ -114,29 +115,34 @@ export default function Dues() {
     if (!entity) return;
     setLoading(true);
     const blocks = entity.buildingIds;
-    const [{ data: u }, { data: c }, { data: p }, { data: a }] = await Promise.all([
+    // H6 (finance audit): charges/payments/adjustments/dues go through
+    // fetchAll — PostgREST silently caps a plain select at 1000 rows, and an
+    // unpaged read here would generate dues from a truncated ledger (wrong
+    // carry-ins inserted as real obligations). Same fix Finance.tsx already
+    // has for these tables. Ordering includes id as a stable tiebreaker.
+    const [{ data: u }, chargeRows, paymentRows, adjRows] = await Promise.all([
       supabase.from('units').select('*').in('building_id', blocks).order('label'),
-      supabase.from('charges').select('*').in('building_id', blocks),
-      supabase.from('payments').select('*').in('building_id', blocks),
-      supabase.from('adjustments').select('*').in('building_id', blocks),
+      fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('building_id', blocks).order('charge_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('building_id', blocks).order('paid_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
+      fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('building_id', blocks).order('effective_date', { ascending: false }).order('created_at', { ascending: false }).order('id').range(f, t)),
     ]);
     setUnits((u as Unit[]) ?? []);
-    setCharges((c as Charge[]) ?? []);
-    setPayments((p as Payment[]) ?? []);
-    setAdjustments((a as Adjustment[]) ?? []);
+    setCharges(chargeRows);
+    setPayments(paymentRows);
+    setAdjustments(adjRows);
     const ids = ((u as Unit[]) ?? []).map((x) => x.id);
     if (ids.length) {
       const budQ = entity.kind === 'compound'
         ? supabase.from('budgets').select('*').eq('compound_id', entity.id)
         : supabase.from('budgets').select('*').eq('building_id', entity.id);
-      const [{ data: d }, { data: mem }, { data: g }, { data: ug }, { data: buds }] = await Promise.all([
-        supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false }),
+      const [duesRows, { data: mem }, { data: g }, { data: ug }, { data: buds }] = await Promise.all([
+        fetchAll<DuesItem>((f, t) => supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false }).order('id').range(f, t)),
         supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', ids),
         supabase.from('groups').select('*').in('building_id', blocks).order('name'),
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
         budQ.is('cancelled_at', null).order('period_start', { ascending: false }),
       ]);
-      setItems((d as DuesItem[]) ?? []);
+      setItems(duesRows);
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
       setGroups((g as Group[]) ?? []);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);

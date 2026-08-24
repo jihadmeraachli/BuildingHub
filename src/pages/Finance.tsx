@@ -298,6 +298,9 @@ export default function Finance() {
   const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  // 0119 audit H5: the ORIGINAL party this payment belongs to, captured when
+  // the edit modal opens — never re-derived from today's tenancy on save.
+  const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
 
   const canManageFinance = isPlatformAdmin || !!entity?.buildingIds.some((id) => can('expense.manage', id));
 
@@ -558,7 +561,7 @@ export default function Finance() {
   const previewSum = preview.reduce((s, r) => s + r.amount, 0);
 
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
-  function openPayment() { setEditingPaymentId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
+  function openPayment() { setEditingPaymentId(null); setEditingTenantId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' }); setAdjOpen(true); }
   function openExpenseEdit(e: Expense) {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
@@ -569,7 +572,7 @@ export default function Finance() {
     setExpOpen(true);
   }
   function openPaymentEdit(p: Payment) {
-    setEditingPaymentId(p.id); setPayFile(null);
+    setEditingPaymentId(p.id); setEditingTenantId(p.tenant_id ?? null); setPayFile(null);
     setPayForm({ unit_id: p.unit_id, amount: String(usdPartOf(p)), amount_lbp: p.amount_lbp ? String(p.amount_lbp) : '', lbp_rate: p.lbp_rate ? String(p.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), method: p.method, paid_on: p.paid_on, note: p.note ?? '', paid_by: p.paid_by ?? 'owner' });
     setPayOpen(true);
   }
@@ -599,19 +602,34 @@ export default function Finance() {
     const building_id = entity.kind === 'building' ? entity.id : (expForm.scope === 'block' ? expForm.block_id : null);
     const scope_type: AllocationScope = expForm.scope === 'all' ? (entity.kind === 'compound' ? 'compound' : 'block') : (expForm.scope as AllocationScope);
 
-    let expenseId = editingExpenseId;
+    // 0121: editing goes through one atomic RPC — it preserves each unit's
+    // original owner/tenant stamp and any voided charge (H4), and never
+    // re-fires the "new charge" notification for a repost. The allocation
+    // math stays here (unchanged); only "commit it" moves into the database.
     if (editingExpenseId) {
       const patch: Record<string, unknown> = { category: expForm.category, expense_type_id: expForm.expense_type_id || null, description: desc, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, expense_date: expForm.expense_date, scope_type, method: expForm.method, funded_by_fund_usd, project_id: expForm.project_id || null, amenity_id: expForm.amenity_id || null };
       if (invoice_url) patch.invoice_url = invoice_url;
-      await supabase.from('expenses').update(patch).eq('id', editingExpenseId);
-      await supabase.from('charges').delete().eq('expense_id', editingExpenseId);
-    } else {
+      const repostRows = (fromFund ? [] : allocate(amount, targetUnits, expForm.method, custom))
+        .filter((r) => r.amount !== 0)
+        .map((r) => ({ unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id, amount_usd: r.amount }));
+      const { error } = await supabase.rpc('repost_expense', {
+        p_expense: editingExpenseId, p_fields: patch, p_rows: repostRows, p_default_leased_to: expForm.leasedTo,
+      });
+      setSaving(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success(t('finance.expenseSaved'));
+      setExpOpen(false); loadScope();
+      return;
+    }
+
+    let expenseId: string | null = null;
+    {
       const { data: exp, error } = await supabase.from('expenses').insert({
         building_id, compound_id, category: expForm.category, description: desc, amount_usd: amount,
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
         expense_type_id: expForm.expense_type_id || null,
         amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
-        is_extraordinary: !editingExpenseId && !fromFund && expForm.extraordinary,
+        is_extraordinary: !fromFund && expForm.extraordinary,
         funded_by_fund_usd,
         project_id: expForm.project_id || null,
         amenity_id: expForm.amenity_id || null,
@@ -734,13 +752,25 @@ export default function Finance() {
     if (!payForm.unit_id || !amount || amount <= 0) return;
     setSaving(true);
     const receipt_url = payFile ? await uploadFile('attachments', `${payForm.unit_id}/payments`, payFile) : null;
-    // T8: leased units record who paid; owner-only units are always the owner
-    const paid_by = hasTenant(payForm.unit_id) ? payForm.paid_by : 'owner';
-    const base: Record<string, unknown> = { unit_id: payForm.unit_id, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id: paid_by === 'tenant' ? activeTenantId(payForm.unit_id) : null };
+    // T8: leased units record who paid; owner-only units are always the owner.
+    // 0119 audit H5: EDITING a payment never re-derives the party from
+    // today's tenancy — a former tenant's payment must stay theirs even
+    // after they move out, not silently flip to the owner or a new tenant
+    // just because someone fixed a note. The picker (hidden when the unit
+    // has no active tenant) already carried payForm.paid_by/editingTenantId
+    // in from the original row; only a NEW payment falls back to 'owner'.
+    const paid_by = editingPaymentId ? (payForm.paid_by ?? 'owner') : (hasTenant(payForm.unit_id) ? payForm.paid_by : 'owner');
+    const tenant_id = paid_by === 'tenant'
+      ? (editingPaymentId ? (editingTenantId ?? activeTenantId(payForm.unit_id)) : activeTenantId(payForm.unit_id))
+      : null;
+    // H3: always carry the block — editing a payment onto a unit in another
+    // block must move it there too, or the compound book and the block slice
+    // disagree ("charges carry the block" applies to payments just the same).
+    const base: Record<string, unknown> = { unit_id: payForm.unit_id, building_id: unitById[payForm.unit_id]?.building_id, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id };
     if (receipt_url) base.receipt_url = receipt_url;
     const { error } = editingPaymentId
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
-      : await supabase.from('payments').insert({ ...base, building_id: unitById[payForm.unit_id]?.building_id, recorded_by: profile?.id });
+      : await supabase.from('payments').insert({ ...base, recorded_by: profile?.id });
     setSaving(false);
     if (error) { toast.error(`Could not save payment: ${error.message}`); return; }
     toast.success(t('finance.paymentSaved'));
