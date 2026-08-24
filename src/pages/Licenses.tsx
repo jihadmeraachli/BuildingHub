@@ -565,12 +565,12 @@ export default function Licenses() {
                     once there is. Grace/locked point at the open invoice. */}
                 <div className="flex flex-wrap gap-2">
                   {(sub.status === 'trial' || sub.status === 'grace') && !sub.cancel_at_period_end && (
-                    <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
+                    <Button variant="tinted" onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
                       {t('billing.subscribeNow')}
                     </Button>
                   )}
                   {(sub.status === 'active' || sub.status === 'locked') && !sub.cancel_at_period_end && (
-                    <Button onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
+                    <Button variant="tinted" onClick={() => { setSubscribePlan(sub.plan); setSubscribeStep('plan'); setSubscribeOpen(true); }}>
                       {t('billing.renewNow')}
                     </Button>
                   )}
@@ -590,7 +590,8 @@ export default function Licenses() {
                   {sub.cancel_at_period_end ? (
                     <Button variant="outline" loading={lifecycleSaving} onClick={doResume}>{t('billing.resume')}</Button>
                   ) : sub.status !== 'trial' && sub.status !== 'cancelled' && (
-                    <Button variant="ghost" loading={lifecycleSaving} onClick={() => setCancelOpen(true)} className="text-destructive">
+                    <Button variant="tinted" loading={lifecycleSaving} onClick={() => setCancelOpen(true)}
+                      className="bg-destructive/15 text-destructive border-destructive/40 hover:bg-destructive/25">
                       {t('billing.cancel')}
                     </Button>
                   )}
