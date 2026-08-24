@@ -1259,7 +1259,9 @@
     "fundOverAllocated": "La répartition dépasse le montant de la dépense.",
     "fundRemainderUnnamed": "Une partie de cette dépense n’est pas répartie. Dites si la caisse la supporte, ou corrigez la répartition.",
     "deleteExpenseTitle": "Supprimer la charge",
-    "deleteExpenseConfirm": "Supprimer cette charge et les répartitions qu’elle a créées ?"
+    "deleteExpenseConfirm": "Supprimer cette charge et les répartitions qu’elle a créées ?",
+    "saveExpenseFailed": "Impossible d'enregistrer la charge.",
+    "savePaymentFailed": "Impossible d'enregistrer le paiement : {{msg}}"
   },
   "inspections": {
     "title": "Contrôles",

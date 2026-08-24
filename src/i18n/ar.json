@@ -1271,7 +1271,9 @@
     "fundOverAllocated": "مجموع التوزيع أكبر من المصروف.",
     "fundRemainderUnnamed": "جزء من هذا المصروف غير موزّع. حدّد إن كان الصندوق يتحمّله، أو صحّح التوزيع.",
     "deleteExpenseTitle": "حذف المصروف",
-    "deleteExpenseConfirm": "حذف هذا المصروف والمصاريف التي أنشأها؟"
+    "deleteExpenseConfirm": "حذف هذا المصروف والمصاريف التي أنشأها؟",
+    "saveExpenseFailed": "تعذّر حفظ المصروف.",
+    "savePaymentFailed": "تعذّر حفظ الدفعة: {{msg}}"
   },
   "inspections": {
     "title": "الفحوصات",

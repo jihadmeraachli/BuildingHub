@@ -581,7 +581,11 @@ export default function Dashboard() {
         <CardContent className="pt-4">
           <p className="text-sm font-semibold mb-4">{t('dashboard.coverage')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-            <CoverageItem label={t('dashboard.reserve')} value={money(fund)} negative={fund < 0} />
+            {/* Audit M2: the hero reads fund_position().reserve; this card used
+                to show the pre-0106 collected − billed + carry, so the same
+                screen carried two different "Reserve" numbers whenever an
+                expense was fund-funded. Same source now, same fallback. */}
+            <CoverageItem label={t('dashboard.reserve')} value={money(fundPos ? Number(fundPos.reserve) : fund)} negative={(fundPos ? Number(fundPos.reserve) : fund) < 0} />
             <CoverageItem label={t('dashboard.runway')} value={`${coverage.runwayMonths} ${t('dashboard.monthsShort')}`} />
             {coverage.duesPeriod && (
               <CoverageItem label={`${t('dashboard.duesIssued')} · ${coverage.duesPeriod}`} value={money(coverage.duesIssued)} />

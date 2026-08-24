@@ -472,3 +472,35 @@ describe('tenantTitle', () => {
     expect(tenantTitle('Current tenant')).toBe('Current tenant');
   });
 });
+
+// ── computeDuesGeneration: allocation residual (audit M1) ────────────────────
+// The dues allocator used to round PER UNIT, so a $1,000 pool over 3 equal
+// units issued $999.99 — one cent lost per generation, and the Issued Budgets
+// card never matched the budget. The fix pushes the residual onto the last
+// unit, same as Finance's expense allocator. These pin Σ base === pool.
+import { computeDuesGeneration } from '@/lib/reportData';
+
+describe('computeDuesGeneration allocation', () => {
+  const genInput = (method: 'equal' | 'by_shares', pool: number, us: Unit[]) => ({
+    units: us,
+    plan: { method, planType: 'b1' as const, poolAmount: pool, ownerPoolAmount: 0, custom: {}, ownerCustom: {} },
+    balances: {},
+    activeTenantId: () => null,
+    outstandingDues: () => 0,
+    includeRecurring: true,
+  });
+
+  it('equal split of $1,000 across 3 units sums to exactly $1,000, not $999.99', () => {
+    const rows = computeDuesGeneration(genInput('equal', 1000, [unit('u1'), unit('u2'), unit('u3')]));
+    const total = rows.reduce((s, r) => s + r.base, 0);
+    expect(Math.round(total * 100) / 100).toBe(1000);
+    // residual lands on the last unit, everyone else keeps the clean share
+    expect(rows.map((r) => r.base)).toEqual([333.33, 333.33, 333.34]);
+  });
+
+  it('by_shares keeps the pool exact under rounding-hostile weights', () => {
+    const us = [unit('u1', { share_weight: 1 }), unit('u2', { share_weight: 1 }), unit('u3', { share_weight: 1 })];
+    const rows = computeDuesGeneration(genInput('by_shares', 100, us));
+    expect(Math.round(rows.reduce((s, r) => s + r.base, 0) * 100) / 100).toBe(100);
+  });
+});

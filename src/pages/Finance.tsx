@@ -25,6 +25,7 @@ import { MeteringPanel } from '@/components/MeteringPanel';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useConfirm } from '@/lib/useConfirm';
+import i18n from '@/i18n';
 import { MonthPicker } from '@/components/ui/MonthPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
@@ -358,13 +359,14 @@ export default function Finance() {
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
       // dues ride along so an exported statement lists the party's obligations
-      // next to its ledger (0070)
-      const [{ data: dus }, { data: prl }] = await Promise.all([
-        supabase.from('dues').select('*').in('unit_id', ids),
-        supabase.from('payment_request_lines').select('*').in('unit_id', ids).is('cancelled_at', null),
+      // next to its ledger (0070). Audit M5: paged like the other row tables —
+      // a dues-mode compound crosses PostgREST's silent 1000-row cap fast.
+      const [duesRows, prlRows] = await Promise.all([
+        fetchAll<Dues>((f, t) => supabase.from('dues').select('*').in('unit_id', ids).order('created_at', { ascending: false }).order('id').range(f, t)),
+        fetchAll<PaymentRequestLine>((f, t) => supabase.from('payment_request_lines').select('*').in('unit_id', ids).is('cancelled_at', null).order('created_at', { ascending: false }).order('id').range(f, t)),
       ]);
-      setDues((dus as Dues[]) ?? []);
-      setOpenRequestLines((prl as PaymentRequestLine[]) ?? []);
+      setDues(duesRows);
+      setOpenRequestLines(prlRows);
     } else { setUnitGroups([]); setTenancy([]); setDues([]); setOpenRequestLines([]); }
     setLoading(false);
   }
@@ -455,7 +457,9 @@ export default function Finance() {
   // running balance ON that date, not a sum of the window (0033's as-of model).
   const asOfDate = range?.to ?? null;
   const asOfLabel = asOfDate ? fmtDate(asOfDate, 'MMM d, yyyy') : '';
-  const periodLabel = period === 'month' ? new Date(`${monthValue}-01`).toLocaleString(undefined, { month: 'long', year: 'numeric' }) : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
+  // Audit L3: the browser locale is not the app language — a French UI on an
+  // English OS was labelling periods in English. Follow i18n, like dateFmt.
+  const periodLabel = period === 'month' ? new Date(`${monthValue}-01`).toLocaleString(i18n.language, { month: 'long', year: 'numeric' }) : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
 
   // voided charges/payments never count toward cash or the book
   const pCharges = vCharges.filter((c) => !c.voided_at && inRange(c.charge_date));
@@ -536,8 +540,8 @@ export default function Finance() {
       return { labels, collected: collected.map(round2), billed: billed.map(round2) };
     }
     const buckets = period === 'year'
-      ? Array.from({ length: 12 }, (_, k) => ({ key: `${now.getFullYear()}-${k}`, label: new Date(now.getFullYear(), k, 1).toLocaleString(undefined, { month: 'short' }), c: 0, b: 0 }))
-      : Array.from({ length: 12 }, (_, k) => { const d = new Date(now.getFullYear(), now.getMonth() - 11 + k, 1); return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString(undefined, { month: 'short' }), c: 0, b: 0 }; });
+      ? Array.from({ length: 12 }, (_, k) => ({ key: `${now.getFullYear()}-${k}`, label: new Date(now.getFullYear(), k, 1).toLocaleString(i18n.language, { month: 'short' }), c: 0, b: 0 }))
+      : Array.from({ length: 12 }, (_, k) => { const d = new Date(now.getFullYear(), now.getMonth() - 11 + k, 1); return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleString(i18n.language, { month: 'short' }), c: 0, b: 0 }; });
     const find = (dt: string) => { const d = new Date(dt); return buckets.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`); };
     pPayments.forEach((p) => { const x = find(p.paid_on); if (x) x.c += Number(p.amount_usd); });
     pCharges.forEach((c) => { const x = find(c.charge_date); if (x) x.b += Number(c.amount_usd); });
@@ -630,7 +634,7 @@ export default function Finance() {
         project_id: expForm.project_id || null,
         amenity_id: expForm.amenity_id || null,
       }).select().single();
-      if (error || !exp) { setSaving(false); toast.error(error?.message ?? 'Could not save expense'); return; }
+      if (error || !exp) { setSaving(false); toast.error(error?.message ?? t('finance.saveExpenseFailed')); return; }
       expenseId = (exp as Expense).id;
     }
 
@@ -655,36 +659,33 @@ export default function Finance() {
     if (!editingExpenseId && expForm.extraordinary && expenseId && rows.length) {
       if (entity.billingMode === 'dues') {
         const label = `${t('finance.extraordinaryTag')}: ${desc}`;
-        const { data: bud, error: bErr } = await supabase.from('budgets').insert({
-          building_id: entity.kind === 'building' ? entity.id : null,
-          compound_id: entity.kind === 'compound' ? entity.id : null,
-          label, period_start: expForm.expense_date, period_end: expForm.expense_date,
-          expense_id: expenseId,
-          due_date: new Date(Date.now() + effectiveDueDays * 864e5).toISOString().slice(0, 10), method: 'custom',
-          billed_to: expForm.leasedTo === 'tenant' ? 'tenant_where_leased' : 'owner',
-          true_up: false, created_by: profile?.id,
-        }).select().single();
-        if (bErr || !bud) { toast.error(bErr?.message ?? 'Could not issue the extraordinary ask'); }
-        else {
-          const budgetId = (bud as { id: string }).id;
-          await supabase.from('budget_lines').insert({
-            budget_id: budgetId, expense_type_id: expForm.expense_type_id || null,
-            note: desc, amount_usd: amount,
+        // a due date is what makes the reminder cron chase it
+        const dueDate = new Date(Date.now() + effectiveDueDays * 864e5).toISOString().slice(0, 10);
+        // 0125 (audit M3): one transaction — budget, line and dues together
+        // or not at all (the 0092 discipline, extended to issue).
+        const { error: bErr } = await supabase.rpc('issue_budget', {
+          p_budget: {
+            building_id: entity.kind === 'building' ? entity.id : null,
+            compound_id: entity.kind === 'compound' ? entity.id : null,
+            label, period_start: expForm.expense_date, period_end: expForm.expense_date,
+            expense_id: expenseId, due_date: dueDate, method: 'custom',
+            billed_to: expForm.leasedTo === 'tenant' ? 'tenant_where_leased' : 'owner',
+            true_up: false,
+          },
+          p_lines: [{
+            expense_type_id: expForm.expense_type_id || null, note: desc, amount_usd: amount,
             amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
-          });
-          const { error: dErr } = await supabase.from('dues').insert(rows.map((r) => ({
-            budget_id: budgetId, building_id: r.building_id, unit_id: r.unit_id,
-            period_label: label,
-            // a due date is what makes the reminder cron chase it
-            due_date: new Date(Date.now() + effectiveDueDays * 864e5).toISOString().slice(0, 10),
-            base_amount: r.amount_usd, carry_in: 0, amount_due: r.amount_usd,
+          }],
+          p_dues: rows.map((r) => ({
+            building_id: r.building_id, unit_id: r.unit_id, period_label: label,
+            due_date: dueDate, base_amount: r.amount_usd, carry_in: 0, amount_due: r.amount_usd,
             billed_to: r.billed_to === 'tenant' ? 'tenant' : 'owner',
             tenant_id: r.billed_to === 'tenant' ? r.tenant_id : null,
-            kind: 'off_budget', label, created_by: profile?.id,
-          })));
-          if (dErr) toast.error(dErr.message);
-          else toast.success(t('finance.extraordinaryIssuedDues'));
-        }
+            kind: 'off_budget', label,
+          })),
+        });
+        if (bErr) toast.error(bErr.message);
+        else toast.success(t('finance.extraordinaryIssuedDues'));
       } else {
         const { error: rErr } = await supabase.rpc('request_payment_for_expense', { p_expense: expenseId });
         if (rErr) toast.error(rErr.message);
@@ -769,7 +770,7 @@ export default function Finance() {
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
       : await supabase.from('payments').insert({ ...base, recorded_by: profile?.id });
     setSaving(false);
-    if (error) { toast.error(`Could not save payment: ${error.message}`); return; }
+    if (error) { toast.error(t('finance.savePaymentFailed', { msg: error.message })); return; }
     toast.success(t('finance.paymentSaved'));
     setPayOpen(false); loadScope();
   }

@@ -14,7 +14,7 @@
 // so the next render picks up the new locale.
 // ============================================================
 import { format } from 'date-fns';
-import { ar, enUS } from 'date-fns/locale';
+import { ar, enUS, fr } from 'date-fns/locale';
 import i18n from '@/i18n';
 
 /**
@@ -30,5 +30,8 @@ export function fmtDate(
   if (!value) return fallback;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return fallback;
-  return format(d, pattern, { locale: i18n.language?.startsWith('ar') ? ar : enUS });
+  // Audit L3: fr was missing, so every finance date on a French screen
+  // rendered its month and weekday names in English.
+  const lang = i18n.language ?? 'en';
+  return format(d, pattern, { locale: lang.startsWith('ar') ? ar : lang.startsWith('fr') ? fr : enUS });
 }

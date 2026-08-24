@@ -1259,7 +1259,9 @@
     "fundOverAllocated": "The split adds up to more than the expense.",
     "fundRemainderUnnamed": "Part of this expense is not allocated. Say whether the fund bears it, or fix the split.",
     "deleteExpenseTitle": "Delete expense",
-    "deleteExpenseConfirm": "Delete this expense and the charges it created?"
+    "deleteExpenseConfirm": "Delete this expense and the charges it created?",
+    "saveExpenseFailed": "Could not save the expense.",
+    "savePaymentFailed": "Could not save the payment: {{msg}}"
   },
   "inspections": {
     "title": "Inspections",

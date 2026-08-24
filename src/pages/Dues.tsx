@@ -282,28 +282,31 @@ export default function Dues() {
     if (lines.some((l) => (Number(l.lbp) || 0) > 0 && (Number(l.rate) || 0) <= 0)) { toast.error(t('finance.lbpNeedsRate')); return; }
     if (!lines.length) { toast.error(t('dues.needLines')); return; }
     setSaving(true);
-    const { data: bud, error: bErr } = await supabase.from('budgets').insert({
-      building_id: entity.kind === 'building' ? entity.id : null,
-      compound_id: entity.kind === 'compound' ? entity.id : null,
-      label: genPeriod.trim(), period_start: genStart, period_end: genEnd,
-      due_date: genDue || null, method: genMethod, billed_to: genBillTo,
-      true_up: genTrueUp, created_by: profile?.id,
-    }).select().single();
-    if (bErr || !bud) { toast.error(bErr?.message ?? 'Could not save the budget'); setSaving(false); return; }
-    const budgetId = (bud as { id: string }).id;
-    const { error: lErr } = await supabase.from('budget_lines').insert(lines.map((l) => {
-      const lbp = Number(l.lbp) || 0;
-      return {
-        budget_id: budgetId, expense_type_id: l.expense_type_id || null, note: l.note.trim() || null,
-        amount_usd: composeUsdTotal(Number(l.usd) || 0, lbp, Number(l.rate) || 0),
-        amount_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(l.rate) : null,
-      };
-    }));
-    if (lErr) { toast.error(lErr.message); setSaving(false); return; }
-    const rows = toRows(preview, genPeriod.trim(), genDue, budgetId);
-    if (rows.length) { const { error } = await supabase.from('dues').insert(rows); if (error) { toast.error(error.message); setSaving(false); return; } }
+    // 0125 (audit M3): one transaction — the budget, its lines and its dues
+    // land together or not at all. The old three-insert client sequence could
+    // half-complete on a dropped connection, leaving a $0 "issued" budget.
+    const { error } = await supabase.rpc('issue_budget', {
+      p_budget: {
+        building_id: entity.kind === 'building' ? entity.id : null,
+        compound_id: entity.kind === 'compound' ? entity.id : null,
+        label: genPeriod.trim(), period_start: genStart, period_end: genEnd,
+        due_date: genDue || null, method: genMethod, billed_to: genBillTo, true_up: genTrueUp,
+      },
+      p_lines: lines.map((l) => {
+        const lbp = Number(l.lbp) || 0;
+        return {
+          expense_type_id: l.expense_type_id || null, note: l.note.trim() || null,
+          amount_usd: composeUsdTotal(Number(l.usd) || 0, lbp, Number(l.rate) || 0),
+          amount_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(l.rate) : null,
+        };
+      }),
+      // budget_id/created_by in these rows are ignored — the RPC stamps its own
+      p_dues: toRows(preview, genPeriod.trim(), genDue, ''),
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
     toast.success(t('dues.generated'));
-    setSaving(false); setGenOpen(false); load();
+    setGenOpen(false); load();
   }
 
 

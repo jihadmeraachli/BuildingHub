@@ -279,14 +279,31 @@ export function buildDuesRows(
 
 // ---------- generation ----------
 
-/** Per-unit allocation of a pool, by the plan's method. */
-function allocate(
-  method: DuesMethod, pool: number, custom: Record<string, number>, u: Unit, units: Unit[],
-): number {
-  if (method === 'custom') return round2(Number(custom[u.id]) || 0);
-  if (method === 'equal') return round2(pool / (units.length || 1));
-  const total = units.reduce((s, x) => s + Number(x.share_weight), 0) || 1;
-  return round2((pool * Number(u.share_weight)) / total);
+/** Allocation of a pool across ALL units, with the rounding residual pushed
+ *  onto the last unit so Σ allocations always equals the pool exactly — the
+ *  same fix Finance's expense allocator has. Per-unit rounding (the old
+ *  shape, audit M1) issued $999.99 for a $1,000 pool over 3 units: one cent
+ *  lost per generation, and the Issued Budgets card never matched. */
+function allocateAll(
+  method: DuesMethod, pool: number, custom: Record<string, number>, units: Unit[],
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!units.length) return out;
+  if (method === 'custom') {
+    for (const u of units) out[u.id] = round2(Number(custom[u.id]) || 0);
+    return out;
+  }
+  let raw: number[];
+  if (method === 'equal') raw = units.map(() => pool / units.length);
+  else {
+    const total = units.reduce((s, x) => s + Number(x.share_weight), 0) || 1;
+    raw = units.map((u) => (pool * Number(u.share_weight)) / total);
+  }
+  const rounded = raw.map(round2);
+  const diff = round2(pool - rounded.reduce((s, r) => s + r, 0));
+  rounded[rounded.length - 1] = round2(rounded[rounded.length - 1] + diff);
+  units.forEach((u, i) => { out[u.id] = rounded[i]; });
+  return out;
 }
 
 export interface DuesGenPlan {
@@ -372,14 +389,19 @@ export function computeDuesGeneration(input: DuesGenInput): DuesGenRow[] {
   const isB2 = plan.planType === 'b2';
   const rows: DuesGenRow[] = [];
 
+  // Allocated once for the whole run (residual-corrected), looked up per unit.
+  const recurringAlloc = includeRecurring ? allocateAll(plan.method, plan.poolAmount, plan.custom, units) : null;
+  const ownerAlloc     = includeRecurring ? allocateAll(plan.method, plan.ownerPoolAmount, plan.ownerCustom, units) : null;
+  const offAlloc       = offBudget ? allocateAll(offBudget.method, offBudget.total, offBudget.custom, units) : null;
+
   for (const u of units) {
     const bal = balances[u.id] ?? { owner: 0, tenant: 0, total: 0 };
     const tenantId = activeTenantId(u.id);
     const leased = !!tenantId;
 
-    const recurring  = includeRecurring ? allocate(plan.method, plan.poolAmount, plan.custom, u, units) : 0;
-    const ownerSlice = includeRecurring ? allocate(plan.method, plan.ownerPoolAmount, plan.ownerCustom, u, units) : 0;
-    const offBase    = offBudget ? allocate(offBudget.method, offBudget.total, offBudget.custom, u, units) : 0;
+    const recurring  = recurringAlloc?.[u.id] ?? 0;
+    const ownerSlice = ownerAlloc?.[u.id] ?? 0;
+    const offBase    = offAlloc?.[u.id] ?? 0;
 
     // Build each party's lines first, then settle the carry ONCE per party.
     // Which side a line lands on:
