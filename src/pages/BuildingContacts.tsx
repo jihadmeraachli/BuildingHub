@@ -268,10 +268,8 @@ export default function BuildingContacts() {
             </div>
           )}
           <Input label={t('bcontacts.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
-            <PhoneInput label={t('bcontacts.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-            <Input label={t('bcontacts.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          </div>
+          <PhoneInput label={t('bcontacts.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          <Input label={t('bcontacts.email')} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-muted-foreground">{t('bcontacts.description')}</label>
             <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[70px]" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
