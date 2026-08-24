@@ -392,7 +392,7 @@ export default function Dues() {
           {/* No standing plan any more: every issuance IS the plan (0087).
               Issuing stays blocked in arrears mode — get_overdue_dues() only
               reminds on 'dues' buildings. */}
-          {canManage && entity && duesMode && <Button onClick={openBudget}><Plus size={16} /> {t('dues.newBudget')}</Button>}
+          {canManage && entity && duesMode && <Button variant="tinted" onClick={openBudget}><Plus size={16} /> {t('dues.newBudget')}</Button>}
         </div>
       </div>
 

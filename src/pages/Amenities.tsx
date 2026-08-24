@@ -173,7 +173,7 @@ export default function Amenities() {
               {KINDS.map((k) => <SelectItem key={k} value={k}>{t(`amenities.kinds.${k}`)}</SelectItem>)}
             </SelectContent>
           </RadixSelect>
-          {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('amenities.add')}</Button>}
+          {canManage && entity && <Button variant="tinted" onClick={openNew}><Plus size={16} /> {t('amenities.add')}</Button>}
         </div>
       </div>
 

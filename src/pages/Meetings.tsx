@@ -231,7 +231,7 @@ export default function Meetings() {
           {isManager && effectiveBuildingIds.length > 0 && (
             <>
               <Button variant="secondary" onClick={openAdd}><Plus size={16} /> {t('meetings.addMeeting')}</Button>
-              <Button onClick={openSchedule}><CalendarPlus size={16} /> {t('meetings.scheduleMeeting')}</Button>
+              <Button variant="tinted" onClick={openSchedule}><CalendarPlus size={16} /> {t('meetings.scheduleMeeting')}</Button>
             </>
           )}
         </div>

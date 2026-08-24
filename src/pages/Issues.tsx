@@ -253,7 +253,7 @@ export default function Issues() {
               <SelectItem value="resolved">{t('issues.statuses.resolved')}</SelectItem>
             </SelectContent>
           </RadixSelect>
-          {!isDemo && (isManager ? !!entity : myUnits.length > 0) && <Button onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
+          {!isDemo && (isManager ? !!entity : myUnits.length > 0) && <Button variant="tinted" onClick={openCreate}><Plus size={16} /> {t('issues.logIssue')}</Button>}
         </div>
       </div>
 

@@ -375,7 +375,7 @@ export default function Structure() {
             <>
               {!viewOnly && (
                 <div className="flex justify-end mb-3">
-                  <Button onClick={() => openUnit()}><Plus size={16} /> {t('structure.addUnit')}</Button>
+                  <Button variant="tinted" onClick={() => openUnit()}><Plus size={16} /> {t('structure.addUnit')}</Button>
                 </div>
               )}
               {loading ? <SkeletonTable rows={5} cols={5} />
@@ -452,7 +452,7 @@ export default function Structure() {
           {tab === 'groups' && (
             <>
               <div className="flex justify-end mb-3">
-                <Button onClick={() => { setGroupName(''); setGroupModal(true); }}><Plus size={16} /> {t('structure.addGroup')}</Button>
+                <Button variant="tinted" onClick={() => { setGroupName(''); setGroupModal(true); }}><Plus size={16} /> {t('structure.addGroup')}</Button>
               </div>
               {groups.length === 0 ? (
                 <Card><CardBody><div className="text-center py-10">

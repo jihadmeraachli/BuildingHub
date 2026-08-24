@@ -143,7 +143,7 @@ export default function BuildingContacts() {
               </SelectContent>
             </RadixSelect>
           )}
-          {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('bcontacts.add')}</Button>}
+          {canManage && entity && <Button variant="tinted" onClick={openNew}><Plus size={16} /> {t('bcontacts.add')}</Button>}
         </div>
       </div>
 

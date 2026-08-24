@@ -197,7 +197,7 @@ export default function Contracts() {
               <SelectItem value="expired">{t('contracts.expired')}</SelectItem>
             </SelectContent>
           </RadixSelect>
-          {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('contracts.add')}</Button>}
+          {canManage && entity && <Button variant="tinted" onClick={openNew}><Plus size={16} /> {t('contracts.add')}</Button>}
         </div>
       </div>
 

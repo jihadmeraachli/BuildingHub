@@ -251,7 +251,7 @@ export default function Compounds() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('nav.compounds')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t('buildings.compoundHint')}</p>
         </div>
-        <Button onClick={() => { setAddForm({ name: '', city: '', country: 'Lebanon' }); setAddModal(true); }}>
+        <Button variant="tinted" onClick={() => { setAddForm({ name: '', city: '', country: 'Lebanon' }); setAddModal(true); }}>
           <Plus size={16} /> {t('buildings.addCompound')}
         </Button>
       </div>

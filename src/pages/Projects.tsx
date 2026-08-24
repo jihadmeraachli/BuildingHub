@@ -156,7 +156,7 @@ export default function Projects() {
               {STATUSES.map((s) => <SelectItem key={s} value={s}>{t(`projects.status.${s}`)}</SelectItem>)}
             </SelectContent>
           </RadixSelect>
-          {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('projects.add')}</Button>}
+          {canManage && entity && <Button variant="tinted" onClick={openNew}><Plus size={16} /> {t('projects.add')}</Button>}
         </div>
       </div>
 

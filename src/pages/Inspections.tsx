@@ -165,7 +165,7 @@ export default function Inspections() {
               className="rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           )}
-          {canManage && entity && <Button onClick={openNew}><Plus size={16} /> {t('inspections.add')}</Button>}
+          {canManage && entity && <Button variant="tinted" onClick={openNew}><Plus size={16} /> {t('inspections.add')}</Button>}
         </div>
       </div>
 

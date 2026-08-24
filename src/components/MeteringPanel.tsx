@@ -274,7 +274,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
         <SelectField label="" value={typeId} onValueChange={setTypeId}>
           {metered.map((ty) => <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>)}
         </SelectField>
-        {canManage && <Button onClick={openCycle}><Plus size={16} /> {t('metering.newCycle')}</Button>}
+        {canManage && <Button variant="tinted" onClick={openCycle}><Plus size={16} /> {t('metering.newCycle')}</Button>}
       </div>
 
       {cycles.length === 0
