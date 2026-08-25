@@ -296,8 +296,16 @@ function allocateAll(
   let raw: number[];
   if (method === 'equal') raw = units.map(() => pool / units.length);
   else {
-    const total = units.reduce((s, x) => s + Number(x.share_weight), 0) || 1;
-    raw = units.map((u) => (pool * Number(u.share_weight)) / total);
+    // 0140 (dues audit D12): degenerate weights — all zero, or any non-finite —
+    // must fall back to an equal split, not dump the whole pool on the last unit
+    // (all-zero) or emit NaN dues (non-finite).
+    const total = units.reduce((s, x) => s + (Number.isFinite(Number(x.share_weight)) ? Number(x.share_weight) : 0), 0);
+    raw = (!Number.isFinite(total) || total <= 0)
+      ? units.map(() => pool / units.length)
+      : units.map((u) => {
+          const w = Number(u.share_weight);
+          return (pool * (Number.isFinite(w) ? w : 0)) / total;
+        });
   }
   const rounded = raw.map(round2);
   const diff = round2(pool - rounded.reduce((s, r) => s + r, 0));

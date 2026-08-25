@@ -145,7 +145,10 @@ export default function Dues() {
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),
         budQ.is('cancelled_at', null).order('period_start', { ascending: false }),
       ]);
-      setItems(duesRows);
+      // D11: drop dues of units no longer present (e.g. soft-deleted) so the
+      // Dues tab and its balances match the visible unit list — `ids` is the
+      // fetched (RLS-visible, non-trashed) unit set.
+      { const idSet = new Set(ids); setItems(duesRows.filter((d) => idSet.has(d.unit_id))); }
       setTenancy((mem as unknown as TenancyRow[]) ?? []);
       setGroups((g as Group[]) ?? []);
       setUnitGroups((ug as { group_id: string; unit_id: string }[]) ?? []);
