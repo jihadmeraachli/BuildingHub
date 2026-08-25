@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@/lib/toast';
-import { FileBarChart2, Download } from 'lucide-react';
+import { FileBarChart2, Download, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
@@ -17,6 +17,8 @@ import type { Unit, Charge, Payment, Expense, Adjustment, Budget, BudgetLine, Fu
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SelectField, SelectItem } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
+import { cn } from '@/lib/utils';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { fmtMoney } from '@/lib/money';
 
@@ -172,6 +174,8 @@ export default function Reports() {
   // expenses booked inside its period.
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [bvaBudgetId, setBvaBudgetId] = useState('');
+  const [stdOpen, setStdOpen] = useState(false);   // Building-financial download dialog
+  const [bvaOpen, setBvaOpen] = useState(false);   // Budget-vs-actual collapsible
   const [bvaLines, setBvaLines] = useState<BudgetLine[]>([]);
   const { types: allExpenseTypes } = useExpenseTypes(entity?.kind, entity?.id);
 
@@ -379,119 +383,120 @@ export default function Reports() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('reports.title')}</h1>
           <p className="text-sm text-slate-500 mt-0.5">{t('reports.subtitle')}</p>
         </div>
-        {/* Entity selection moved to the sidebar (global). */}
+        {/* Standard prepared PDFs live here as quick downloads, kept out of the
+            way so the custom report below is the focus of the page. */}
+        {entity && !loading && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setStdOpen(true)} disabled={units.length === 0}>
+              <Download size={15} /> {t('reports.buildingReport')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadFundStatement} loading={busy === 'fund'} disabled={!entity}>
+              <Download size={15} /> {t('reports.fundStatement')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {!entity ? (
         <Card><CardBody><p className="text-sm text-muted-foreground text-center py-10">{t('common.pickEntity')}</p></CardBody></Card>
       ) : loading ? <SkeletonCards count={2} /> : (
-        <div className="grid md:grid-cols-2 gap-4 max-w-4xl">
-          {/* ── Building financial report ── */}
-          <Card><CardBody>
-            <div className="flex items-center gap-2.5 mb-2">
-              <FileBarChart2 size={18} className="text-primary" />
-              <p className="font-semibold text-foreground">{t('reports.buildingReport')}</p>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.buildingReportDesc')}</p>
-            <div className="space-y-3">
-              <SelectField label={t('reports.period')} value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-                <SelectItem value="all">{t('finance.allTime')}</SelectItem>
-                <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
-                <SelectItem value="month">{t('reports.specificMonth')}</SelectItem>
-              </SelectField>
-              {period === 'month' && (
-                <input
-                  type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              )}
-              <Button onClick={downloadBuildingReport} loading={busy === 'report'} disabled={!entity || units.length === 0} className="w-full">
-                <Download size={15} /> {t('reports.download')}
-              </Button>
-            </div>
-          </CardBody></Card>
+        <div className="space-y-4 max-w-6xl">
+          {/* The custom report IS the page: search everything, filter, export. */}
+          <CustomReportCard rows={ledgerRows} entityName={entity.name} />
 
-          {/* The Unit statement card that used to sit here is gone. Finance's
-              book already exports a statement from each unit's own row, where
-              you are already looking at that unit — this was a second door to
-              the identical PDF, in a place where you first had to find the unit
-              in a dropdown. Same reasoning that removed the two resident cards. */}
-
-          {/* ── Fund statement (0106): where did the money go ── */}
-          <Card><CardBody>
-            <div className="flex items-center gap-2.5 mb-2">
-              <FileBarChart2 size={18} className="text-primary" />
-              <p className="font-semibold text-foreground">{t('reports.fundStatement')}</p>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.fundStatementDesc')}</p>
-            <Button onClick={downloadFundStatement} loading={busy === 'fund'} disabled={!entity} variant="secondary" className="w-full">
-              <Download size={15} /> {t('reports.download')}
-            </Button>
-          </CardBody></Card>
-
-          {/* Budget vs actual (0087): how well did the prepaid budget perform */}
-          <Card className="md:col-span-2"><CardBody>
-            <div className="flex items-center gap-2.5 mb-2">
-              <FileBarChart2 size={18} className="text-primary" />
-              <p className="font-semibold text-foreground">{t('reports.budgetVsActual')}</p>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{t('reports.budgetVsActualDesc')}</p>
-            {budgets.length === 0
-              ? <p className="text-sm text-muted-foreground">{t('reports.noBudgets')}</p>
-              : (
-                <div className="space-y-3">
-                  <SelectField label={t('dues.budgetLabel')} value={bvaBudgetId || '__none__'} onValueChange={(v) => setBvaBudgetId(v === '__none__' ? '' : v)}>
-                    <SelectItem value="__none__">{t('reports.pickBudget')}</SelectItem>
-                    {budgets.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.label} · {fmtDate(b.period_start, 'MMM d')} – {fmtDate(b.period_end, 'MMM d, yyyy')}
-                      </SelectItem>
-                    ))}
-                  </SelectField>
-                  {bva && (
-                    <div className="overflow-x-auto rounded-xl border border-border">
-                      <table className="w-full text-sm">
-                        <thead><tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
-                          <th className="px-4 py-2.5 text-start font-medium">{t('finance.category')}</th>
-                          <th className="px-4 py-2.5 text-end font-medium">{t('reports.budgeted')}</th>
-                          <th className="px-4 py-2.5 text-end font-medium">{t('reports.actual')}</th>
-                          <th className="px-4 py-2.5 text-end font-medium">{t('reports.variance')}</th>
-                        </tr></thead>
-                        <tbody className="divide-y divide-border/60">
-                          {bva.rows.map((r) => (
-                            <tr key={r.typeId ?? 'null'}>
-                              <td className="px-4 py-2 text-foreground">{r.typeName}{r.budgeted === 0 && <span className="ms-1.5 text-xs text-amber-600 dark:text-amber-400">{t('reports.unbudgeted')}</span>}</td>
-                              <td className="px-4 py-2 text-end text-muted-foreground tnum">{money(r.budgeted)}</td>
-                              <td className="px-4 py-2 text-end text-foreground tnum">{money(r.actual)}</td>
-                              <td className={`px-4 py-2 text-end tnum font-medium ${r.variance < 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.variance)}</td>
-                            </tr>
-                          ))}
-                          <tr className="border-t border-border font-semibold">
-                            <td className="px-4 py-2 text-foreground">{t('reports.total')}</td>
-                            <td className="px-4 py-2 text-end text-foreground tnum">{money(bva.totalBudgeted)}</td>
-                            <td className="px-4 py-2 text-end text-foreground tnum">{money(bva.totalActual)}</td>
-                            <td className={`px-4 py-2 text-end tnum ${bva.totalBudgeted - bva.totalActual < 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(Math.round((bva.totalBudgeted - bva.totalActual) * 100) / 100)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+          {/* Budget vs actual is an interactive view, so it stays on this page
+              but collapsed by default - it never competes with the search. */}
+          <Card>
+            <button
+              type="button"
+              onClick={() => setBvaOpen((o) => !o)}
+              aria-expanded={bvaOpen}
+              className="w-full flex items-center justify-between gap-3 px-5 py-4 text-start rounded-2xl hover:bg-accent/40 transition-colors"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <FileBarChart2 size={18} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">{t('reports.budgetVsActual')}</p>
+                  <p className="text-sm text-muted-foreground">{t('reports.budgetVsActualDesc')}</p>
+                </div>
+              </div>
+              <ChevronDown size={18} className={cn('shrink-0 text-muted-foreground transition-transform', bvaOpen ? '' : '-rotate-90')} />
+            </button>
+            {bvaOpen && (
+              <div className="px-5 pb-5">
+                {budgets.length === 0
+                  ? <p className="text-sm text-muted-foreground">{t('reports.noBudgets')}</p>
+                  : (
+                    <div className="space-y-3">
+                      <SelectField label={t('dues.budgetLabel')} value={bvaBudgetId || '__none__'} onValueChange={(v) => setBvaBudgetId(v === '__none__' ? '' : v)}>
+                        <SelectItem value="__none__">{t('reports.pickBudget')}</SelectItem>
+                        {budgets.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.label} · {fmtDate(b.period_start, 'MMM d')} – {fmtDate(b.period_end, 'MMM d, yyyy')}
+                          </SelectItem>
+                        ))}
+                      </SelectField>
+                      {bva && (
+                        <div className="overflow-x-auto rounded-xl border border-border">
+                          <table className="w-full text-sm">
+                            <thead><tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
+                              <th className="px-4 py-2.5 text-start font-medium">{t('finance.category')}</th>
+                              <th className="px-4 py-2.5 text-end font-medium">{t('reports.budgeted')}</th>
+                              <th className="px-4 py-2.5 text-end font-medium">{t('reports.actual')}</th>
+                              <th className="px-4 py-2.5 text-end font-medium">{t('reports.variance')}</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-border/60">
+                              {bva.rows.map((r) => (
+                                <tr key={r.typeId ?? 'null'}>
+                                  <td className="px-4 py-2 text-foreground">{r.typeName}{r.budgeted === 0 && <span className="ms-1.5 text-xs text-amber-600 dark:text-amber-400">{t('reports.unbudgeted')}</span>}</td>
+                                  <td className="px-4 py-2 text-end text-muted-foreground tnum">{money(r.budgeted)}</td>
+                                  <td className="px-4 py-2 text-end text-foreground tnum">{money(r.actual)}</td>
+                                  <td className={`px-4 py-2 text-end tnum font-medium ${r.variance < 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(r.variance)}</td>
+                                </tr>
+                              ))}
+                              <tr className="border-t border-border font-semibold">
+                                <td className="px-4 py-2 text-foreground">{t('reports.total')}</td>
+                                <td className="px-4 py-2 text-end text-foreground tnum">{money(bva.totalBudgeted)}</td>
+                                <td className="px-4 py-2 text-end text-foreground tnum">{money(bva.totalActual)}</td>
+                                <td className={`px-4 py-2 text-end tnum ${bva.totalBudgeted - bva.totalActual < 0 ? 'text-red-500 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(Math.round((bva.totalBudgeted - bva.totalActual) * 100) / 100)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
-          </CardBody></Card>
+              </div>
+            )}
+          </Card>
         </div>
       )}
 
-      {entity && !loading && (
-        <div className="mt-4 max-w-6xl">
-          <CustomReportCard rows={ledgerRows} entityName={entity.name} />
+      {/* Building financial report: pick the period, then download the PDF. */}
+      <Modal open={stdOpen} onClose={() => setStdOpen(false)} title={t('reports.buildingReport')}>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">{t('reports.buildingReportDesc')}</p>
+          <SelectField label={t('reports.period')} value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+            <SelectItem value="all">{t('finance.allTime')}</SelectItem>
+            <SelectItem value="year">{t('finance.thisYear')}</SelectItem>
+            <SelectItem value="month">{t('reports.specificMonth')}</SelectItem>
+          </SelectField>
+          {period === 'month' && (
+            <input
+              type="month" value={monthValue} onChange={(e) => setMonthValue(e.target.value)}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          )}
+          <Button onClick={downloadBuildingReport} loading={busy === 'report'} disabled={!entity || units.length === 0} className="w-full">
+            <Download size={15} /> {t('reports.download')}
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
