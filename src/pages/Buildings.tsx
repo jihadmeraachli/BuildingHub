@@ -20,6 +20,7 @@ import { SelectField, SelectItem } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useConfirm } from '@/lib/useConfirm';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 
@@ -160,6 +161,7 @@ function SearchableColFilter({
 export default function Buildings() {
   const { t } = useTranslation();
   const { isPlatformAdmin, grants, can, entityKey } = useAuth();
+  const { confirmAsync, ConfirmDialog } = useConfirm();
 
   const myOrgIds = grants
     .filter(g => g.scope_type === 'org' && g.role === 'org_admin')
@@ -425,11 +427,22 @@ export default function Buildings() {
 
   async function saveEditB() {
     if (!editB || !ebForm.name.trim()) return;
+    // 0143: a standalone building's billing-mode change reconciles outstanding
+    // money (open dues -> ledger charges on ->arrears, or cancel open payment
+    // requests on ->dues), so it must go through set_billing_mode(), not a bare
+    // column write. A compound block's mode is inert (the compound wins), so we
+    // never write billing_mode from here at all.
+    const modeChanged = !ebForm.compound_id && ebForm.billing_mode !== editB.billing_mode;
+    if (modeChanged && !(await confirmAsync(
+      t('buildings.modeChangeTitle'),
+      t('buildings.modeChangeMsg', { mode: ebForm.billing_mode === 'dues' ? t('buildings.modeDues') : t('buildings.modeArrears') }),
+      { destructive: false, confirmLabel: t('common.continue') },
+    ))) return;
     await supabase.from('buildings').update({
       name: ebForm.name.trim(), address: ebForm.address, city: ebForm.city,
       country: ebForm.country, contact_email: ebForm.contact_email || null,
       contact_phone: ebForm.contact_phone || null, maps_url: ebForm.maps_url || null,
-      compound_id: ebForm.compound_id || null, billing_mode: ebForm.billing_mode,
+      compound_id: ebForm.compound_id || null,
       is_active: ebForm.is_active,
 
       whish_number: ebForm.whish_number.trim() || null,
@@ -455,6 +468,19 @@ export default function Buildings() {
       await supabase.from('org_buildings').delete().eq('building_id', editB.id);
       if (ebForm.org_id) {
         await supabase.from('org_buildings').insert({ org_id: ebForm.org_id, building_id: editB.id });
+      }
+    }
+
+    if (modeChanged) {
+      const { data, error } = await supabase.rpc('set_billing_mode', {
+        p_kind: 'building', p_id: editB.id, p_mode: ebForm.billing_mode,
+      });
+      if (error) { toast.error(error.message); }
+      else {
+        const s = data as { converted_dues?: number; cancelled_requests?: number } | null;
+        if (s?.converted_dues) toast.success(t('buildings.modeConverted', { n: s.converted_dues }));
+        else if (s?.cancelled_requests) toast.success(t('buildings.modeCancelled', { n: s.cancelled_requests }));
+        else toast.success(t('buildings.modeSwitched'));
       }
     }
 
@@ -847,6 +873,7 @@ export default function Buildings() {
         )}
       </Modal>
 
+      {ConfirmDialog}
       <ConfirmModal
         open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
         onConfirm={() => confirmDelete && deleteB(confirmDelete)}

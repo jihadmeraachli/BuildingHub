@@ -139,7 +139,7 @@ export default function Dues() {
         ? supabase.from('budgets').select('*').eq('compound_id', entity.id)
         : supabase.from('budgets').select('*').eq('building_id', entity.id);
       const [duesRows, { data: mem }, { data: g }, { data: ug }, { data: buds }] = await Promise.all([
-        fetchAll<DuesItem>((f, t) => supabase.from('dues').select('*').in('building_id', blocks).order('created_at', { ascending: false }).order('id').range(f, t)),
+        fetchAll<DuesItem>((f, t) => supabase.from('dues').select('*').in('building_id', blocks).is('converted_at', null).order('created_at', { ascending: false }).order('id').range(f, t)),
         supabase.from('memberships').select('unit_id, user_id, tenure, created_at, ended_at, profiles(full_name)').in('unit_id', ids),
         supabase.from('groups').select('*').in('building_id', blocks).order('name'),
         supabase.from('unit_groups').select('group_id, unit_id').in('unit_id', ids),

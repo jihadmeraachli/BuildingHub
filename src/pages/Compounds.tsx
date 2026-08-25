@@ -15,6 +15,7 @@ import { CitySelect } from '@/components/ui/CitySelect';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useConfirm } from '@/lib/useConfirm';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 
@@ -123,6 +124,7 @@ function SearchableColFilter({ value, onChange, options }: {
 export default function Compounds() {
   const { t } = useTranslation();
   const { isPlatformAdmin, grants } = useAuth();
+  const { confirmAsync, ConfirmDialog } = useConfirm();
   // Compound delete = platform admin or org_admin of the compound's org (RLS 0002/0022).
   const canDeleteCompound = (orgId: string | null | undefined) =>
     isPlatformAdmin || grants.some((g) => g.scope_type === 'org' && g.role === 'org_admin' && g.org_id === orgId);
@@ -194,12 +196,32 @@ export default function Compounds() {
 
   async function save() {
     if (!editC || !editForm.name.trim()) return;
+    // 0143: a compound's billing mode wins over its blocks and reconciles their
+    // outstanding money on change, so route the flip through set_billing_mode()
+    // rather than writing the column directly.
+    const modeChanged = editForm.billing_mode !== editC.billing_mode;
+    if (modeChanged && !(await confirmAsync(
+      t('buildings.modeChangeTitle'),
+      t('buildings.modeChangeMsg', { mode: editForm.billing_mode === 'dues' ? t('buildings.modeDues') : t('buildings.modeArrears') }),
+      { destructive: false, confirmLabel: t('common.continue') },
+    ))) return;
     await supabase.from('compounds').update({
       name: editForm.name.trim(),
       city: editForm.city || null,
       country: editForm.country,
-      billing_mode: editForm.billing_mode,
     }).eq('id', editC.id);
+    if (modeChanged) {
+      const { data, error } = await supabase.rpc('set_billing_mode', {
+        p_kind: 'compound', p_id: editC.id, p_mode: editForm.billing_mode,
+      });
+      if (error) { toast.error(error.message); }
+      else {
+        const r = data as { converted_dues?: number; cancelled_requests?: number } | null;
+        if (r?.converted_dues) toast.success(t('buildings.modeConverted', { n: r.converted_dues }));
+        else if (r?.cancelled_requests) toast.success(t('buildings.modeCancelled', { n: r.cancelled_requests }));
+        else toast.success(t('buildings.modeSwitched'));
+      }
+    }
     setEditC(null);
     loadAll();
   }
@@ -430,6 +452,7 @@ export default function Compounds() {
         </div>
       </Modal>
 
+      {ConfirmDialog}
       <ConfirmModal
         open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
         onConfirm={() => confirmDelete && remove(confirmDelete)}
