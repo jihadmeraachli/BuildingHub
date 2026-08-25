@@ -240,13 +240,20 @@ export default function Buildings() {
 
   const orgByBuilding = Object.fromEntries(orgBuildings.map(ob => [ob.building_id, ob.org_id]));
 
-  const visibleBuildings = isOrgAdmin
-    ? buildings.filter(b => orgBuildings.some(ob => ob.building_id === b.id))
-    : isCompoundAdmin
-      ? buildings.filter(b => myCompoundIds.includes(b.compound_id ?? ''))
-      : isBuildingAdminOnly
-        ? buildings.filter(b => myBuildingIds.includes(b.id))
-        : buildings.filter(b => anyBuildingIds.includes(b.id) || anyCompoundIds.includes(b.compound_id ?? ''));
+  // A user can hold several grant scopes at once (e.g. compound_admin of one
+  // compound AND building_admin of a standalone block). The old exclusive
+  // if/else picked ONE scope and hid the rest — so a compound admin who also
+  // ran a standalone building never saw it here. Show the UNION of every scope,
+  // and everything for a platform admin. (buildings is already RLS-scoped, so
+  // this only decides what to DISPLAY among rows the user may already see.)
+  const visibleBuildings = isPlatformAdmin
+    ? buildings
+    : buildings.filter(b =>
+        orgBuildings.some(ob => ob.building_id === b.id)                    // a block in an org I administer
+        || (b.compound_id != null && myCompoundIds.includes(b.compound_id)) // a block in a compound I administer
+        || anyBuildingIds.includes(b.id)                                    // any building I hold a grant on
+        || (b.compound_id != null && anyCompoundIds.includes(b.compound_id))// any compound I hold a grant on
+      );
 
   // NOTE (#70): single-building admins used to auto-open their building's edit
   // modal here. Testers experienced landing in an unrequested edit form as a
