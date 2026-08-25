@@ -337,6 +337,29 @@ export default function Dues() {
     load();
   }
 
+  /** D9: best-effort credit that will REMAIN if this budget is cancelled.
+   *  Cancelling withdraws the dues but keeps payments (0145) — so any money the
+   *  billed parties already paid becomes a standalone unit credit. Payments
+   *  aren't linked to specific dues yet (D7), so this is bounded by the budget's
+   *  period start and may slightly over-state; it exists only to warn the manager. */
+  function budgetPaidCredit(b: Budget): number {
+    const rows = items.filter((d) => d.budget_id === b.id);
+    const seen = new Set<string>();
+    let credit = 0;
+    for (const d of rows) {
+      const isTenant = d.billed_to === 'tenant';
+      const key = `${d.unit_id}|${isTenant ? 'tenant' : 'owner'}|${isTenant ? (d.tenant_id ?? '') : ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      credit += payments
+        .filter((p) => p.unit_id === d.unit_id && p.paid_on >= b.period_start &&
+          (isTenant ? p.paid_by === 'tenant' && (!d.tenant_id || p.tenant_id === d.tenant_id)
+                    : p.paid_by !== 'tenant'))
+        .reduce((sum, p) => sum + Number(p.amount_usd), 0);
+    }
+    return credit;
+  }
+
   async function removeItem(id: string) {
     const { error } = await supabase.from('dues').delete().eq('id', id);
     setConfirmDeleteItem(null);
@@ -752,7 +775,12 @@ export default function Dues() {
         open={!!confirmCancelBudget} onClose={() => setConfirmCancelBudget(null)}
         onConfirm={() => confirmCancelBudget && cancelBudget(confirmCancelBudget)}
         title={t('dues.cancelBudgetTitle')}
-        message={confirmCancelBudget ? t('dues.cancelBudgetConfirm', { label: confirmCancelBudget.label }) : ''}
+        message={confirmCancelBudget
+          ? t('dues.cancelBudgetConfirm', { label: confirmCancelBudget.label })
+            + (budgetPaidCredit(confirmCancelBudget) > 0
+                ? ' ' + t('dues.cancelBudgetPaidWarn', { amount: money(budgetPaidCredit(confirmCancelBudget)) })
+                : '')
+          : ''}
         confirmLabel={t('dues.cancelBudgetTitle')}
       />
       <ConfirmModal

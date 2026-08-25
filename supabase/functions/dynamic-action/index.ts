@@ -1050,11 +1050,17 @@ Deno.serve(async (req) => {
         });
     }
 
-    // 5e. Dues edited (amount changed) → the billed party only
-    if (tbl === 'dues' && type === 'UPDATE' && record.amount_due !== old_record?.amount_due) {
+    // 5e. Dues edited (amount changed) → the *effective* billed party only.
+    //   D14: a departed tenant's dues offload to the owner — resolve recipients
+    //   through effective_obligation_party (as 5f-ii does) so the owner, now
+    //   silently carrying it, is the one told. D9/D10: skip a suppressed edit.
+    if (tbl === 'dues' && type === 'UPDATE' && record.amount_due !== old_record?.amount_due && !record.notify_suppressed) {
       const b = await getBuilding(record.building_id);
+      const { data: eff5e } = await supabase.rpc('effective_obligation_party', {
+        p_unit: record.unit_id, p_billed_to: record.billed_to, p_tenant: record.tenant_id,
+      });
       await emailToUserIds(
-        await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
+        await unitPartyIds(record.unit_id, eff5e === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
         (L) => ({
           subject: L.dues.editSubj(record.period_label),
           html: emailHtml(L, L.dues.editTitle,
@@ -1064,11 +1070,16 @@ Deno.serve(async (req) => {
         }), b?.name ?? 'Abniyah');
     }
 
-    // 5f. Dues removed → the billed party only
-    if (tbl === 'dues' && type === 'DELETE' && old_record) {
+    // 5f. Dues removed → the *effective* billed party only.
+    //   D14: offload to the owner for a departed tenant (see 5e). D9/D10: a
+    //   suppressed delete (purge cascade 0144 / budget cancel 0145) stays silent.
+    if (tbl === 'dues' && type === 'DELETE' && old_record && !old_record.notify_suppressed) {
       const b = await getBuilding(old_record.building_id);
+      const { data: eff5f } = await supabase.rpc('effective_obligation_party', {
+        p_unit: old_record.unit_id, p_billed_to: old_record.billed_to, p_tenant: old_record.tenant_id,
+      });
       await emailToUserIds(
-        await unitPartyIds(old_record.unit_id, old_record.billed_to === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
+        await unitPartyIds(old_record.unit_id, eff5f === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
         (L) => ({
           subject: L.dues.goneSubj(old_record.period_label),
           html: emailHtml(L, L.dues.goneTitle,
