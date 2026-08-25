@@ -159,7 +159,7 @@ function SearchableColFilter({
 
 export default function Buildings() {
   const { t } = useTranslation();
-  const { isPlatformAdmin, grants } = useAuth();
+  const { isPlatformAdmin, grants, can } = useAuth();
 
   const myOrgIds = grants
     .filter(g => g.scope_type === 'org' && g.role === 'org_admin')
@@ -793,7 +793,9 @@ export default function Buildings() {
             <span className="text-sm text-foreground">{t('buildings.active')}</span>
           </label>
           <div className="flex justify-between gap-2 pt-2">
-            <Button variant="danger" onClick={() => editB && setConfirmDelete(editB.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            {(isPlatformAdmin || can('org.assign_buildings', editB?.id))
+              ? <Button variant="danger" onClick={() => editB && setConfirmDelete(editB.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+              : <span />}
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setEditB(null)}>{t('common.cancel')}</Button>
               <Button onClick={saveEditB}>{t('common.save')}</Button>

@@ -41,7 +41,24 @@
     "selectAll": "Tout sélectionner",
     "reactivate": "Réactiver"
   },
+  "trash": {
+    "title": "Corbeille",
+    "subtitle": "Les immeubles, complexes, lots et organisations supprimés peuvent être restaurés ici pendant 30 jours, après quoi ils sont définitivement supprimés.",
+    "empty": "La corbeille est vide.",
+    "unnamed": "Sans nom",
+    "restore": "Restaurer",
+    "restored": "{{name}} restauré.",
+    "deletedOn": "Supprimé le {{date}}",
+    "by": "par {{name}}",
+    "entity": {
+      "buildings": "Immeuble",
+      "compounds": "Complexe",
+      "organizations": "Organisation",
+      "units": "Lot"
+    }
+  },
   "nav": {
+    "trash": "Corbeille",
     "dashboard": "Tableau de bord",
     "gettingStarted": "Premiers pas",
     "meetings": "Réunions",

@@ -123,6 +123,9 @@ function SearchableColFilter({ value, onChange, options }: {
 export default function Compounds() {
   const { t } = useTranslation();
   const { isPlatformAdmin, grants } = useAuth();
+  // Compound delete = platform admin or org_admin of the compound's org (RLS 0002/0022).
+  const canDeleteCompound = (orgId: string | null | undefined) =>
+    isPlatformAdmin || grants.some((g) => g.scope_type === 'org' && g.role === 'org_admin' && g.org_id === orgId);
 
   const myOrgIds = grants
     .filter(g => g.scope_type === 'org' && g.role === 'org_admin')
@@ -366,9 +369,11 @@ export default function Compounds() {
                         <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => setConfirmDelete(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
-                          <Trash2 size={14} />
-                        </button>
+                        {canDeleteCompound(c.org_id) && (
+                          <button onClick={() => setConfirmDelete(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -414,7 +419,9 @@ export default function Compounds() {
             <SelectItem value="dues">{t('buildings.modeDues')}</SelectItem>
           </SelectField>
           <div className="flex justify-between gap-2 pt-1">
-            <Button variant="danger" onClick={() => editC && setConfirmDelete(editC.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+            {canDeleteCompound(editC?.org_id)
+              ? <Button variant="danger" onClick={() => editC && setConfirmDelete(editC.id)}><Trash2 size={15} /> {t('common.delete')}</Button>
+              : <span />}
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setEditC(null)}>{t('common.cancel')}</Button>
               <Button onClick={save}>{t('common.save')}</Button>

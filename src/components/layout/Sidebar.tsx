@@ -17,7 +17,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins, Cog,
-  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2,
+  CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2, Trash2,
   ContactRound, ScrollText,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
@@ -143,6 +143,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/import',        label: t('nav.import'),        icon: FileUp,    show: canBuildings || canStructure },
     { to: '/licenses',      label: t('nav.licenses'),      icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
     { to: '/licensing-admin', label: 'Platform Licensing', icon: KeyRound,  show: isPlatformAdmin },
+    { to: '/trash',         label: t('nav.trash'),         icon: Trash2,    show: isPlatformAdmin || isScopeAdmin },
   ]).filter(l => l.show && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');

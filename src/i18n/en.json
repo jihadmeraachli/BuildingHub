@@ -41,7 +41,24 @@
     "selectAll": "Select all",
     "reactivate": "Reactivate"
   },
+  "trash": {
+    "title": "Recycle bin",
+    "subtitle": "Deleted buildings, compounds, units and organizations can be restored here for 30 days, after which they are permanently removed.",
+    "empty": "The recycle bin is empty.",
+    "unnamed": "Untitled",
+    "restore": "Restore",
+    "restored": "{{name}} restored.",
+    "deletedOn": "Deleted {{date}}",
+    "by": "by {{name}}",
+    "entity": {
+      "buildings": "Building",
+      "compounds": "Compound",
+      "organizations": "Organization",
+      "units": "Unit"
+    }
+  },
   "nav": {
+    "trash": "Recycle bin",
     "dashboard": "Dashboard",
     "gettingStarted": "Getting started",
     "meetings": "Meetings",
