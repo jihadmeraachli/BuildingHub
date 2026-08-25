@@ -733,7 +733,7 @@ function QuickLink({ icon: Icon, title, desc }: { icon: ElementType; title: stri
     <Card className="group cursor-pointer transition-shadow hover:shadow-md gap-0 py-0">
       <CardContent className="p-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 transition-colors group-hover:bg-primary/25">
             <Icon size={18} />
           </div>
           <div className="min-w-0 flex-1">
