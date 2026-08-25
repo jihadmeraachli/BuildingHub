@@ -7,7 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SkeletonCards } from '@/components/ui/Skeleton';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { fmtDate } from '@/lib/dateFmt';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Platform-admin view over audit_log (0137). English-only, like the other
@@ -49,6 +52,8 @@ export default function Activity() {
   const [names, setNames] = useState<Record<string, string>>({});
   const [entityF, setEntityF] = useState('');
   const [actionF, setActionF] = useState('');
+  const [buildingF, setBuildingF] = useState('');
+  const [buildingOpts, setBuildingOpts] = useState<{ value: string; label: string }[]>([{ value: '', label: 'All buildings' }]);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -60,29 +65,47 @@ export default function Activity() {
     let q = supabase.from('audit_log').select('*').order('at', { ascending: false }).range(from, from + PAGE - 1);
     if (entityF) q = q.eq('entity', entityF);
     if (actionF) q = q.eq('action', actionF);
+    if (buildingF) q = q.eq('building_id', buildingF);
     const { data, error } = await q;
     if (error) { toast.error(error.message); setLoading(false); setMore(false); return; }
     const batch = (data as AuditRow[]) ?? [];
     setHasMore(batch.length === PAGE);
     const next = reset ? batch : [...rows, ...batch];
     setRows(next);
-    // resolve actor names
-    const ids = [...new Set(next.map((r) => r.actor_id).filter(Boolean))] as string[];
-    if (ids.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+    // Resolve every uuid we might show — the actor AND any uuid VALUE in the
+    // before/after (deleted_by, created_by, user_id, tenant_id…) — to a name.
+    // Non-profile uuids (building ids etc.) simply won't match and fall back.
+    const ids = new Set<string>();
+    next.forEach((r) => {
+      if (r.actor_id) ids.add(r.actor_id);
+      [r.old_row, r.new_row].forEach((obj) => {
+        if (obj) Object.values(obj).forEach((v) => { if (typeof v === 'string' && UUID_RE.test(v)) ids.add(v); });
+      });
+    });
+    if (ids.size) {
+      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', [...ids]);
       const map: Record<string, string> = {};
       (profs ?? []).forEach((p: { id: string; full_name: string }) => { map[p.id] = p.full_name; });
       setNames(map);
     }
     setLoading(false); setMore(false);
-  }, [entityF, actionF, rows]);
+  }, [entityF, actionF, buildingF, rows]);
+
+  // building filter options
+  useEffect(() => {
+    supabase.from('buildings').select('id, name').order('name').then(({ data }) => {
+      setBuildingOpts([{ value: '', label: 'All buildings' }, ...((data ?? []) as { id: string; name: string }[]).map((b) => ({ value: b.id, label: b.name }))]);
+    });
+  }, []);
 
   // reload on filter change
-  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [entityF, actionF]);
+  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [entityF, actionF, buildingF]);
 
   if (!isPlatformAdmin) return <Navigate to="/dashboard" replace />;
 
   const toggle = (id: number) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const display = (v: unknown) => (typeof v === 'string' && UUID_RE.test(v) && names[v]) ? names[v] : short(v);
 
   function changedFields(r: AuditRow): [string, unknown, unknown][] {
     if (r.action !== 'UPDATE' || !r.old_row || !r.new_row) return [];
@@ -109,6 +132,8 @@ export default function Activity() {
           <option value="">All tables</option>
           {ENTITIES.map((e) => <option key={e} value={e}>{e}</option>)}
         </select>
+        <SearchableSelect options={buildingOpts} value={buildingF} onChange={setBuildingF}
+          placeholder="All buildings" searchPlaceholder="Search building…" emptyText="No building" className="min-w-[190px]" />
         <div className="flex gap-1">
           {['', 'INSERT', 'UPDATE', 'DELETE'].map((a) => (
             <button key={a} onClick={() => setActionF(a)}
@@ -160,7 +185,7 @@ export default function Activity() {
                       changes.length ? changes.map(([k, o, n]) => (
                         <div key={k} className="whitespace-nowrap">
                           <span className="text-muted-foreground">{k}:</span>{' '}
-                          <span className="text-rose-500">{short(o)}</span> → <span className="text-emerald-500">{short(n)}</span>
+                          <span className="text-rose-500">{display(o)}</span> → <span className="text-emerald-500">{display(n)}</span>
                         </div>
                       )) : <span className="text-muted-foreground">No field changes recorded.</span>
                     ) : (
