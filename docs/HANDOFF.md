@@ -30,6 +30,27 @@ less than a tester code, and the hidden pages stay hidden to it.)
 
 ## 1. TL;DR — what this iteration did
 
+### Latest: 25 August 2026 — audit trail, recovery, dues + billing-mode hardening
+
+Three deep-dives (security, dues logic, arrears↔dues transitions) plus a
+recovery/observability build. All commits on `master`.
+
+- **Recovery + audit trail.** `0137` append-only `audit_log` (+`0139` expenses);
+  `0138` soft-delete (deletes are now reversible for 30 days, `list_trash()` /
+  `restore_entity()`); an **Activity** page (platform-admin) resolves actor/
+  subject UUIDs to names, filters by table/action + building. Payments now show
+  a **Recorded by** tag.
+- **Dues audit.** `0140` (D2/D3 overdue-dues grouping + soft-delete exclusion),
+  `0141` (D13 issue_budget mode guard). Client D1/D5/D6/D11/D12 fixes shipped.
+- **Billing-mode transitions.** `0142` (MT3 arrears-reminder mode filter),
+  `0143` (MT1/2/4/5 `set_billing_mode` reconciling RPC), client routing.
+
+**▶ Jey's run-list (in order):** in the Supabase SQL Editor run **0140, 0141,
+0142, 0143** (0137/0138/0139 already applied); then **redeploy `send-reminders`**
+(R3 arrears-party fix in 0142's companion). `0143` is money-critical and its
+→arrears path is untested on live dues data — verify on a real dues building
+before flipping one in production.
+
 ### Latest: 23 August 2026 — the Binayati review, and what it changed
 
 A competitor teardown (Binayati, from a trial account) produced a ranked
@@ -223,6 +244,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0140 | `0140_fix_overdue_dues.sql` | **DUES audit D2+D3.** `get_overdue_dues` now collapses owner-remapped (departed-tenant) dues into ONE group (was split by tenant_id → owner payment double-counted, reminders dropped), excludes soft-deleted units/buildings (`deleted_at`, which the SECURITY DEFINER fn bypassed via RLS), and orders deterministically. |
 | 0141 | `0141_issue_budget_mode_guard.sql` | DUES audit D13: `issue_budget` rejects a scope not in dues mode (was: a direct RPC could plant orphan dues on an arrears building). |
 | 0142 | `0142_overdue_units_mode_filter.sql` | **Transition audit MT3 (high).** `get_overdue_units` restores the `effective_billing_mode='arrears'` filter 0088 dropped (was: a building flipped to dues kept being arrears-dunned off stale request lines → double reminders). Also excludes soft-deleted units/buildings + deterministic ORDER BY. Companion edge fix: send-reminders arrears loop passes `row.party` (R3 — tenant arrears reminders were swallowed). |
+| 0143 | `0143_billing_mode_transition.sql` | **Transition audit MT1/MT2/MT4/MT5 (money-critical).** The arrears↔dues flip was a bare column UPDATE — it stranded money both ways. New `set_billing_mode(kind,id,mode)` RPC reconciles first: →arrears posts each open due's `amount_due` as a suppressed ledger charge and marks it `converted_at`; →dues cancels open `payment_request_lines`. Buildings/Compounds save handlers now route the flip through this RPC (confirm + result toast) and never write `billing_mode` directly; a compound block never writes the inert mode column. Dues tab filters `converted_at IS NULL`. **⚠️ The →arrears conversion is untested on live dues data (demo is arrears-only) — verify on a real dues building before relying on it.** |
 | 0116 | `0116_billing_polish.sql` | **Billing polish round (14 fixes from live testing).** License caps removed for every scope (`cap_override` stays operator-only; floor guard kept). `start_subscription`: the paid period starts the day after a live trial ends, and an open period invoice that no longer matches the plan/price is **voided and reissued** (no more issue-again-and-again). New `request_license_increase(sub, add)`: trial / within-band / negotiated → applies immediately; a band-crossing add on an active subscription issues a prorated **top-up invoice and the licences land only when it is paid** (`mark_invoice_paid` applies them; `subscription_topup_trg` dropped). `billing_tick`: grace is **trial-only** — an unpaid renewal locks at period end. Client: Manage is its own tab; subscribe = choose cycle → payment options (start/renew dates shown; on trial: starts after the trial-end date); Subscribe/Cancel shown by status; in-app cancel modal (no browser confirm); both pay buttons matched; the word Areeba dropped from copy. |
 | 0117 | `0117_pay_first.sql` | **Pay first, invoice after.** No OPEN invoice ever exists again: what the customer sees pre-payment is time ("renews/expires in X days"), not paper. New `payment_intents` table (gateway sessions hang off an intent, amount computed server-side by `create_payment_intent`); `settle_payment_intent` (service-role) creates the invoice **already paid** (= the receipt) and applies the effect — period activated or held licences landed — in one transaction. `request_license_increase` now returns the prorated amount instead of creating a top-up invoice. `billing_tick` issues nothing (notices carry computed amounts). Cleanup voids every open invoice. All four payment edge functions rewritten intent-based (`?intent=` callbacks); `send-reminders` + `dynamic-action` copy updated (receipt on paid-INSERT). Client: invoices tab is receipts-only (no pay buttons), Renew now for active/locked, subscribe modal previews dates/amount then straight to the payment options. |
 | 0118 | `0118_license_downgrade.sql` | **A paid cycle keeps what it paid for.** Removing licences on an ACTIVE subscription no longer takes them away mid-cycle: `schedule_license_reduction` records `renews_license_count`, all paid licences stay usable until period end, the renewal is priced at the lower count/band (`create_payment_intent`), and the reduction lands only when the renewal is paid (`settle_payment_intent`, clamped to units/assignments). Revertible any time before renewal (`cancel_license_reduction`); adding licences also cancels it. Trial removals stay immediate (nothing was paid). License card shows the dated downgrade; Manage gains a Revert button; two new audit events. |
