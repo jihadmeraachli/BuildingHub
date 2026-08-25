@@ -127,9 +127,33 @@ export default function Register() {
 
   const set = (patch: Partial<WizardState>) => setState(s => ({ ...s, ...patch }));
 
+  // The user clicked the confirmation email and landed back here with a real
+  // session. Their wizard answers are in user metadata — finish the setup now:
+  // create the entity, start the trial, clear the metadata, go to dashboard.
+  // Declared before any early return so hook order is stable (rules-of-hooks);
+  // runOnboarding is a hoisted function declaration below.
+  useEffect(() => {
+    const pending = user?.user_metadata?.pending_onboarding as PendingOnboarding | undefined;
+    if (!pending || finalizeOnce.current) return;
+    finalizeOnce.current = true;
+    (async () => {
+      setFinalizing(true);
+      const rpcErr = await runOnboarding(pending);
+      if (rpcErr) {
+        setFinalizing(false);
+        finalizeOnce.current = false;
+        setError(rpcErr.message);
+        return;
+      }
+      await supabase.auth.updateUser({ data: { pending_onboarding: null } });
+      await refreshProfile();
+      navigate('/dashboard');
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // 0126: a demo-scoped beta code (partner reviews) unlocks the site and the
   // demo, never registration — the pricing model stays private until launch.
-  // Constant for the whole session, so the early return is hook-safe.
   if (betaScope() === 'demo') return <Navigate to="/demo" replace />;
 
   /** lowercase noun for sentences ("About your building") */
@@ -354,28 +378,6 @@ export default function Register() {
     return rpcErr;
   }
 
-  // The user clicked the confirmation email and landed back here with a real
-  // session. Their wizard answers are in user metadata — finish the setup now:
-  // create the entity, start the trial, clear the metadata, go to dashboard.
-  useEffect(() => {
-    const pending = user?.user_metadata?.pending_onboarding as PendingOnboarding | undefined;
-    if (!pending || finalizeOnce.current) return;
-    finalizeOnce.current = true;
-    (async () => {
-      setFinalizing(true);
-      const rpcErr = await runOnboarding(pending);
-      if (rpcErr) {
-        setFinalizing(false);
-        finalizeOnce.current = false;
-        setError(rpcErr.message);
-        return;
-      }
-      await supabase.auth.updateUser({ data: { pending_onboarding: null } });
-      await refreshProfile();
-      navigate('/dashboard');
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   async function submit() {
     setLoading(true);
