@@ -90,7 +90,14 @@
     "bylaws": "نظام البناية",
     "projects": "المشاريع",
     "collect": "تحصيل",
-    "amenities": "المرافق"
+    "amenities": "المرافق",
+    "secOverview": "نظرة عامة",
+    "secFinance": "المالية",
+    "secCommunity": "المجتمع",
+    "secFacilities": "المرافق",
+    "secPlatform": "المنصة",
+    "platformLicensing": "تراخيص المنصة",
+    "activityLog": "سجل النشاط"
   },
   "auth": {
     "login": "تسجيل الدخول",

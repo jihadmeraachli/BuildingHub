@@ -18,7 +18,7 @@ import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins, Cog,
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2, Trash2,
-  ContactRound, ScrollText,
+  ContactRound, ScrollText, ChevronDown,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { isDemoEmail, DEMO_ACCOUNTS, DEMO_HIDDEN_ROUTES } from '@/lib/demo';
@@ -110,44 +110,71 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     !isPlatformAdmin && isScopeAdmin && !residentLens
     && localStorage.getItem(gsHiddenKey(profile?.id)) !== '1';
 
-  const primaryLinks = [
-    { to: '/getting-started', label: t('nav.gettingStarted'), icon: Rocket, show: showGettingStarted },
-    { to: '/dashboard',   label: t('nav.dashboard'),   icon: LayoutDashboard },
-    { to: '/finance',     label: t('nav.finance'),      icon: Wallet },
-    { to: '/reports',     label: t('nav.reports'),       icon: FileBarChart2,  show: canAny('finance.view') || memberships.length > 0 },
-    { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: !residentLens && (canStructure || canAny('finance.view')) },
-    { to: '/issues',      label: t('nav.issues'),        icon: AlertTriangle },
-    { to: '/meetings',    label: t('nav.meetings'),      icon: CalendarDays },
-    { to: '/contacts',    label: t('nav.contactsDir'),   icon: ContactRound },
-    // Bylaws sit in the PRIMARY list, not under management: the Nizam is a
-    // resident's document, and RLS lets every resident read their own.
-    { to: '/bylaws',      label: t('nav.bylaws'),        icon: ScrollText },
-    { to: '/inspections', label: t('nav.inspections'),   icon: ClipboardCheck, show: !residentLens },
-    { to: '/contracts',   label: t('nav.contracts'),     icon: FileSignature,  show: !residentLens },
-    // Projects sit in the PRIMARY list for residents too (0109): estimate vs
-    // spent on the lift is exactly what a resident wants to see.
-    { to: '/projects',    label: t('nav.projects'),      icon: HardHat },
-    // The inventory (0112): residents may read it, it is their building's kit.
-    { to: '/amenities',   label: t('nav.amenities'),     icon: Cog },
-    // The collector's only screen (0110). Managers already have Finance.
-    { to: '/collect',     label: t('nav.collect'),       icon: HandCoins, show: !residentLens && canAny('payment.record') && !canAny('finance.view') },
-  ].filter(l => l.show !== false && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
+  // Nav is grouped into labelled sections (each collapsible) rather than one
+  // long flat list — the labels give the menu a scannable rhythm and let a
+  // power user fold away the clusters they don't use. A link keeps its own
+  // `show` gate; a section with no visible links isn't rendered at all.
+  const gate = (links: { to: string; label: string; icon: React.ElementType; show?: boolean }[]) =>
+    links.filter(l => l.show !== false && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
 
-  const manageLinks = (residentLens ? [] : [
-    { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings || isDemoAdmin },
-    { to: '/structure',     label: t('nav.structure'),     icon: Layers,    show: canStructure || isDemoAdmin },
-    { to: '/users',         label: t('nav.people'),        icon: Users,     show: canPeople },
-    { to: '/security',      label: t('nav.security'),      icon: ShieldCheck, show: isPlatformAdmin || canAny('grant.manage') },
-    { to: '/organizations', label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
-    { to: '/compounds',     label: t('nav.compounds'),     icon: Boxes,     show: isPlatformAdmin || isOrgAdmin },
-    { to: '/import',        label: t('nav.import'),        icon: FileUp,    show: canBuildings || canStructure },
-    { to: '/licenses',      label: t('nav.licenses'),      icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
-    { to: '/licensing-admin', label: 'Platform Licensing', icon: KeyRound,  show: isPlatformAdmin },
-    { to: '/activity',      label: 'Activity log',         icon: ScrollText, show: isPlatformAdmin },
-    { to: '/trash',         label: t('nav.trash'),         icon: Trash2,    show: isPlatformAdmin || isScopeAdmin },
-  ]).filter(l => l.show && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
+  const sections = [
+    { key: 'overview', label: t('nav.secOverview'), links: gate([
+      { to: '/getting-started', label: t('nav.gettingStarted'), icon: Rocket, show: showGettingStarted },
+      { to: '/dashboard',   label: t('nav.dashboard'),   icon: LayoutDashboard },
+    ]) },
+    { key: 'finance', label: t('nav.secFinance'), links: gate([
+      { to: '/finance',     label: t('nav.finance'),      icon: Wallet },
+      { to: '/reports',     label: t('nav.reports'),       icon: FileBarChart2,  show: canAny('finance.view') || memberships.length > 0 },
+      { to: '/dues',        label: t('nav.dues'),          icon: CalendarClock,  show: !residentLens && (canStructure || canAny('finance.view')) },
+      // The collector's only screen (0110). Managers already have Finance.
+      { to: '/collect',     label: t('nav.collect'),       icon: HandCoins, show: !residentLens && canAny('payment.record') && !canAny('finance.view') },
+    ]) },
+    { key: 'community', label: t('nav.secCommunity'), links: gate([
+      { to: '/issues',      label: t('nav.issues'),        icon: AlertTriangle },
+      { to: '/meetings',    label: t('nav.meetings'),      icon: CalendarDays },
+      { to: '/contacts',    label: t('nav.contactsDir'),   icon: ContactRound },
+      // Bylaws are a resident's document — RLS lets every resident read their own.
+      { to: '/bylaws',      label: t('nav.bylaws'),        icon: ScrollText },
+    ]) },
+    { key: 'facilities', label: t('nav.secFacilities'), links: gate([
+      { to: '/inspections', label: t('nav.inspections'),   icon: ClipboardCheck, show: !residentLens },
+      { to: '/contracts',   label: t('nav.contracts'),     icon: FileSignature,  show: !residentLens },
+      // Projects show for residents too (0109): estimate vs spent on the lift.
+      { to: '/projects',    label: t('nav.projects'),      icon: HardHat },
+      // The inventory (0112): residents may read it, it is their building's kit.
+      { to: '/amenities',   label: t('nav.amenities'),     icon: Cog },
+    ]) },
+    ...(residentLens ? [] : [
+      { key: 'config', label: t('nav.config'), links: gate([
+        { to: '/buildings',     label: t('nav.buildings'),     icon: Building2, show: canBuildings || isDemoAdmin },
+        { to: '/structure',     label: t('nav.structure'),     icon: Layers,    show: canStructure || isDemoAdmin },
+        { to: '/users',         label: t('nav.people'),        icon: Users,     show: canPeople },
+        { to: '/security',      label: t('nav.security'),      icon: ShieldCheck, show: isPlatformAdmin || canAny('grant.manage') },
+        { to: '/compounds',     label: t('nav.compounds'),     icon: Boxes,     show: isPlatformAdmin || isOrgAdmin },
+        { to: '/import',        label: t('nav.import'),        icon: FileUp,    show: canBuildings || canStructure },
+        { to: '/licenses',      label: t('nav.licenses'),      icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
+        { to: '/trash',         label: t('nav.trash'),         icon: Trash2,    show: isPlatformAdmin || isScopeAdmin },
+      ]) },
+      { key: 'platform', label: t('nav.secPlatform'), links: gate([
+        { to: '/organizations',   label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
+        { to: '/licensing-admin', label: t('nav.platformLicensing'), icon: KeyRound,  show: isPlatformAdmin },
+        { to: '/activity',        label: t('nav.activityLog'),   icon: ScrollText, show: isPlatformAdmin },
+      ]) },
+    ]),
+  ].filter(s => s.links.length > 0);
 
   const isActive = (to: string) => location.pathname === to || location.pathname.startsWith(to + '/');
+
+  // Per-section collapse, remembered per browser. A section that holds the
+  // active route is forced open so you never lose sight of where you are.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('abniyah_nav_collapsed') || '{}'); } catch { return {}; }
+  });
+  const toggleSection = (key: string) => setCollapsed(prev => {
+    const next = { ...prev, [key]: !prev[key] };
+    try { localStorage.setItem('abniyah_nav_collapsed', JSON.stringify(next)); } catch { /* private mode */ }
+    return next;
+  });
 
   const NavItem = ({ to, label, icon: Icon }: { to: string; label: string; icon: React.ElementType }) => (
     <NavLink
@@ -244,20 +271,38 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {primaryLinks.map(l => <NavItem key={l.to} {...l} />)}
-
-        {manageLinks.length > 0 && (
-          <>
-            <div className="pt-4 pb-1 px-3">
-              <p className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
-                {t('nav.config')}
-              </p>
+      {/* Nav — labelled, collapsible sections */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+        {sections.map((s, i) => {
+          const hasActive = s.links.some(l => isActive(l.to));
+          const openSection = !collapsed[s.key] || hasActive;
+          return (
+            <div key={s.key} className={i > 0 ? 'pt-1.5' : ''}>
+              <button
+                type="button"
+                onClick={() => toggleSection(s.key)}
+                aria-expanded={openSection}
+                className="group w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
+              >
+                <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+                  {s.label}
+                </span>
+                <ChevronDown
+                  size={13}
+                  className={cn(
+                    'shrink-0 text-sidebar-foreground/30 transition-transform group-hover:text-sidebar-foreground/60',
+                    openSection ? '' : '-rotate-90'
+                  )}
+                />
+              </button>
+              {openSection && (
+                <div className="mt-0.5 space-y-0.5">
+                  {s.links.map(l => <NavItem key={l.to} {...l} />)}
+                </div>
+              )}
             </div>
-            {manageLinks.map(l => <NavItem key={l.to} {...l} />)}
-          </>
-        )}
+          );
+        })}
       </nav>
 
       {/* User footer — the demo account gets no Settings (read-only persona) */}

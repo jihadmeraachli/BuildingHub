@@ -90,7 +90,14 @@
     "bylaws": "Règlement de copropriété",
     "projects": "Projets",
     "collect": "Encaisser",
-    "amenities": "Équipements"
+    "amenities": "Équipements",
+    "secOverview": "Aperçu",
+    "secFinance": "Finances",
+    "secCommunity": "Communauté",
+    "secFacilities": "Installations",
+    "secPlatform": "Plateforme",
+    "platformLicensing": "Licences de la plateforme",
+    "activityLog": "Journal d'activité"
   },
   "auth": {
     "login": "Se connecter",

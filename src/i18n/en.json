@@ -90,7 +90,14 @@
     "bylaws": "Nizam el Bineye",
     "projects": "Projects",
     "collect": "Collect",
-    "amenities": "Amenities"
+    "amenities": "Amenities",
+    "secOverview": "Overview",
+    "secFinance": "Finance",
+    "secCommunity": "Community",
+    "secFacilities": "Facilities",
+    "secPlatform": "Platform",
+    "platformLicensing": "Platform Licensing",
+    "activityLog": "Activity log"
   },
   "auth": {
     "login": "Sign In",
