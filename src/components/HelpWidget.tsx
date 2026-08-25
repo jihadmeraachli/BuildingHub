@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -23,6 +24,8 @@ export const useHelp = () => useContext(HelpContext);
 
 export function HelpProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
+  const { profile } = useAuth();
+  const firstName = profile?.full_name?.trim().split(/\s+/)[0] ?? '';
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
@@ -42,7 +45,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('help-chat', {
-        body: { messages: next },
+        body: { messages: next, firstName },
       });
       if (error || !data?.answer) throw error ?? new Error('empty');
       setMsgs([...next, { role: 'assistant', content: data.answer }]);

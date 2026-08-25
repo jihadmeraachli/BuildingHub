@@ -234,8 +234,12 @@ Deno.serve(async (req) => {
   }
 
   let messages: ChatMessage[];
+  let firstName = '';
   try {
-    ({ messages } = await req.json());
+    const body = await req.json();
+    messages = body.messages;
+    // Optional: the caller's first name, so Jad can greet them by name.
+    if (typeof body.firstName === 'string') firstName = body.firstName.trim().slice(0, 40).replace(/[\r\n`]/g, '');
     if (!Array.isArray(messages) || messages.length === 0) throw new Error('empty');
   } catch {
     return new Response(
@@ -268,6 +272,14 @@ Deno.serve(async (req) => {
           text: `${APP_GUIDE}\n\n${SYSTEM_INSTRUCTIONS}`,
           cache_control: { type: 'ephemeral' },
         },
+        // Per-user block, kept OUT of the cached block above so caching still
+        // hits across users. Only present when we know the caller's name.
+        ...(firstName
+          ? [{
+              type: 'text',
+              text: `The person you are talking to is named ${firstName}. When they greet you (hi, hello, hey, marhaba/mar7aba, salam), greet them back warmly by their first name - e.g. "Hi ${firstName}!". Do not force their name into every message, just the greeting.`,
+            }]
+          : []),
       ],
       messages: trimmed,
     }),
