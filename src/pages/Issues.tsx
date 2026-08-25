@@ -78,7 +78,10 @@ export default function Issues() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [myOnly, setMyOnly] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
+  // Deep-linkable: the dashboard's Open-issues card lands here pre-filtered.
+  const urlStatus = new URLSearchParams(window.location.search).get('status');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>(
+    urlStatus === 'open' || urlStatus === 'in_progress' || urlStatus === 'resolved' ? urlStatus : 'all');
   const [createBuildingId, setCreateBuildingId] = useState('');
   const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
 

@@ -557,10 +557,10 @@ export default function Dashboard() {
       {/* Stat row. Outstanding / Units / Open issues are AS-OF snapshots (0072);
           Billed is a flow inside the period. The suffix keeps that visible. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label={`${t('dashboard.outstanding')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`} value={money(agg.outstanding)} icon={AlertCircle}   accent="teal" />
-        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}      icon={TrendingUp}    accent="teal" />
-        <StatCard label={`${t('dashboard.units')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}       value={String(agg.units)}      icon={Home}          accent="teal" />
-        <StatCard label={`${t('dashboard.openIssues')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}  value={String(agg.openIssues)} icon={AlertTriangle} accent="teal" />
+        <StatCard label={`${t('dashboard.outstanding')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`} value={money(agg.outstanding)} icon={AlertCircle}   accent="teal" to="/finance" />
+        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}      icon={TrendingUp}    accent="teal" to="/finance" />
+        <StatCard label={`${t('dashboard.units')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}       value={String(agg.units)}      icon={Home}          accent="teal" to="/structure" />
+        <StatCard label={`${t('dashboard.openIssues')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}  value={String(agg.openIssues)} icon={AlertTriangle} accent="teal" to="/issues?status=open" />
       </div>
 
       {/* Charts */}
@@ -693,28 +693,31 @@ function HeroCard({ label, amount, stats, pill, negative }: {
 
 type Accent = 'teal' | 'amber' | 'rose' | 'default';
 
-function StatCard({ label, value, icon: Icon, accent }: { label: string; value: string; icon: ElementType; accent: Accent }) {
+function StatCard({ label, value, icon: Icon, accent, to }: { label: string; value: string; icon: ElementType; accent: Accent; to?: string }) {
   const iconClass: Record<Accent, string> = {
     teal:    'bg-primary/15 text-primary',
     amber:   'bg-amber-400/15 text-amber-300',
     rose:    'bg-rose-400/15 text-rose-300',
     default: 'bg-primary/10 text-primary/50',
   };
-  return (
-    <Card className="gap-3 py-4">
+  // With a destination the card is a link: calm hover (the app-wide tint
+  // treatment, never the neon fill) + the icon square deepens slightly.
+  const card = (
+    <Card className={cn('gap-3 py-4 h-full', to && 'group transition-colors hover:bg-accent/40 cursor-pointer')}>
       <CardContent className="px-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground font-medium">{label}</p>
             <p className="text-2xl font-bold tnum mt-1 truncate">{value}</p>
           </div>
-          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', iconClass[accent])}>
+          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors', iconClass[accent], to && 'group-hover:bg-primary/25')}>
             <Icon size={16} />
           </div>
         </div>
       </CardContent>
     </Card>
   );
+  return to ? <Link to={to} className="block h-full">{card}</Link> : card;
 }
 
 function CoverageItem({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
