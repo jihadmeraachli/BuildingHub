@@ -530,12 +530,16 @@ Deno.serve(async (req) => {
       building_name: string; balance_usd: number; owner_user_ids: string[];
       // 0076: which period is being settled, and where we are in its window
       period_end?: string | null; due_date?: string | null; is_overdue?: boolean;
+      party?: 'owner' | 'tenant';
     };
     const { data: overdueUnits, error: ouErr } = await admin.rpc('get_overdue_units');
     if (ouErr) errors.push(`get_overdue_units: ${ouErr.message}`);
     for (const row of (overdueUnits as OverdueUnit[] ?? [])) {
+      // R3: get_overdue_units returns one row per party — pass row.party, not a
+      // literal 'owner', or a leased unit's tenant reminder collides on the
+      // (unit,day,party,source) dedup key and is silently dropped.
       await remindUnit(row.unit_id, row.building_id, row.unit_label, row.building_name,
-        Number(row.balance_usd), row.owner_user_ids ?? [], 'owner',
+        Number(row.balance_usd), row.owner_user_ids ?? [], row.party ?? 'owner',
         { dueDate: row.due_date, isOverdue: row.is_overdue, source: 'arrears' });
     }
 
