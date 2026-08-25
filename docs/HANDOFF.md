@@ -45,25 +45,19 @@ recovery/observability build. All commits on `master`.
 - **Billing-mode transitions.** `0142` (MT3 arrears-reminder mode filter),
   `0143` (MT1/2/4/5 `set_billing_mode` reconciling RPC), client routing.
 
-**▶ Jey's run-list (in order):** in the Supabase SQL Editor run **0140–0146**
+**▶ Jey's run-list (in order):** in the Supabase SQL Editor run **0140–0147**
 (0137/0138/0139 already applied); then **redeploy `send-reminders`** (R3 arrears-party
 fix, 0142's companion) **and `dynamic-action`** (D14 owner-offload + dues suppression,
 0145's companion). `0143` is money-critical and its
 →arrears path is untested on live dues data — verify on a real dues building
 before flipping one in production.
 
-**Held (need live dues data to verify — the demo is arrears-only, so these
-money-math changes can't be runtime-verified here yet):**
-- **D7 — payment↔due linkage.** Payments aren't tied to the dues they settle;
-  reconciliation matches over an open-ended window (a pre-existing credit is
-  excluded, an unrelated later payment can be swept in). The real fix is a
-  `payments.due_id` (or allocation table) + FIFO reconcile, which also unlocks
-  per-due receipts — a data-model + UI change worth doing against real dues data.
-- **D8 — server-side carry recompute.** The carry is computed client-side and
-  inserted verbatim; a payment landing between preview and Issue writes a stale
-  carry (self-corrects next period). The durable fix recomputes it inside
-  `issue_budget` from live balances — but that means replicating the carry math
-  in SQL, which must be diffed against `reportData.ts` on live data before trust.
+**D7 + D8 now shipped (0147 + client) — the whole dues-audit backlog is done.**
+D7 is additive (undirected payments behave exactly as before); D8 is the safe
+re-read-and-reconfirm option, no server money-math. **Still money-critical and
+unverified on live dues data** (the demo is arrears-only) — exercise a real dues
+building before trusting the →arrears conversion (0143) and the directed-payment
+reconciliation (0147).
 
 ### Latest: 23 August 2026 — the Binayati review, and what it changed
 
@@ -262,6 +256,7 @@ Run these **in order** in Supabase → SQL Editor. All are **idempotent / additi
 | 0144 | `0144_dues_suppress_notify.sql` | **DUES audit D10.** `dues.notify_suppressed` (the 0121 charges pattern). `purge_soft_deleted` marks a purged unit/building's dues suppressed before the 30-day cascade, so `notify_on_dues_delete` and the DELETE webhook stay quiet — no "dues removed" storm a month after residents left. Guards the update trigger too. |
 | 0145 | `0145_cancel_budget_reconcile.sql` | **DUES audit D9.** `cancel_budget` now suppresses the resident notification and voids the paired **extraordinary** charge (deletes `budgets.expense_id` → charges cascade), so cancelling an extraordinary budget no longer leaves the unit owing the charge with the offsetting due gone. Payments are kept as a visible credit; the Dues client warns the manager of that credit first. **Companion edge:** `dynamic-action` §5e/§5f route through `effective_obligation_party` (D14 — a departed tenant's dues edit/delete reaches the owner now carrying it) and skip suppressed rows. Redeploy `dynamic-action`. |
 | 0146 | `0146_amount_nonneg.sql` | **Finance audit F3.** Non-negative `CHECK` on `charges.amount_usd` + `payments.amount_usd` (`NOT VALID`, so it can't fail on existing data). A negative amount now errors instead of silently flipping a balance — hardens `repost_expense` and every ledger writer. |
+| 0147 | `0147_payment_due_link.sql` | **DUES audit D7.** Nullable `payments.due_id` (FK, `ON DELETE SET NULL`). A *directed* payment settles its exact due whenever it was made; an *undirected* payment (every existing row) still reconciles via the running-account window, so behavior is unchanged until a manager opts in. `get_overdue_dues` splits `paid` into directed (by `due_id`) + undirected (windowed); the Finance payment modal gains an optional "Apply to a specific due" picker, and `Dues.tsx` mirrors the split so screen and cron agree. |
 | 0116 | `0116_billing_polish.sql` | **Billing polish round (14 fixes from live testing).** License caps removed for every scope (`cap_override` stays operator-only; floor guard kept). `start_subscription`: the paid period starts the day after a live trial ends, and an open period invoice that no longer matches the plan/price is **voided and reissued** (no more issue-again-and-again). New `request_license_increase(sub, add)`: trial / within-band / negotiated → applies immediately; a band-crossing add on an active subscription issues a prorated **top-up invoice and the licences land only when it is paid** (`mark_invoice_paid` applies them; `subscription_topup_trg` dropped). `billing_tick`: grace is **trial-only** — an unpaid renewal locks at period end. Client: Manage is its own tab; subscribe = choose cycle → payment options (start/renew dates shown; on trial: starts after the trial-end date); Subscribe/Cancel shown by status; in-app cancel modal (no browser confirm); both pay buttons matched; the word Areeba dropped from copy. |
 | 0117 | `0117_pay_first.sql` | **Pay first, invoice after.** No OPEN invoice ever exists again: what the customer sees pre-payment is time ("renews/expires in X days"), not paper. New `payment_intents` table (gateway sessions hang off an intent, amount computed server-side by `create_payment_intent`); `settle_payment_intent` (service-role) creates the invoice **already paid** (= the receipt) and applies the effect — period activated or held licences landed — in one transaction. `request_license_increase` now returns the prorated amount instead of creating a top-up invoice. `billing_tick` issues nothing (notices carry computed amounts). Cleanup voids every open invoice. All four payment edge functions rewritten intent-based (`?intent=` callbacks); `send-reminders` + `dynamic-action` copy updated (receipt on paid-INSERT). Client: invoices tab is receipts-only (no pay buttons), Renew now for active/locked, subscribe modal previews dates/amount then straight to the payment options. |
 | 0118 | `0118_license_downgrade.sql` | **A paid cycle keeps what it paid for.** Removing licences on an ACTIVE subscription no longer takes them away mid-cycle: `schedule_license_reduction` records `renews_license_count`, all paid licences stay usable until period end, the renewal is priced at the lower count/band (`create_payment_intent`), and the reduction lands only when the renewal is paid (`settle_payment_intent`, clamped to units/assignments). Revertible any time before renewal (`cancel_license_reduction`); adding licences also cancels it. Trial removals stay immediate (nothing was paid). License card shows the dated downgrade; Manage gains a Revert button; two new audit events. |
