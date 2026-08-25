@@ -52,6 +52,19 @@ fix, 0142's companion) **and `dynamic-action`** (D14 owner-offload + dues suppre
 →arrears path is untested on live dues data — verify on a real dues building
 before flipping one in production.
 
+**Held (need live dues data to verify — the demo is arrears-only, so these
+money-math changes can't be runtime-verified here yet):**
+- **D7 — payment↔due linkage.** Payments aren't tied to the dues they settle;
+  reconciliation matches over an open-ended window (a pre-existing credit is
+  excluded, an unrelated later payment can be swept in). The real fix is a
+  `payments.due_id` (or allocation table) + FIFO reconcile, which also unlocks
+  per-due receipts — a data-model + UI change worth doing against real dues data.
+- **D8 — server-side carry recompute.** The carry is computed client-side and
+  inserted verbatim; a payment landing between preview and Issue writes a stale
+  carry (self-corrects next period). The durable fix recomputes it inside
+  `issue_budget` from live balances — but that means replicating the carry math
+  in SQL, which must be diffed against `reportData.ts` on live data before trust.
+
 ### Latest: 23 August 2026 — the Binayati review, and what it changed
 
 A competitor teardown (Binayati, from a trial account) produced a ranked
