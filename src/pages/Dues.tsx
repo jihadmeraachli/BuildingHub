@@ -489,20 +489,22 @@ export default function Dues() {
       </div>
 
       {entity && entity.billingMode !== 'dues' && (
-        <Card className="mb-4"><CardBody>
-          <p className="text-sm text-amber-600 dark:text-amber-400 flex items-start gap-2">
-            <Info size={15} className="shrink-0 mt-0.5" />
-            <span>
-              {t('dues.arrearsNote1', { kind: t(`register.nouns.${entity.kind}`, { defaultValue: entity.kind }) })}{' '}
-              <Link to="/buildings" className="underline">{t('nav.buildings')}</Link>{' '}
-              {t('dues.arrearsNote2')}
-              <span className="block mt-1.5 text-muted-foreground">
+        <Card className="mb-4 border-amber-500/25 bg-amber-500/[0.06]"><CardBody>
+          <div className="flex items-start gap-2.5 text-sm">
+            <Info size={16} className="shrink-0 mt-0.5 text-amber-500" />
+            <div>
+              <p className="font-medium text-foreground">
+                {t('dues.arrearsNote1', { kind: t(`register.nouns.${entity.kind}`, { defaultValue: entity.kind }) })}{' '}
+                <Link to="/buildings" className="text-primary underline underline-offset-2">{t('nav.buildings')}</Link>{' '}
+                {t('dues.arrearsNote2')}
+              </p>
+              <p className="mt-1.5 text-muted-foreground">
                 {t('dues.arrearsBlocked')}{' '}
                 {t('dues.arrearsOneOff')}{' '}
-                <Link to="/finance" className="underline">{t('nav.finance')}</Link>.
-              </span>
-            </span>
-          </p>
+                <Link to="/finance" className="text-primary underline underline-offset-2">{t('nav.finance')}</Link>.
+              </p>
+            </div>
+          </div>
         </CardBody></Card>
       )}
 
