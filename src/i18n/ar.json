@@ -1092,6 +1092,7 @@
     "deleteGroupConfirm": "حذف هذه المجموعة؟"
   },
   "finance": {
+    "recordedBy": "سجّلها",
     "title": "المالية",
     "subtitle": "المصاريف والتحصيلات ودفتر المبنى.",
     "allTime": "كل الفترات",

@@ -1080,6 +1080,7 @@
     "deleteGroupConfirm": "Supprimer ce groupe ?"
   },
   "finance": {
+    "recordedBy": "Enregistré par",
     "title": "Finances",
     "subtitle": "Dépenses, encaissements et livre de l'immeuble.",
     "allTime": "Depuis le début",

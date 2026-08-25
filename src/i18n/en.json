@@ -1080,6 +1080,7 @@
     "deleteGroupConfirm": "Delete this group?"
   },
   "finance": {
+    "recordedBy": "Recorded by",
     "title": "Finance",
     "subtitle": "Expenses, collections & the building book.",
     "allTime": "All time",

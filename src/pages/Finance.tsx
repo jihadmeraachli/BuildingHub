@@ -220,6 +220,7 @@ export default function Finance() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [recorderNames, setRecorderNames] = useState<Record<string, string>>({});
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -400,6 +401,23 @@ export default function Finance() {
   // Derivations live in lib/reportData (shared with the Reports tab, #62).
   const th = useMemo(() => tenancyHelpers(tenancy, charges, payments, adjustments),
     [tenancy, charges, payments, adjustments]);
+
+  // Who RECORDED each payment (payments.recorded_by) — staff, not tenants, so
+  // nameById doesn't cover them. Resolved to names for the "Recorded by" tag.
+  useEffect(() => {
+    const ids = [...new Set(payments.map((p) => p.recorded_by).filter(Boolean))] as string[];
+    const missing = ids.filter((id) => !(id in recorderNames));
+    if (!missing.length) return;
+    supabase.from('profiles').select('id, full_name').in('id', missing).then(({ data }) => {
+      setRecorderNames((prev) => {
+        const next = { ...prev };
+        (data ?? []).forEach((p: { id: string; full_name: string }) => { next[p.id] = p.full_name; });
+        return next;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payments]);
+  const recorderName = (p: Payment) => (p.recorded_by ? recorderNames[p.recorded_by] ?? null : null);
   const { activeTenantIds, nameById, activeTenantId } = th;
   const hasTenant = (uid: string) => activeTenantIds.has(uid);        // forms (active tenant)
   // display/split uses everTenantIds.has(unitId) directly (has or had a tenant)
@@ -1425,6 +1443,7 @@ export default function Finance() {
                           {unitDisplay(p.unit_id)}
                           {p.paid_by === 'tenant' && <TenantTag label={tenantLabelFor(p.tenant_id, p.unit_id, p.paid_on)} />}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
+                          {recorderName(p) && <div className="text-[11px] font-normal text-muted-foreground mt-0.5">{t('finance.recordedBy')} {recorderName(p)}</div>}
                         </td>
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
                         <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
@@ -1884,6 +1903,7 @@ export default function Finance() {
                 { l: t('finance.method'), v: t(`finance.methods.${detailPayment.method}`) },
                 { l: t('finance.date'), v: fmtDate(detailPayment.paid_on, 'MMM d, yyyy') },
                 { l: t('finance.note'), v: detailPayment.note || '—' },
+                { l: t('finance.recordedBy'), v: recorderName(detailPayment) || '—' },
               ].map((x) => (
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5 capitalize">{x.v}</p></div>
               ))}
