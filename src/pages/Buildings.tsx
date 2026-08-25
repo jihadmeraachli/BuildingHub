@@ -159,7 +159,7 @@ function SearchableColFilter({
 
 export default function Buildings() {
   const { t } = useTranslation();
-  const { isPlatformAdmin, grants, can } = useAuth();
+  const { isPlatformAdmin, grants, can, entityKey } = useAuth();
 
   const myOrgIds = grants
     .filter(g => g.scope_type === 'org' && g.role === 'org_admin')
@@ -246,7 +246,7 @@ export default function Buildings() {
   // ran a standalone building never saw it here. Show the UNION of every scope,
   // and everything for a platform admin. (buildings is already RLS-scoped, so
   // this only decides what to DISPLAY among rows the user may already see.)
-  const visibleBuildings = isPlatformAdmin
+  const manageableBuildings = isPlatformAdmin
     ? buildings
     : buildings.filter(b =>
         orgBuildings.some(ob => ob.building_id === b.id)                    // a block in an org I administer
@@ -254,6 +254,17 @@ export default function Buildings() {
         || anyBuildingIds.includes(b.id)                                    // any building I hold a grant on
         || (b.compound_id != null && anyCompoundIds.includes(b.compound_id))// any compound I hold a grant on
       );
+
+  // Honor the global entity selector (top-left dropdown), like every other tab.
+  // entityKey is 'b:<buildingId>' (a standalone block) or 'c:<compoundId>'
+  // (a compound → all its blocks); empty = no selection, show everything.
+  const visibleBuildings = !entityKey
+    ? manageableBuildings
+    : entityKey.startsWith('b:')
+      ? manageableBuildings.filter(b => b.id === entityKey.slice(2))
+      : entityKey.startsWith('c:')
+        ? manageableBuildings.filter(b => b.compound_id === entityKey.slice(2))
+        : manageableBuildings;
 
   // NOTE (#70): single-building admins used to auto-open their building's edit
   // modal here. Testers experienced landing in an unrequested edit form as a
