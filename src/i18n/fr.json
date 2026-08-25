@@ -1194,6 +1194,7 @@
     "adjustments": "Ajustements",
     "newAdjustment": "Nouvel ajustement",
     "adjKind": "Type",
+    "adjParty": "Ajuster le solde de",
     "effect": "Effet",
     "noAdjustments": "Aucun ajustement pour l'instant",
     "adjSaved": "Ajustement enregistré",

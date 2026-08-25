@@ -1194,6 +1194,7 @@
     "adjustments": "Adjustments",
     "newAdjustment": "New adjustment",
     "adjKind": "Type",
+    "adjParty": "Adjust whose balance",
     "effect": "Effect",
     "noAdjustments": "No adjustments yet",
     "adjSaved": "Adjustment saved",

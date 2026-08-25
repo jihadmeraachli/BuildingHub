@@ -152,7 +152,7 @@ export default function Finance() {
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
   const [adjOpen, setAdjOpen] = useState(false);
-  const [adjForm, setAdjForm] = useState({ unit_id: '', kind: 'discount' as AdjustmentKind, amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' });
+  const [adjForm, setAdjForm] = useState({ unit_id: '', kind: 'discount' as AdjustmentKind, amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '', party: 'owner' as Tenure });
   const [period, setPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [monthValue, setMonthValue] = useState(() => new Date().toISOString().slice(0, 7));
   const [units, setUnits] = useState<Unit[]>([]);
@@ -580,7 +580,7 @@ export default function Finance() {
 
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
   function openPayment() { setEditingPaymentId(null); setEditingTenantId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
-  function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '' }); setAdjOpen(true); }
+  function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '', party: 'owner' }); setAdjOpen(true); }
   function openExpenseEdit(e: Expense) {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
@@ -745,6 +745,12 @@ export default function Finance() {
     const amount = Number(adjForm.amount);
     if (!adjForm.unit_id || !amount || amount <= 0) { toast.error(t('finance.adjNeedsAmount')); return; }
     setSaving(true);
+    // H1 (security audit): route the adjustment to the right party. Owner-only
+    // units are always the owner; on a leased unit the manager picks (T5), and
+    // a tenant adjustment carries the active tenant's id — without this every
+    // adjustment silently landed on the owner's balance.
+    const party: Tenure = hasTenant(adjForm.unit_id) ? adjForm.party : 'owner';
+    const tenant_id = party === 'tenant' ? activeTenantId(adjForm.unit_id) : null;
     const { error } = await supabase.from('adjustments').insert({
       unit_id: adjForm.unit_id,
       building_id: unitById[adjForm.unit_id]?.building_id,
@@ -752,6 +758,8 @@ export default function Finance() {
       amount_usd: amount,
       effective_date: adjForm.effective_date,
       note: adjForm.note.trim() || null,
+      party,
+      tenant_id,
       created_by: profile?.id,
     });
     setSaving(false);
@@ -1930,6 +1938,12 @@ export default function Finance() {
               <SelectItem key={k} value={k}>{t(`finance.adjKinds.${k}`)}</SelectItem>
             ))}
           </SelectField>
+          {hasTenant(adjForm.unit_id) && (
+            <SelectField label={t('finance.adjParty')} value={adjForm.party} onValueChange={(v) => setAdjForm({ ...adjForm, party: v as Tenure })}>
+              <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
+              <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
+            </SelectField>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={adjForm.amount} onChange={(e) => setAdjForm({ ...adjForm, amount: e.target.value })} />
             <Input label={t('finance.date')} type="date" value={adjForm.effective_date} onChange={(e) => setAdjForm({ ...adjForm, effective_date: e.target.value })} />
