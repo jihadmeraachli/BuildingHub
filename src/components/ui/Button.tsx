@@ -10,9 +10,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        /** The calm primary: emphasized but not neon — for a page's main action. */
+        /** The primary action, app-wide: the calm teal look (formerly `tinted`),
+         *  emphasized but not neon — so Save/Submit/Add match the same treatment
+         *  everywhere instead of splitting between a loud fill and a tint. */
+        default: "bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25",
+        /** Alias of default, kept so existing `variant="tinted"` call sites work. */
         tinted: "bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25",
+        /** The old bold neon fill, kept for a deliberately loud one-off CTA. */
+        solid: "bg-primary text-primary-foreground hover:bg-primary/90",
         danger:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         destructive:
