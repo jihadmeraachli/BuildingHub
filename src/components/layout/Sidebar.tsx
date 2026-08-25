@@ -143,6 +143,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     { to: '/import',        label: t('nav.import'),        icon: FileUp,    show: canBuildings || canStructure },
     { to: '/licenses',      label: t('nav.licenses'),      icon: KeyRound,  show: isScopeAdmin && !isPlatformAdmin },
     { to: '/licensing-admin', label: 'Platform Licensing', icon: KeyRound,  show: isPlatformAdmin },
+    { to: '/activity',      label: 'Activity log',         icon: ScrollText, show: isPlatformAdmin },
     { to: '/trash',         label: t('nav.trash'),         icon: Trash2,    show: isPlatformAdmin || isScopeAdmin },
   ]).filter(l => l.show && !(isDemo && DEMO_HIDDEN_ROUTES.has(l.to)));
 
