@@ -274,8 +274,10 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       {/* Nav — labelled, collapsible sections */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
         {sections.map((s, i) => {
-          const hasActive = s.links.some(l => isActive(l.to));
-          const openSection = !collapsed[s.key] || hasActive;
+          const openSection = !collapsed[s.key];
+          // A collapsed section that holds the current page tints its label, so
+          // you can still see where you are without it being forced open.
+          const activeCollapsed = !openSection && s.links.some(l => isActive(l.to));
           return (
             <div key={s.key} className={i > 0 ? 'pt-1.5' : ''}>
               <button
@@ -284,7 +286,10 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
                 aria-expanded={openSection}
                 className="group w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors"
               >
-                <span className="text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+                <span className={cn(
+                  'text-[10px] font-semibold uppercase tracking-widest',
+                  activeCollapsed ? 'text-sidebar-primary/80' : 'text-sidebar-foreground/40'
+                )}>
                   {s.label}
                 </span>
                 <ChevronDown
