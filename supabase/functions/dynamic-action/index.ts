@@ -236,7 +236,11 @@ async function unitPartyIds(unitId: string, party: 'owner' | 'tenant' | 'both', 
   const { data } = await supabase.from('memberships').select('user_id, tenure').eq('unit_id', unitId).is('ended_at', null);
   const rows = ((data ?? []) as { user_id: string; tenure: string }[]).filter((m) => m.tenure === party);
   const ids = rows.map((m) => m.user_id);
-  if (party === 'tenant' && tenantId && ids.includes(tenantId)) return [tenantId];
+  // Dues audit D4: when a dues row names a specific tenant, resolve to THAT
+  // tenant if still active, else NOBODY — never fall back to the unit's current
+  // tenant, which leaks a departed tenant's dues notification (and its amount)
+  // to their replacement.
+  if (party === 'tenant' && tenantId) return ids.includes(tenantId) ? [tenantId] : [];
   return ids;
 }
 

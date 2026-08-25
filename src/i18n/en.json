@@ -1409,6 +1409,8 @@
     "deleteTitle": "Delete contact"
   },
   "dues": {
+    "needUnits": "Select at least one unit to bill.",
+    "periodExists": "A budget for this period already exists. Cancel it first to re-issue.",
     "title": "Prepaid Budget",
     "subtitle": "Build a budget out of expense lines; the total is split across units and collected in advance.",
     "plan": "Dues plan",

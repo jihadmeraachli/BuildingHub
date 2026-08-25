@@ -188,19 +188,26 @@ export default function Dues() {
    *  billed twice. Settlement uses the same test as get_overdue_dues — that
    *  party's payments since the row was issued — so the screen and the
    *  reminder cron agree. */
+  // 0140 (dues audit D1): a party's OUTSTANDING dues is an AGGREGATE — Σ of the
+  // party's issued dues minus the party's payments since the earliest one — NOT
+  // a per-due subtraction. The old per-due form subtracted one payment from
+  // EVERY due, over-crediting the carry and silently under-billing next period.
+  // This matches get_overdue_dues' aggregate exactly, so screen and cron agree.
   const outstandingDues = useMemo(() => {
-    const paidSince = (unitId: string, party: Tenure, since: string, tenantId: string | null) =>
-      payments
+    return (unitId: string, party: Tenure) => {
+      const dues = items.filter((d) => d.unit_id === unitId && d.billed_to === party && upTo(d.created_at));
+      if (!dues.length) return 0;
+      const totalDue = dues.reduce((s, d) => s + Number(d.amount_due), 0);
+      const since = dues.reduce((m, d) => (d.created_at < m ? d.created_at : m), dues[0].created_at);
+      const tenantId = party === 'tenant' ? (dues.find((d) => d.tenant_id)?.tenant_id ?? null) : null;
+      const paid = payments
         .filter((p) => p.unit_id === unitId && !p.voided_at && p.created_at >= since && upTo(p.created_at)
           && (party === 'tenant'
             ? p.paid_by === 'tenant' && (!tenantId || p.tenant_id === tenantId)
             : p.paid_by !== 'tenant'))
         .reduce((s, p) => s + Number(p.amount_usd), 0);
-    return (unitId: string, party: Tenure) =>
-      items
-        .filter((d) => d.unit_id === unitId && d.billed_to === party && upTo(d.created_at))
-        .reduce((s, d) => s + Math.max(0,
-          Number(d.amount_due) - paidSince(unitId, party, d.created_at, d.tenant_id)), 0);
+      return Math.max(0, totalDue - paid);
+    };
   }, [items, payments, upTo]);
 
   /** Start a fresh budget. Every issuance is its own plan, so the modal always
@@ -281,6 +288,14 @@ export default function Dues() {
     const lines = budLines.filter((l) => composeUsdTotal(Number(l.usd) || 0, Number(l.lbp) || 0, Number(l.rate) || 0) > 0);
     if (lines.some((l) => (Number(l.lbp) || 0) > 0 && (Number(l.rate) || 0) <= 0)) { toast.error(t('finance.lbpNeedsRate')); return; }
     if (!lines.length) { toast.error(t('dues.needLines')); return; }
+    // D6: a budget with lines but no target units would insert lines and ZERO
+    // dues — a silent $0 obligation. Block it.
+    if (!preview.length) { toast.error(t('dues.needUnits')); return; }
+    // D5: guard against accidentally issuing the same period twice (duplicate
+    // obligations). Cancel the existing one first to re-issue.
+    if (budgets.some((b) => b.period_start === genStart && b.period_end === genEnd)) {
+      toast.error(t('dues.periodExists')); return;
+    }
     setSaving(true);
     // 0125 (audit M3): one transaction — the budget, its lines and its dues
     // land together or not at all. The old three-insert client sequence could
@@ -725,7 +740,7 @@ export default function Dues() {
           <GenPreview rows={preview} isB2={isB2} unitLabel={unitLabel} th={th} labels={labels} t={t} />
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setGenOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={issueBudget} loading={saving} disabled={!genPeriod.trim() || !genStart || !genEnd}>{t('dues.issueBudget')}</Button>
+            <Button onClick={issueBudget} loading={saving} disabled={!genPeriod.trim() || !genStart || !genEnd || preview.length === 0}>{t('dues.issueBudget')}</Button>
           </div>
         </div>
       </Modal>

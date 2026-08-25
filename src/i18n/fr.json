@@ -1409,6 +1409,8 @@
     "deleteTitle": "Supprimer le contact"
   },
   "dues": {
+    "needUnits": "Sélectionnez au moins un lot à facturer.",
+    "periodExists": "Un budget pour cette période existe déjà. Annulez-le d’abord pour le réémettre.",
     "title": "Budget prévisionnel",
     "subtitle": "Construisez un budget à partir de lignes de dépenses ; le total est réparti entre les logements et appelé par avance.",
     "plan": "Plan du budget",
