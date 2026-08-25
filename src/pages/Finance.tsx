@@ -101,8 +101,8 @@ const newExpForm = (): ExpForm => ({
 });
 type FundEntryForm = { kind: FundEntryKind; amount: string; amount_lbp: string; lbp_rate: string; entry_date: string; description: string; counterparty: string };
 const newFundEntryForm = (): FundEntryForm => ({ kind: 'income', amount: '', amount_lbp: '', lbp_rate: '', entry_date: new Date().toISOString().slice(0, 10), description: '', counterparty: '' });
-type PayForm = { unit_id: string; amount: string; amount_lbp: string; lbp_rate: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure };
-const newPayForm = (): PayForm => ({ unit_id: '', amount: '', amount_lbp: '', lbp_rate: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner' });
+type PayForm = { unit_id: string; amount: string; amount_lbp: string; lbp_rate: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure; due_id: string };
+const newPayForm = (): PayForm => ({ unit_id: '', amount: '', amount_lbp: '', lbp_rate: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner', due_id: '' });
 
 export default function Finance() {
   const { t } = useTranslation();
@@ -591,7 +591,7 @@ export default function Finance() {
   }
   function openPaymentEdit(p: Payment) {
     setEditingPaymentId(p.id); setEditingTenantId(p.tenant_id ?? null); setPayFile(null);
-    setPayForm({ unit_id: p.unit_id, amount: String(usdPartOf(p)), amount_lbp: p.amount_lbp ? String(p.amount_lbp) : '', lbp_rate: p.lbp_rate ? String(p.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), method: p.method, paid_on: p.paid_on, note: p.note ?? '', paid_by: p.paid_by ?? 'owner' });
+    setPayForm({ unit_id: p.unit_id, amount: String(usdPartOf(p)), amount_lbp: p.amount_lbp ? String(p.amount_lbp) : '', lbp_rate: p.lbp_rate ? String(p.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), method: p.method, paid_on: p.paid_on, note: p.note ?? '', paid_by: p.paid_by ?? 'owner', due_id: p.due_id ?? '' });
     setPayOpen(true);
   }
 
@@ -790,7 +790,13 @@ export default function Finance() {
     // H3: always carry the block — editing a payment onto a unit in another
     // block must move it there too, or the compound book and the block slice
     // disagree ("charges carry the block" applies to payments just the same).
-    const base: Record<string, unknown> = { unit_id: payForm.unit_id, building_id: unitById[payForm.unit_id]?.building_id, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id };
+    // 0147 (D7): a payment may be pinned to a specific due — but only if that due
+    // exists on this unit and belongs to the party being credited, so a stale
+    // selection (party switched after picking) can never mis-direct the money.
+    const due_id = payForm.due_id
+      && dues.some((d) => d.id === payForm.due_id && d.unit_id === payForm.unit_id && d.billed_to === paid_by)
+      ? payForm.due_id : null;
+    const base: Record<string, unknown> = { unit_id: payForm.unit_id, building_id: unitById[payForm.unit_id]?.building_id, amount_usd: amount, amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null, method: payForm.method, paid_on: payForm.paid_on, note: payForm.note.trim() || null, paid_by, tenant_id, due_id };
     if (receipt_url) base.receipt_url = receipt_url;
     const { error } = editingPaymentId
       ? await supabase.from('payments').update(base).eq('id', editingPaymentId)
@@ -1794,11 +1800,30 @@ export default function Finance() {
           <Input label={t('finance.date')} type="date" value={payForm.paid_on} onChange={(e) => setPayForm({ ...payForm, paid_on: e.target.value })} />
           {/* T8: only leased units ask who paid */}
           {hasTenant(payForm.unit_id) && (
-            <SelectField label={t('finance.paidBy')} value={payForm.paid_by} onValueChange={(v) => setPayForm({ ...payForm, paid_by: v as Tenure })}>
+            <SelectField label={t('finance.paidBy')} value={payForm.paid_by} onValueChange={(v) => setPayForm({ ...payForm, paid_by: v as Tenure, due_id: '' })}>
               <SelectItem value="owner">{t('finance.billedToOptions.owner')}</SelectItem>
               <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
             </SelectField>
           )}
+          {/* 0147 (D7): in dues mode, optionally pin this payment to one open due
+              so it settles exactly, instead of via the running-account window. */}
+          {(() => {
+            const party: Tenure = hasTenant(payForm.unit_id) ? payForm.paid_by : 'owner';
+            const openDues = dues
+              .filter((d) => d.unit_id === payForm.unit_id && d.billed_to === party
+                && Number(d.amount_due) > 0 && !d.converted_at)
+              .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''));
+            if (!openDues.length) return null;
+            return (
+              <SelectField label={t('finance.applyToDue')} value={payForm.due_id || '__general__'}
+                onValueChange={(v) => setPayForm({ ...payForm, due_id: v === '__general__' ? '' : v })}>
+                <SelectItem value="__general__">{t('finance.applyGeneral')}</SelectItem>
+                {openDues.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{d.period_label} · {money(Number(d.amount_due))}</SelectItem>
+                ))}
+              </SelectField>
+            );
+          })()}
           <Input label={t('finance.noteOptional')} value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-slate-600">{t('finance.receiptOptional')}</label>

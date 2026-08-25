@@ -201,13 +201,20 @@ export default function Dues() {
       const dues = items.filter((d) => d.unit_id === unitId && d.billed_to === party && upTo(d.created_at));
       if (!dues.length) return 0;
       const totalDue = dues.reduce((s, d) => s + Number(d.amount_due), 0);
+      const dueIds = new Set(dues.map((d) => d.id));
       const since = dues.reduce((m, d) => (d.created_at < m ? d.created_at : m), dues[0].created_at);
       const tenantId = party === 'tenant' ? (dues.find((d) => d.tenant_id)?.tenant_id ?? null) : null;
+      // 0147 (D7): a payment pinned to one of these dues (due_id) settles it
+      // exactly, whenever it was made; an undirected payment reconciles through
+      // the running-account window as before. Mirrors get_overdue_dues.
       const paid = payments
-        .filter((p) => p.unit_id === unitId && !p.voided_at && p.created_at >= since && upTo(p.created_at)
-          && (party === 'tenant'
-            ? p.paid_by === 'tenant' && (!tenantId || p.tenant_id === tenantId)
-            : p.paid_by !== 'tenant'))
+        .filter((p) => !p.voided_at && upTo(p.created_at) && (
+          p.due_id
+            ? dueIds.has(p.due_id)
+            : p.unit_id === unitId && p.created_at >= since
+              && (party === 'tenant'
+                ? p.paid_by === 'tenant' && (!tenantId || p.tenant_id === tenantId)
+                : p.paid_by !== 'tenant')))
         .reduce((s, p) => s + Number(p.amount_usd), 0);
       return Math.max(0, totalDue - paid);
     };
@@ -299,7 +306,38 @@ export default function Dues() {
     if (budgets.some((b) => b.period_start === genStart && b.period_end === genEnd)) {
       toast.error(t('dues.periodExists')); return;
     }
+    // D8 (dues audit): the preview's carry was computed from the ledgers loaded
+    // when the modal opened. If a payment or charge landed since (another
+    // manager, or a resident paying), that carry is stale. Re-read the ledgers
+    // now; if anything moved, refresh the preview and make the manager re-confirm
+    // rather than silently writing a stale obligation. The no-race case reads
+    // identical data and proceeds untouched.
     setSaving(true);
+    {
+      const blocks = entity.buildingIds;
+      const unitSet = new Set(units.map((u) => u.id));
+      const sig = (arr: Array<{ created_at: string; voided_at?: string | null }>, amt: 'amount_usd' | 'amount_due') =>
+        `${arr.length}|${arr.reduce((sum, x) => sum + Number((x as Record<string, unknown>)[amt] as number || 0), 0)}`
+        + `|${arr.reduce((m, x) => (x.created_at > m ? x.created_at : m), '')}|${arr.filter((x) => x.voided_at).length}`;
+      const [freshC, freshP, freshA, freshD] = await Promise.all([
+        fetchAll<Charge>((f, t) => supabase.from('charges').select('*').in('building_id', blocks).order('id').range(f, t)),
+        fetchAll<Payment>((f, t) => supabase.from('payments').select('*').in('building_id', blocks).order('id').range(f, t)),
+        fetchAll<Adjustment>((f, t) => supabase.from('adjustments').select('*').in('building_id', blocks).order('id').range(f, t)),
+        fetchAll<DuesItem>((f, t) => supabase.from('dues').select('*').in('building_id', blocks).is('converted_at', null).order('id').range(f, t)),
+      ]);
+      const freshItems = freshD.filter((d) => unitSet.has(d.unit_id));
+      const drift =
+        sig(charges, 'amount_usd')     !== sig(freshC, 'amount_usd') ||
+        sig(payments, 'amount_usd')    !== sig(freshP, 'amount_usd') ||
+        sig(adjustments, 'amount_usd') !== sig(freshA, 'amount_usd') ||
+        sig(items, 'amount_due')       !== sig(freshItems, 'amount_due');
+      if (drift) {
+        setCharges(freshC); setPayments(freshP); setAdjustments(freshA); setItems(freshItems);
+        setSaving(false);
+        toast.error(t('dues.balancesChanged'));
+        return;
+      }
+    }
     // 0125 (audit M3): one transaction — the budget, its lines and its dues
     // land together or not at all. The old three-insert client sequence could
     // half-complete on a dropped connection, leaving a $0 "issued" budget.
@@ -384,22 +422,28 @@ export default function Dues() {
   const owedByUnit = useMemo(() => {
     type Row = { unitId: string; party: Tenure; tenantId: string | null;
                  billed: number; paid: number; owed: number; periods: number };
-    const acc = new Map<string, Row & { since: string }>();
+    const acc = new Map<string, Row & { since: string; dueIds: Set<string> }>();
     for (const d of vItems) {
       const key = `${d.unit_id}|${d.billed_to}|${d.tenant_id ?? ''}`;
       const r = acc.get(key) ?? { unitId: d.unit_id, party: d.billed_to, tenantId: d.tenant_id,
-                                  billed: 0, paid: 0, owed: 0, periods: 0, since: d.created_at };
+                                  billed: 0, paid: 0, owed: 0, periods: 0, since: d.created_at, dueIds: new Set<string>() };
       r.billed += Number(d.amount_due);
       r.periods += 1;
+      r.dueIds.add(d.id);
       if (d.created_at < r.since) r.since = d.created_at;
       acc.set(key, r);
     }
     const out = Array.from(acc.values()).map((r) => {
+      // 0147 (D7): directed payments (due_id in this group) settle exactly;
+      // undirected ones reconcile through the window. Mirrors get_overdue_dues.
       const paid = payments
-        .filter((p) => p.unit_id === r.unitId && !p.voided_at && p.created_at >= r.since && upTo(p.created_at)
-          && (r.party === 'tenant'
-            ? p.paid_by === 'tenant' && (!r.tenantId || p.tenant_id === r.tenantId)
-            : p.paid_by !== 'tenant'))
+        .filter((p) => !p.voided_at && upTo(p.created_at) && (
+          p.due_id
+            ? r.dueIds.has(p.due_id)
+            : p.unit_id === r.unitId && p.created_at >= r.since
+              && (r.party === 'tenant'
+                ? p.paid_by === 'tenant' && (!r.tenantId || p.tenant_id === r.tenantId)
+                : p.paid_by !== 'tenant')))
         .reduce((s, p) => s + Number(p.amount_usd), 0);
       return { ...r, paid, owed: Math.max(0, Math.round((r.billed - paid) * 100) / 100) };
     }).filter((r) => r.owed > 0);

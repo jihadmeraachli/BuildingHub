@@ -406,6 +406,10 @@ export interface Payment {
   paid_by: Tenure;
   /** the specific tenant who paid (when paid_by='tenant'). 0066 */
   tenant_id?: string | null;
+  /** dues mode (0147, D7): the specific due this payment settles. When set, the
+   *  payment is applied EXACTLY to that due regardless of timing; when null it
+   *  reconciles via the running-account window like every legacy payment. */
+  due_id?: string | null;
   created_at: string;
   voided_at?: string | null;
   voided_by?: string | null;
@@ -457,6 +461,12 @@ export interface Dues {
   label: string | null;
   created_by: string | null;
   created_at: string;
+  /** Set when this due was posted to the ledger as a charge during a
+   *  dues→arrears mode flip (0143). Converted rows are hidden and never chased. */
+  converted_at?: string | null;
+  /** Housekeeping write (purge cascade 0144 / budget cancel 0145) — its
+   *  delete/update notification is skipped. */
+  notify_suppressed?: boolean | null;
 }
 
 export type InspectionCategory = 'generator' | 'elevator' | 'fire_safety' | 'water_tank' | 'electrical' | 'hvac' | 'other';

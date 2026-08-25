@@ -1298,7 +1298,9 @@
     "deleteExpenseTitle": "حذف المصروف",
     "deleteExpenseConfirm": "حذف هذا المصروف والمصاريف التي أنشأها؟",
     "saveExpenseFailed": "تعذّر حفظ المصروف.",
-    "savePaymentFailed": "تعذّر حفظ الدفعة: {{msg}}"
+    "savePaymentFailed": "تعذّر حفظ الدفعة: {{msg}}",
+    "applyToDue": "تخصيص لمستحق محدد",
+    "applyGeneral": "عام (حساب جاري)"
   },
   "inspections": {
     "title": "الفحوصات",
@@ -1534,7 +1536,8 @@
     "budgetCancelled": "أُلغيت الموازنة وسُحبت مطالباتها",
     "cancelBudgetTitle": "إلغاء الموازنة",
     "deleteItemTitle": "حذف بند الموازنة المسبقة",
-    "deleteItemConfirm": "حذف هذا البند؟"
+    "deleteItemConfirm": "حذف هذا البند؟",
+    "balancesChanged": "تغيّرت الأرصدة أثناء فتح هذه الموازنة. تم تحديث المبالغ؛ يرجى المراجعة وإعادة الإصدار."
   },
   "invites": {
     "title": "دعوة: وحدة {{unit}}، {{building}}",

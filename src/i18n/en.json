@@ -1286,7 +1286,9 @@
     "deleteExpenseTitle": "Delete expense",
     "deleteExpenseConfirm": "Delete this expense and the charges it created?",
     "saveExpenseFailed": "Could not save the expense.",
-    "savePaymentFailed": "Could not save the payment: {{msg}}"
+    "savePaymentFailed": "Could not save the payment: {{msg}}",
+    "applyToDue": "Apply to a specific due",
+    "applyGeneral": "General (running account)"
   },
   "inspections": {
     "title": "Inspections",
@@ -1522,7 +1524,8 @@
     "budgetCancelled": "Budget cancelled and its asks withdrawn",
     "cancelBudgetTitle": "Cancel budget",
     "deleteItemTitle": "Delete dues item",
-    "deleteItemConfirm": "Delete this dues item?"
+    "deleteItemConfirm": "Delete this dues item?",
+    "balancesChanged": "Balances changed while this budget was open. The amounts have been refreshed; please review and issue again."
   },
   "invites": {
     "title": "Invitation: unit {{unit}}, {{building}}",

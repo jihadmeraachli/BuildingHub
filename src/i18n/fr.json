@@ -1286,7 +1286,9 @@
     "deleteExpenseTitle": "Supprimer la charge",
     "deleteExpenseConfirm": "Supprimer cette charge et les répartitions qu’elle a créées ?",
     "saveExpenseFailed": "Impossible d'enregistrer la charge.",
-    "savePaymentFailed": "Impossible d'enregistrer le paiement : {{msg}}"
+    "savePaymentFailed": "Impossible d'enregistrer le paiement : {{msg}}",
+    "applyToDue": "Affecter à une cotisation précise",
+    "applyGeneral": "Général (compte courant)"
   },
   "inspections": {
     "title": "Contrôles",
@@ -1522,7 +1524,8 @@
     "budgetCancelled": "Budget annulé et ses appels retirés",
     "cancelBudgetTitle": "Annuler le budget",
     "deleteItemTitle": "Supprimer l'appel de fonds",
-    "deleteItemConfirm": "Supprimer cet appel de fonds ?"
+    "deleteItemConfirm": "Supprimer cet appel de fonds ?",
+    "balancesChanged": "Les soldes ont changé pendant que ce budget était ouvert. Les montants ont été actualisés; veuillez vérifier et réémettre."
   },
   "invites": {
     "title": "Invitation : logement {{unit}}, {{building}}",
