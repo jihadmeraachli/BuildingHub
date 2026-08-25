@@ -97,7 +97,8 @@
     "secFacilities": "Facilities",
     "secPlatform": "Platform",
     "platformLicensing": "Platform Licensing",
-    "activityLog": "Activity log"
+    "activityLog": "Activity log",
+    "askJad": "Ask Jad"
   },
   "auth": {
     "login": "Sign In",
@@ -1377,8 +1378,8 @@
     "deleteConfirm": "Delete this contract?"
   },
   "help": {
-    "title": "Help",
-    "intro": "Hi! I know Abniyah inside out. Ask me anything about using the app.",
+    "title": "Ask Jad",
+    "intro": "Hi, I'm Jad, your AI support agent. I know Abniyah inside out and I'm here to help. Where would you like to start?",
     "placeholder": "Ask a question...",
     "send": "Send",
     "error": "Sorry, I could not answer right now. Please try again, or use Send feedback in the side menu.",

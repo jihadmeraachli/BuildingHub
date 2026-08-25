@@ -10,6 +10,7 @@ import { BioPrompt } from '@/components/BioPrompt';
 import { pushAlreadyGranted, enablePush } from '@/lib/push';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { HelpProvider } from '@/components/HelpWidget';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,6 +45,7 @@ export function AppShell() {
   }
 
   return (
+    <HelpProvider>
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -72,5 +74,6 @@ export function AppShell() {
         <BioPrompt />
       </div>
     </div>
+    </HelpProvider>
   );
 }

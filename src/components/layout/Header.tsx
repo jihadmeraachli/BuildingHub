@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import { HelpWidget } from '@/components/HelpWidget';
+import { HelpButton } from '@/components/HelpWidget';
 import type { Notification } from '@/types';
 
 interface HeaderProps {
@@ -69,7 +69,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       <div className="flex items-center gap-1">
         {/* AI help assistant */}
-        <HelpWidget />
+        <HelpButton />
 
         {/* Language */}
         <LanguagePicker onChange={onLanguagePicked} className="px-2 py-1.5 text-xs" />

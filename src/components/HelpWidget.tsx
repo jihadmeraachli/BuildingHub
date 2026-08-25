@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HelpCircle, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -7,14 +7,21 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 
 /**
- * The "?" in the header — an AI help assistant that knows the app A to Z
+ * "Ask Jad" — an AI help assistant that knows the app A to Z
  * (edge function help-chat: Claude Haiku over a baked-in app guide).
  * Conversation lives in component state only; nothing is stored.
+ *
+ * The chat modal is mounted ONCE by HelpProvider (at the shell level) so it
+ * survives the mobile nav drawer closing, and any trigger — the header "?" or
+ * the sidebar "Ask Jad" entry — opens it through useHelp().
  */
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
-export function HelpWidget() {
+const HelpContext = createContext<{ openHelp: () => void }>({ openHelp: () => {} });
+export const useHelp = () => useContext(HelpContext);
+
+export function HelpProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -49,15 +56,8 @@ export function HelpWidget() {
   const suggestions = [t('help.suggest1'), t('help.suggest2'), t('help.suggest3'), t('help.suggest4')];
 
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => setOpen(true)}
-        aria-label={t('help.title')}
-      >
-        <HelpCircle size={16} />
-      </Button>
+    <HelpContext.Provider value={{ openHelp: () => setOpen(true) }}>
+      {children}
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('help.title')}>
         <div className="flex flex-col" style={{ height: 'min(60vh, 480px)' }}>
@@ -135,6 +135,17 @@ export function HelpWidget() {
           </div>
         </div>
       </Modal>
-    </>
+    </HelpContext.Provider>
+  );
+}
+
+/** The header "?" trigger. */
+export function HelpButton() {
+  const { t } = useTranslation();
+  const { openHelp } = useHelp();
+  return (
+    <Button variant="ghost" size="icon-sm" onClick={openHelp} aria-label={t('help.title')}>
+      <HelpCircle size={16} />
+    </Button>
   );
 }

@@ -97,7 +97,8 @@
     "secFacilities": "Installations",
     "secPlatform": "Plateforme",
     "platformLicensing": "Licences de la plateforme",
-    "activityLog": "Journal d'activité"
+    "activityLog": "Journal d'activité",
+    "askJad": "Demander à Jad"
   },
   "auth": {
     "login": "Se connecter",
@@ -1377,8 +1378,8 @@
     "deleteConfirm": "Supprimer ce contrat ?"
   },
   "help": {
-    "title": "Aide",
-    "intro": "Bonjour ! Je connais Abniyah sur le bout des doigts. Posez-moi vos questions sur l'utilisation de l'application.",
+    "title": "Demander à Jad",
+    "intro": "Bonjour, je suis Jad, votre agent d'assistance IA. Je connais Abniyah sur le bout des doigts et je suis là pour vous aider. Par où souhaitez-vous commencer ?",
     "placeholder": "Posez une question…",
     "send": "Envoyer",
     "error": "Désolé, je n'ai pas pu répondre pour l'instant. Réessayez, ou utilisez « Envoyer un retour » dans le menu latéral.",

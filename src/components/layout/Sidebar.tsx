@@ -18,10 +18,11 @@ import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins, Cog,
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2, Trash2,
-  ContactRound, ScrollText, ChevronDown,
+  ContactRound, ScrollText, ChevronDown, Sparkles,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { isDemoEmail, DEMO_ACCOUNTS, DEMO_HIDDEN_ROUTES } from '@/lib/demo';
+import { useHelp } from '@/components/HelpWidget';
 
 interface SidebarProps {
   open: boolean;
@@ -50,6 +51,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const { user, profile, signOut, canAny, isPlatformAdmin, grants, hasBothPersonas, viewMode, setViewMode, residentLens, memberships, residentUnitId, setResidentUnitId, entityKey, setEntityKey } = useAuth();
   const location = useLocation();
+  const { openHelp } = useHelp();
 
   // Global entity picker for the MANAGING lens (mirrors the My-home unit
   // picker): select once here, every manager page follows.
@@ -337,6 +339,15 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
 
         <Separator className="my-1 bg-sidebar-border" />
 
+        {/* Ask Jad — opens the AI help assistant (mounted in AppShell so it
+            survives this drawer closing on mobile). */}
+        <button
+          onClick={() => { onClose(); openHelp(); }}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground w-full transition-colors cursor-pointer"
+        >
+          <Sparkles size={16} className="text-primary" />
+          {t('nav.askJad')}
+        </button>
 
         <button
           onClick={async () => {
