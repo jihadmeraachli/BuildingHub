@@ -46,7 +46,7 @@ type RowStatus = 'pending' | 'processing' | 'done' | 'exists' | 'skipped' | 'err
 interface ProgressRow { label: string; detail?: string; status: RowStatus; error?: string; }
 interface UserRow { name: string; email: string; phone: string; role: string; }
 interface BuildingRow { name: string; address: string; city: string; compound_name: string; }
-interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; owner_name: string; tenant_email: string; tenant_name: string; share_weight: string; }
+interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; owner_name: string; owner_phone: string; tenant_email: string; tenant_name: string; tenant_phone: string; share_weight: string; invalid?: string; }
 interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
 
 
@@ -196,7 +196,11 @@ export default function Import() {
   const { grants, isPlatformAdmin } = useAuth();
   const { buildings } = useManagedBuildings();
   const entities = useEntities(buildings as Parameters<typeof useEntities>[0]);
-  const [activeTab, setActiveTab] = useState<ImportTab>('users');
+  // FINAL DESIGN: building/compound admins get exactly two tabs - Structure
+  // (units + people, one spreadsheet) and Expenses & Balances. Users and
+  // Buildings imports are portfolio tools for org/platform scope.
+  const portfolioScope = isPlatformAdmin || grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
+  const [activeTab, setActiveTab] = useState<ImportTab>(portfolioScope ? 'users' : 'units');
 
   const canImport = isPlatformAdmin || grants.some(g =>
     ['building_admin', 'org_admin', 'compound_admin'].includes(g.role)
@@ -212,14 +216,12 @@ export default function Import() {
     );
   }
 
-  // Importing BUILDINGS at scale is portfolio work - org admins (and the
-  // platform) only. Building/compound admins create blocks one at a time on
-  // the Buildings page; their import tabs are users/units/finances.
-  const canImportBuildings = isPlatformAdmin || grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
   const TABS: { key: ImportTab; label: string; Icon: React.ElementType }[] = [
-    { key: 'users',     label: 'Users',              Icon: Users },
-    ...(canImportBuildings ? [{ key: 'buildings' as ImportTab, label: 'Buildings', Icon: Building2 }] : []),
-    { key: 'units',     label: 'Units',               Icon: Home },
+    ...(portfolioScope ? [
+      { key: 'users' as ImportTab, label: 'Users', Icon: Users },
+      { key: 'buildings' as ImportTab, label: 'Buildings', Icon: Building2 },
+    ] : []),
+    { key: 'units',     label: 'Structure',           Icon: Home },
     { key: 'expenses',  label: 'Expenses & Balances', Icon: BarChart3 },
   ];
 
@@ -250,7 +252,7 @@ export default function Import() {
       </div>
 
       {activeTab === 'users'     && <UsersTab />}
-      {activeTab === 'buildings' && canImportBuildings && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
+      {activeTab === 'buildings' && portfolioScope && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
       {activeTab === 'units'     && <UnitsTab entities={entities} />}
       {activeTab === 'expenses'  && <ExpensesTab entities={entities} />}
     </div>
@@ -568,20 +570,20 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   // import, so forgetting to delete them can never create junk units.
   const GUIDE = 'e.g. (guide row, delete before importing)';
   const TEMPLATE: string[][] = soleStandalone ? [
-    ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Owner Name', 'Tenant Email', 'Tenant Name'],
-    [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. Invites and links the tenant', 'Optional. Their real name'],
-    ['e.g. 101', '1', '1.0', 'owner@example.com', 'Sami Karam', 'tenant@example.com', 'Dana Saab'],
-    ['e.g. 102', '1', '', 'leave empty to fill later', '', 'leave empty to fill later', ''],
+    ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
+    [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
+    ['e.g. 101', '1', '1.0', 'owner@example.com', 'Sami Karam', '+9613123456', 'tenant@example.com', 'Dana Saab', '+9613654321'],
+    ['e.g. 102', '1', '', 'leave empty to fill later', '', '', 'leave empty to fill later', '', ''],
   ] : soleCompound ? [
-    ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Tenant Email', 'Tenant Name'],
-    [GUIDE, 'Optional', 'Required. One of your blocks, e.g. "' + (soleCompound.blocks[0]?.name ?? 'Block A') + '"', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. Invites and links the tenant', 'Optional. Their real name'],
-    ['e.g. 101', '1', soleCompound.blocks[0]?.name ?? 'Block A', '1.0', 'owner@example.com', 'Sami Karam', 'tenant@example.com', 'Dana Saab'],
-    ['e.g. 102', '1', soleCompound.blocks[0]?.name ?? 'Block A', '', 'leave empty to fill later', '', 'leave empty to fill later', ''],
+    ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
+    [GUIDE, 'Optional', 'Required. Must match one of your blocks: ' + soleCompound.blocks.map(b => b.name).join(', '), 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
+    ['e.g. 101', '1', soleCompound.blocks[0]?.name ?? 'Block A', '1.0', 'owner@example.com', 'Sami Karam', '+9613123456', 'tenant@example.com', 'Dana Saab', '+9613654321'],
+    ['e.g. 102', '1', soleCompound.blocks[0]?.name ?? 'Block A', '', 'leave empty to fill later', '', '', 'leave empty to fill later', '', ''],
   ] : [
-    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Tenant Email', 'Tenant Name'],
-    [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. Invites and links the tenant', 'Optional. Their real name'],
-    ['e.g. A101', '1', 'Block A', 'Tower XYZ', '1.0', 'owner@example.com', 'Sami Karam', 'tenant@example.com', 'Dana Saab'],
-    ['e.g. 101', '1', 'Standalone Building', '', '', 'leave empty to fill later', '', 'leave empty to fill later', ''],
+    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
+    [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
+    ['e.g. A101', '1', 'Block A', 'Tower XYZ', '1.0', 'owner@example.com', 'Sami Karam', '+9613123456', 'tenant@example.com', 'Dana Saab', '+9613654321'],
+    ['e.g. 101', '1', 'Standalone Building', '', '', 'leave empty to fill later', '', '', 'leave empty to fill later', '', ''],
   ];
 
   /** Where a row's unit lands, honoring the admin's scope: a sole standalone
@@ -595,20 +597,6 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     }
     return findBuildingId(entities, r.building_name, r.compound_name);
   }
-
-  /** Compound scope: block names in the file that do not exist yet - they
-   *  will be CREATED at import time (create_building RPC, 0096). Announced in
-   *  the preview so a typo can never silently spawn a block. Org scope keeps
-   *  the hard "not found" error - a typo there must not create a building. */
-  const plannedBlocks = (() => {
-    if (!soleCompound) return [] as string[];
-    const seen = new Map<string, string>();
-    for (const r of rows) {
-      const nm = r.building_name.trim();
-      if (nm && !resolveBuildingId(r) && !seen.has(nm.toLowerCase())) seen.set(nm.toLowerCase(), nm);
-    }
-    return [...seen.values()];
-  })();
 
   const dupKey = (bid: string | null, label: string) =>
     `${bid}|${label.toLowerCase().replace(/\s+/g, '')}`;
@@ -625,12 +613,26 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
         compound_name: pickCol(row, 'compound name', 'compound', 'tower', 'المجمع'),
         owner_email:   pickCol(row, 'owner email', 'owner', 'المالك'),
         owner_name:    pickCol(row, 'owner name', 'اسم المالك'),
+        owner_phone:   pickCol(row, 'owner phone', 'owner mobile', 'هاتف المالك'),
         tenant_email:  pickCol(row, 'tenant email', 'tenant', 'المستأجر'),
         tenant_name:   pickCol(row, 'tenant name', 'اسم المستأجر'),
+        tenant_phone:  pickCol(row, 'tenant phone', 'tenant mobile', 'هاتف المستأجر'),
         share_weight:  pickCol(row, 'share weight', 'share', 'الحصة') || '1',
       })).filter(r => r.label);
       // guidance rows travel with the template; never let them import
       const parsed = all.filter(r => !/^e\.g\./i.test(r.label));
+      // Field checks: catch swapped columns and malformed contacts BEFORE the
+      // import runs. A bad row is shown with its reason and refuses to import.
+      const emailOk = (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+      const phoneOk = (v: string) => !v || /^\+\d{7,15}$/.test(v.replace(/[\s()-]/g, ''));
+      for (const r of parsed) {
+        if (r.owner_name && /^\d+$/.test(r.owner_name.trim())) r.invalid = 'Owner name is all digits - did the phone land in the name column?';
+        else if (r.tenant_name && /^\d+$/.test(r.tenant_name.trim())) r.invalid = 'Tenant name is all digits - did the phone land in the name column?';
+        else if (!emailOk(r.owner_email)) r.invalid = `"${r.owner_email}" is not a valid email`;
+        else if (!emailOk(r.tenant_email)) r.invalid = `"${r.tenant_email}" is not a valid email`;
+        else if (!phoneOk(r.owner_phone)) r.invalid = `Owner phone must include the country code, e.g. +9613123456 (got "${r.owner_phone}")`;
+        else if (!phoneOk(r.tenant_phone)) r.invalid = `Tenant phone must include the country code, e.g. +9613123456 (got "${r.tenant_phone}")`;
+      }
       const skipped = all.length - parsed.length;
       if (skipped > 0) toast.success('Skipped ' + skipped + ' template guide row' + (skipped !== 1 ? 's' : ''));
       if (!parsed.length) { toast.error('No valid unit rows found'); return; }
@@ -661,10 +663,11 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   /** Invite (or find) the person and link them to the unit — skipping the
    *  insert when an identical live membership already exists, so re-imports
    *  never duplicate links. */
-  async function linkParty(unitId: string, buildingId: string, email: string, name: string, tenure: 'owner' | 'tenant') {
+  async function linkParty(unitId: string, buildingId: string, email: string, name: string, phone: string, tenure: 'owner' | 'tenant') {
     if (!email.includes('@')) return;
     const { data: inv } = await supabase.functions.invoke('invite-user', {
-      body: { email: email.trim().toLowerCase(), full_name: name.trim() || email, mode: 'import', building_id: buildingId },
+      body: { email: email.trim().toLowerCase(), full_name: name.trim() || email, mode: 'import', building_id: buildingId,
+              phone: phone.replace(/[\s()-]/g, '') || null },
     });
     if (!inv?.user_id) return;
     const { data: already } = await supabase.from('memberships').select('id')
@@ -679,42 +682,18 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     setStep('running');
     const left = { ...poolLeft };   // seats remaining per subscription, this run
     const subMap = { ...subByBuilding };
-    const createdBlocks: Record<string, string> = {};   // norm name -> building id
-
-    /** Compound scope: resolve a row's block, creating it if the file names a
-     *  block that does not exist yet (sealed create_building RPC - the server
-     *  authorizes and grants access, 0096). */
-    async function resolveOrCreate(row: UnitRow): Promise<string | null> {
-      const direct = resolveBuildingId(row);
-      if (direct || !soleCompound) return direct;
-      const nm = row.building_name.trim();
-      if (!nm) return null;
-      const key = nm.toLowerCase();
-      if (createdBlocks[key]) return createdBlocks[key];
-      const { data: newId, error } = await supabase.rpc('create_building', {
-        p_name: nm, p_address: null, p_city: null, p_country: null,
-        p_contact_email: null, p_contact_phone: null, p_maps_url: null,
-        p_compound_id: soleCompound.id,
-      });
-      if (error || !newId) throw new Error(`Could not create block "${nm}": ${error?.message ?? 'unknown error'}`);
-      createdBlocks[key] = newId as string;
-      // the compound's subscription covers future blocks (0027) - hook the
-      // newborn block into the seat pool for this run
-      const { data: si } = await supabase.rpc('get_building_subscription', { p_building_id: newId });
-      const sub = Array.isArray(si) ? si[0] : si;
-      if (sub?.id) {
-        subMap[newId as string] = sub.id;
-        if (!(sub.id in left)) left[sub.id] = sub.status === 'trial' ? 1e9 : Number(sub.available_count ?? 0);
-      }
-      return newId as string;
-    }
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
       try {
-        const buildingId = await resolveOrCreate(row);
-        if (!buildingId) throw new Error(`Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
+        if (row.invalid) throw new Error(row.invalid);
+        const buildingId = resolveBuildingId(row);
+        if (!buildingId) {
+          throw new Error(soleCompound
+            ? `Block "${row.building_name}" not found. Your blocks: ${soleCompound.blocks.map(b => b.name).join(', ')}. Blocks are defined at registration; rename them in Buildings.`
+            : `Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
+        }
 
         const ex = existingFor(row);
         if (ex && dupMode === 'skip') {
@@ -727,8 +706,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           const { error: upErr } = await supabase.from('units')
             .update({ share_weight: parseFloat(row.share_weight) || 1 }).eq('id', ex.id);
           if (upErr) throw new Error(upErr.message);
-          await linkParty(ex.id, buildingId, row.owner_email, row.owner_name, 'owner');
-          await linkParty(ex.id, buildingId, row.tenant_email, row.tenant_name, 'tenant');
+          await linkParty(ex.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner');
+          await linkParty(ex.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant');
           setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'updated existing unit' } : p));
           continue;
         }
@@ -743,8 +722,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           .select('id').single();
         if (uErr) throw new Error(uErr.message.includes('LICENSE_LIMIT') ? i18n.t('structure.licenseLimit') : uErr.message);
 
-        await linkParty(unit.id, buildingId, row.owner_email, row.owner_name, 'owner');
-        await linkParty(unit.id, buildingId, row.tenant_email, row.tenant_name, 'tenant');
+        await linkParty(unit.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner');
+        await linkParty(unit.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant');
 
         // Seat auto-assignment (Structure parity): consume a licence while the
         // pool has one; past that the unit is created UNLICENSED and says so.
@@ -777,7 +756,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
-      <p className="text-sm text-muted-foreground">Import units and automatically link them to owners or tenants by email. Users who haven't accepted their invitation yet are still linked. Their status (active/inactive) reflects acceptance only.</p>
+      <p className="text-sm text-muted-foreground">One spreadsheet for your whole structure: units with their owners and tenants (name, email, phone). People are invited automatically and linked to their units; licences are assigned from your pool as units are created.</p>
       <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('units-template.csv', TEMPLATE)}>
         <Download size={14} /> Download template
       </Button>
@@ -811,7 +790,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
-              <tr key={i} className={!resolveBuildingId(r) && !(soleCompound && r.building_name.trim()) ? 'opacity-40' : ''}>
+              <tr key={i} className={!resolveBuildingId(r) || r.invalid ? 'opacity-40' : ''}>
                 <td className="px-4 py-2 font-medium">
                   {r.label}
                   {existingFor(r) && <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-amber-400/15 text-amber-600 dark:text-amber-400 align-middle">exists</span>}
@@ -821,7 +800,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
                   <td className="px-4 py-2 text-muted-foreground">
                     {r.building_name || soleCompound.blocks[0]?.name || '—'}
                     {r.building_name.trim() && !resolveBuildingId(r) && (
-                      <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-primary/15 text-primary align-middle">new</span>
+                      <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-red-400/15 text-red-500 dark:text-red-400 align-middle">unknown block</span>
                     )}
                   </td>
                 )}
@@ -841,10 +820,17 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </tbody>
         </table>
       </div>
-      {plannedBlocks.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm rounded-lg border border-primary/25 bg-primary/5 px-3 py-2">
-          <span className="text-muted-foreground">New blocks that will be created in {soleCompound?.name}:</span>
-          <span className="font-medium text-foreground">{plannedBlocks.join(', ')}</span>
+      {soleCompound && rows.some(r => r.building_name.trim() && !resolveBuildingId(r)) && (
+        <div className="flex flex-wrap items-center gap-2 text-sm rounded-lg border border-red-400/25 bg-red-400/5 px-3 py-2">
+          <span className="text-red-500 dark:text-red-400">Some rows name a block that does not exist.</span>
+          <span className="text-muted-foreground">Your blocks: {soleCompound.blocks.map(b => b.name).join(', ')}. Fix the file, or rename blocks in Buildings.</span>
+        </div>
+      )}
+      {rows.some(r => r.invalid) && (
+        <div className="rounded-lg border border-red-400/25 bg-red-400/5 px-3 py-2 text-sm space-y-1">
+          {rows.filter(r => r.invalid).map((r, i) => (
+            <p key={i} className="text-red-500 dark:text-red-400">Row "{r.label}": {r.invalid}</p>
+          ))}
         </div>
       )}
       {rows.some(r => existingFor(r)) && (
