@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await admin
       .from('profiles')
-      .select('is_platform_admin')
+      .select('is_platform_admin, full_name')
       .eq('id', caller.id)
       .single();
 
@@ -115,11 +115,39 @@ Deno.serve(async (req) => {
     }
 
     // ── Invite ──────────────────────────────────────────────────────────────
+    // Context for the invitation email template ({{ .Data.invite_line }}):
+    // "as ROLE to PLACE by INVITER" - as much as we know, gracefully less.
+    const ROLE_LABELS: Record<string, string> = {
+      building_admin: 'Building Admin', building_super: 'Superintendent',
+      building_finance: 'Finance', building_collector: 'Collector', viewer: 'Viewer',
+      compound_admin: 'Compound Admin', compound_finance: 'Compound Finance',
+      org_admin: 'Organization Admin', org_finance: 'Organization Finance',
+    };
+    let placeName = '';
+    const placeBuilding = grant?.building_id ?? building_id;
+    if (placeBuilding) {
+      const { data: b } = await admin.from('buildings').select('name').eq('id', placeBuilding).single();
+      placeName = b?.name ?? '';
+    } else if (grant?.compound_id) {
+      const { data: c } = await admin.from('compounds').select('name').eq('id', grant.compound_id).single();
+      placeName = c?.name ?? '';
+    } else if (grant?.org_id) {
+      const { data: o } = await admin.from('organizations').select('name').eq('id', grant.org_id).single();
+      placeName = o?.name ?? '';
+    }
+    const roleLabel = grant?.role ? (ROLE_LABELS[grant.role] ?? grant.role) : 'Resident';
+    const inviterName = callerProfile?.full_name ?? '';
+    const invite_line = 'You have been invited as ' + roleLabel
+      + (placeName ? ' to ' + placeName : '')
+      + (inviterName ? ' by ' + inviterName : '') + '.';
+
     const { data: invite, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
       email.trim().toLowerCase(),
       {
-        redirectTo: appUrl,
-        data: { full_name: full_name.trim() },
+        // Land on "create your password", not the login page - a brand-new
+        // invitee has no password yet and the login form just confuses them.
+        redirectTo: appUrl + '/set-password',
+        data: { full_name: full_name.trim(), invite_line, invited_role: roleLabel, invited_place: placeName, invited_by: inviterName },
       },
     );
 
