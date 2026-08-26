@@ -596,6 +596,20 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     return findBuildingId(entities, r.building_name, r.compound_name);
   }
 
+  /** Compound scope: block names in the file that do not exist yet - they
+   *  will be CREATED at import time (create_building RPC, 0096). Announced in
+   *  the preview so a typo can never silently spawn a block. Org scope keeps
+   *  the hard "not found" error - a typo there must not create a building. */
+  const plannedBlocks = (() => {
+    if (!soleCompound) return [] as string[];
+    const seen = new Map<string, string>();
+    for (const r of rows) {
+      const nm = r.building_name.trim();
+      if (nm && !resolveBuildingId(r) && !seen.has(nm.toLowerCase())) seen.set(nm.toLowerCase(), nm);
+    }
+    return [...seen.values()];
+  })();
+
   const dupKey = (bid: string | null, label: string) =>
     `${bid}|${label.toLowerCase().replace(/\s+/g, '')}`;
   const existingFor = (r: UnitRow) => existingUnits[dupKey(resolveBuildingId(r), r.label)];
@@ -664,12 +678,42 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     setProgress(rows.map(r => ({ label: r.label, detail: r.compound_name ? `${r.compound_name} › ${r.building_name}` : r.building_name, status: 'pending' })));
     setStep('running');
     const left = { ...poolLeft };   // seats remaining per subscription, this run
+    const subMap = { ...subByBuilding };
+    const createdBlocks: Record<string, string> = {};   // norm name -> building id
+
+    /** Compound scope: resolve a row's block, creating it if the file names a
+     *  block that does not exist yet (sealed create_building RPC - the server
+     *  authorizes and grants access, 0096). */
+    async function resolveOrCreate(row: UnitRow): Promise<string | null> {
+      const direct = resolveBuildingId(row);
+      if (direct || !soleCompound) return direct;
+      const nm = row.building_name.trim();
+      if (!nm) return null;
+      const key = nm.toLowerCase();
+      if (createdBlocks[key]) return createdBlocks[key];
+      const { data: newId, error } = await supabase.rpc('create_building', {
+        p_name: nm, p_address: null, p_city: null, p_country: null,
+        p_contact_email: null, p_contact_phone: null, p_maps_url: null,
+        p_compound_id: soleCompound.id,
+      });
+      if (error || !newId) throw new Error(`Could not create block "${nm}": ${error?.message ?? 'unknown error'}`);
+      createdBlocks[key] = newId as string;
+      // the compound's subscription covers future blocks (0027) - hook the
+      // newborn block into the seat pool for this run
+      const { data: si } = await supabase.rpc('get_building_subscription', { p_building_id: newId });
+      const sub = Array.isArray(si) ? si[0] : si;
+      if (sub?.id) {
+        subMap[newId as string] = sub.id;
+        if (!(sub.id in left)) left[sub.id] = sub.status === 'trial' ? 1e9 : Number(sub.available_count ?? 0);
+      }
+      return newId as string;
+    }
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
       try {
-        const buildingId = resolveBuildingId(row);
+        const buildingId = await resolveOrCreate(row);
         if (!buildingId) throw new Error(`Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
 
         const ex = existingFor(row);
@@ -705,7 +749,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
         // Seat auto-assignment (Structure parity): consume a licence while the
         // pool has one; past that the unit is created UNLICENSED and says so.
         let note = '';
-        const sid = subByBuilding[buildingId];
+        const sid = subMap[buildingId];
         if (sid && (left[sid] ?? 0) > 0) {
           const { error: licErr } = await supabase.from('license_assignments').insert({
             subscription_id: sid, unit_id: unit.id,
@@ -767,13 +811,20 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
-              <tr key={i} className={!resolveBuildingId(r) ? 'opacity-40' : ''}>
+              <tr key={i} className={!resolveBuildingId(r) && !(soleCompound && r.building_name.trim()) ? 'opacity-40' : ''}>
                 <td className="px-4 py-2 font-medium">
                   {r.label}
                   {existingFor(r) && <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-amber-400/15 text-amber-600 dark:text-amber-400 align-middle">exists</span>}
                 </td>
                 <td className="px-4 py-2 text-muted-foreground">{r.floor || '—'}</td>
-                {soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name || soleCompound.blocks[0]?.name || '—'}</td>}
+                {soleCompound && (
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {r.building_name || soleCompound.blocks[0]?.name || '—'}
+                    {r.building_name.trim() && !resolveBuildingId(r) && (
+                      <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-primary/15 text-primary align-middle">new</span>
+                    )}
+                  </td>
+                )}
                 {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>}
                 {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground text-xs">{r.compound_name || '—'}</td>}
                 <td className="px-4 py-2 text-xs">
@@ -790,6 +841,12 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </tbody>
         </table>
       </div>
+      {plannedBlocks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm rounded-lg border border-primary/25 bg-primary/5 px-3 py-2">
+          <span className="text-muted-foreground">New blocks that will be created in {soleCompound?.name}:</span>
+          <span className="font-medium text-foreground">{plannedBlocks.join(', ')}</span>
+        </div>
+      )}
       {rows.some(r => existingFor(r)) && (
         <div className="flex flex-wrap items-center gap-3 text-sm rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2">
           <span className="text-muted-foreground">Units that already exist:</span>
