@@ -865,24 +865,35 @@ export default function Users() {
           <div className="border-t border-border pt-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{t('users.inviteRoleSection')}</p>
 
-            {/* Scope type selector — org admins can invite to buildings/compounds, not org-level */}
+            {/* One flat pill row: Resident, then each building role directly —
+                no intermediate "Building-level" hop and no Role dropdown.
+                Compound/Org stay as entry pills for their own role lists.
+                Selected = the calm tinted primary, never the neon fill. */}
             <div className="flex gap-1 flex-wrap mb-3">
-              {(
-                ['none', 'building',
-                  ...((isSuperAdmin || (isOrgAdmin && compoundEntities.length > 0)) ? ['compound'] : []),
-                  ...(isSuperAdmin ? ['org'] : []),
-                ] as InviteScopeType[]
-              ).map(s => (
+              {([
+                { key: 'resident', on: inviteScopeType === 'none',
+                  pick: () => setInviteScopeType('none'),
+                  label: t('users.inviteScope.none') },
+                ...buildingRolesForCaller.map(r => ({
+                  key: r, on: inviteScopeType === 'building' && inviteGrantRole === r,
+                  pick: () => { setInviteScopeType('building'); setInviteGrantRole(r); },
+                  label: t(`users.roles.${r}`) })),
+                ...((isSuperAdmin || (isOrgAdmin && compoundEntities.length > 0)) ? [{
+                  key: 'compound', on: inviteScopeType === 'compound',
+                  pick: () => { setInviteScopeType('compound'); setInviteGrantRole('compound_admin'); },
+                  label: t('users.inviteScope.compound') }] : []),
+                ...(isSuperAdmin ? [{
+                  key: 'org', on: inviteScopeType === 'org',
+                  pick: () => { setInviteScopeType('org'); setInviteGrantRole('org_admin'); },
+                  label: t('users.inviteScope.org') }] : []),
+              ]).map(pIt => (
                 <button
-                  key={s}
+                  key={pIt.key}
                   type="button"
-                  onClick={() => {
-                    setInviteScopeType(s);
-                    setInviteGrantRole(s === 'org' ? 'org_admin' : s === 'compound' ? 'compound_admin' : buildingRolesForCaller[0]);
-                  }}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${inviteScopeType === s ? 'bg-primary border-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                  onClick={pIt.pick}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer ${pIt.on ? 'bg-primary/15 border-primary/40 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
                 >
-                  {t(`users.inviteScope.${s}`)}
+                  {pIt.label}
                 </button>
               ))}
             </div>
@@ -900,24 +911,16 @@ export default function Users() {
               </SelectField>
             )}
 
+            {/* The role is already the selected pill — only the building remains. */}
             {inviteScopeType === 'building' && (
-              <div className="space-y-3">
-                <SelectField
-                  label={t('users.inviteBuilding')}
-                  value={inviteBuildingId || '__none__'}
-                  onValueChange={v => setInviteBuildingId(v === '__none__' ? '' : v)}
-                >
-                  <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
-                  {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>)}
-                </SelectField>
-                <SelectField
-                  label={t('users.role')}
-                  value={inviteGrantRole}
-                  onValueChange={v => setInviteGrantRole(v as GrantRole)}
-                >
-                  {buildingRolesForCaller.map(r => <SelectItem key={r} value={r}>{t(`users.roles.${r}`)}</SelectItem>)}
-                </SelectField>
-              </div>
+              <SelectField
+                label={t('users.inviteBuilding')}
+                value={inviteBuildingId || '__none__'}
+                onValueChange={v => setInviteBuildingId(v === '__none__' ? '' : v)}
+              >
+                <SelectItem value="__none__">{t('common.selectBuilding')}</SelectItem>
+                {buildings.map(b => <SelectItem key={b.id} value={b.id}>{b.name} ({b.city})</SelectItem>)}
+              </SelectField>
             )}
 
             {inviteScopeType === 'compound' && (

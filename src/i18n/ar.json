@@ -893,7 +893,7 @@
     "invitePhone": "الهاتف (اختياري)",
     "inviteRoleSection": "الدور والوصول",
     "inviteScope": {
-      "none": "بدون دور إداري",
+      "none": "ساكن",
       "building": "على مستوى المبنى",
       "compound": "على مستوى المجمع",
       "org": "على مستوى المؤسسة"

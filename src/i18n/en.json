@@ -881,7 +881,7 @@
     "invitePhone": "Phone (optional)",
     "inviteRoleSection": "Role & access",
     "inviteScope": {
-      "none": "No admin role",
+      "none": "Resident",
       "building": "Building-level",
       "compound": "Compound-level",
       "org": "Organization-level"
