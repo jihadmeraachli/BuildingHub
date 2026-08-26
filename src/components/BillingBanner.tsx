@@ -39,11 +39,11 @@ export function BillingBanner() {
     iso ? Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)) : null;
 
   let text: string | null = null;
-  // 0125: "ending" used to share the trial's amber nudge, even though it is
-  // a deliberate choice the admin already made, not something running out on
-  // them — a calmer neutral tone says "this is what you asked for", not
-  // "act now". Locked/grace stay red (money is actually blocking access);
-  // trial stays amber (a real nudge to act before access lapses).
+  // "Ending" wears the finance negative red (red-500, the color of a number
+  // going the wrong way) - Jey's call 2026-08-26: a subscription running out
+  // is money news, not neutral news. Still one notch softer than the red-600
+  // of locked/grace, where access is actually blocked, so severity reads in
+  // order: ending < grace/locked. Trial stays amber (a nudge, not an alarm).
   let tone = 'bg-slate-600 text-white';
   if (sub.status === 'locked') {
     text = t('billing.bannerLocked');
@@ -53,6 +53,7 @@ export function BillingBanner() {
     tone = 'bg-red-600 text-white';
   } else if (sub.cancel_at_period_end && sub.status === 'active') {
     text = t('billing.bannerEnding', { date: day(sub.current_period_end) });
+    tone = 'bg-red-500 text-white';
   } else if (sub.status === 'trial') {
     const n = daysLeft(sub.trial_ends_at);
     if (n !== null && n <= 10) { text = t('billing.bannerTrial', { count: n }); tone = 'bg-amber-500 text-white'; }
