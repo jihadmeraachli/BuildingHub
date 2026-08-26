@@ -18,7 +18,7 @@ import { Modal } from '@/components/ui/Modal';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { SkeletonTable } from '@/components/ui/Skeleton';
 
-type Tab = 'all' | 'pending' | 'invites';
+type Tab = 'all' | 'invites';
 type InviteScopeType = 'none' | 'building' | 'compound' | 'org';
 
 /** Row from admin_membership_invites() (0055) — names resolved server-side. */
@@ -214,7 +214,6 @@ export default function Users() {
     } else {
       q = q.in('building_id', listBuildingIds);
     }
-    if (tab === 'pending') q = q.eq('status', 'pending');
     q = q.order('created_at', { ascending: false });
     const { data } = await q;
     setUsers(data ?? []);
@@ -506,8 +505,6 @@ export default function Users() {
     setAddUserModal(false);
   }
 
-  const pendingCount = users.filter(u => u.status === 'pending').length;
-
   // When the list spans several blocks, show which block each person belongs to —
   // otherwise the rows are ambiguous in a compound view.
   const showBlockColumn = listBuildingIds.length > 1;
@@ -518,7 +515,6 @@ export default function Users() {
 
   const tabs: { key: Tab; label: string; show: boolean }[] = [
     { key: 'all', label: t('users.allUsers'), show: true },
-    { key: 'pending', label: t('users.pendingApprovals'), show: true },
     { key: 'invites', label: t('users.invitationsTab'), show: true },
   ];
 
@@ -587,14 +583,7 @@ export default function Users() {
             onChange={setTab}
             tabs={tabs.filter(t3 => t3.show).map(t3 => ({
               key: t3.key,
-              label: (
-                <>
-                  {t3.label}
-                  {t3.key === 'pending' && pendingCount > 0 && (
-                    <span className="ms-1 bg-yellow-400 text-yellow-900 text-xs rounded-full px-1.5">{pendingCount}</span>
-                  )}
-                </>
-              ),
+              label: t3.label,
             }))}
           />
 
@@ -806,12 +795,6 @@ export default function Users() {
                           </td>
                           <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5">
-                              {u.status === 'pending' && (
-                                <>
-                                  <Button size="sm" onClick={() => updateUser(u.id, { status: 'active' })}>{t('users.approve')}</Button>
-                                  <Button size="sm" variant="danger" onClick={() => updateUser(u.id, { status: 'rejected' })}>{t('users.reject')}</Button>
-                                </>
-                              )}
                               {u.status === 'active' && u.id !== profile?.id && (
                                 <Button size="sm" variant="secondary" onClick={() => { setDeactivateReason(''); setDeactivateTarget(u); }}>{t('users.deactivate')}</Button>
                               )}
