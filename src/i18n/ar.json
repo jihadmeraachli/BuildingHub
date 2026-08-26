@@ -621,7 +621,9 @@
     "scheduledReduction": "ينخفض إلى {{next}} عند التجديد ({{date}})، ويمكن التراجع حتى ذلك الحين",
     "revertReduction": "التراجع عن التخفيض المجدوَل",
     "removalReverted": "تم التراجع عن التخفيض المجدوَل. يحتفظ التجديد بالعدد الحالي.",
-    "downloadPdf": "فاتورة PDF"
+    "downloadPdf": "فاتورة PDF",
+    "cancelsOn": "يُلغى في {{date}}",
+    "scheduledReductionIfResumed": "سينخفض إلى {{next}} ترخيصاً إذا استُؤنف الاشتراك"
   },
   "dashboard": {
     "welcome": "مرحباً بعودتك",

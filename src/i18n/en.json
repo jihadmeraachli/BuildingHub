@@ -613,7 +613,9 @@
     "scheduledReduction": "Drops to {{next}} at renewal ({{date}}), revertible until then",
     "revertReduction": "Revert scheduled reduction",
     "removalReverted": "Scheduled reduction reverted. The renewal keeps the current count.",
-    "downloadPdf": "Invoice PDF"
+    "downloadPdf": "Invoice PDF",
+    "cancelsOn": "Cancels on {{date}}",
+    "scheduledReductionIfResumed": "Would drop to {{next}} licences if the subscription is resumed"
   },
   "dashboard": {
     "welcome": "Welcome back",

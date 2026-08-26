@@ -613,7 +613,9 @@
     "scheduledReduction": "Passe à {{next}} au renouvellement ({{date}}), annulable jusque-là",
     "revertReduction": "Annuler la réduction programmée",
     "removalReverted": "Réduction programmée annulée. Le renouvellement garde le nombre actuel.",
-    "downloadPdf": "Facture PDF"
+    "downloadPdf": "Facture PDF",
+    "cancelsOn": "S'annule le {{date}}",
+    "scheduledReductionIfResumed": "Passerait à {{next}} licences si l’abonnement est repris"
   },
   "dashboard": {
     "welcome": "Content de vous revoir",

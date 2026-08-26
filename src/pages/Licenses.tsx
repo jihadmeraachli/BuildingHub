@@ -522,10 +522,20 @@ export default function Licenses() {
                         { count: daysLeft(sub.current_period_end) ?? 0, date: fmtDate(sub.current_period_end) })}
                     </p>
                   )}
-                  {/* 0118: a scheduled downgrade — visible, dated, revertible */}
+                  {/* 0118: a scheduled downgrade — visible, dated, revertible.
+                      With a cancellation pending there IS no renewal, so the
+                      wording flips: the drop only applies if they resume. */}
                   {sub.renews_license_count != null && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                      {t('licensesPage.scheduledReduction', { next: sub.renews_license_count, date: fmtDate(sub.current_period_end, undefined, '') })}
+                      {sub.cancel_at_period_end
+                        ? t('licensesPage.scheduledReductionIfResumed', { next: sub.renews_license_count })
+                        : t('licensesPage.scheduledReduction', { next: sub.renews_license_count, date: fmtDate(sub.current_period_end, undefined, '') })}
+                    </p>
+                  )}
+                  {/* a pending cancellation is the loudest fact on this card */}
+                  {sub.cancel_at_period_end && sub.current_period_end && (
+                    <p className="text-xs font-medium text-red-500 dark:text-red-400 mt-0.5">
+                      {t('licensesPage.cancelsOn', { date: fmtDate(sub.current_period_end) })}
                     </p>
                   )}
                 </CardContent>
