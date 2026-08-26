@@ -600,17 +600,35 @@ export default function Users() {
             ) : (
               <>
               {pendingAccounts.length > 0 && (
-                <Card className="mb-4"><CardBody>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('users.awaitingTitle')}</p>
-                  <div className="space-y-1.5">
-                    {pendingAccounts.map(u => (
-                      <div key={u.id} className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="font-medium text-foreground">{u.full_name}</span>
-                        <Badge color="yellow">{t('users.awaitingBadge')}</Badge>
-                      </div>
-                    ))}
+                <Card className="mb-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
+                          <th className="px-4 py-3 text-start font-medium">{t('users.name')}</th>
+                          {showBlockColumn && <th className="px-4 py-3 text-start font-medium">{t('users.block')}</th>}
+                          <th className="px-4 py-3 text-start font-medium">{t('users.inviteSentOn')}</th>
+                          <th className="px-4 py-3 text-start font-medium">{t('users.status')}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {pendingAccounts.map(u => (
+                          <tr key={u.id} className="hover:bg-accent/30">
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-foreground">{u.full_name}</p>
+                              <p className="text-xs text-muted-foreground">{t('users.awaitingTitle')}</p>
+                            </td>
+                            {showBlockColumn && (
+                              <td className="px-4 py-3"><span className="text-xs text-muted-foreground">{blockName[u.building_id ?? ''] ?? '—'}</span></td>
+                            )}
+                            <td className="px-4 py-3 text-muted-foreground">{fmtDate(u.created_at)}</td>
+                            <td className="px-4 py-3"><Badge color="yellow">{t('users.awaitingBadge')}</Badge></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </CardBody></Card>
+                </Card>
               )}
               {invites.length === 0 ? (
               <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.noInvites')}</p></CardBody></Card>
