@@ -21,6 +21,8 @@ INVITER."). If the metadata is absent (old invites), it degrades gracefully.
 
 **Subject:** `You have been invited to Abniyah`
 
+*(Paste the subject in the SUBJECT field and the HTML in the BODY field - the subject field must never contain HTML or `{{ }}` blocks.)*
+
 ```html
 <!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#f5f6f8;font-family:'Segoe UI',Arial,sans-serif;">
@@ -34,11 +36,11 @@ INVITER."). If the metadata is absent (old invites), it degrades gracefully.
         </tr></table>
       </td></tr>
       <tr><td style="padding:32px;">
-        <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;font-weight:600;">{{ if .Data.full_name }}Welcome, {{ .Data.full_name }}{{ else }}You have been invited{{ end }}</h2>
-        <p style="margin:0 0 12px;color:#475569;font-size:14px;line-height:1.6;">{{ if .Data.invite_line }}{{ .Data.invite_line }}{{ else }}You have been invited to join Abniyah, the building management platform.{{ end }}</p>
-        <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;">Accept the invitation below to create your password and activate your account.</p>
+        <h2 style="margin:0 0 16px;font-size:18px;color:#0f172a;font-weight:600;">{{ if .Data.full_name }}Welcome, {{ .Data.full_name }}!{{ else }}Welcome to Abniyah!{{ end }}</h2>
+        <p style="margin:0 0 12px;color:#475569;font-size:14px;line-height:1.6;">{{ if .Data.invited_role }}You have been invited as <strong>{{ .Data.invited_role }}</strong>{{ if .Data.invited_place }} to <strong>{{ .Data.invited_place }}</strong>{{ end }}{{ if .Data.invited_by }} by {{ .Data.invited_by }}{{ end }}.{{ else }}You have been invited to join <strong>Abniyah</strong>, the building management platform.{{ end }}</p>
+        <p style="margin:0;color:#475569;font-size:14px;line-height:1.6;">Accept below to create your password. You can log in right after.</p>
         <div style="margin-top:28px;">
-          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#0F4A3F;color:#fff;text-decoration:none;padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;">Accept invitation</a>
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#0F4A3F;color:#fff;text-decoration:none;padding:10px 24px;border-radius:10px;font-size:14px;font-weight:600;">Create Your Password</a>
         </div>
       </td></tr>
       <tr><td style="padding:16px 32px;border-top:1px solid #f1f5f9;">
