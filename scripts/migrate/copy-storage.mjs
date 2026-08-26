@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const OLD_REF = 'miyrsnlpftybmudiuhbi';
-const BUCKETS = ['attachments', 'avatars'];
+const BUCKETS = ['attachments', 'avatars', 'buildings', 'invoices', 'issue-photos'];
 const DRY = process.argv.includes('--dry');
 
 // -- env ---------------------------------------------------------------
