@@ -55,3 +55,5 @@ scripts/rls-personas.json
 
 # Frankfurt migration credentials (Option C) - never commit
 scripts/migration.env
+# generated on migration night, contains keys
+scripts/migrate/webhooks.sql
