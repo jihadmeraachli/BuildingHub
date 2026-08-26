@@ -229,7 +229,11 @@
     "perMonthBilledYearly": "/month, billed yearly",
     "planTalk": "Let's talk",
     "planTalkSub": "Above 500 units we agree the price with you. Start the trial and we will be in touch.",
-    "priceBanded": "For {{count}} units. That works out around {{rate}} per unit per month."
+    "priceBanded": "For {{count}} units. That works out around {{rate}} per unit per month.",
+    "blocksLabel": "Blocks in your compound",
+    "blocksHint": "Name each block now - they are created with your account. You can rename them later in Buildings.",
+    "addBlock": "+ Add block",
+    "blockPlaceholder": "Block {{n}} name, e.g. Block A"
   },
   "gs": {
     "title": "Getting started",

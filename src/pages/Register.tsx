@@ -28,6 +28,8 @@ interface PendingOnboarding {
   unit_count: number;
   plan: 'monthly' | 'annual';
   billing_email: string;
+  /** 0152: a compound's blocks, named in the wizard - born with the compound. */
+  blocks?: string[];
 }
 
 interface WizardState {
@@ -39,6 +41,7 @@ interface WizardState {
   // entity
   entityName: string;
   city: string;
+  blocks: string[];   // compound admins name their blocks up front (0152)
   // pricing
   unitCount: number;
   plan: 'monthly' | 'annual';
@@ -121,7 +124,7 @@ export default function Register() {
   const [state, setState] = useState<WizardState>({
     type: null,
     fullName: '', email: '', password: '',
-    entityName: '', city: '',
+    entityName: '', city: '', blocks: [''],
     unitCount: 10, plan: 'monthly',
   });
 
@@ -256,6 +259,35 @@ export default function Register() {
           {needsCity && (
             <CitySelect label={t('register.city')} value={state.city} onChange={v => set({ city: v })} />
           )}
+          {role === 'compound_admin' && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">{t('register.blocksLabel')}</label>
+              <p className="text-xs text-muted-foreground mb-2">{t('register.blocksHint')}</p>
+              <div className="space-y-2">
+                {state.blocks.map((b, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      value={b}
+                      onChange={e => set({ blocks: state.blocks.map((x, j) => j === i ? e.target.value : x) })}
+                      placeholder={t('register.blockPlaceholder', { n: i + 1 })}
+                      className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    {state.blocks.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => set({ blocks: state.blocks.filter((_, j) => j !== i) })}
+                        aria-label={t('common.delete')}
+                        className="shrink-0 w-8 h-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition cursor-pointer"
+                      >×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => set({ blocks: [...state.blocks, ''] })}>
+                {t('register.addBlock')}
+              </Button>
+            </div>
+          )}
         </div>
       </>
     );
@@ -374,6 +406,7 @@ export default function Register() {
       p_unit_count:    p.unit_count,
       p_plan:          p.plan,
       p_billing_email: p.billing_email,
+      p_blocks:        p.scope_type === 'compound' ? (p.blocks ?? null) : null,
     });
     return rpcErr;
   }
@@ -390,6 +423,9 @@ export default function Register() {
       unit_count:    state.unitCount,
       plan:          state.plan,
       billing_email: state.email,
+      blocks: state.type === 'compound_admin'
+        ? state.blocks.map(b => b.trim()).filter(Boolean)
+        : undefined,
     };
 
     // Create the auth account. The wizard answers ride along in metadata so the

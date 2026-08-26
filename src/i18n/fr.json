@@ -229,7 +229,11 @@
     "perMonthBilledYearly": "/mois, facturé à l'année",
     "planTalk": "Parlons-en",
     "planTalkSub": "Au-delà de 500 logements, nous convenons du prix avec vous. Démarrez l'essai et nous vous contacterons.",
-    "priceBanded": "Pour {{count}} logements. Cela revient à environ {{rate}} par logement et par mois."
+    "priceBanded": "Pour {{count}} logements. Cela revient à environ {{rate}} par logement et par mois.",
+    "blocksLabel": "Blocs de votre résidence",
+    "blocksHint": "Nommez chaque bloc maintenant - ils sont créés avec votre compte. Renommables plus tard dans Bâtiments.",
+    "addBlock": "+ Ajouter un bloc",
+    "blockPlaceholder": "Nom du bloc {{n}}, ex. Bloc A"
   },
   "gs": {
     "title": "Premiers pas",
