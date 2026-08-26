@@ -9,7 +9,7 @@ _Last reviewed: 2026-07-26_
 
 | Service | What it provides | Identifier | Criticality | If it goes down |
 |---|---|---|---|---|
-| **Supabase** | Database (Postgres + RLS), Auth (login, 2FA, email confirm), Storage (attachments, avatars), Edge Functions, Database Webhooks | Project `miyrsnlpftybmudiuhbi` — https://miyrsnlpftybmudiuhbi.supabase.co | 🔴 Total — the app IS this database | App unusable: no login, no data |
+| **Supabase** | Database (Postgres + RLS), Auth (login, 2FA, email confirm), Storage (attachments, avatars), Edge Functions, Database Webhooks | Project `kyhagtdyfhwbmqtbvmbg` ("Abniyah EU", **Frankfurt eu-central-1**) — https://kyhagtdyfhwbmqtbvmbg.supabase.co. Migrated from Seoul 2026-08-26 (docs/MIGRATION_FRANKFURT.md); old project `miyrsnlpftybmudiuhbi` stays as a frozen fallback until ~2026-09-09, then delete | 🔴 Total — the app IS this database | App unusable: no login, no data |
 | **Cloudflare** | DNS for `abniyah.com` + Pages hosting (`abniyah` project) with auto-deploy from GitHub `master` → app.abniyah.com | dash.cloudflare.com → Workers & Pages → `abniyah` | 🔴 Total — serves the frontend | Site unreachable (data safe) |
 | **GitHub** | Source of truth for code (private repo), roadmap board, deploy trigger for Cloudflare Pages | `jihadmeraachli/BuildingHub` · collaborator: AhmadYamoutTat | 🟠 High — no deploys without it | Site keeps running; no updates possible |
 | **Resend** | ALL outbound email, two channels: (1) Supabase Auth SMTP (confirmation/reset/invite emails), (2) app notifications via `dynamic-action` function | resend.com — domain verified for sending | 🟠 High | Nobody can register/reset password; notifications stop. App itself keeps working |

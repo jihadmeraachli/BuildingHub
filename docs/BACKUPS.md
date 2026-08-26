@@ -5,7 +5,7 @@ The production database is backed up **nightly** by the GitHub Actions workflow
 external services, no cost: dumps live as workflow artifacts in the private
 repo, kept **90 days**.
 
-_Written 2026-07-31._
+_Written 2026-07-31; updated 2026-08-26 after the Frankfurt migration — the GitHub secret now points at the new project, and the first Frankfurt backup ran green the same day. Note: the pooler cluster prefix (aws-0/aws-1) varies per project; if psql says "tenant not found", try the other prefix._
 
 ## What is covered
 
@@ -21,7 +21,7 @@ _Written 2026-07-31._
 ## One-time setup (done once by Jey)
 
 1. Supabase Dashboard → **Connect** (top bar) → **Session pooler** → copy the URI
-   (it looks like `postgresql://postgres.miyrsnlpftybmudiuhbi:[PASSWORD]@aws-0-….pooler.supabase.com:5432/postgres`).
+   (it looks like `postgresql://postgres.kyhagtdyfhwbmqtbvmbg:[PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`).
    Insert the database password (Database Settings → reset it if unknown).
    ⚠️ Must be the **Session pooler** URI, not the direct connection: GitHub's
    runners can't reach Supabase's IPv6-only direct host.

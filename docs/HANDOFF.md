@@ -30,6 +30,22 @@ less than a tester code, and the hidden pages stay hidden to it.)
 
 ## 1. TL;DR — what this iteration did
 
+### Latest: 26 August 2026 — the database moved to Frankfurt
+
+Production Supabase migrated Seoul → **Frankfurt (eu-central-1)**, project
+`kyhagtdyfhwbmqtbvmbg` ("Abniyah EU") — Beirut latency drops ~250ms → ~70ms.
+Executed per **docs/MIGRATION_FRANKFURT.md** (now marked EXECUTED): exact data
+parity, auth (hashes + identities + MFA) verified by real login, all 23 storage
+files across 5 buckets, 12 edge functions with mirrored verify_jwt flags, 11
+webhooks + both crons recreated, SMTP/auth config mirrored, stored URLs
+rewritten, Cloudflare env flipped and the served bundle verified pointing at
+Frankfurt, nightly backup re-pointed and proven green.
+
+**For Ahmad:** update your `.env.local` — `VITE_SUPABASE_URL=https://kyhagtdyfhwbmqtbvmbg.supabase.co`
+and the new anon key (public-safe; copy from Cloudflare Pages env or ask Jey).
+Old sessions are invalid — sign in again. The old Seoul project stays as a
+frozen fallback (crons disabled) until **~9 Sep 2026**, then delete it.
+
 ### Latest: 25 August 2026 — audit trail, recovery, dues + billing-mode hardening
 
 Three deep-dives (security, dues logic, arrears↔dues transitions) plus a

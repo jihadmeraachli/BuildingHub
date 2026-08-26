@@ -1,5 +1,13 @@
 # Migration runbook: Seoul → Frankfurt
 
+> **✅ EXECUTED 2026-08-26** (Claude-driven, Option C). New project
+> `kyhagtdyfhwbmqtbvmbg` ("Abniyah EU"). All phases completed and verified:
+> data parity exact, logins + MFA + storage + functions + webhooks + cron +
+> SMTP live, production bundle confirmed serving Frankfurt, backup chain
+> re-pointed and proven. **One deviation:** paid projects cannot be paused, so
+> Seoul stays ACTIVE (crons unscheduled, nothing points at it) as the frozen
+> fallback — **delete it ~2026-09-09** and remove its compute cost.
+
 Move the production Supabase project from `ap-northeast-2` (Seoul) to
 `eu-central-1` (Frankfurt). Beirut↔Seoul is ~250–300 ms per round trip;
 Beirut↔Frankfurt is ~60–80 ms — every API call gets 3–4× faster for the
