@@ -544,27 +544,62 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   const [rows, setRows] = useState<UnitRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
 
-  const TEMPLATE = [
-    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Owner Email', 'Tenant Email', 'Share Weight'],
-    ['A101', '1', 'Block A', 'Tower XYZ', '', '', '1.0'],
-    ['A102', '1', 'Block A', 'Tower XYZ', '', '', '1.0'],
-    ['B201', '2', 'Block B', 'Tower XYZ', '', '', '1.5'],
-    ['101',  '1', 'Standalone Building', '', '', '', '1.0'],
+  // ── Scope-aware template: a building admin never needs Building/Compound
+  // columns (their one building is implied); a compound admin names the BLOCK;
+  // only org/platform scope needs the full addressing columns.
+  const soleStandalone = entities.length === 1 && entities[0].kind === 'building' ? entities[0] : null;
+  const soleCompound   = entities.length === 1 && entities[0].kind === 'compound' ? entities[0] : null;
+
+  // Guidance convention: any row whose Unit Label starts with "e.g." is
+  // template scaffolding (the how-to row + the two examples) and is skipped on
+  // import, so forgetting to delete them can never create junk units.
+  const GUIDE = 'e.g. (guide row, delete before importing)';
+  const TEMPLATE: string[][] = soleStandalone ? [
+    ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Tenant Email'],
+    [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Invites and links the tenant'],
+    ['e.g. 101', '1', '1.0', 'owner@example.com', 'tenant@example.com'],
+    ['e.g. 102', '1', '', 'leave empty to fill later', 'leave empty to fill later'],
+  ] : soleCompound ? [
+    ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Tenant Email'],
+    [GUIDE, 'Optional', 'Required. One of your blocks, e.g. "' + (soleCompound.blocks[0]?.name ?? 'Block A') + '"', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Invites and links the tenant'],
+    ['e.g. 101', '1', soleCompound.blocks[0]?.name ?? 'Block A', '1.0', 'owner@example.com', 'tenant@example.com'],
+    ['e.g. 102', '1', soleCompound.blocks[0]?.name ?? 'Block A', '', 'leave empty to fill later', 'leave empty to fill later'],
+  ] : [
+    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Tenant Email'],
+    [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Invites and links the tenant'],
+    ['e.g. A101', '1', 'Block A', 'Tower XYZ', '1.0', 'owner@example.com', 'tenant@example.com'],
+    ['e.g. 101', '1', 'Standalone Building', '', '', 'leave empty to fill later', 'leave empty to fill later'],
   ];
+
+  /** Where a row's unit lands, honoring the admin's scope: a sole standalone
+   *  building is always implied; inside a sole compound the Block Name column
+   *  resolves against that compound (and a single-block compound implies it). */
+  function resolveBuildingId(r: UnitRow): string | null {
+    if (soleStandalone) return soleStandalone.buildingIds[0] ?? null;
+    if (soleCompound) {
+      if (!r.building_name && soleCompound.blocks.length === 1) return soleCompound.blocks[0].id;
+      return findBuildingId(entities, r.building_name, r.compound_name || soleCompound.name);
+    }
+    return findBuildingId(entities, r.building_name, r.compound_name);
+  }
 
   async function handleFile(file: File) {
     try {
       const data = await parseSpreadsheet(file);
       if (!data.length) { toast.error('File appears empty'); return; }
-      const parsed: UnitRow[] = data.map(row => ({
+      const all: UnitRow[] = data.map(row => ({
         label:         pickCol(row, 'unit label', 'unit', 'apt', 'apartment', 'رقم الشقة', 'الوحدة'),
         floor:         pickCol(row, 'floor', 'الطابق'),
-        building_name: pickCol(row, 'building name', 'building', 'block', 'المبنى'),
+        building_name: pickCol(row, 'building name', 'building', 'block name', 'block', 'المبنى'),
         compound_name: pickCol(row, 'compound name', 'compound', 'tower', 'المجمع'),
         owner_email:   pickCol(row, 'owner email', 'owner', 'المالك'),
         tenant_email:  pickCol(row, 'tenant email', 'tenant', 'المستأجر'),
         share_weight:  pickCol(row, 'share weight', 'share', 'الحصة') || '1',
       })).filter(r => r.label);
+      // guidance rows travel with the template; never let them import
+      const parsed = all.filter(r => !/^e\.g\./i.test(r.label));
+      const skipped = all.length - parsed.length;
+      if (skipped > 0) toast.success('Skipped ' + skipped + ' template guide row' + (skipped !== 1 ? 's' : ''));
       if (!parsed.length) { toast.error('No valid unit rows found'); return; }
       setRows(parsed);
       setStep('preview');
@@ -579,7 +614,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       const row = rows[i];
       setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
       try {
-        const buildingId = findBuildingId(entities, row.building_name, row.compound_name);
+        const buildingId = resolveBuildingId(row);
         if (!buildingId) throw new Error(`Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
 
         const { data: unit, error: uErr } = await supabase
@@ -629,7 +664,10 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('units-template.csv', TEMPLATE)}>
         <Download size={14} /> Download template
       </Button>
-      <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls" hint="CSV or Excel • Unit Label, Floor, Building Name, Owner Email, Share Weight" />
+      <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls"
+        hint={soleStandalone ? 'CSV or Excel • Unit Label, Floor, Share Weight, Owner Email, Tenant Email'
+          : soleCompound ? 'CSV or Excel • Unit Label, Floor, Block Name, Share Weight, Owner Email, Tenant Email'
+          : 'CSV or Excel • Unit Label, Floor, Building Name, Compound Name, Owner Email, Share Weight'} />
     </div>
   );
 
@@ -642,15 +680,19 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
         <table className="w-full">
           <thead className="bg-muted/40">
-            <tr>{['Unit', 'Floor', 'Building', 'Compound', 'Owner Email', 'Tenant Email', 'Share Wt'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
+            <tr>{(soleStandalone ? ['Unit', 'Floor', 'Owner Email', 'Tenant Email', 'Share Wt']
+                : soleCompound ? ['Unit', 'Floor', 'Block', 'Owner Email', 'Tenant Email', 'Share Wt']
+                : ['Unit', 'Floor', 'Building', 'Compound', 'Owner Email', 'Tenant Email', 'Share Wt']
+              ).map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
-              <tr key={i} className={!findBuildingId(entities, r.building_name, r.compound_name) ? 'opacity-40' : ''}>
+              <tr key={i} className={!resolveBuildingId(r) ? 'opacity-40' : ''}>
                 <td className="px-4 py-2 font-medium">{r.label}</td>
                 <td className="px-4 py-2 text-muted-foreground">{r.floor || '—'}</td>
-                <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>
-                <td className="px-4 py-2 text-muted-foreground text-xs">{r.compound_name || '—'}</td>
+                {soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name || soleCompound.blocks[0]?.name || '—'}</td>}
+                {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>}
+                {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground text-xs">{r.compound_name || '—'}</td>}
                 <td className="px-4 py-2 text-muted-foreground text-xs">{r.owner_email || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground text-xs">{r.tenant_email || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground">{r.share_weight || '1'}</td>
