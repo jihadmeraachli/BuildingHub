@@ -881,7 +881,7 @@
     "invitePhone": "Téléphone (facultatif)",
     "inviteRoleSection": "Rôle et accès",
     "inviteScope": {
-      "none": "Aucun rôle d'administration",
+      "none": "Résident",
       "building": "Au niveau de l'immeuble",
       "compound": "Au niveau du complexe",
       "org": "Au niveau de l'organisation"
