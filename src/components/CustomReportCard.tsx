@@ -65,8 +65,8 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
   const [busy, setBusy] = useState('');
   // Render cap: totals, grouping and both exports ALWAYS cover the full
   // filtered set - only the detail rows are paged, so a 1,200-row ledger
-  // never janks the tab. 0 = show all.
-  const [pageSize, setPageSize] = useState(50);
+  // never janks the tab. No "all" option: exporting is how you get everything.
+  const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(0);
   useEffect(() => { setPage(0); }, [f, scopeKey, pageSize]);
 
@@ -97,10 +97,10 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
 
   const shown = useMemo(() => filterLedger(source, f), [source, f]);
   const totals = useMemo(() => ledgerTotals(shown), [shown]);
-  const pageCount = pageSize === 0 ? 1 : Math.max(1, Math.ceil(shown.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = useMemo(
-    () => (pageSize === 0 ? shown : shown.slice(safePage * pageSize, (safePage + 1) * pageSize)),
+    () => shown.slice(safePage * pageSize, (safePage + 1) * pageSize),
     [shown, safePage, pageSize]);
   const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search || !!f.unit || !!f.party || !!f.currency;
 
@@ -365,13 +365,13 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground tabular-nums">
               {t('reports.custom.showing', {
-                from: safePage * (pageSize || shown.length) + 1,
-                to: Math.min(shown.length, (safePage + 1) * (pageSize || shown.length)),
+                from: safePage * pageSize + 1,
+                to: Math.min(shown.length, (safePage + 1) * pageSize),
                 total: shown.length,
               })}
             </p>
             <div className="flex items-center gap-2">
-              <RadixSelect value={pageSize === 0 ? 'all' : String(pageSize)} onValueChange={(v) => setPageSize(v === 'all' ? 0 : Number(v))}>
+              <RadixSelect value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
                 <SelectTrigger className="h-8 w-auto gap-1 text-xs" aria-label={t('reports.custom.perPage')}>
                   <SelectValue />
                 </SelectTrigger>
@@ -379,10 +379,9 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
                   <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
                   <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="all">{t('reports.custom.all')}</SelectItem>
                 </SelectContent>
               </RadixSelect>
-              {pageSize !== 0 && pageCount > 1 && (
+              {pageCount > 1 && (
                 <>
                   <Button variant="outline" size="icon-sm" onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} aria-label={t('reports.custom.prev')}>
                     <ChevronLeft size={14} className="rtl:rotate-180" />
