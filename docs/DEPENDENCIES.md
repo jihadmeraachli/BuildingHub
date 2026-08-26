@@ -45,6 +45,11 @@ anti-phishing policy — forwarding breaks the sender check by design, so mail a
 spoofed and vanishes into a quarantine invisible from Outlook. Fixed by pointing MX straight
 at Microsoft (no forwarding hop). **Don't reintroduce mail forwarding into an M365 tenant.**
 
+**Auth email templates are dashboard-side config and do NOT travel with the
+database** (lesson from the Frankfurt move: they silently fell back to GoTrue
+defaults). The branded set lives in **docs/AUTH_EMAIL_TEMPLATES.md** - re-paste
+it (Authentication → Email Templates) on any new project.
+
 Verified working after the migration: a password-reset email (Supabase Auth → Resend →
 `@abniyah.com`) delivered normally, and inbound mail to `support@abniyah.com` lands in the
 shared mailbox.
