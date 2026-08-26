@@ -265,7 +265,7 @@ export default function Projects() {
                   <div className="rounded-xl border border-border divide-y divide-border">
                     {list.map((e) => (
                       <div key={e.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                        <span className="inline-flex items-center gap-2 text-foreground"><Receipt size={13} className="text-muted-foreground" />{fmtDate(e.expense_date, 'MMM d, yyyy')} · {e.description}</span>
+                        <span className="inline-flex items-center gap-2 text-foreground"><Receipt size={13} className="text-muted-foreground" />{fmtDate(e.expense_date, 'dd-MM-yyyy')} · {e.description}</span>
                         <span className="tnum font-medium">{money(Number(e.amount_usd))}{Number(e.funded_by_fund_usd ?? 0) > 0 && <span className="ms-1.5 text-[10px] text-amber-600">{t('fund.paidFromFund')}</span>}</span>
                       </div>
                     ))}

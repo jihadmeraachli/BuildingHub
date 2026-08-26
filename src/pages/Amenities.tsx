@@ -231,7 +231,7 @@ export default function Amenities() {
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { l: t('amenities.installedLabel'), v: detail.install_date ? fmtDate(detail.install_date, 'MMM d, yyyy') : '—' },
+                { l: t('amenities.installedLabel'), v: detail.install_date ? fmtDate(detail.install_date, 'dd-MM-yyyy') : '—' },
                 { l: t('amenities.cost'), v: detail.cost_usd != null ? money(Number(detail.cost_usd)) : '—' },
                 { l: t('amenities.replace'), v: replaceYear(detail) ? String(replaceYear(detail)) : '—' },
               ].map((x) => (
@@ -244,9 +244,9 @@ export default function Amenities() {
               <div className="space-y-3">
                 {([
                   ['contracts', FileSignature, linked.contracts.map((c) => ({ id: c.id, a: c.provider_name, b: c.end_date ? fmtDate(c.end_date, 'MMM yyyy') : '', v: c.amount_usd != null ? money(Number(c.amount_usd)) : '' }))],
-                  ['inspections', ClipboardCheck, linked.inspections.map((i) => ({ id: i.id, a: i.title, b: fmtDate(i.inspection_date, 'MMM d, yyyy'), v: t(`inspections.statuses.${i.status}`, { defaultValue: i.status }) }))],
-                  ['expenses', Receipt, linked.expenses.map((e) => ({ id: e.id, a: e.description, b: fmtDate(e.expense_date, 'MMM d, yyyy'), v: money(Number(e.amount_usd)) }))],
-                  ['issues', AlertTriangle, linked.issues.map((s) => ({ id: s.id, a: s.title, b: fmtDate(s.created_at, 'MMM d, yyyy'), v: s.status }))],
+                  ['inspections', ClipboardCheck, linked.inspections.map((i) => ({ id: i.id, a: i.title, b: fmtDate(i.inspection_date, 'dd-MM-yyyy'), v: t(`inspections.statuses.${i.status}`, { defaultValue: i.status }) }))],
+                  ['expenses', Receipt, linked.expenses.map((e) => ({ id: e.id, a: e.description, b: fmtDate(e.expense_date, 'dd-MM-yyyy'), v: money(Number(e.amount_usd)) }))],
+                  ['issues', AlertTriangle, linked.issues.map((s) => ({ id: s.id, a: s.title, b: fmtDate(s.created_at, 'dd-MM-yyyy'), v: s.status }))],
                 ] as const).map(([key, Icon, list]) => (
                   <div key={key}>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 inline-flex items-center gap-1.5"><Icon size={12} /> {t(`amenities.linked.${key}`)} · {list.length}</p>

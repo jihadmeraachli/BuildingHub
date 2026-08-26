@@ -85,7 +85,7 @@ export default function Trash() {
                     <p className="font-medium text-foreground truncate">{row.name || t('trash.unnamed')}</p>
                     <p className="text-xs text-muted-foreground">
                       {t('trash.entity.' + row.entity)}
-                      {' · '}{t('trash.deletedOn', { date: fmtDate(row.deleted_at, 'MMM d, yyyy') })}
+                      {' · '}{t('trash.deletedOn', { date: fmtDate(row.deleted_at, 'dd-MM-yyyy') })}
                       {row.deleted_by && names[row.deleted_by] ? ` · ${t('trash.by', { name: names[row.deleted_by] })}` : ''}
                     </p>
                   </div>

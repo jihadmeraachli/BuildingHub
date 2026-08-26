@@ -171,7 +171,7 @@ export default function Collect() {
                 <tbody className="divide-y divide-slate-50">
                   {mine.map((p) => (
                     <tr key={p.id}>
-                      <td className="px-5 py-3 whitespace-nowrap text-foreground">{fmtDate(p.paid_on, 'MMM d, yyyy')}</td>
+                      <td className="px-5 py-3 whitespace-nowrap text-foreground">{fmtDate(p.paid_on, 'dd-MM-yyyy')}</td>
                       <td className="px-5 py-3 font-medium text-foreground">{unitLabel[p.unit_id] ?? '—'}{p.note && <span className="block text-xs text-muted-foreground font-normal">{p.note}</span>}</td>
                       <td className="px-5 py-3 text-muted-foreground">{t(`finance.methods.${p.method}`, { defaultValue: p.method.replace('_', ' ') })}{p.receipt_url && <AttachmentLink url={p.receipt_url} label="" icon={Paperclip} className="ms-2 inline-flex text-muted-foreground" />}</td>
                       <td className="px-5 py-3 text-end font-semibold tnum text-foreground">{currencyTag(p) && <span className="me-1.5 text-[10px] font-medium text-amber-600">{currencyTag(p)}</span>}{money(Number(p.amount_usd))}</td>

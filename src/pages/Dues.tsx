@@ -522,7 +522,7 @@ export default function Dues() {
                       <div key={b.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
                         <span className="text-foreground min-w-0">
                           {b.label}
-                          <span className="text-muted-foreground/70"> · {fmtDate(b.period_start, 'MMM d')} – {fmtDate(b.period_end, 'MMM d, yyyy')}</span>
+                          <span className="text-muted-foreground/70"> · {fmtDate(b.period_start, 'dd-MM')} – {fmtDate(b.period_end, 'dd-MM-yyyy')}</span>
                           {b.expense_id && <span className="ms-1.5 text-xs text-amber-600 dark:text-amber-400">{t('finance.extraordinaryTag')}</span>}
                         </span>
                         <span className="flex items-center gap-3 shrink-0">
@@ -554,7 +554,7 @@ export default function Dues() {
                 <div className="flex items-baseline justify-between mb-3">
                   <p className="text-sm font-semibold text-foreground">
                     {t('dues.owedTitle')}
-                    {asOf && <span className="text-muted-foreground font-normal"> · {t('finance.asOf', { date: fmtDate(asOf, 'MMM d, yyyy') })}</span>}
+                    {asOf && <span className="text-muted-foreground font-normal"> · {t('finance.asOf', { date: fmtDate(asOf, 'dd-MM-yyyy') })}</span>}
                   </p>
                   <p className="text-sm font-semibold text-foreground tnum">
                     {money(owedByUnit.reduce((s, r) => s + r.owed, 0))}
@@ -619,7 +619,7 @@ export default function Dues() {
                             <td className="px-5 py-3 text-end text-muted-foreground tnum">{money(g.base)}</td>
                             {!isB2 && <td className={`px-5 py-3 text-end tnum ${carryTone(g.carry)}`}>{money(g.carry)}</td>}
                             <td className="px-5 py-3 text-end font-semibold text-foreground tnum">{money(g.due)}</td>
-                            <td className="px-5 py-3 text-muted-foreground">{g.dueDate ? fmtDate(g.dueDate, 'MMM d, yyyy') : '—'}</td>
+                            <td className="px-5 py-3 text-muted-foreground">{g.dueDate ? fmtDate(g.dueDate, 'dd-MM-yyyy') : '—'}</td>
                             {canManage && (
                               <td className="px-5 py-3 text-end">
                                 {single && (

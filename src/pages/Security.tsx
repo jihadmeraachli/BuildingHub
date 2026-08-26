@@ -286,7 +286,7 @@ export default function Security() {
                         : 'border-red-300 text-red-600 bg-red-50 dark:bg-red-950/30'}`}
                       title={t('users.expiryEdit')}>
                       <CalendarClock size={13} />
-                      {!g.expires_at ? t('users.openEnded') : grantIsLive(g) ? fmtDate(g.expires_at, 'MMM d, yyyy') : t('users.expiredOn', { date: fmtDate(g.expires_at, 'MMM d, yyyy') })}
+                      {!g.expires_at ? t('users.openEnded') : grantIsLive(g) ? fmtDate(g.expires_at, 'dd-MM-yyyy') : t('users.expiredOn', { date: fmtDate(g.expires_at, 'dd-MM-yyyy') })}
                     </button>
                   </td>
                   <td className="px-4 py-3">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { fmtDate } from '@/lib/dateFmt';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@/lib/toast';
 import { Lock, Mail, Search, Trash2, UserPlus } from 'lucide-react';
@@ -637,7 +638,7 @@ export default function Users() {
                               <td className="px-4 py-3"><span className="text-xs text-muted-foreground">{inv.building_name}</span></td>
                             )}
                             <td className="px-4 py-3 text-muted-foreground">{inv.invited_by_name}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{new Date(inv.created_at).toLocaleDateString()}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{fmtDate(inv.created_at)}</td>
                             <td className="px-4 py-3">
                               <div className="flex flex-col gap-0.5 items-start">
                                 <Badge color={inviteStatusColor[inv.status]}>

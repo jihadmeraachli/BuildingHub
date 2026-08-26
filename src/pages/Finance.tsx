@@ -474,7 +474,7 @@ export default function Finance() {
   // Last day of the selected period; null = all time. A filtered balance is the
   // running balance ON that date, not a sum of the window (0033's as-of model).
   const asOfDate = range?.to ?? null;
-  const asOfLabel = asOfDate ? fmtDate(asOfDate, 'MMM d, yyyy') : '';
+  const asOfLabel = asOfDate ? fmtDate(asOfDate, 'dd-MM-yyyy') : '';
   // Audit L3: the browser locale is not the app language — a French UI on an
   // English OS was labelling periods in English. Follow i18n, like dateFmt.
   const periodLabel = period === 'month' ? new Date(`${monthValue}-01`).toLocaleString(i18n.language, { month: 'long', year: 'numeric' }) : period === 'year' ? t('finance.thisYear') : t('finance.allTime');
@@ -820,7 +820,7 @@ export default function Finance() {
           unitLabel={unit.label}
           buildingName={entity?.name ?? ''}
           period={periodLabel}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          generatedOn={fmtDate(new Date())}
           buckets={buckets}
           combinedBalance={combined}
         />
@@ -1281,7 +1281,7 @@ export default function Finance() {
                       <div className="divide-y divide-border rounded-xl border border-border">
                         {unreconciledExpenses.slice(0, 20).map((e) => (
                           <button key={e.id} type="button" onClick={() => openExpenseEdit(e)} className="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-start hover:bg-accent">
-                            <span className="text-foreground">{fmtDate(e.expense_date, 'MMM d, yyyy')} · {e.description}</span>
+                            <span className="text-foreground">{fmtDate(e.expense_date, 'dd-MM-yyyy')} · {e.description}</span>
                             <span className="tnum text-muted-foreground">{money(Number(e.amount_usd))}</span>
                           </button>
                         ))}
@@ -1302,7 +1302,7 @@ export default function Finance() {
                       <tbody className="divide-y divide-slate-50">
                         {pFundEntries.map((e) => (
                           <tr key={e.id} className={e.voided_at ? 'opacity-50' : ''}>
-                            <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.entry_date, 'MMM d, yyyy')}</td>
+                            <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.entry_date, 'dd-MM-yyyy')}</td>
                             <td className="px-5 py-3 font-medium text-foreground dark:text-white">
                               <span className="inline-flex items-center gap-1.5">
                                 {e.description}
@@ -1419,7 +1419,7 @@ export default function Finance() {
                   <tbody className="divide-y divide-slate-50">
                     {pExpenses.map((e) => (
                       <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
-                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'dd-MM-yyyy')}</td>
                         <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}
                           {/* 0106: who bore it. Only shown when the fund did, fully or partly. */}
                           {e.project_id && projects.find((p) => p.id === e.project_id) && (
@@ -1452,7 +1452,7 @@ export default function Finance() {
                         but are excluded from every total and the downloaded report. */}
                     {vPayments.filter((p) => inRange(p.paid_on)).map((p) => (
                       <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
-                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(p.paid_on, 'MMM d, yyyy')}</td>
+                        <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(p.paid_on, 'dd-MM-yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                           {unitDisplay(p.unit_id)}
                           {p.paid_by === 'tenant' && <TenantTag label={tenantLabelFor(p.tenant_id, p.unit_id, p.paid_on)} />}
@@ -1491,7 +1491,7 @@ export default function Finance() {
                       const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
                       return (
                         <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
-                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(a.effective_date, 'MMM d, yyyy')}</td>
+                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(a.effective_date, 'dd-MM-yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}
                             {a.party === 'tenant' && <TenantTag label={tenantLabelFor(a.tenant_id, a.unit_id, a.effective_date)} />}
@@ -1885,7 +1885,7 @@ export default function Finance() {
               {[
                 { l: t('finance.amount'), v: money(Number(detailExpense.amount_usd)) + (currencyBreakdown(detailExpense) ? ` (${currencyBreakdown(detailExpense)})` : '') },
                 { l: t('finance.category'), v: allTypes.find((x) => x.id === detailExpense.expense_type_id)?.key == null && detailExpense.expense_type_id ? (allTypes.find((x) => x.id === detailExpense.expense_type_id)?.name ?? t(`finance.cats.${detailExpense.category}`)) : t(`finance.cats.${detailExpense.category}`) },
-                { l: t('finance.date'), v: fmtDate(detailExpense.expense_date, 'MMM d, yyyy') },
+                { l: t('finance.date'), v: fmtDate(detailExpense.expense_date, 'dd-MM-yyyy') },
                 { l: t('finance.split'), v: detailExpense.building_id ? (blockName[detailExpense.building_id] ?? t('finance.aBlock')) : (detailExpense.compound_id ? t('finance.wholeCompound') : detailExpense.scope_type) },
                 // 0106: only when the fund bore some of it — a fully billed expense says nothing extra
                 ...(Number(detailExpense.funded_by_fund_usd ?? 0) > 0
@@ -1934,7 +1934,7 @@ export default function Finance() {
               {[
                 { l: t('finance.unit'), v: unitDisplay(detailPayment.unit_id) },
                 { l: t('finance.method'), v: t(`finance.methods.${detailPayment.method}`) },
-                { l: t('finance.date'), v: fmtDate(detailPayment.paid_on, 'MMM d, yyyy') },
+                { l: t('finance.date'), v: fmtDate(detailPayment.paid_on, 'dd-MM-yyyy') },
                 { l: t('finance.note'), v: detailPayment.note || '—' },
                 { l: t('finance.recordedBy'), v: recorderName(detailPayment) || '—' },
               ].map((x) => (
@@ -2067,7 +2067,7 @@ function RequestPaymentModal({ open, onClose, lines, entityName, onIssue, busy, 
               ))}
             </SelectField>
             <p className="text-xs text-muted-foreground mt-1">
-              {t('finance.requestDueBy', { date: fmtDate(due, 'MMM d, yyyy') })}
+              {t('finance.requestDueBy', { date: fmtDate(due, 'dd-MM-yyyy') })}
             </p>
           </div>
           <div>
@@ -2075,7 +2075,7 @@ function RequestPaymentModal({ open, onClose, lines, entityName, onIssue, busy, 
                    max={new Date().toISOString().slice(0, 10)}
                    onChange={(e) => setAsOf(e.target.value)} />
             <p className="text-xs text-muted-foreground mt-1">
-              {asOf ? t('finance.requestAsOfHint', { date: fmtDate(asOf, 'MMM d, yyyy') }) : t('finance.requestAsOfLive')}
+              {asOf ? t('finance.requestAsOfHint', { date: fmtDate(asOf, 'dd-MM-yyyy') }) : t('finance.requestAsOfLive')}
             </p>
           </div>
         </div>
@@ -2184,10 +2184,10 @@ function ResidentRequestsCard({ unitIds, viewFor, buildingOf, unitLabel, payment
               </div>
               <p className={`text-xs ${overdue ? 'text-red-500 dark:text-red-300' : 'text-muted-foreground'}`}>
                 {overdue
-                  ? t('finance.requestOverdue', { date: fmtDate(l.request.due_date, 'MMM d, yyyy') })
-                  : t('finance.requestDueBy', { date: fmtDate(l.request.due_date, 'MMM d, yyyy') })}
+                  ? t('finance.requestOverdue', { date: fmtDate(l.request.due_date, 'dd-MM-yyyy') })
+                  : t('finance.requestDueBy', { date: fmtDate(l.request.due_date, 'dd-MM-yyyy') })}
                 {' · '}
-                {t('finance.requestAsked', { amount: money(Number(l.amount_requested)), date: fmtDate(l.request.requested_on, 'MMM d') })}
+                {t('finance.requestAsked', { amount: money(Number(l.amount_requested)), date: fmtDate(l.request.requested_on, 'dd-MM') })}
                 {paid > 0 && <> · {t('finance.requestPaidSoFar', { amount: money(paid) })}</>}
                 {l.offloaded_from_tenant_id && <> · {t('finance.requestFromFormerTenant')}</>}
               </p>
@@ -2258,7 +2258,7 @@ function ResidentDuesCard({ unitIds, viewFor, nameById, isCurrentTenant, buildin
           return (
             <div key={d.id} className="flex items-center justify-between text-sm gap-3">
               <span className="text-muted-foreground min-w-0">
-                {d.period_label}{d.due_date ? ` · ${fmtDate(d.due_date, 'MMM d, yyyy')}` : ''}
+                {d.period_label}{d.due_date ? ` · ${fmtDate(d.due_date, 'dd-MM-yyyy')}` : ''}
                 {d.kind === 'off_budget' && (
                   <span className="ms-1.5 text-xs text-muted-foreground/70">· {d.label || t('dues.offBudget')}</span>
                 )}
@@ -2306,7 +2306,7 @@ function StatementList({ charges, payments, adjustments = [], openings = [], ten
       <tbody className="divide-y divide-border">
         {rows.map((r, i) => (
           <tr key={i} className="hover:bg-muted/40">
-            <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{fmtDate(r.date, 'MMM d, yyyy')}</td>
+            <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">{fmtDate(r.date, 'dd-MM-yyyy')}</td>
             <td className="px-5 py-3 text-foreground">{r.label} <span className="text-muted-foreground text-xs">· {t('finance.unit')} {r.unit}</span>{r.tenant && <TenantTag label={r.tenant} />}</td>
             <td className={`px-5 py-3 text-end font-semibold tnum ${r.amount < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{r.amount < 0 ? money(r.amount) : `+${money(r.amount)}`}</td>
           </tr>

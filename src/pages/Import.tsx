@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { fmtDate } from '@/lib/dateFmt';
 import * as XLSX from 'xlsx';
 import {
   Upload, Download, Users, Building2, Home, BarChart3,
@@ -826,7 +827,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
         .is('reversed_at', null)
         .limit(1);
       if (dup && dup.length) {
-        const when = new Date((dup[0] as { created_at: string }).created_at).toLocaleDateString();
+        const when = fmtDate((dup[0] as { created_at: string }).created_at);
         if (!(await confirmAsync('Already imported', `This exact file was already imported here on ${when}. Importing again will double those amounts. Continue anyway?`))) return;
       }
     }

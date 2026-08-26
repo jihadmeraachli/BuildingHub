@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fmtDate as fmtAppDate } from '@/lib/dateFmt';
 import { Navigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
@@ -35,7 +36,7 @@ function usd(cents: number) {
 }
 
 function fmtDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString() : '—';
+  return fmtAppDate(iso);
 }
 
 /** Monthly revenue equivalent in cents (annual plans divided by 12). */
@@ -424,7 +425,7 @@ export default function PlatformLicensing() {
                         return (
                           <TableRow key={inv.id}>
                             <TableCell className="font-medium">{s ? entityName(s) : '—'}</TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{inv.period_start} → {inv.period_end}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{fmtDate(inv.period_start)} → {fmtDate(inv.period_end)}</TableCell>
                             <TableCell className="font-medium">{usd(inv.amount_cents)}</TableCell>
                             <TableCell><Badge color={INVOICE_BADGE[inv.status].color}>{INVOICE_BADGE[inv.status].label}</Badge></TableCell>
                             <TableCell className="text-muted-foreground">{fmtDate(inv.paid_at)}</TableCell>

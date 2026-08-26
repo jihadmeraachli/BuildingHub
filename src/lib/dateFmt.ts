@@ -20,11 +20,11 @@ import i18n from '@/i18n';
 /**
  * Format a date in the app's current language.
  * @param value Date or ISO string; null/invalid returns `fallback`.
- * @param pattern date-fns pattern, e.g. 'MMM d, yyyy'
+ * @param pattern date-fns pattern, e.g. 'dd-MM-yyyy'
  */
 export function fmtDate(
   value: Date | string | null | undefined,
-  pattern: string,
+  pattern = 'dd-MM-yyyy',   // the app-wide numeric date format (Lebanese order)
   fallback = '—',
 ): string {
   if (!value) return fallback;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fmtDate } from '@/lib/dateFmt';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -13,7 +14,7 @@ import type { Subscription } from '@/types';
  * Admins only — residents have their own gate (/no-license).
  */
 export function BillingBanner() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { canAny, isPlatformAdmin } = useAuth();
   const [sub, setSub] = useState<Subscription | null>(null);
 
@@ -33,7 +34,7 @@ export function BillingBanner() {
   if (!isAdmin || !sub) return null;
 
   const day = (iso: string | null | undefined) =>
-    iso ? new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' }) : '';
+    iso ? fmtDate(iso) : '';
   const daysLeft = (iso: string | null | undefined) =>
     iso ? Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)) : null;
 

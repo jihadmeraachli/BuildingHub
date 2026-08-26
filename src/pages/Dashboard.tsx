@@ -87,7 +87,7 @@ export default function Dashboard() {
     }
     return { mFrom: null as string | null, mTo: null as string | null };
   }, [mPeriod, mMonth]);
-  const mAsOfLabel = mTo && mPeriod !== 'all' ? fmtDate(mTo, 'MMM d, yyyy') : '';
+  const mAsOfLabel = mTo && mPeriod !== 'all' ? fmtDate(mTo, 'dd-MM-yyyy') : '';
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const entities = useEntities(buildings);
   // GLOBAL entity selection — picked once in the sidebar, applied everywhere.
@@ -327,7 +327,7 @@ export default function Dashboard() {
       tenantPaid: sum(pShown.filter((x) => isTenantRow(x.paid_by))),
       ownerBal, tenantBal, combined, viewerIsTenant, buckets,
       canSplit: !viewerIsTenant && buckets.length > 0,
-      asOfLabel: asOf ? fmtDate(asOf, 'MMM d, yyyy') : '',
+      asOfLabel: asOf ? fmtDate(asOf, 'dd-MM-yyyy') : '',
       // per-unit balances for the portfolio cards, as of the same date
       perUnit: U.map((u) => ({
         id: u.id, label: u.label, buildingName: u.buildings?.name ?? '—',
@@ -768,7 +768,7 @@ function MeetingsCard({ meetings }: { meetings: Meeting[] }) {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold truncate">{m.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {fmtDate(m.meeting_date, 'EEEE, MMM d, yyyy')}
+                    {fmtDate(m.meeting_date, 'EEEE, dd-MM-yyyy')}
                     {m.meeting_time ? ` · ${m.meeting_time.slice(0, 5)}` : ''}
                   </p>
                 </div>

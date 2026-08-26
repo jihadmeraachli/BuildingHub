@@ -312,7 +312,7 @@ export default function Reports() {
         <FundStatementDoc
           entityName={entity.name}
           period={periodLabel}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          generatedOn={fmtDate(new Date())}
           billingMode={entity.billingMode}
           openingOfPeriod={openingOfPeriod}
           flows={flows}
@@ -357,7 +357,7 @@ export default function Reports() {
         <BuildingReportDoc
           entityName={entity.name}
           period={periodLabel}
-          generatedOn={new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          generatedOn={fmtDate(new Date())}
           kpi={{ collected, billed, outstanding }}
           fund={fundKpi}
           book={book}
@@ -437,7 +437,7 @@ export default function Reports() {
                         <SelectItem value="__none__">{t('reports.pickBudget')}</SelectItem>
                         {budgets.map((b) => (
                           <SelectItem key={b.id} value={b.id}>
-                            {b.label} · {fmtDate(b.period_start, 'MMM d')} – {fmtDate(b.period_end, 'MMM d, yyyy')}
+                            {b.label} · {fmtDate(b.period_start, 'dd-MM')} – {fmtDate(b.period_end, 'dd-MM-yyyy')}
                           </SelectItem>
                         ))}
                       </SelectField>

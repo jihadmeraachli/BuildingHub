@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { fmtDate } from '@/lib/dateFmt';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@/lib/toast';
@@ -494,12 +495,12 @@ export default function Licenses() {
                         {trialDays !== null ? t('licensesPage.daysLeft', { count: trialDays }) : '—'}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        {sub.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : ''}
+                        {fmtDate(sub.trial_ends_at, undefined, '')}
                       </p>
                     </>
                   ) : (
                     <p className="font-semibold text-foreground text-sm">
-                      {sub.current_period_start ?? '—'} → {sub.current_period_end ?? '—'}
+                      {fmtDate(sub.current_period_start)} → {fmtDate(sub.current_period_end)}
                     </p>
                   )}
                 </CardContent>
@@ -518,13 +519,13 @@ export default function Licenses() {
                   {sub.status === 'active' && sub.current_period_end && (
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {t(sub.cancel_at_period_end ? 'billing.expiresIn' : 'billing.renewsIn',
-                        { count: daysLeft(sub.current_period_end) ?? 0, date: sub.current_period_end })}
+                        { count: daysLeft(sub.current_period_end) ?? 0, date: fmtDate(sub.current_period_end) })}
                     </p>
                   )}
                   {/* 0118: a scheduled downgrade — visible, dated, revertible */}
                   {sub.renews_license_count != null && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                      {t('licensesPage.scheduledReduction', { next: sub.renews_license_count, date: sub.current_period_end ?? '' })}
+                      {t('licensesPage.scheduledReduction', { next: sub.renews_license_count, date: fmtDate(sub.current_period_end, undefined, '') })}
                     </p>
                   )}
                 </CardContent>
@@ -553,11 +554,11 @@ export default function Licenses() {
               <CardHeader>
                 <CardTitle>{t('billing.manageTitle')}</CardTitle>
                 <CardDescription>
-                  {sub.status === 'trial' ? t('billing.manageTrial', { date: sub.trial_ends_at ? new Date(sub.trial_ends_at).toLocaleDateString() : '' })
-                    : sub.status === 'grace' ? t('billing.manageGrace', { date: sub.grace_ends_at ? new Date(sub.grace_ends_at).toLocaleDateString() : '' })
+                  {sub.status === 'trial' ? t('billing.manageTrial', { date: fmtDate(sub.trial_ends_at, undefined, '') })
+                    : sub.status === 'grace' ? t('billing.manageGrace', { date: fmtDate(sub.grace_ends_at, undefined, '') })
                     : sub.status === 'locked' ? t('billing.manageLocked')
-                    : sub.cancel_at_period_end ? t('billing.manageEnding', { date: sub.current_period_end ?? '' })
-                    : t('billing.manageActive', { start: sub.current_period_start ?? '', end: sub.current_period_end ?? '' })}
+                    : sub.cancel_at_period_end ? t('billing.manageEnding', { date: fmtDate(sub.current_period_end, undefined, '') })
+                    : t('billing.manageActive', { start: fmtDate(sub.current_period_start, undefined, ''), end: fmtDate(sub.current_period_end, undefined, '') })}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -694,7 +695,7 @@ export default function Licenses() {
                         {invoices.map(inv => (
                           <TableRow key={inv.id}>
                             <TableCell>
-                              {inv.period_start} → {inv.period_end}
+                              {fmtDate(inv.period_start)} → {fmtDate(inv.period_end)}
                               {inv.kind === 'topup' && <Badge color="indigo" className="ms-2">{t('billing.topup')}</Badge>}
                               {inv.status === 'open' && inv.due_date && (
                                 <span className="block text-xs text-muted-foreground">{t('billing.dueBy', { date: inv.due_date })}</span>
@@ -705,7 +706,7 @@ export default function Licenses() {
                               <Badge color={INVOICE_COLOR[inv.status]}>{t(`licensesPage.invoiceStatuses.${inv.status}`)}</Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground">
-                              {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '—'}
+                              {fmtDate(inv.paid_at)}
                             </TableCell>
                             <TableCell className="text-end">
                               {inv.status === 'paid' && (
@@ -751,8 +752,8 @@ export default function Licenses() {
             {/* #13: say when the paid period starts and renews */}
             <p className="text-xs text-muted-foreground">
               {sub.status === 'trial' && sub.trial_ends_at
-                ? t('billing.startsAfterTrial', { date: new Date(sub.trial_ends_at).toLocaleDateString() })
-                : t('billing.startsOn', { date: sub.current_period_end ?? new Date().toLocaleDateString() })}
+                ? t('billing.startsAfterTrial', { date: fmtDate(sub.trial_ends_at) })
+                : t('billing.startsOn', { date: fmtDate(sub.current_period_end ?? new Date()) })}
             </p>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setSubscribeOpen(false)}>{t('common.cancel')}</Button>
@@ -819,7 +820,7 @@ export default function Licenses() {
             {/* 0118: nothing is taken away mid-cycle — say so before they confirm */}
             {sub.status === 'active' && sub.current_period_end && (
               <p className="text-xs text-muted-foreground">
-                {t('licensesPage.removeKeepUntil', { date: sub.current_period_end })}
+                {t('licensesPage.removeKeepUntil', { date: fmtDate(sub.current_period_end) })}
               </p>
             )}
             <div className="flex justify-end gap-2 pt-1">

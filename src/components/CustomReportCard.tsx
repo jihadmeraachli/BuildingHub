@@ -11,6 +11,7 @@
 // (docs/REPORTING_GUIDANCE.md).
 // ============================================================
 import { useEffect, useMemo, useState } from 'react';
+import { fmtDate } from '@/lib/dateFmt';
 import { useTranslation } from 'react-i18next';
 import { Download, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -147,7 +148,7 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
         <LedgerReportDoc
           entityName={entityName}
           filterSummary={filterSummary}
-          generatedOn={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          generatedOn={fmtDate(new Date())}
           rows={shown}
           totals={totals}
         />,

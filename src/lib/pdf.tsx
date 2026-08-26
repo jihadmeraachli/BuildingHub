@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, Image, StyleSheet, pdf as pdfRenderer } from '@react-pdf/renderer';
+import { fmtDate as fmtAppDate } from '@/lib/dateFmt';
 import type { Charge, Payment, Expense, Unit, Adjustment, Dues } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 
@@ -50,7 +51,7 @@ const money = (n: number) =>
   `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const fmtDate = (d: string) => {
-  try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+  try { return fmtAppDate(d); }
   catch { return d; }
 };
 

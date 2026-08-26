@@ -183,8 +183,8 @@ export default function Bylaws() {
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {current.effective_date
-                        ? t('bylaws.adopted', { date: fmtDate(current.effective_date, 'MMM d, yyyy') })
-                        : t('bylaws.uploadedOn', { date: fmtDate(current.created_at, 'MMM d, yyyy') })}
+                        ? t('bylaws.adopted', { date: fmtDate(current.effective_date, 'dd-MM-yyyy') })
+                        : t('bylaws.uploadedOn', { date: fmtDate(current.created_at, 'dd-MM-yyyy') })}
                     </p>
                     {current.note && <p className="text-sm mt-2">{current.note}</p>}
                   </div>
@@ -240,8 +240,8 @@ export default function Bylaws() {
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {d.effective_date
-                              ? t('bylaws.adopted', { date: fmtDate(d.effective_date, 'MMM d, yyyy') })
-                              : t('bylaws.uploadedOn', { date: fmtDate(d.created_at, 'MMM d, yyyy') })}
+                              ? t('bylaws.adopted', { date: fmtDate(d.effective_date, 'dd-MM-yyyy') })
+                              : t('bylaws.uploadedOn', { date: fmtDate(d.created_at, 'dd-MM-yyyy') })}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">

@@ -342,7 +342,7 @@ export default function Meetings() {
                           <div>
                             <p className="font-medium text-slate-900">{m.title}</p>
                             <p className="text-sm text-slate-500 mt-0.5">
-                              {fmtDate(m.meeting_date, 'MMMM d, yyyy')}
+                              {fmtDate(m.meeting_date, 'dd-MM-yyyy')}
                               {m.meeting_time && ` · ${m.meeting_time.slice(0, 5)}`}
                             </p>
                           </div>
@@ -560,7 +560,7 @@ export default function Meetings() {
         {detailMeeting && (
           <div className="space-y-4">
             <p className="text-sm text-slate-500">
-              {fmtDate(detailMeeting.meeting_date, 'EEEE, MMMM d, yyyy')}{detailMeeting.meeting_time ? ` · ${detailMeeting.meeting_time.slice(0, 5)}` : ''}
+              {fmtDate(detailMeeting.meeting_date, 'EEEE, dd-MM-yyyy')}{detailMeeting.meeting_time ? ` · ${detailMeeting.meeting_time.slice(0, 5)}` : ''}
             </p>
             {safeHttpUrl(detailMeeting.meeting_url) && (
               <a href={safeHttpUrl(detailMeeting.meeting_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline">

@@ -194,7 +194,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
     })));
 
     const typeName = type.key ? t(`finance.cats.${type.key}`) : type.name;
-    const desc = `${typeName} · ${fmtDate(from, 'MMM d')} – ${fmtDate(to, 'MMM d, yyyy')}`;
+    const desc = `${typeName} · ${fmtDate(from, 'dd-MM')} – ${fmtDate(to, 'dd-MM-yyyy')}`;
     const expenseFields = {
       category: legacyCategoryFor(type), expense_type_id: type.id,
       description: desc, amount_usd: result.chargesTotal,
@@ -294,7 +294,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
             <tbody className="divide-y divide-border/60">
               {cycles.map((c) => (
                 <tr key={c.id} className={canManage ? 'hover:bg-secondary/40 cursor-pointer' : ''} onClick={() => canManage && openCycleEdit(c)}>
-                  <td className="px-5 py-3 text-foreground">{fmtDate(c.period_start, 'MMM d')} – {fmtDate(c.period_end, 'MMM d, yyyy')}</td>
+                  <td className="px-5 py-3 text-foreground">{fmtDate(c.period_start, 'dd-MM')} – {fmtDate(c.period_end, 'dd-MM-yyyy')}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.opening_stock).toLocaleString()}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.added_qty).toLocaleString()} · {money(Number(c.added_cost_usd))}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.closing_stock).toLocaleString()}</td>

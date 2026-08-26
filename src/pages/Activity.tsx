@@ -175,7 +175,7 @@ export default function Activity() {
                       {r.actor_aal === 'aal1' ? <span className="ms-2 text-[10px] text-amber-500 border border-amber-500/40 rounded px-1">no 2FA</span> : ''}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {fmtDate(r.at, 'MMM d, yyyy · HH:mm')}{r.entity_id ? ` · ${r.entity_id.slice(0, 8)}` : ''}
+                      {fmtDate(r.at, 'dd-MM-yyyy · HH:mm')}{r.entity_id ? ` · ${r.entity_id.slice(0, 8)}` : ''}
                     </p>
                   </div>
                 </div>
