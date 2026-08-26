@@ -508,6 +508,9 @@ export default function Users() {
   // When the list spans several blocks, show which block each person belongs to —
   // otherwise the rows are ambiguous in a compound view.
   const showBlockColumn = listBuildingIds.length > 1;
+  // 0151: invited accounts stay pending until they first sign in - they show
+  // under Invitations (the tab where an admin looks for "not here yet").
+  const pendingAccounts = users.filter(u => u.status === 'pending');
   const blockName = useMemo(
     () => Object.fromEntries(buildings.map(b => [b.id, b.name])) as Record<string, string>,
     [buildings],
@@ -594,7 +597,22 @@ export default function Users() {
               <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>
             ) : invitesLoading ? (
               <SkeletonTable rows={4} cols={6} />
-            ) : invites.length === 0 ? (
+            ) : (
+              <>
+              {pendingAccounts.length > 0 && (
+                <Card className="mb-4"><CardBody>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('users.awaitingTitle')}</p>
+                  <div className="space-y-1.5">
+                    {pendingAccounts.map(u => (
+                      <div key={u.id} className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-medium text-foreground">{u.full_name}</span>
+                        <Badge color="yellow">{t('users.awaitingBadge')}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardBody></Card>
+              )}
+              {invites.length === 0 ? (
               <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.noInvites')}</p></CardBody></Card>
             ) : (
               <Card>
@@ -661,6 +679,8 @@ export default function Users() {
                   </table>
                 </div>
               </Card>
+            )}
+              </>
             )
           ) : (
             // All/Pending list spans every block of the selected entity — the data

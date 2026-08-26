@@ -888,16 +888,11 @@ Deno.serve(async (req) => {
         b?.name ?? 'Abniyah');
     }
 
-    // 2. Resident approved → the resident
-    if (tbl === 'profiles' && type === 'UPDATE' && old_record?.status === 'pending' && record.status === 'active') {
-      const b = await getBuilding(record.building_id);
-      await emailToUserIds([record.id], (L) => ({
-        subject: L.approved.subj,
-        html: emailHtml(L, L.approved.title(esc(record.full_name)),
-          `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.approved.intro(esc(b?.name ?? '—'))}</p>`,
-          L.approved.cta, `${APP_URL}/`),
-      }), b?.name ?? 'Abniyah');
-    }
+    // 2. (removed 2026-08-26) The "resident approved" email is gone: activation
+    //    now happens when the invitee accepts and signs in themselves - mailing
+    //    them "you have been approved" at that moment was redundant, and on
+    //    imports it fired with building '—'. The invitation email (Supabase
+    //    Auth template) is the one and only onboarding email.
 
     // 3. New issue → admins (excluding reporter)
     if (tbl === 'issues' && type === 'INSERT') {

@@ -955,7 +955,9 @@
     "expiryPrompt": "Last valid day (YYYY-MM-DD). Leave empty for open-ended.",
     "expiryFormat": "Use the YYYY-MM-DD form.",
     "expirySet": "Access now ends on {{date}}.",
-    "expiryCleared": "Access is open-ended again."
+    "expiryCleared": "Access is open-ended again.",
+    "awaitingTitle": "Invited, awaiting first sign-in",
+    "awaitingBadge": "Awaiting sign-in"
   },
   "buildings": {
     "title": "Buildings",

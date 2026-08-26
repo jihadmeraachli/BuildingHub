@@ -124,6 +124,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile(p);
+    // 0151: an invited account activates itself the first time its owner
+    // actually signs in (the RPC verifies invite evidence server-side and
+    // no-ops for strays). Fire-and-forget; refresh picks up the new status.
+    if (p?.status === 'pending') {
+      supabase.rpc('activate_invited_account').then(({ data }) => {
+        if (data) {
+          supabase.from('profiles').select('*').eq('id', p.id).single()
+            .then(({ data: fresh }) => { if (fresh) setProfile(fresh as typeof p); });
+        }
+      });
+    }
   }
 
   async function fetchAccess(userId: string) {

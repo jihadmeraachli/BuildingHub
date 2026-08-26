@@ -46,7 +46,7 @@ type RowStatus = 'pending' | 'processing' | 'done' | 'exists' | 'skipped' | 'err
 interface ProgressRow { label: string; detail?: string; status: RowStatus; error?: string; }
 interface UserRow { name: string; email: string; phone: string; role: string; }
 interface BuildingRow { name: string; address: string; city: string; compound_name: string; }
-interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; tenant_email: string; share_weight: string; }
+interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; owner_name: string; tenant_email: string; tenant_name: string; share_weight: string; }
 interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
 
 
@@ -564,20 +564,20 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   // import, so forgetting to delete them can never create junk units.
   const GUIDE = 'e.g. (guide row, delete before importing)';
   const TEMPLATE: string[][] = soleStandalone ? [
-    ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Tenant Email'],
-    [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Invites and links the tenant'],
-    ['e.g. 101', '1', '1.0', 'owner@example.com', 'tenant@example.com'],
-    ['e.g. 102', '1', '', 'leave empty to fill later', 'leave empty to fill later'],
+    ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Owner Name', 'Tenant Email', 'Tenant Name'],
+    [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. Invites and links the tenant', 'Optional. Their real name'],
+    ['e.g. 101', '1', '1.0', 'owner@example.com', 'Sami Karam', 'tenant@example.com', 'Dana Saab'],
+    ['e.g. 102', '1', '', 'leave empty to fill later', '', 'leave empty to fill later', ''],
   ] : soleCompound ? [
-    ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Tenant Email'],
-    [GUIDE, 'Optional', 'Required. One of your blocks, e.g. "' + (soleCompound.blocks[0]?.name ?? 'Block A') + '"', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Invites and links the tenant'],
-    ['e.g. 101', '1', soleCompound.blocks[0]?.name ?? 'Block A', '1.0', 'owner@example.com', 'tenant@example.com'],
-    ['e.g. 102', '1', soleCompound.blocks[0]?.name ?? 'Block A', '', 'leave empty to fill later', 'leave empty to fill later'],
+    ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Tenant Email', 'Tenant Name'],
+    [GUIDE, 'Optional', 'Required. One of your blocks, e.g. "' + (soleCompound.blocks[0]?.name ?? 'Block A') + '"', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. Invites and links the tenant', 'Optional. Their real name'],
+    ['e.g. 101', '1', soleCompound.blocks[0]?.name ?? 'Block A', '1.0', 'owner@example.com', 'Sami Karam', 'tenant@example.com', 'Dana Saab'],
+    ['e.g. 102', '1', soleCompound.blocks[0]?.name ?? 'Block A', '', 'leave empty to fill later', '', 'leave empty to fill later', ''],
   ] : [
-    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Tenant Email'],
-    [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Invites and links the tenant'],
-    ['e.g. A101', '1', 'Block A', 'Tower XYZ', '1.0', 'owner@example.com', 'tenant@example.com'],
-    ['e.g. 101', '1', 'Standalone Building', '', '', 'leave empty to fill later', 'leave empty to fill later'],
+    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Tenant Email', 'Tenant Name'],
+    [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. Invites and links the tenant', 'Optional. Their real name'],
+    ['e.g. A101', '1', 'Block A', 'Tower XYZ', '1.0', 'owner@example.com', 'Sami Karam', 'tenant@example.com', 'Dana Saab'],
+    ['e.g. 101', '1', 'Standalone Building', '', '', 'leave empty to fill later', '', 'leave empty to fill later', ''],
   ];
 
   /** Where a row's unit lands, honoring the admin's scope: a sole standalone
@@ -606,7 +606,9 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
         building_name: pickCol(row, 'building name', 'building', 'block name', 'block', 'المبنى'),
         compound_name: pickCol(row, 'compound name', 'compound', 'tower', 'المجمع'),
         owner_email:   pickCol(row, 'owner email', 'owner', 'المالك'),
+        owner_name:    pickCol(row, 'owner name', 'اسم المالك'),
         tenant_email:  pickCol(row, 'tenant email', 'tenant', 'المستأجر'),
+        tenant_name:   pickCol(row, 'tenant name', 'اسم المستأجر'),
         share_weight:  pickCol(row, 'share weight', 'share', 'الحصة') || '1',
       })).filter(r => r.label);
       // guidance rows travel with the template; never let them import
@@ -641,10 +643,10 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   /** Invite (or find) the person and link them to the unit — skipping the
    *  insert when an identical live membership already exists, so re-imports
    *  never duplicate links. */
-  async function linkParty(unitId: string, email: string, tenure: 'owner' | 'tenant') {
+  async function linkParty(unitId: string, buildingId: string, email: string, name: string, tenure: 'owner' | 'tenant') {
     if (!email.includes('@')) return;
     const { data: inv } = await supabase.functions.invoke('invite-user', {
-      body: { email: email.trim().toLowerCase(), full_name: email, mode: 'import' },
+      body: { email: email.trim().toLowerCase(), full_name: name.trim() || email, mode: 'import', building_id: buildingId },
     });
     if (!inv?.user_id) return;
     const { data: already } = await supabase.from('memberships').select('id')
@@ -677,8 +679,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           const { error: upErr } = await supabase.from('units')
             .update({ share_weight: parseFloat(row.share_weight) || 1 }).eq('id', ex.id);
           if (upErr) throw new Error(upErr.message);
-          await linkParty(ex.id, row.owner_email, 'owner');
-          await linkParty(ex.id, row.tenant_email, 'tenant');
+          await linkParty(ex.id, buildingId, row.owner_email, row.owner_name, 'owner');
+          await linkParty(ex.id, buildingId, row.tenant_email, row.tenant_name, 'tenant');
           setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'updated existing unit' } : p));
           continue;
         }
@@ -693,8 +695,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           .select('id').single();
         if (uErr) throw new Error(uErr.message.includes('LICENSE_LIMIT') ? i18n.t('structure.licenseLimit') : uErr.message);
 
-        await linkParty(unit.id, row.owner_email, 'owner');
-        await linkParty(unit.id, row.tenant_email, 'tenant');
+        await linkParty(unit.id, buildingId, row.owner_email, row.owner_name, 'owner');
+        await linkParty(unit.id, buildingId, row.tenant_email, row.tenant_name, 'tenant');
 
         // Seat auto-assignment (Structure parity): consume a licence while the
         // pool has one; past that the unit is created UNLICENSED and says so.

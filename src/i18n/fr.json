@@ -955,7 +955,9 @@
     "expiryPrompt": "Dernier jour de validité (AAAA-MM-JJ). Laissez vide pour sans limite.",
     "expiryFormat": "Utilisez la forme AAAA-MM-JJ.",
     "expirySet": "L’accès prend fin le {{date}}.",
-    "expiryCleared": "L’accès est de nouveau sans limite."
+    "expiryCleared": "L’accès est de nouveau sans limite.",
+    "awaitingTitle": "Invités, en attente de première connexion",
+    "awaitingBadge": "En attente de connexion"
   },
   "buildings": {
     "title": "Immeubles",

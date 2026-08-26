@@ -967,7 +967,9 @@
     "expiryPrompt": "آخر يوم صالح (YYYY-MM-DD). اتركه فارغاً لتكون غير محدودة.",
     "expiryFormat": "استخدم الصيغة YYYY-MM-DD.",
     "expirySet": "تنتهي الصلاحية الآن في {{date}}.",
-    "expiryCleared": "عادت الصلاحية غير محدودة."
+    "expiryCleared": "عادت الصلاحية غير محدودة.",
+    "awaitingTitle": "مدعوون بانتظار أول تسجيل دخول",
+    "awaitingBadge": "بانتظار الدخول"
   },
   "buildings": {
     "title": "المباني",

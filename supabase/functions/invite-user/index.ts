@@ -129,6 +129,15 @@ Deno.serve(async (req) => {
         if (mode === 'import') {
           const { data: existing } = await admin.auth.admin.getUserByEmail(email.trim().toLowerCase());
           if (existing?.user) {
+            // A real name arrived for someone we only knew by email (earlier
+            // imports used the email as the name) - upgrade it, never overwrite
+            // a name the person chose themselves.
+            if (full_name?.trim() && !full_name.includes('@')) {
+              const { data: prof } = await admin.from('profiles').select('full_name').eq('id', existing.user.id).single();
+              if (!prof?.full_name || prof.full_name.includes('@')) {
+                await admin.from('profiles').update({ full_name: full_name.trim() }).eq('id', existing.user.id);
+              }
+            }
             return json({ success: true, user_id: existing.user.id, existing: true });
           }
         }
@@ -151,7 +160,10 @@ Deno.serve(async (req) => {
         full_name: full_name.trim(),
         phone: phone?.trim() || null,
         building_id: building_id ?? grant?.building_id ?? null,
-        status: 'active',
+        // 0151: invited accounts stay PENDING until they accept and sign in -
+        // activate_invited_account() flips them on first login. No more
+        // instant-active (and no more premature "approved" email).
+        status: 'pending',
         role: 'resident',
         notify_email: true,
         notify_whatsapp: false,
