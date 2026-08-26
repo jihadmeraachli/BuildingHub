@@ -212,9 +212,13 @@ export default function Import() {
     );
   }
 
+  // Importing BUILDINGS at scale is portfolio work - org admins (and the
+  // platform) only. Building/compound admins create blocks one at a time on
+  // the Buildings page; their import tabs are users/units/finances.
+  const canImportBuildings = isPlatformAdmin || grants.some(g => g.scope_type === 'org' && g.role === 'org_admin');
   const TABS: { key: ImportTab; label: string; Icon: React.ElementType }[] = [
     { key: 'users',     label: 'Users',              Icon: Users },
-    { key: 'buildings', label: 'Buildings',           Icon: Building2 },
+    ...(canImportBuildings ? [{ key: 'buildings' as ImportTab, label: 'Buildings', Icon: Building2 }] : []),
     { key: 'units',     label: 'Units',               Icon: Home },
     { key: 'expenses',  label: 'Expenses & Balances', Icon: BarChart3 },
   ];
@@ -246,7 +250,7 @@ export default function Import() {
       </div>
 
       {activeTab === 'users'     && <UsersTab />}
-      {activeTab === 'buildings' && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
+      {activeTab === 'buildings' && canImportBuildings && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
       {activeTab === 'units'     && <UnitsTab entities={entities} />}
       {activeTab === 'expenses'  && <ExpensesTab entities={entities} />}
     </div>
