@@ -28,6 +28,10 @@
 -- Additive & idempotent.
 -- ============================================================
 BEGIN;
+-- 0150b: the first run deadlocked against live app queries (units <->
+-- license_assignments lock order). Fail fast and retry instead of deadlocking;
+-- the whole migration is one transaction, so a failed run applies NOTHING.
+SET LOCAL lock_timeout = '10s';
 
 -- ── 1. Truthful unit counting (soft-deleted units are not held units) ─────
 CREATE OR REPLACE FUNCTION subscription_unit_count(p_subscription UUID)
