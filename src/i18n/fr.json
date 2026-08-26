@@ -367,7 +367,6 @@
       "mixedOnly": "Mixte USD + LBP",
       "showing": "{{from}}-{{to}} sur {{total}}",
       "perPage": "Lignes par page",
-      "all": "Tout",
       "prev": "Page précédente",
       "next": "Page suivante"
     },
