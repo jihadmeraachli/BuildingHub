@@ -57,3 +57,5 @@ scripts/rls-personas.json
 scripts/migration.env
 # generated on migration night, contains keys
 scripts/migrate/webhooks.sql
+# APNs key files - never commit
+*.p8
