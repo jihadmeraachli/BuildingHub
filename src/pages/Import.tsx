@@ -543,6 +543,15 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   const [step, setStep] = useState<StepState>('upload');
   const [rows, setRows] = useState<UnitRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
+  // Duplicate matching: the key is (RESOLVED building, label) — so in a
+  // compound the block is part of the identity, in a standalone building the
+  // label alone is. 'update' rewrites share weight + links; 'skip' leaves them.
+  const [dupMode, setDupMode] = useState<'update' | 'skip'>('update');
+  const [existingUnits, setExistingUnits] = useState<Record<string, { id: string; label: string }>>({});
+  // Licence pool per subscription (blocks of a compound SHARE one pool):
+  // buildingId -> subscriptionId, subscriptionId -> seats left.
+  const [subByBuilding, setSubByBuilding] = useState<Record<string, string>>({});
+  const [poolLeft, setPoolLeft] = useState<Record<string, number>>({});
 
   // ── Scope-aware template: a building admin never needs Building/Compound
   // columns (their one building is implied); a compound admin names the BLOCK;
@@ -583,6 +592,10 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     return findBuildingId(entities, r.building_name, r.compound_name);
   }
 
+  const dupKey = (bid: string | null, label: string) =>
+    `${bid}|${label.toLowerCase().replace(/\s+/g, '')}`;
+  const existingFor = (r: UnitRow) => existingUnits[dupKey(resolveBuildingId(r), r.label)];
+
   async function handleFile(file: File) {
     try {
       const data = await parseSpreadsheet(file);
@@ -601,14 +614,50 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       const skipped = all.length - parsed.length;
       if (skipped > 0) toast.success('Skipped ' + skipped + ' template guide row' + (skipped !== 1 ? 's' : ''));
       if (!parsed.length) { toast.error('No valid unit rows found'); return; }
+      // Existing units in every destination building (duplicate detection) +
+      // the licence pool per subscription (seat auto-assignment).
+      const bids = [...new Set(parsed.map(r => resolveBuildingId(r)).filter(Boolean))] as string[];
+      const exMap: Record<string, { id: string; label: string }> = {};
+      const sMap: Record<string, string> = {};
+      const pMap: Record<string, number> = {};
+      if (bids.length) {
+        const { data: ex } = await supabase.from('units').select('id, label, building_id').in('building_id', bids);
+        (ex ?? []).forEach(u => { exMap[dupKey(u.building_id, u.label)] = { id: u.id, label: u.label }; });
+        for (const bid of bids) {
+          const { data: si } = await supabase.rpc('get_building_subscription', { p_building_id: bid });
+          const sub = Array.isArray(si) ? si[0] : si;
+          if (sub?.id) {
+            sMap[bid] = sub.id;
+            if (!(sub.id in pMap)) pMap[sub.id] = sub.status === 'trial' ? 1e9 : Number(sub.available_count ?? 0);
+          }
+        }
+      }
+      setExistingUnits(exMap); setSubByBuilding(sMap); setPoolLeft(pMap);
       setRows(parsed);
       setStep('preview');
     } catch { toast.error('Could not read file'); }
   }
 
+  /** Invite (or find) the person and link them to the unit — skipping the
+   *  insert when an identical live membership already exists, so re-imports
+   *  never duplicate links. */
+  async function linkParty(unitId: string, email: string, tenure: 'owner' | 'tenant') {
+    if (!email.includes('@')) return;
+    const { data: inv } = await supabase.functions.invoke('invite-user', {
+      body: { email: email.trim().toLowerCase(), full_name: email, mode: 'import' },
+    });
+    if (!inv?.user_id) return;
+    const { data: already } = await supabase.from('memberships').select('id')
+      .eq('unit_id', unitId).eq('user_id', inv.user_id).eq('tenure', tenure).is('ended_at', null).limit(1);
+    if (!already?.length) {
+      await supabase.from('memberships').insert({ user_id: inv.user_id, unit_id: unitId, tenure });
+    }
+  }
+
   async function runImport() {
     setProgress(rows.map(r => ({ label: r.label, detail: r.compound_name ? `${r.compound_name} › ${r.building_name}` : r.building_name, status: 'pending' })));
     setStep('running');
+    const left = { ...poolLeft };   // seats remaining per subscription, this run
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -616,6 +665,23 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       try {
         const buildingId = resolveBuildingId(row);
         if (!buildingId) throw new Error(`Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
+
+        const ex = existingFor(row);
+        if (ex && dupMode === 'skip') {
+          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'skipped — already exists' } : p));
+          continue;
+        }
+
+        if (ex) {
+          // UPDATE path: refresh the share weight, (re)link people. Licensing untouched.
+          const { error: upErr } = await supabase.from('units')
+            .update({ share_weight: parseFloat(row.share_weight) || 1 }).eq('id', ex.id);
+          if (upErr) throw new Error(upErr.message);
+          await linkParty(ex.id, row.owner_email, 'owner');
+          await linkParty(ex.id, row.tenant_email, 'tenant');
+          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'updated existing unit' } : p));
+          continue;
+        }
 
         const { data: unit, error: uErr } = await supabase
           .from('units')
@@ -627,27 +693,28 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           .select('id').single();
         if (uErr) throw new Error(uErr.message.includes('LICENSE_LIMIT') ? i18n.t('structure.licenseLimit') : uErr.message);
 
-        // Link owner
-        if (row.owner_email.includes('@')) {
-          const { data: inv } = await supabase.functions.invoke('invite-user', {
-            body: { email: row.owner_email.trim().toLowerCase(), full_name: row.owner_email, mode: 'import' },
-          });
-          if (inv?.user_id) {
-            await supabase.from('memberships').insert({ user_id: inv.user_id, unit_id: unit.id, tenure: 'owner' });
-          }
-        }
+        await linkParty(unit.id, row.owner_email, 'owner');
+        await linkParty(unit.id, row.tenant_email, 'tenant');
 
-        // Link tenant
-        if (row.tenant_email.includes('@')) {
-          const { data: inv } = await supabase.functions.invoke('invite-user', {
-            body: { email: row.tenant_email.trim().toLowerCase(), full_name: row.tenant_email, mode: 'import' },
+        // Seat auto-assignment (Structure parity): consume a licence while the
+        // pool has one; past that the unit is created UNLICENSED and says so.
+        let note = '';
+        const sid = subByBuilding[buildingId];
+        if (sid && (left[sid] ?? 0) > 0) {
+          const { error: licErr } = await supabase.from('license_assignments').insert({
+            subscription_id: sid, unit_id: unit.id,
           });
-          if (inv?.user_id) {
-            await supabase.from('memberships').insert({ user_id: inv.user_id, unit_id: unit.id, tenure: 'tenant' });
-          }
+          if (!licErr) {
+            left[sid] = (left[sid] ?? 0) - 1;
+            await supabase.from('subscription_events').insert({
+              subscription_id: sid, event_type: 'license_assigned',
+              metadata: { unit_id: unit.id, unit_label: row.label, via: 'import' },
+            });
+          } else { note = ' · unlicensed (assignment failed)'; }
+        } else if (sid) {
+          note = ' · unlicensed (pool empty)';
         }
-
-        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done' } : p));
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: (p.detail ?? '') + note } : p));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'error', error: msg } : p));
@@ -674,7 +741,14 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   if (step === 'preview') return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">{rows.length} unit{rows.length !== 1 ? 's' : ''} ready to import</p>
+        <p className="text-sm font-medium">
+          {rows.length} unit{rows.length !== 1 ? 's' : ''} ready to import
+          {rows.filter(r => existingFor(r)).length > 0 && (
+            <span className="ms-2 text-xs font-normal text-amber-600 dark:text-amber-400">
+              {rows.filter(r => existingFor(r)).length} already exist
+            </span>
+          )}
+        </p>
         <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
       </div>
       <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
@@ -688,7 +762,10 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
               <tr key={i} className={!resolveBuildingId(r) ? 'opacity-40' : ''}>
-                <td className="px-4 py-2 font-medium">{r.label}</td>
+                <td className="px-4 py-2 font-medium">
+                  {r.label}
+                  {existingFor(r) && <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-amber-400/15 text-amber-600 dark:text-amber-400 align-middle">exists</span>}
+                </td>
                 <td className="px-4 py-2 text-muted-foreground">{r.floor || '—'}</td>
                 {soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name || soleCompound.blocks[0]?.name || '—'}</td>}
                 {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>}
@@ -701,6 +778,19 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </tbody>
         </table>
       </div>
+      {rows.some(r => existingFor(r)) && (
+        <div className="flex flex-wrap items-center gap-3 text-sm rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2">
+          <span className="text-muted-foreground">Units that already exist:</span>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" checked={dupMode === 'update'} onChange={() => setDupMode('update')} className="accent-primary" />
+            Update them (share weight + people)
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" checked={dupMode === 'skip'} onChange={() => setDupMode('skip')} className="accent-primary" />
+            Skip them
+          </label>
+        </div>
+      )}
       {entities.length === 0 && (
         <p className="text-xs text-amber-300">⚠ No buildings found. Import buildings first or ensure you have access to at least one building.</p>
       )}

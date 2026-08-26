@@ -55,7 +55,8 @@
       "compounds": "Compound",
       "organizations": "Organization",
       "units": "Unit"
-    }
+    },
+    "restoredUnlicensed": "\"{{name}}\" restored without a licence. Assign one from Structure or Billing when ready."
   },
   "nav": {
     "trash": "Recycle bin",

@@ -51,7 +51,9 @@ export default function Trash() {
     const { error } = await supabase.rpc('restore_entity', { p_table: row.entity, p_id: row.id });
     setRestoring(null);
     if (error) { toast.error(error.message); return; }
-    toast.success(t('trash.restored', { name: row.name || t('trash.unnamed') }));
+    toast.success(row.entity === 'units'
+      ? t('trash.restoredUnlicensed', { name: row.name || t('trash.unnamed') })
+      : t('trash.restored', { name: row.name || t('trash.unnamed') }));
     load();
   }
 

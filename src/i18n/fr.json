@@ -55,7 +55,8 @@
       "compounds": "Complexe",
       "organizations": "Organisation",
       "units": "Lot"
-    }
+    },
+    "restoredUnlicensed": "« {{name}} » restauré sans licence. Attribuez-en une depuis Structure ou Facturation."
   },
   "nav": {
     "trash": "Corbeille",
