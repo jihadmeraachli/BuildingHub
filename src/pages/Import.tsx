@@ -568,22 +568,16 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   // Guidance convention: any row whose Unit Label starts with "e.g." is
   // template scaffolding (the how-to row + the two examples) and is skipped on
   // import, so forgetting to delete them can never create junk units.
-  const GUIDE = 'e.g. (guide row, delete before importing)';
+  const GUIDE = 'e.g. (guide row - your data starts on the next row)';
   const TEMPLATE: string[][] = soleStandalone ? [
     ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
     [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
-    ['e.g. 101', '1', '1.0', 'owner@example.com', 'Sami Karam', '+9613123456', 'tenant@example.com', 'Dana Saab', '+9613654321'],
-    ['e.g. 102', '1', '', 'leave empty to fill later', '', '', 'leave empty to fill later', '', ''],
   ] : soleCompound ? [
     ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
     [GUIDE, 'Optional', 'Required. Must match one of your blocks: ' + soleCompound.blocks.map(b => b.name).join(', '), 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
-    ['e.g. 101', '1', soleCompound.blocks[0]?.name ?? 'Block A', '1.0', 'owner@example.com', 'Sami Karam', '+9613123456', 'tenant@example.com', 'Dana Saab', '+9613654321'],
-    ['e.g. 102', '1', soleCompound.blocks[0]?.name ?? 'Block A', '', 'leave empty to fill later', '', '', 'leave empty to fill later', '', ''],
   ] : [
     ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
     [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
-    ['e.g. A101', '1', 'Block A', 'Tower XYZ', '1.0', 'owner@example.com', 'Sami Karam', '+9613123456', 'tenant@example.com', 'Dana Saab', '+9613654321'],
-    ['e.g. 101', '1', 'Standalone Building', '', '', 'leave empty to fill later', '', '', 'leave empty to fill later', '', ''],
   ];
 
   /** Where a row's unit lands, honoring the admin's scope: a sole standalone
@@ -757,7 +751,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
       <p className="text-sm text-muted-foreground">One spreadsheet for your whole structure: units with their owners and tenants (name, email, phone). People are invited automatically and linked to their units; licences are assigned from your pool as units are created.</p>
-      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('units-template.csv', TEMPLATE)}>
+      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('structure-template.csv', TEMPLATE)}>
         <Download size={14} /> Download template
       </Button>
       <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls"
