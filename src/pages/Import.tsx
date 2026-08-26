@@ -756,9 +756,9 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
         <table className="w-full">
           <thead className="bg-muted/40">
-            <tr>{(soleStandalone ? ['Unit', 'Floor', 'Owner Email', 'Tenant Email', 'Share Wt']
-                : soleCompound ? ['Unit', 'Floor', 'Block', 'Owner Email', 'Tenant Email', 'Share Wt']
-                : ['Unit', 'Floor', 'Building', 'Compound', 'Owner Email', 'Tenant Email', 'Share Wt']
+            <tr>{(soleStandalone ? ['Unit', 'Floor', 'Owner', 'Tenant', 'Share Wt']
+                : soleCompound ? ['Unit', 'Floor', 'Block', 'Owner', 'Tenant', 'Share Wt']
+                : ['Unit', 'Floor', 'Building', 'Compound', 'Owner', 'Tenant', 'Share Wt']
               ).map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -772,8 +772,14 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
                 {soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name || soleCompound.blocks[0]?.name || '—'}</td>}
                 {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground">{r.building_name}</td>}
                 {!soleStandalone && !soleCompound && <td className="px-4 py-2 text-muted-foreground text-xs">{r.compound_name || '—'}</td>}
-                <td className="px-4 py-2 text-muted-foreground text-xs">{r.owner_email || '—'}</td>
-                <td className="px-4 py-2 text-muted-foreground text-xs">{r.tenant_email || '—'}</td>
+                <td className="px-4 py-2 text-xs">
+                  {r.owner_name && <span className="block text-foreground">{r.owner_name}</span>}
+                  <span className="text-muted-foreground">{r.owner_email || '—'}</span>
+                </td>
+                <td className="px-4 py-2 text-xs">
+                  {r.tenant_name && <span className="block text-foreground">{r.tenant_name}</span>}
+                  <span className="text-muted-foreground">{r.tenant_email || '—'}</span>
+                </td>
                 <td className="px-4 py-2 text-muted-foreground">{r.share_weight || '1'}</td>
               </tr>
             ))}
