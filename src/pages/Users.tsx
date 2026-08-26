@@ -384,7 +384,7 @@ export default function Users() {
   function openInviteModal() {
     setInviteEmail(''); setInviteFullName(''); setInvitePhone('');
     setInviteScopeType('none'); setInviteGrantRole('building_admin');
-    setInviteBuildingId(''); setInviteOrgId(''); setInviteCompoundId('');
+    setInviteBuildingId(buildings[0]?.id ?? ''); setInviteOrgId(''); setInviteCompoundId('');
     setInviteModal(true);
   }
 
@@ -847,14 +847,14 @@ export default function Users() {
             label={t('users.inviteFullName')}
             value={inviteFullName}
             onChange={e => setInviteFullName(e.target.value)}
-            placeholder="Ahmad Al-Hassan"
+            placeholder="Sami Karam"
           />
           <Input
             label={t('users.inviteEmail')}
             type="email"
             value={inviteEmail}
             onChange={e => setInviteEmail(e.target.value)}
-            placeholder="ahmad@example.com"
+            placeholder="sami@example.com"
           />
           <PhoneInput
             label={t('users.invitePhone')}

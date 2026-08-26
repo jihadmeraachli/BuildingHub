@@ -264,8 +264,8 @@ function UsersTab() {
 
   const TEMPLATE = [
     ['Name', 'Email', 'Phone', 'Role'],
-    ['Ahmad Hassan', 'ahmad@example.com', '+9611234567', 'owner'],
-    ['Lara Khoury', 'lara@example.com', '+9619876543', 'tenant'],
+    ['Sami Karam', 'sami@example.com', '+9611234567', 'owner'],
+    ['Dana Saab', 'dana@example.com', '+9619876543', 'tenant'],
   ];
 
   async function handleFile(file: File) {
