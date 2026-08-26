@@ -12,11 +12,11 @@
 // ============================================================
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Search, X } from 'lucide-react';
+import { Download, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { SelectField, SelectItem } from '@/components/ui/Select';
+import { RadixSelect, SelectContent, SelectField, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { LedgerReportDoc, downloadPdf } from '@/lib/pdf';
 import { filterLedger, ledgerTotals, groupLedger, emptyLedgerFilters, type LedgerRow, type LedgerFilters, type LedgerGrouping } from '@/lib/reportData';
@@ -63,6 +63,12 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
   const [groupBy, setGroupBy] = useState<LedgerGrouping>('none');
   const [scopeKey, setScopeKey] = useState(scopes?.[0]?.key ?? '');
   const [busy, setBusy] = useState('');
+  // Render cap: totals, grouping and both exports ALWAYS cover the full
+  // filtered set - only the detail rows are paged, so a 1,200-row ledger
+  // never janks the tab. 0 = show all.
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [f, scopeKey, pageSize]);
 
   const activeScope = scopes?.find((s) => s.key === scopeKey) ?? scopes?.[0] ?? null;
   const source = activeScope ? activeScope.rows : (rows ?? []);
@@ -91,6 +97,11 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
 
   const shown = useMemo(() => filterLedger(source, f), [source, f]);
   const totals = useMemo(() => ledgerTotals(shown), [shown]);
+  const pageCount = pageSize === 0 ? 1 : Math.max(1, Math.ceil(shown.length / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = useMemo(
+    () => (pageSize === 0 ? shown : shown.slice(safePage * pageSize, (safePage + 1) * pageSize)),
+    [shown, safePage, pageSize]);
   const dirty = f.kind !== 'all' || !!f.from || !!f.to || !!f.search || !!f.unit || !!f.party || !!f.currency;
 
   /** "Mar 2026" from "2026-03" — built from a real date so Arabic gets Arabic
@@ -315,12 +326,12 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
             <tbody>
               {shown.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     {source.length === 0 ? t('reports.custom.nothingYet') : t('reports.custom.noMatch')}
                   </td>
                 </tr>
               ) : (
-                shown.map((r) => (
+                pageRows.map((r) => (
                   <tr key={`${r.kind}-${r.id}`} className="border-b border-border/50">
                     <td className="py-2 pe-3 whitespace-nowrap text-muted-foreground">{r.date}</td>
                     <td className="py-2 pe-3">
@@ -348,6 +359,43 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
             </tbody>
           </table>
         </div>
+
+        {/* pager - the dropdown caps rendered rows; totals above are untouched */}
+        {shown.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {t('reports.custom.showing', {
+                from: safePage * (pageSize || shown.length) + 1,
+                to: Math.min(shown.length, (safePage + 1) * (pageSize || shown.length)),
+                total: shown.length,
+              })}
+            </p>
+            <div className="flex items-center gap-2">
+              <RadixSelect value={pageSize === 0 ? 'all' : String(pageSize)} onValueChange={(v) => setPageSize(v === 'all' ? 0 : Number(v))}>
+                <SelectTrigger className="h-8 w-auto gap-1 text-xs" aria-label={t('reports.custom.perPage')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="all">{t('reports.custom.all')}</SelectItem>
+                </SelectContent>
+              </RadixSelect>
+              {pageSize !== 0 && pageCount > 1 && (
+                <>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} aria-label={t('reports.custom.prev')}>
+                    <ChevronLeft size={14} className="rtl:rotate-180" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground tabular-nums">{safePage + 1}/{pageCount}</span>
+                  <Button variant="outline" size="icon-sm" onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))} disabled={safePage >= pageCount - 1} aria-label={t('reports.custom.next')}>
+                    <ChevronRight size={14} className="rtl:rotate-180" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

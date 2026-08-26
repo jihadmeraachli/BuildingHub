@@ -364,7 +364,12 @@
       "anyCurrency": "Toutes devises",
       "usdOnly": "USD uniquement",
       "lbpOnly": "LBP uniquement",
-      "mixedOnly": "Mixte USD + LBP"
+      "mixedOnly": "Mixte USD + LBP",
+      "showing": "{{from}}-{{to}} sur {{total}}",
+      "perPage": "Lignes par page",
+      "all": "Tout",
+      "prev": "Page précédente",
+      "next": "Page suivante"
     },
     "fundStatement": "Relevé de caisse",
     "fundStatementDesc": "Encaisse d’ouverture, entrées, sorties et position de clôture, avec chaque autre recette et sortie listée. La page qui répond à « où est passé l’argent »."

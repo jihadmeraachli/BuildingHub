@@ -364,7 +364,12 @@
       "anyCurrency": "Any currency",
       "usdOnly": "USD only",
       "lbpOnly": "LBP only",
-      "mixedOnly": "Mixed USD + LBP"
+      "mixedOnly": "Mixed USD + LBP",
+      "showing": "Showing {{from}}-{{to}} of {{total}}",
+      "perPage": "Rows per page",
+      "all": "All",
+      "prev": "Previous page",
+      "next": "Next page"
     },
     "fundStatement": "Fund statement",
     "fundStatementDesc": "Opening cash, money in, money out and the closing position, with every other income and outflow listed. The page that answers where the money went."
