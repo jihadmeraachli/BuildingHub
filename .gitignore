@@ -52,3 +52,6 @@ scripts/rls-personas.json
 
 # test-snapshot.mjs output (per-step DB snapshots, may hold names)
 .snapshots/
+
+# Frankfurt migration credentials (Option C) - never commit
+scripts/migration.env
