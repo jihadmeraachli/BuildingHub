@@ -297,8 +297,7 @@ export default function Users() {
     // Surface DB guard errors (0026) instead of silently claiming success.
     const { error } = await supabase.from('profiles').update(patch).eq('id', id);
     if (error) { toast.error(error.message); return; }
-    if (patch.status === 'active') toast.success(t('users.approved'));
-    else if (patch.status === 'rejected') toast.success(t('users.rejected'));
+    toast.success(t('common.saved'));
     loadUsers();
   }
 
@@ -516,9 +515,9 @@ export default function Users() {
     [buildings],
   );
 
-  const tabs: { key: Tab; label: string; show: boolean }[] = [
-    { key: 'all', label: t('users.allUsers'), show: true },
-    { key: 'invites', label: t('users.invitationsTab'), show: true },
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'all', label: t('users.allUsers') },
+    { key: 'invites', label: t('users.invitationsTab') },
   ];
 
   const showContent = listBuildingIds.length > 0 || isSuperAdmin;
@@ -584,10 +583,7 @@ export default function Users() {
             className="mb-4"
             value={tab}
             onChange={setTab}
-            tabs={tabs.filter(t3 => t3.show).map(t3 => ({
-              key: t3.key,
-              label: t3.label,
-            }))}
+            tabs={tabs}
           />
 
           {tab === 'invites' ? (
@@ -701,7 +697,7 @@ export default function Users() {
               </>
             )
           ) : (
-            // All/Pending list spans every block of the selected entity — the data
+            // All-users list spans every block of the selected entity — the data
             // loads for listBuildingIds, so don't hide it behind a single-block pick.
             !listBuildingIds.length ? (
               <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('users.selectBuildingHint')}</p></CardBody></Card>

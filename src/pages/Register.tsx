@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
+import { isEmail } from '@/lib/validate';
 import { LICENSE_CAPS } from '@/lib/licenseCaps';
 import { monthlyPriceCents, effectivePerUnitCents, fmtPerUnit, ANNUAL_MONTHS_CHARGED } from '@/lib/pricing';
 import { useAuth } from '@/contexts/AuthContext';
@@ -266,19 +267,21 @@ export default function Register() {
               <div className="space-y-2">
                 {state.blocks.map((b, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <input
+                    <Input
                       value={b}
                       onChange={e => set({ blocks: state.blocks.map((x, j) => j === i ? e.target.value : x) })}
                       placeholder={t('register.blockPlaceholder', { n: i + 1 })}
-                      className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="flex-1"
                     />
                     {state.blocks.length > 1 && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => set({ blocks: state.blocks.filter((_, j) => j !== i) })}
                         aria-label={t('common.delete')}
-                        className="shrink-0 w-8 h-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition cursor-pointer"
-                      >×</button>
+                        className="shrink-0 px-2 text-muted-foreground"
+                      >×</Button>
                     )}
                   </div>
                 ))}
@@ -471,7 +474,7 @@ export default function Register() {
 
     if (step === 1) {
       if (state.fullName.trim().length < 3) { setError(t('register.fullNameRequired')); return; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(state.email.trim())) { setError(t('register.emailInvalid')); return; }
+      if (!isEmail(state.email)) { setError(t('register.emailInvalid')); return; }
       if (state.password.length < 8) { setError(t('auth.passwordTooShort')); return; }
       setStep(2);
       return;

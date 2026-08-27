@@ -507,12 +507,6 @@ const EN = {
     name: 'Name', apartment: 'Apartment', phone: 'Phone',
     cta: 'Review Registration',
   },
-  approved: {
-    subj: 'Your registration has been approved',
-    title: (name: string) => `Welcome, ${name}!`,
-    intro: (b: string) => `Your registration for <strong>${b}</strong> has been approved. You can now log in.`,
-    cta: 'Log In to Abniyah',
-  },
   issue: {
     subj: (t: string) => `New issue reported: ${t}`,
     title: 'New issue reported',
@@ -635,12 +629,6 @@ const AR: Dict = {
     intro: 'سجّل ساكن جديد وهو بانتظار موافقتك.',
     name: 'الاسم', apartment: 'الشقة', phone: 'الهاتف',
     cta: 'مراجعة التسجيل',
-  },
-  approved: {
-    subj: 'تمت الموافقة على تسجيلك',
-    title: (name: string) => `أهلاً بك، ${name}!`,
-    intro: (b: string) => `تمت الموافقة على تسجيلك في <strong>${b}</strong>. يمكنك الآن تسجيل الدخول.`,
-    cta: 'تسجيل الدخول إلى أبنية',
   },
   issue: {
     subj: (t: string) => `مشكلة جديدة: ${t}`,
@@ -766,12 +754,6 @@ const FR: Dict = {
     intro: "Un nouveau résident s'est inscrit et attend votre approbation.",
     name: 'Nom', apartment: 'Lot', phone: 'Téléphone',
     cta: "Examiner l'inscription",
-  },
-  approved: {
-    subj: 'Votre inscription a été approuvée',
-    title: (name: string) => `Bienvenue, ${name} !`,
-    intro: (b: string) => `Votre inscription à <strong>${b}</strong> a été approuvée. Vous pouvez maintenant vous connecter.`,
-    cta: 'Se connecter à Abniyah',
   },
   issue: {
     subj: (t: string) => `Nouvel incident signalé : ${t}`,

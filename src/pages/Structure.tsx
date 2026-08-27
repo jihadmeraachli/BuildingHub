@@ -198,7 +198,7 @@ export default function Structure() {
           subscription_id: subInfo.id, unit_id: uid, assigned_by: user?.id ?? null,
         });
         if (licErr) {
-          toast.warning(t('structure.licenseAssignFailed'));
+          toast.warning(licErr.message.includes('LICENSE_POOL_EMPTY') ? t('structure.poolEmpty') : t('structure.licenseAssignFailed'));
         } else {
           await supabase.from('subscription_events').insert({
             subscription_id: subInfo.id, event_type: 'license_assigned', actor_id: user?.id ?? null,
@@ -221,9 +221,7 @@ export default function Structure() {
     } else {
       const { data: created, error } = await supabase.from('units').insert(payload).select('id').single();
       if (error) {
-        // 0114: the database refuses a unit beyond the licence count
-        if (error.message.includes('LICENSE_LIMIT')) toast.error(t('structure.licenseLimit'));
-        else toast.error(error.message);
+        toast.error(error.message);
         return;
       }
       // Assign-on-create: consume one license from the pool for the new unit.
@@ -232,7 +230,7 @@ export default function Structure() {
           subscription_id: subInfo.id, unit_id: created.id, assigned_by: user?.id ?? null,
         });
         if (licErr) {
-          toast.warning(t('structure.licenseAssignFailed'));
+          toast.warning(licErr.message.includes('LICENSE_POOL_EMPTY') ? t('structure.poolEmpty') : t('structure.licenseAssignFailed'));
         } else {
           await supabase.from('subscription_events').insert({
             subscription_id: subInfo.id, event_type: 'license_assigned', actor_id: user?.id ?? null,

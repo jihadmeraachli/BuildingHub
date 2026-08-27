@@ -186,7 +186,8 @@ Deno.serve(async (req) => {
       {
         id: userId,
         full_name: full_name.trim(),
-        phone: phone?.trim() || null,
+        // one stored format app-wide (+<digits>): callers send spaced or plain
+        phone: (phone?.replace(/[\s()-]/g, '') ?? '') || null,
         building_id: building_id ?? grant?.building_id ?? null,
         // 0151: invited accounts stay PENDING until they accept and sign in -
         // activate_invited_account() flips them on first login. No more

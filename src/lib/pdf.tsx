@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, Image, StyleSheet, pdf as pdfRenderer } from '@react-pdf/renderer';
-import { fmtDate as fmtAppDate } from '@/lib/dateFmt';
+import { fmtDate } from '@/lib/dateFmt';
 import type { Charge, Payment, Expense, Unit, Adjustment, Dues } from '@/types';
 import { adjustmentEffect } from '@/lib/balance';
 
@@ -49,11 +49,6 @@ const s = StyleSheet.create({
 
 const money = (n: number) =>
   `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const fmtDate = (d: string) => {
-  try { return fmtAppDate(d); }
-  catch { return d; }
-};
 
 /** react-pdf's built-in Helvetica is WinAnsi-only: characters outside that
  *  set (→, −, …) silently render as a blank or a stray glyph instead of

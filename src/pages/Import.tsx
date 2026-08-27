@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import type { Grant } from '@/types';
 import { toast } from '@/lib/toast';
+import { isEmail, isPhone, normalizePhone } from '@/lib/validate';
 import { supabase } from '@/lib/supabase';
-import i18n from '@/i18n';
 
 // 0085: an imported expense must point at its scope's catalog row, or it sits
 // as "Uncategorized" in budget-vs-actual forever. Seeded types carry the legacy
@@ -46,7 +46,7 @@ type RowStatus = 'pending' | 'processing' | 'done' | 'exists' | 'skipped' | 'err
 interface ProgressRow { label: string; detail?: string; status: RowStatus; error?: string; }
 interface UserRow { name: string; email: string; phone: string; role: string; }
 interface BuildingRow { name: string; address: string; city: string; compound_name: string; }
-interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; owner_name: string; owner_phone: string; tenant_email: string; tenant_name: string; tenant_phone: string; share_weight: string; invalid?: string; }
+interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; owner_name: string; owner_phone: string; tenant_email: string; tenant_name: string; tenant_phone: string; share_weight: string; invalid?: string; building_id?: string | null; existing?: { id: string; label: string }; }
 interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
 
 
@@ -91,9 +91,11 @@ function pickCol(row: Record<string, string>, ...candidates: string[]): string {
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
+/** One label normalizer for "same unit" everywhere (dup detection, AI matcher). */
+const normLabel = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+
 function matchUnit(units: DbUnit[], label: string): DbUnit | undefined {
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '');
-  return units.find(u => norm(u.label) === norm(label));
+  return units.find(u => normLabel(u.label) === normLabel(label));
 }
 
 function findBuildingId(entities: Entity[], buildingName: string, compoundName: string): string | null {
@@ -553,7 +555,6 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   // compound the block is part of the identity, in a standalone building the
   // label alone is. 'update' rewrites share weight + links; 'skip' leaves them.
   const [dupMode, setDupMode] = useState<'update' | 'skip'>('update');
-  const [existingUnits, setExistingUnits] = useState<Record<string, { id: string; label: string }>>({});
   // Licence pool per subscription (blocks of a compound SHARE one pool):
   // buildingId -> subscriptionId, subscriptionId -> seats left.
   const [subByBuilding, setSubByBuilding] = useState<Record<string, string>>({});
@@ -566,19 +567,31 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
   const soleCompound   = entities.length === 1 && entities[0].kind === 'compound' ? entities[0] : null;
 
   // Guidance convention: any row whose Unit Label starts with "e.g." is
-  // template scaffolding (the how-to row + the two examples) and is skipped on
-  // import, so forgetting to delete them can never create junk units.
+  // template scaffolding (the guide row) and is skipped on import, so leaving
+  // it in the file can never create junk units.
   const GUIDE = 'e.g. (guide row - your data starts on the next row)';
-  const TEMPLATE: string[][] = soleStandalone ? [
-    ['Unit Label', 'Floor', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
-    [GUIDE, 'Optional', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
-  ] : soleCompound ? [
-    ['Unit Label', 'Floor', 'Block Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
-    [GUIDE, 'Optional', 'Required. Must match one of your blocks: ' + soleCompound.blocks.map(b => b.name).join(', '), 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
-  ] : [
-    ['Unit Label', 'Floor', 'Building Name', 'Compound Name', 'Share Weight', 'Owner Email', 'Owner Name', 'Owner Phone', 'Tenant Email', 'Tenant Name', 'Tenant Phone'],
-    [GUIDE, 'Optional', 'Required. Must match an existing building/block name', 'Only for blocks inside a compound, else leave empty', 'Optional, default 1. Relative share of common expenses', 'Optional. Invites and links the owner', 'Optional. Their real name (else the email is used)', 'Optional. With country code, e.g. +9613123456', 'Optional. Invites and links the tenant', 'Optional. Their real name', 'Optional. With country code, e.g. +9613123456'],
+  // [header, guide] pairs, each written ONCE - only the addressing columns
+  // vary by scope. TEMPLATE = header row + guide row; data starts on row 3.
+  const scopeCols: [string, string][] = soleStandalone ? []
+    : soleCompound ? [
+      ['Block Name', 'Required. Must match one of your blocks: ' + soleCompound.blocks.map(b => b.name).join(', ')],
+    ] : [
+      ['Building Name', 'Required. Must match an existing building/block name'],
+      ['Compound Name', 'Only for blocks inside a compound, else leave empty'],
+    ];
+  const COLS: [string, string][] = [
+    ['Unit Label', GUIDE],
+    ['Floor', 'Optional'],
+    ...scopeCols,
+    ['Share Weight', 'Optional, default 1. Relative share of common expenses'],
+    ['Owner Email', 'Optional. Invites and links the owner'],
+    ['Owner Name', 'Optional. Their real name (else the email is used)'],
+    ['Owner Phone', 'Optional. With country code, e.g. +9613123456'],
+    ['Tenant Email', 'Optional. Invites and links the tenant'],
+    ['Tenant Name', 'Optional. Their real name (else the email is used)'],
+    ['Tenant Phone', 'Optional. With country code, e.g. +9613123456'],
   ];
+  const TEMPLATE: string[][] = [COLS.map(c => c[0]), COLS.map(c => c[1])];
 
   /** Where a row's unit lands, honoring the admin's scope: a sole standalone
    *  building is always implied; inside a sole compound the Block Name column
@@ -592,9 +605,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     return findBuildingId(entities, r.building_name, r.compound_name);
   }
 
-  const dupKey = (bid: string | null, label: string) =>
-    `${bid}|${label.toLowerCase().replace(/\s+/g, '')}`;
-  const existingFor = (r: UnitRow) => existingUnits[dupKey(resolveBuildingId(r), r.label)];
+  const dupKey = (bid: string | null, label: string) => `${bid}|${normLabel(label)}`;
 
   async function handleFile(file: File) {
     try {
@@ -617,8 +628,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       const parsed = all.filter(r => !/^e\.g\./i.test(r.label));
       // Field checks: catch swapped columns and malformed contacts BEFORE the
       // import runs. A bad row is shown with its reason and refuses to import.
-      const emailOk = (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
-      const phoneOk = (v: string) => !v || /^\+\d{7,15}$/.test(v.replace(/[\s()-]/g, ''));
+      const emailOk = (v: string) => !v || isEmail(v);
+      const phoneOk = (v: string) => !v || isPhone(v);
       for (const r of parsed) {
         if (r.owner_name && /^\d+$/.test(r.owner_name.trim())) r.invalid = 'Owner name is all digits - did the phone land in the name column?';
         else if (r.tenant_name && /^\d+$/.test(r.tenant_name.trim())) r.invalid = 'Tenant name is all digits - did the phone land in the name column?';
@@ -632,15 +643,22 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
       if (!parsed.length) { toast.error('No valid unit rows found'); return; }
       // Existing units in every destination building (duplicate detection) +
       // the licence pool per subscription (seat auto-assignment).
-      const bids = [...new Set(parsed.map(r => resolveBuildingId(r)).filter(Boolean))] as string[];
+      // Resolve each row's destination ONCE here - the preview and the import
+      // read plain fields instead of re-scanning entities every render.
+      for (const r of parsed) r.building_id = resolveBuildingId(r);
+      const bids = [...new Set(parsed.map(r => r.building_id).filter(Boolean))] as string[];
       const exMap: Record<string, { id: string; label: string }> = {};
       const sMap: Record<string, string> = {};
       const pMap: Record<string, number> = {};
       if (bids.length) {
         const { data: ex } = await supabase.from('units').select('id, label, building_id').in('building_id', bids);
         (ex ?? []).forEach(u => { exMap[dupKey(u.building_id, u.label)] = { id: u.id, label: u.label }; });
-        for (const bid of bids) {
+        // one parallel burst - each destination building's pool is independent
+        const subs = await Promise.all(bids.map(async bid => {
           const { data: si } = await supabase.rpc('get_building_subscription', { p_building_id: bid });
+          return { bid, si };
+        }));
+        for (const { bid, si } of subs) {
           const sub = Array.isArray(si) ? si[0] : si;
           if (sub?.id) {
             sMap[bid] = sub.id;
@@ -648,7 +666,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           }
         }
       }
-      setExistingUnits(exMap); setSubByBuilding(sMap); setPoolLeft(pMap);
+      for (const r of parsed) r.existing = exMap[dupKey(r.building_id ?? null, r.label)];
+      setSubByBuilding(sMap); setPoolLeft(pMap);
       setRows(parsed);
       setStep('preview');
     } catch { toast.error('Could not read file'); }
@@ -656,18 +675,25 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
 
   /** Invite (or find) the person and link them to the unit — skipping the
    *  insert when an identical live membership already exists, so re-imports
-   *  never duplicate links. */
-  async function linkParty(unitId: string, buildingId: string, email: string, name: string, phone: string, tenure: 'owner' | 'tenant') {
+   *  never duplicate links. `cache` (email -> user id) spans one run: a
+   *  landlord owning 20 units costs one invite-user call, not 20. */
+  async function linkParty(cache: Map<string, string>, unitId: string, buildingId: string, email: string, name: string, phone: string, tenure: 'owner' | 'tenant') {
     if (!email.includes('@')) return;
-    const { data: inv } = await supabase.functions.invoke('invite-user', {
-      body: { email: email.trim().toLowerCase(), full_name: name.trim() || email, mode: 'import', building_id: buildingId,
-              phone: phone.replace(/[\s()-]/g, '') || null },
-    });
-    if (!inv?.user_id) return;
+    const key = email.trim().toLowerCase();
+    let userId = cache.get(key);
+    if (!userId) {
+      const { data: inv } = await supabase.functions.invoke('invite-user', {
+        body: { email: key, full_name: name.trim() || email, mode: 'import', building_id: buildingId,
+                phone: normalizePhone(phone) || null },
+      });
+      if (!inv?.user_id) return;
+      userId = inv.user_id as string;
+      cache.set(key, userId);
+    }
     const { data: already } = await supabase.from('memberships').select('id')
-      .eq('unit_id', unitId).eq('user_id', inv.user_id).eq('tenure', tenure).is('ended_at', null).limit(1);
+      .eq('unit_id', unitId).eq('user_id', userId).eq('tenure', tenure).is('ended_at', null).limit(1);
     if (!already?.length) {
-      await supabase.from('memberships').insert({ user_id: inv.user_id, unit_id: unitId, tenure });
+      await supabase.from('memberships').insert({ user_id: userId, unit_id: unitId, tenure });
     }
   }
 
@@ -675,23 +701,23 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     setProgress(rows.map(r => ({ label: r.label, detail: r.compound_name ? `${r.compound_name} › ${r.building_name}` : r.building_name, status: 'pending' })));
     setStep('running');
     const left = { ...poolLeft };   // seats remaining per subscription, this run
-    const subMap = { ...subByBuilding };
+    const invited = new Map<string, string>();   // email -> user id, one invite call per person
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
       try {
         if (row.invalid) throw new Error(row.invalid);
-        const buildingId = resolveBuildingId(row);
+        const buildingId = row.building_id ?? null;
         if (!buildingId) {
           throw new Error(soleCompound
             ? `Block "${row.building_name}" not found. Your blocks: ${soleCompound.blocks.map(b => b.name).join(', ')}. Blocks are defined at registration; rename them in Buildings.`
             : `Building "${row.building_name}"${row.compound_name ? ` in "${row.compound_name}"` : ''} not found`);
         }
 
-        const ex = existingFor(row);
+        const ex = row.existing;
         if (ex && dupMode === 'skip') {
-          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'skipped — already exists' } : p));
+          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'skipped' } : p));
           continue;
         }
 
@@ -700,8 +726,10 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           const { error: upErr } = await supabase.from('units')
             .update({ share_weight: parseFloat(row.share_weight) || 1 }).eq('id', ex.id);
           if (upErr) throw new Error(upErr.message);
-          await linkParty(ex.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner');
-          await linkParty(ex.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant');
+          await Promise.all([
+            linkParty(invited, ex.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner'),
+            linkParty(invited, ex.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant'),
+          ]);
           setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'updated existing unit' } : p));
           continue;
         }
@@ -714,15 +742,17 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
             share_weight: parseFloat(row.share_weight) || 1,
           })
           .select('id').single();
-        if (uErr) throw new Error(uErr.message.includes('LICENSE_LIMIT') ? i18n.t('structure.licenseLimit') : uErr.message);
+        if (uErr) throw new Error(uErr.message);
 
-        await linkParty(unit.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner');
-        await linkParty(unit.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant');
+        await Promise.all([
+          linkParty(invited, unit.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner'),
+          linkParty(invited, unit.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant'),
+        ]);
 
         // Seat auto-assignment (Structure parity): consume a licence while the
         // pool has one; past that the unit is created UNLICENSED and says so.
         let note = '';
-        const sid = subMap[buildingId];
+        const sid = subByBuilding[buildingId];
         if (sid && (left[sid] ?? 0) > 0) {
           const { error: licErr } = await supabase.from('license_assignments').insert({
             subscription_id: sid, unit_id: unit.id,
@@ -733,7 +763,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
               subscription_id: sid, event_type: 'license_assigned',
               metadata: { unit_id: unit.id, unit_label: row.label, via: 'import' },
             });
-          } else { note = ' · unlicensed (assignment failed)'; }
+          } else { note = licErr.message.includes('LICENSE_POOL_EMPTY') ? ' · unlicensed (pool empty)' : ' · unlicensed (assignment failed)'; }
         } else if (sid) {
           note = ' · unlicensed (pool empty)';
         }
@@ -761,14 +791,16 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
     </div>
   );
 
+  const dupCount = rows.filter(r => r.existing).length;
+
   if (step === 'preview') return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">
           {rows.length} unit{rows.length !== 1 ? 's' : ''} ready to import
-          {rows.filter(r => existingFor(r)).length > 0 && (
+          {dupCount > 0 && (
             <span className="ms-2 text-xs font-normal text-amber-600 dark:text-amber-400">
-              {rows.filter(r => existingFor(r)).length} already exist
+              {dupCount} already exist
             </span>
           )}
         </p>
@@ -784,16 +816,16 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
-              <tr key={i} className={!resolveBuildingId(r) || r.invalid ? 'opacity-40' : ''}>
+              <tr key={i} className={!r.building_id || r.invalid ? 'opacity-40' : ''}>
                 <td className="px-4 py-2 font-medium">
                   {r.label}
-                  {existingFor(r) && <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-amber-400/15 text-amber-600 dark:text-amber-400 align-middle">exists</span>}
+                  {r.existing && <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-amber-400/15 text-amber-600 dark:text-amber-400 align-middle">exists</span>}
                 </td>
                 <td className="px-4 py-2 text-muted-foreground">{r.floor || '—'}</td>
                 {soleCompound && (
                   <td className="px-4 py-2 text-muted-foreground">
                     {r.building_name || soleCompound.blocks[0]?.name || '—'}
-                    {r.building_name.trim() && !resolveBuildingId(r) && (
+                    {r.building_name.trim() && !r.building_id && (
                       <span className="ms-1.5 text-[10px] rounded-full px-1.5 py-0.5 bg-red-400/15 text-red-500 dark:text-red-400 align-middle">unknown block</span>
                     )}
                   </td>
@@ -814,7 +846,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           </tbody>
         </table>
       </div>
-      {soleCompound && rows.some(r => r.building_name.trim() && !resolveBuildingId(r)) && (
+      {soleCompound && rows.some(r => r.building_name.trim() && !r.building_id) && (
         <div className="flex flex-wrap items-center gap-2 text-sm rounded-lg border border-red-400/25 bg-red-400/5 px-3 py-2">
           <span className="text-red-500 dark:text-red-400">Some rows name a block that does not exist.</span>
           <span className="text-muted-foreground">Your blocks: {soleCompound.blocks.map(b => b.name).join(', ')}. Fix the file, or rename blocks in Buildings.</span>
@@ -827,7 +859,7 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           ))}
         </div>
       )}
-      {rows.some(r => existingFor(r)) && (
+      {dupCount > 0 && (
         <div className="flex flex-wrap items-center gap-3 text-sm rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2">
           <span className="text-muted-foreground">Units that already exist:</span>
           <label className="flex items-center gap-1.5 cursor-pointer">

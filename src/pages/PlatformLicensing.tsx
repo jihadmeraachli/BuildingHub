@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fmtDate as fmtAppDate } from '@/lib/dateFmt';
+import { fmtDate } from '@/lib/dateFmt';
 import { Navigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
@@ -33,10 +33,6 @@ const INVOICE_BADGE: Record<Invoice['status'], { color: 'green' | 'yellow' | 'sl
 
 function usd(cents: number) {
   return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function fmtDate(iso: string | null) {
-  return fmtAppDate(iso);
 }
 
 /** Monthly revenue equivalent in cents (annual plans divided by 12). */
