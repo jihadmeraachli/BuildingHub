@@ -10,23 +10,6 @@ import { toast } from '@/lib/toast';
 import { isEmail, isPhone, normalizePhone } from '@/lib/validate';
 import { supabase } from '@/lib/supabase';
 
-// 0085: an imported expense must point at its scope's catalog row, or it sits
-// as "Uncategorized" in budget-vs-actual forever. Seeded types carry the legacy
-// enum in `key`; the compound's catalog governs its blocks.
-const _typeCache = new Map<string, string | null>();
-async function typeIdFor(buildingId: string, categoryKey: string): Promise<string | null> {
-  const cacheKey = `${buildingId}|${categoryKey}`;
-  if (_typeCache.has(cacheKey)) return _typeCache.get(cacheKey) ?? null;
-  const { data: b } = await supabase.from('buildings').select('compound_id').eq('id', buildingId).single();
-  const scope = (b as { compound_id: string | null } | null)?.compound_id;
-  const q = scope
-    ? supabase.from('expense_types').select('id').eq('compound_id', scope).eq('key', categoryKey)
-    : supabase.from('expense_types').select('id').eq('building_id', buildingId).eq('key', categoryKey);
-  const { data } = await q.maybeSingle();
-  const id = (data as { id: string } | null)?.id ?? null;
-  _typeCache.set(cacheKey, id);
-  return id;
-}
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
@@ -39,7 +22,7 @@ import { useConfirm } from '@/lib/useConfirm';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ImportTab = 'users' | 'buildings' | 'units' | 'expenses';
+type ImportTab = 'users' | 'buildings' | 'units' | 'balances';
 type StepState = 'upload' | 'preview' | 'running' | 'done';
 type RowStatus = 'pending' | 'processing' | 'done' | 'exists' | 'skipped' | 'error';
 
@@ -50,9 +33,6 @@ interface UnitRow { label: string; floor: string; building_name: string; compoun
 interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
 
 
-interface AiExpenseRow { description: string; category: string; amount_usd: number; expense_date: string | null; block?: string | null; }
-interface AiUnitCharge { unit_label: string; description: string; amount_usd: number; charge_date: string | null; unit_id?: string; building_id?: string; }
-interface AiUnitPayment { unit_label: string; amount_usd: number; paid_on: string | null; unit_id?: string; method?: string; building_id?: string; }
 interface ImportBatch { id: string; file_name: string | null; n_expenses: number; n_charges: number; n_payments: number; created_at: string; reversed_at: string | null; }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -94,10 +74,6 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 /** One label normalizer for "same unit" everywhere (dup detection, AI matcher). */
 const normLabel = (s: string) => s.toLowerCase().replace(/\s+/g, '');
 
-function matchUnit(units: DbUnit[], label: string): DbUnit | undefined {
-  return units.find(u => normLabel(u.label) === normLabel(label));
-}
-
 function findBuildingId(entities: Entity[], buildingName: string, compoundName: string): string | null {
   const norm = (s: string) => s.toLowerCase().trim();
   const bNorm = norm(buildingName);
@@ -111,15 +87,6 @@ function findBuildingId(entities: Entity[], buildingName: string, compoundName: 
     if (block) return block.id;
   }
   return null;
-}
-
-function matchBlock(blocks: { id: string; name: string }[], hint: string | null | undefined): string {
-  if (!blocks.length) return '';
-  if (!hint || blocks.length === 1) return blocks[0].id;
-  const h = hint.trim().toUpperCase();
-  return blocks.find(b => b.name.toUpperCase() === h)?.id
-    ?? blocks.find(b => b.name.toUpperCase().includes(h) || h.includes(b.name.toUpperCase()))?.id
-    ?? blocks[0].id;
 }
 
 // ─── Status chip ─────────────────────────────────────────────────────────────
@@ -224,7 +191,7 @@ export default function Import() {
       { key: 'buildings' as ImportTab, label: 'Buildings', Icon: Building2 },
     ] : []),
     { key: 'units',     label: 'Structure',           Icon: Home },
-    { key: 'expenses',  label: 'Expenses & Balances', Icon: BarChart3 },
+    { key: 'balances',  label: 'Balances',            Icon: BarChart3 },
   ];
 
   return (
@@ -256,7 +223,7 @@ export default function Import() {
       {activeTab === 'users'     && <UsersTab />}
       {activeTab === 'buildings' && portfolioScope && <BuildingsTab isPlatformAdmin={isPlatformAdmin} grants={grants} />}
       {activeTab === 'units'     && <UnitsTab entities={entities} />}
-      {activeTab === 'expenses'  && <ExpensesTab entities={entities} />}
+      {activeTab === 'balances'  && <BalancesTab entities={entities} />}
     </div>
   );
 }
@@ -896,24 +863,37 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// TAB 4 — EXPENSES & BALANCES (AI)
+// TAB 4 — BALANCES
 // ════════════════════════════════════════════════════════════════════════════
+// FINAL DESIGN (Jey, 2026-08-27): admins import BALANCES ONLY - the AI
+// expenses/charges/payments import confused people. One number per unit:
+// positive = the unit holds a credit, negative = the unit owes. A due lands
+// as a charge, a credit as a payment - so the book, statements and reports
+// all derive normally. Units must already exist (Structure import first);
+// nothing imports until every row matches a unit. Batch + undo kept (0035).
 
-function ExpensesTab({ entities }: { entities: Entity[] }) {
+interface BalanceRow { label: string; block_hint: string; balance: number; unit?: DbUnit; invalid?: string; }
+
+function BalancesTab({ entities }: { entities: Entity[] }) {
   const { user } = useAuth();
   const [entityKey, setEntityKey] = useState('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [aiResult, setAiResult] = useState<{ expenses: AiExpenseRow[]; unit_charges: AiUnitCharge[]; unit_payments: AiUnitPayment[] } | null>(null);
   const [dbUnits, setDbUnits] = useState<DbUnit[]>([]);
+  const [rows, setRows] = useState<BalanceRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [step, setStep] = useState<StepState>('upload');
   const [fileName, setFileName] = useState('');
-  const [fileHash, setFileHash] = useState<string>('');       // SHA-256 of the upload (dedup)
+  const [fileHash, setFileHash] = useState<string>('');       // SHA-256 of the upload (dedup, 0035)
   const [batches, setBatches] = useState<ImportBatch[]>([]);  // recent imports for this entity
   const [reversingId, setReversingId] = useState<string>('');
   const { confirmAsync, ConfirmDialog } = useConfirm();
 
   const selectedEntity = entities.find(e => e.key === entityKey) ?? null;
+
+  const GUIDE = 'e.g. (guide row - your data starts on the next row)';
+  const TEMPLATE: string[][] = [
+    ['Unit Label', 'Balance (USD)', 'Block Name'],
+    [GUIDE, 'Positive = credit the unit holds, negative = amount due. e.g. -150.00', 'Only for compounds, when the same unit label exists in more than one block'],
+  ];
 
   async function loadBatches(entity: Entity | null) {
     if (!entity) { setBatches([]); return; }
@@ -925,6 +905,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
 
   // Load units for all blocks + recent import batches when entity selected
   useEffect(() => {
+    setRows([]); setStep('upload');
     if (!selectedEntity) { setDbUnits([]); setBatches([]); return; }
     supabase.from('units').select('id, label, share_weight, building_id')
       .in('building_id', selectedEntity.buildingIds)
@@ -933,7 +914,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
   }, [entityKey]);
 
   async function undoBatch(id: string) {
-    if (!(await confirmAsync('Undo import', 'Undo this import? Every expense, charge and payment it created will be removed.'))) return;
+    if (!(await confirmAsync('Undo import', 'Undo this import? Every charge and payment it created will be removed.'))) return;
     setReversingId(id);
     const { error } = await supabase.rpc('reverse_import_batch', { p_batch: id });
     setReversingId('');
@@ -942,94 +923,62 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     loadBatches(selectedEntity);
   }
 
-  // ── Editable preview: fix AI misreads inline before committing ──
-  function patchExpense(i: number, patch: Partial<AiExpenseRow>) {
-    setAiResult(r => r ? { ...r, expenses: r.expenses.map((e, j) => j === i ? { ...e, ...patch } : e) } : r);
-  }
-  function patchCharge(i: number, patch: Partial<AiUnitCharge>) {
-    setAiResult(r => r ? { ...r, unit_charges: r.unit_charges.map((c, j) => j === i ? { ...c, ...patch } : c) } : r);
-  }
-  function patchPayment(i: number, patch: Partial<AiUnitPayment>) {
-    setAiResult(r => r ? { ...r, unit_payments: r.unit_payments.map((p, j) => j === i ? { ...p, ...patch } : p) } : r);
-  }
-  // Re-point a row to a chosen DB unit ('' = leave unmatched/skip).
-  function reassignUnit(kind: 'charge' | 'payment', i: number, unitId: string) {
-    const u = dbUnits.find(x => x.id === unitId);
-    const patch = { unit_id: u?.id, building_id: u?.building_id, unit_label: u?.label ?? (kind === 'charge' ? '' : '') };
-    if (kind === 'charge') patchCharge(i, u ? patch : { unit_id: undefined, building_id: undefined });
-    else patchPayment(i, u ? patch : { unit_id: undefined, building_id: undefined });
-  }
-
-  const cellInput = 'w-full bg-transparent border border-border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring';
-
   async function handleFile(file: File) {
-    if (!entityKey) { toast.error('Select a building or compound first'); return; }
-    setAiResult(null);
-    setStep('upload');
-    setFileName(file.name);
-
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    const MAX = 10 * 1024 * 1024;
-    if (file.size > MAX) { toast.error('File too large (max 10 MB)'); return; }
-
-    setAnalyzing(true);
+    if (!entityKey || !selectedEntity) { toast.error('Select a building or compound first'); return; }
     try {
-      let content: string, format: string;
+      setFileName(file.name);
+      // SHA-256 of the raw bytes -> detect a re-upload of the same file and
+      // warn before double-posting (0035).
       const buf = await file.arrayBuffer();
-      // SHA-256 of the raw bytes → lets us detect a re-upload of the same file
-      // and warn before double-posting (0035).
       const digest = await crypto.subtle.digest('SHA-256', buf);
       setFileHash([...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join(''));
 
-      if (ext === 'pdf') {
-        content = btoa(String.fromCharCode(...new Uint8Array(buf))); format = 'pdf';
-      } else if (['jpg', 'jpeg'].includes(ext)) {
-        content = btoa(String.fromCharCode(...new Uint8Array(buf))); format = 'jpeg';
-      } else if (ext === 'png') {
-        content = btoa(String.fromCharCode(...new Uint8Array(buf))); format = 'png';
-      } else {
-        // Excel / CSV — convert to CSV text
-        const wb = XLSX.read(buf, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        content = XLSX.utils.sheet_to_csv(ws);
-        format = 'excel';
+      const data = await parseSpreadsheet(file);
+      if (!data.length) { toast.error('File appears empty'); return; }
+      const all: BalanceRow[] = data.map(row => {
+        const raw = pickCol(row, 'balance (usd)', 'balance', 'amount', 'الرصيد');
+        return {
+          label:      pickCol(row, 'unit label', 'unit', 'apt', 'apartment', 'رقم الشقة', 'الوحدة'),
+          block_hint: pickCol(row, 'block name', 'block', 'building', 'المبنى'),
+          balance:    parseFloat(raw.replace(/[$,\s]/g, '')),
+        };
+      }).filter(r => r.label);
+      // guidance rows travel with the template; never let them import
+      const parsed = all.filter(r => !/^e\.g\./i.test(r.label));
+
+      // "Make sure units exist BEFORE importing": every row must resolve to
+      // exactly one existing unit, or the import stays disabled.
+      const blockByName = Object.fromEntries(selectedEntity.blocks.map(b => [b.name.toLowerCase().trim(), b.id]));
+      for (const r of parsed) {
+        if (Number.isNaN(r.balance)) { r.invalid = 'Balance is not a number'; continue; }
+        let pool = dbUnits;
+        if (r.block_hint.trim()) {
+          const bid = blockByName[r.block_hint.toLowerCase().trim()];
+          if (!bid) { r.invalid = `Block "${r.block_hint}" not found. Your blocks: ${selectedEntity.blocks.map(b => b.name).join(', ')}`; continue; }
+          pool = dbUnits.filter(u => u.building_id === bid);
+        }
+        const matches = pool.filter(u => normLabel(u.label) === normLabel(r.label));
+        if (matches.length === 0) { r.invalid = `Unit "${r.label}" does not exist${r.block_hint ? ` in block "${r.block_hint}"` : ''}. Import your structure first.`; continue; }
+        if (matches.length > 1) { r.invalid = `Unit "${r.label}" exists in more than one block - add its Block Name to the row`; continue; }
+        r.unit = matches[0];
       }
 
-      const { data, error } = await supabase.functions.invoke('ai-expense-import', {
-        body: { content, format, filename: file.name },
-      });
-      if (error) throw new Error(error.message);
-
-      // Match unit labels to DB units (spans all blocks for compound)
-      const expenses: AiExpenseRow[] = data.expenses ?? [];
-      const unit_charges: AiUnitCharge[] = (data.unit_charges ?? []).map((c: AiUnitCharge) => {
-        const unit = matchUnit(dbUnits, c.unit_label);
-        return { ...c, unit_id: unit?.id, building_id: unit?.building_id };
-      });
-      const unit_payments: AiUnitPayment[] = (data.unit_payments ?? []).map((p: AiUnitPayment) => {
-        const unit = matchUnit(dbUnits, p.unit_label);
-        return { ...p, unit_id: unit?.id, building_id: unit?.building_id };
-      });
-
-      if (!expenses.length && !unit_charges.length && !unit_payments.length) {
-        toast.error('AI could not extract any data from this file');
-        return;
-      }
-
-      setAiResult({ expenses, unit_charges, unit_payments });
+      const skipped = all.length - parsed.length;
+      if (skipped > 0) toast.success('Skipped ' + skipped + ' template guide row' + (skipped !== 1 ? 's' : ''));
+      if (!parsed.length) { toast.error('No valid balance rows found'); return; }
+      setRows(parsed);
       setStep('preview');
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Analysis failed');
-    } finally {
-      setAnalyzing(false);
-    }
+    } catch { toast.error('Could not read file'); }
   }
 
+  const money = (n: number) => '$' + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const invalidRows = rows.filter(r => r.invalid);
+  const dueRows    = rows.filter(r => !r.invalid && r.balance < 0);
+  const creditRows = rows.filter(r => !r.invalid && r.balance > 0);
+  const blockName = (u?: DbUnit) => selectedEntity?.blocks.find(b => b.id === u?.building_id)?.name ?? '';
+
   async function runImport() {
-    if (!aiResult || !selectedEntity) return;
-    const { expenses, unit_charges, unit_payments } = aiResult;
-    const matchedCharges = unit_charges.filter(c => c.unit_id);
-    const matchedPayments = unit_payments.filter(p => p.unit_id);
+    if (!selectedEntity || invalidRows.length) return;
 
     // ── Idempotency guard: has this exact file already been imported here? ──
     if (fileHash) {
@@ -1052,176 +1001,84 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
       compound_id: selectedEntity.kind === 'compound' ? selectedEntity.id : null,
       file_name: fileName || null,
       content_hash: fileHash || null,
-      n_expenses: expenses.length,
-      n_charges: matchedCharges.length,
-      n_payments: matchedPayments.length,
+      n_expenses: 0,
+      n_charges: dueRows.length,
+      n_payments: creditRows.length,
       created_by: user?.id,
     }).select('id').single();
     if (bErr || !batch) { toast.error(`Could not start import: ${bErr?.message ?? 'unknown error'}`); return; }
     const batchId = (batch as { id: string }).id;
 
-    const allRows: ProgressRow[] = [
-      ...expenses.map(e => ({ label: e.description, detail: `$${e.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · expense${e.block ? ` · Block ${e.block}` : ''}`, status: 'pending' as RowStatus })),
-      ...matchedCharges.map(c => ({ label: c.unit_label, detail: `$${c.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} charge`, status: 'pending' as RowStatus })),
-      ...matchedPayments.map(p => ({ label: p.unit_label, detail: `$${p.amount_usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} payment`, status: 'pending' as RowStatus })),
-    ];
-    setProgress(allRows);
+    setProgress(rows.map(r => ({
+      label: r.label,
+      detail: r.balance === 0 ? 'zero balance' : `${money(r.balance)} ${r.balance < 0 ? 'due' : 'credit'}`,
+      status: 'pending' as RowStatus,
+    })));
     setStep('running');
 
-    let idx = 0;
-
-    // Group units by building for per-block expense allocation
-    const unitsByBuilding = dbUnits.reduce((acc, u) => {
-      (acc[u.building_id] ??= []).push(u);
-      return acc;
-    }, {} as Record<string, DbUnit[]>);
-
-    // Expenses — route to correct block, allocate by share weight within that block
-    for (const exp of expenses) {
-      setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'processing' } : p));
       try {
-        const validCategory = ['water','electricity','common_expenses','projects','contracts','fines','other'].includes(exp.category)
-          ? exp.category : 'other';
-
-        const buildingId = matchBlock(selectedEntity.blocks, exp.block);
-        const blockUnits = unitsByBuilding[buildingId] ?? [];
-        const totalWeight = blockUnits.reduce((s, u) => s + Number(u.share_weight), 0) || 1;
-
-        const { data: expRow, error: eErr } = await supabase.from('expenses').insert({
-          building_id:  buildingId,
-          category:     validCategory,
-          expense_type_id: await typeIdFor(buildingId, validCategory),
-          description:  exp.description,
-          amount_usd:   exp.amount_usd,
-          expense_date: exp.expense_date ?? todayStr(),
-          scope_type:   'block',
-          method:       'by_shares',
-          created_by:   user?.id,
-          import_batch_id: batchId,
-        }).select('id').single();
-        if (eErr) throw new Error(eErr.message);
-
-        if (blockUnits.length > 0) {
-          const chargeRows = blockUnits.map(u => ({
-            expense_id:  expRow.id,
-            unit_id:     u.id,
-            building_id: buildingId,
-            category:    validCategory,
-            description: exp.description,
-            amount_usd:  Math.round((exp.amount_usd * Number(u.share_weight) / totalWeight) * 100) / 100,
-            charge_date: exp.expense_date ?? todayStr(),
+        if (!row.unit) throw new Error(row.invalid ?? 'Unmatched unit');
+        if (row.balance === 0) {
+          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'skipped' } : p));
+          continue;
+        }
+        if (row.balance < 0) {
+          // amount DUE -> an opening-balance charge on the unit's block book
+          const { error } = await supabase.from('charges').insert({
+            unit_id:     row.unit.id,
+            building_id: row.unit.building_id,
+            category:    'other',
+            description: 'Opening balance',
+            amount_usd:  Math.abs(row.balance),
+            charge_date: todayStr(),
             billed_to:   'both',
             created_by:  user?.id,
             import_batch_id: batchId,
-          })).filter(c => c.amount_usd > 0);
-          if (chargeRows.length) await supabase.from('charges').insert(chargeRows);
+          });
+          if (error) throw new Error(error.message);
+        } else {
+          // CREDIT held -> an opening-balance payment
+          const { error } = await supabase.from('payments').insert({
+            unit_id:     row.unit.id,
+            building_id: row.unit.building_id,
+            amount_usd:  row.balance,
+            method:      'other' as const,
+            paid_on:     todayStr(),
+            note:        'Opening balance (import)',
+            recorded_by: user?.id,
+            import_batch_id: batchId,
+          });
+          if (error) throw new Error(error.message);
         }
-
-        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done' } : p));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'error', error: msg } : p));
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'error', error: msg } : p));
       }
-      idx++;
     }
-
-    // Unit charges — building_id comes from the matched unit
-    for (const charge of matchedCharges) {
-      setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
-      try {
-        const { error } = await supabase.from('charges').insert({
-          unit_id:     charge.unit_id,
-          building_id: charge.building_id ?? selectedEntity.buildingIds[0],
-          category:    'other',
-          description: charge.description,
-          amount_usd:  charge.amount_usd,
-          charge_date: charge.charge_date ?? todayStr(),
-          billed_to:   'both',
-          created_by:  user?.id,
-          import_batch_id: batchId,
-        });
-        if (error) throw new Error(error.message);
-        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'error', error: msg } : p));
-      }
-      idx++;
-    }
-
-    // Unit payments — building_id comes from the matched unit
-    for (const pmt of matchedPayments) {
-      setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'processing' } : p));
-      try {
-        const { error } = await supabase.from('payments').insert({
-          unit_id:     pmt.unit_id,
-          building_id: pmt.building_id ?? selectedEntity.buildingIds[0],
-          amount_usd:  pmt.amount_usd,
-          method:      (pmt.method ?? 'other') as 'cash' | 'bank_transfer' | 'cheque' | 'other',
-          paid_on:     pmt.paid_on ?? todayStr(),
-          note:        'Imported',
-          recorded_by: user?.id,
-          import_batch_id: batchId,
-        });
-        if (error) throw new Error(error.message);
-        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'done' } : p));
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setProgress(prev => prev.map((p, j) => j === idx ? { ...p, status: 'error', error: msg } : p));
-      }
-      idx++;
-    }
-
     setStep('done');
     loadBatches(selectedEntity); // refresh the undo list
   }
 
-  function reset() { setStep('upload'); setAiResult(null); setProgress([]); setFileName(''); setFileHash(''); }
-
-  function downloadExpensesTemplate() {
-    const wb = XLSX.utils.book_new();
-
-    const expenses = XLSX.utils.aoa_to_sheet([
-      ['Description', 'Category', 'Amount (USD)', 'Date (YYYY-MM-DD)'],
-      ['Security services', 'common_expenses', 500.00, '2024-01-31'],
-      ['Water & generator diesel', 'water', 320.00, '2024-01-31'],
-      ['Electricity', 'electricity', 210.00, '2024-01-31'],
-      ['Elevator maintenance contract', 'contracts', 150.00, '2024-01-31'],
-    ]);
-    expenses['!cols'] = [{ wch: 35 }, { wch: 20 }, { wch: 16 }, { wch: 20 }];
-
-    const balances = XLSX.utils.aoa_to_sheet([
-      ['Unit Label', 'Outstanding Balance (USD)', 'Payment Amount (USD)', 'Payment Date (YYYY-MM-DD)', 'Payment Method (cash / cheque / bank_transfer)'],
-      ['A101', 150.00, 100.00, '2024-01-15', 'cash'],
-      ['A102', 200.00, 200.00, '2024-01-10', 'cheque'],
-      ['B201', 75.00, '', '', ''],
-      ['B202', 0, 300.00, '2024-01-20', 'bank_transfer'],
-    ]);
-    balances['!cols'] = [{ wch: 14 }, { wch: 26 }, { wch: 22 }, { wch: 28 }, { wch: 44 }];
-
-    XLSX.utils.book_append_sheet(wb, expenses, 'Building Expenses');
-    XLSX.utils.book_append_sheet(wb, balances, 'Unit Balances & Payments');
-    XLSX.writeFile(wb, 'expenses-template.xlsx');
-  }
-
-  const unmatched_charges = aiResult?.unit_charges.filter(c => !c.unit_id).length ?? 0;
-  const unmatched_payments = aiResult?.unit_payments.filter(p => !p.unit_id).length ?? 0;
+  function reset() { setStep('upload'); setRows([]); setProgress([]); setFileName(''); setFileHash(''); }
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
-      <p className="text-sm text-muted-foreground">Upload any financial document: Trial Balance, payments spreadsheet, or scanned statement. The AI will extract expenses and per-unit balances automatically.</p>
-      <Button variant="outline" size="sm" className="gap-2" onClick={downloadExpensesTemplate}>
+      <p className="text-sm text-muted-foreground">Bring each unit's opening balance across from your old books: positive means the unit holds a credit, negative means they owe. A due becomes an opening-balance charge, a credit an opening-balance payment - statements and reports follow from there.</p>
+      <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('balances-template.csv', TEMPLATE)}>
         <Download size={14} /> Download template
       </Button>
-      <p className="text-xs text-muted-foreground/70">Supports: Excel, CSV, PDF, JPEG, PNG · For compounds, unit prefix (A101 → Block A) determines the block.</p>
 
       {entities.length === 0 ? (
-        <p className="text-sm text-amber-300">Import buildings and units first before importing expenses.</p>
+        <p className="text-sm text-amber-300">Import your structure first - balances attach to existing units.</p>
       ) : (
         <>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Building / Compound *</label>
-            <RadixSelect value={entityKey} onValueChange={v => { setEntityKey(v); setAiResult(null); }}>
+            <RadixSelect value={entityKey} onValueChange={v => setEntityKey(v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a building or compound…" />
               </SelectTrigger>
@@ -1253,18 +1110,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
               Blocks: {selectedEntity.blocks.map(b => b.name).join(' · ')} · {dbUnits.length} units loaded
             </p>
           )}
-          {analyzing ? (
-            <div className="flex items-center gap-3 py-8 justify-center text-muted-foreground">
-              <Loader2 size={20} className="animate-spin text-primary" />
-              <span className="text-sm">AI is reading your document…</span>
-            </div>
-          ) : (
-            <DropZone
-              onFile={handleFile}
-              accept=".csv,.xlsx,.xls,.pdf,.jpg,.jpeg,.png"
-              hint="Excel, CSV, PDF, JPEG, or PNG"
-            />
-          )}
+          <DropZone onFile={handleFile} accept=".csv,.xlsx,.xls" hint="CSV or Excel • Unit Label, Balance (USD), Block Name" />
 
           {/* Recent imports — undo a batch (removes exactly what it created) */}
           {batches.length > 0 && (
@@ -1276,7 +1122,7 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
                     <div className="min-w-0">
                       <p className="truncate font-medium">{b.file_name ?? 'Import'}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(b.created_at).toLocaleString()} · {b.n_expenses} exp · {b.n_charges} charges · {b.n_payments} payments
+                        {fmtDate(b.created_at)}{b.n_expenses > 0 ? ` · ${b.n_expenses} exp` : ''} · {b.n_charges} due · {b.n_payments} credit
                         {b.reversed_at && <span className="ms-1.5 text-muted-foreground/70">· reversed</span>}
                       </p>
                     </div>
@@ -1296,119 +1142,59 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
     </div>
   );
 
-  if (step === 'preview' && aiResult) {
-    const { expenses, unit_charges, unit_payments } = aiResult;
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold">AI extracted from: <span className="text-primary">{fileName}</span></p>
-            {(unmatched_charges > 0 || unmatched_payments > 0) && (
-              <p className="text-xs text-amber-300 mt-1">⚠ {unmatched_charges + unmatched_payments} unit(s) could not be matched. They will be skipped. Check unit labels match exactly.</p>
-            )}
-          </div>
-          <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
-        </div>
-
-        {expenses.length > 0 && (
-          <PreviewSection title={`Building Expenses (${expenses.length})`} hint="Will be allocated to all units in each block by share weight">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40"><tr>
-                {['Category', 'Description', 'Amount (USD)', 'Date', ...(selectedEntity?.kind === 'compound' ? ['Block'] : [])].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
-              </tr></thead>
-              <tbody className="divide-y divide-border">
-                {expenses.map((e, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-2">
-                      <select value={e.category} onChange={ev => patchExpense(i, { category: ev.target.value })} className={cellInput + ' capitalize'}>
-                        {['water','electricity','common_expenses','projects','contracts','fines','other'].map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2"><input value={e.description} onChange={ev => patchExpense(i, { description: ev.target.value })} className={cellInput} /></td>
-                    <td className="px-4 py-2"><input type="number" step="0.01" value={e.amount_usd} onChange={ev => patchExpense(i, { amount_usd: Number(ev.target.value) })} className={cellInput + ' tnum w-28'} /></td>
-                    <td className="px-4 py-2"><input type="date" value={e.expense_date ?? ''} onChange={ev => patchExpense(i, { expense_date: ev.target.value || null })} className={cellInput + ' w-36'} /></td>
-                    {selectedEntity?.kind === 'compound' && (
-                      <td className="px-4 py-2">
-                        <select value={e.block ?? ''} onChange={ev => patchExpense(i, { block: ev.target.value || null })} className={cellInput + ' w-28'}>
-                          <option value="">auto</option>
-                          {selectedEntity.blocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                        </select>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </PreviewSection>
-        )}
-
-        {unit_charges.length > 0 && (
-          <PreviewSection title={`Unit Balances (${unit_charges.filter(c => c.unit_id).length} matched, ${unmatched_charges} skipped)`} hint="Pick a unit to fix an unmatched row. Everything here is editable before you import.">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40"><tr>
-                {['Unit', 'Description', 'Amount (USD)', 'Date'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
-              </tr></thead>
-              <tbody className="divide-y divide-border">
-                {unit_charges.map((c, i) => (
-                  <tr key={i} className={!c.unit_id ? 'bg-amber-500/5' : ''}>
-                    <td className="px-4 py-2">
-                      <select value={c.unit_id ?? ''} onChange={ev => reassignUnit('charge', i, ev.target.value)} className={`${cellInput} w-36 ${!c.unit_id ? 'border-amber-500/60 text-amber-300' : ''}`}>
-                        <option value="">{c.unit_label ? `${c.unit_label} (no match)` : '(skip)'}</option>
-                        {dbUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2"><input value={c.description} onChange={ev => patchCharge(i, { description: ev.target.value })} className={cellInput} /></td>
-                    <td className="px-4 py-2"><input type="number" step="0.01" value={c.amount_usd} onChange={ev => patchCharge(i, { amount_usd: Number(ev.target.value) })} className={cellInput + ' tnum w-28'} /></td>
-                    <td className="px-4 py-2"><input type="date" value={c.charge_date ?? ''} onChange={ev => patchCharge(i, { charge_date: ev.target.value || null })} className={cellInput + ' w-36'} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </PreviewSection>
-        )}
-
-        {unit_payments.length > 0 && (
-          <PreviewSection title={`Unit Payments (${unit_payments.filter(p => p.unit_id).length} matched, ${unmatched_payments} skipped)`} hint="Pick a unit to fix an unmatched row.">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40"><tr>
-                {['Unit', 'Amount (USD)', 'Date', 'Method'].map(h => <th key={h} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
-              </tr></thead>
-              <tbody className="divide-y divide-border">
-                {unit_payments.map((p, i) => (
-                  <tr key={i} className={!p.unit_id ? 'bg-amber-500/5' : ''}>
-                    <td className="px-4 py-2">
-                      <select value={p.unit_id ?? ''} onChange={ev => reassignUnit('payment', i, ev.target.value)} className={`${cellInput} w-36 ${!p.unit_id ? 'border-amber-500/60 text-amber-300' : ''}`}>
-                        <option value="">{p.unit_label ? `${p.unit_label} (no match)` : '(skip)'}</option>
-                        {dbUnits.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2"><input type="number" step="0.01" value={p.amount_usd} onChange={ev => patchPayment(i, { amount_usd: Number(ev.target.value) })} className={cellInput + ' tnum w-28'} /></td>
-                    <td className="px-4 py-2"><input type="date" value={p.paid_on ?? ''} onChange={ev => patchPayment(i, { paid_on: ev.target.value || null })} className={cellInput + ' w-36'} /></td>
-                    <td className="px-4 py-2">
-                      <select value={p.method ?? 'other'} onChange={ev => patchPayment(i, { method: ev.target.value })} className={cellInput + ' w-32'}>
-                        {['cash','cheque','bank_transfer','other'].map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </PreviewSection>
-        )}
-
-        <div className="flex gap-2">
-          <Button onClick={runImport}>Import data</Button>
-          <Button variant="outline" onClick={reset}>Cancel</Button>
-        </div>
-        {ConfirmDialog}
+  if (step === 'preview') return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">
+          {rows.length} balance{rows.length !== 1 ? 's' : ''} · {dueRows.length} due · {creditRows.length} credit
+        </p>
+        <Button variant="ghost" size="sm" onClick={reset}><X size={14} /></Button>
       </div>
-    );
-  }
+      <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted/40">
+            <tr>{['Unit', ...(selectedEntity?.kind === 'compound' ? ['Block'] : []), 'Balance', ''].map((h, i) => <th key={i} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r, i) => (
+              <tr key={i} className={r.invalid ? 'opacity-40' : ''}>
+                <td className="px-4 py-2 font-medium">{r.label}</td>
+                {selectedEntity?.kind === 'compound' && <td className="px-4 py-2 text-muted-foreground">{blockName(r.unit) || r.block_hint || '—'}</td>}
+                <td className={`px-4 py-2 tnum ${r.invalid ? 'text-muted-foreground' : r.balance < 0 ? 'text-red-500 dark:text-red-400' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+                  {Number.isNaN(r.balance) ? '—' : `${r.balance < 0 ? '-' : ''}${money(r.balance)}`}
+                </td>
+                <td className="px-4 py-2">
+                  {r.invalid
+                    ? <span className="text-[10px] rounded-full px-1.5 py-0.5 bg-red-400/15 text-red-500 dark:text-red-400">{r.unit ? '' : 'no match'}</span>
+                    : r.balance === 0
+                      ? <span className="text-[10px] text-muted-foreground">will skip</span>
+                      : <span className={`text-[10px] rounded-full px-1.5 py-0.5 ${r.balance < 0 ? 'bg-red-400/15 text-red-500 dark:text-red-400' : 'bg-emerald-400/15 text-emerald-600 dark:text-emerald-400'}`}>{r.balance < 0 ? 'due' : 'credit'}</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {invalidRows.length > 0 && (
+        <div className="rounded-lg border border-red-400/25 bg-red-400/5 px-3 py-2 text-sm space-y-1">
+          <p className="text-red-500 dark:text-red-400 font-medium">Nothing imports until every row matches an existing unit:</p>
+          {invalidRows.map((r, i) => (
+            <p key={i} className="text-red-500 dark:text-red-400">Row "{r.label}": {r.invalid}</p>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button onClick={runImport} disabled={invalidRows.length > 0}>Import {rows.length - invalidRows.length} balance{rows.length - invalidRows.length !== 1 ? 's' : ''}</Button>
+        <Button variant="outline" onClick={reset}>Cancel</Button>
+      </div>
+      {ConfirmDialog}
+    </div>
+  );
 
   if (step === 'running' || step === 'done') return (
     <div className="space-y-4 max-w-xl">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">{step === 'running' ? 'Importing…' : 'Done'}</p>
+        <p className="text-sm font-semibold">{step === 'running' ? 'Importing balances…' : 'Done'}</p>
         {step === 'done' && <Button variant="ghost" size="sm" onClick={reset}><RefreshCw size={14} className="me-1" />Import more</Button>}
       </div>
       <ProgressTable rows={progress} />
@@ -1416,16 +1202,4 @@ function ExpensesTab({ entities }: { entities: Entity[] }) {
   );
 
   return null;
-}
-
-function PreviewSection({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{title}</p>
-        {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
-      </div>
-      <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">{children}</div>
-    </div>
-  );
 }

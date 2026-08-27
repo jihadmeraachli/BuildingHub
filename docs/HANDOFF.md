@@ -30,6 +30,16 @@ less than a tester code, and the hidden pages stay hidden to it.)
 
 ## 1. TL;DR — what this iteration did
 
+### 27 August 2026 — Balances-only import (AI expenses import retired)
+
+Import tab 4 is now **Balances**: one number per existing unit (positive =
+credit -> opening-balance payment; negative = due -> opening-balance charge).
+Units must exist first (strict match incl. block disambiguation) - nothing
+imports until every row resolves. Batch + undo (0035) and the same-file hash
+guard kept. The AI expenses/charges/payments import was removed as confusing;
+the `ai-expense-import` edge function is now unused (leave deployed or delete).
+Expenses are entered in Finance, not imported.
+
 ### Latest: 26 August 2026 — the database moved to Frankfurt
 
 Production Supabase migrated Seoul → **Frankfurt (eu-central-1)**, project
