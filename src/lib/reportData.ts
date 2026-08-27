@@ -6,6 +6,7 @@
 // and both pages follow.
 // ============================================================
 import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure, Expense } from '@/types';
+import { usdPartOf } from './currency';
 import { computeUnitBalances, computeBalance, adjustmentEffect, type OpeningInfo } from '@/lib/balance';
 import { currencyTag } from '@/lib/currency';
 import type { StatementBucket } from '@/lib/pdf';
@@ -839,9 +840,13 @@ export interface FundInputs {
   payments: Payment[];
   adjustments: Adjustment[];
   expenses: Expense[];
-  entries: { kind: 'income' | 'outflow'; amount_usd: number; entry_date: string; voided_at?: string | null }[];
+  entries: { kind: 'income' | 'outflow'; amount_usd: number; amount_lbp?: number | null; lbp_rate?: number | null; entry_date: string; voided_at?: string | null }[];
+  /** USD part of the opening drawer (canonical = opening + openingLbpUsd). */
   opening: number;
   openingDate?: string | null;
+  /** 0153: raw opening LBP, and its canonical USD value at the frozen rate. */
+  openingLbp?: number;
+  openingLbpUsd?: number;
 }
 
 export interface FundPositionResult {
@@ -849,6 +854,8 @@ export interface FundPositionResult {
   expenses_out: number; other_out: number; refunds_out: number;
   cash: number; credits: number; arrears: number; available: number; reserve: number;
   fund_paid: number; unreconciled: number;
+  /** 0153: the physical drawers - USD parts, and raw LBP never re-rated. */
+  cash_usd: number; cash_lbp: number;
 }
 
 export function fundPosition(inp: FundInputs, asOf?: string | Date | null): FundPositionResult {
@@ -856,16 +863,35 @@ export function fundPosition(inp: FundInputs, asOf?: string | Date | null): Fund
   const within = (d: string) => !cut || new Date(d) <= cut;
   const live = (r: { voided_at?: string | null }) => !r.voided_at;
   const sum = (xs: number[]) => round2(xs.reduce((s, n) => s + n, 0));
+  const lbpOf = (r: { amount_lbp?: number | null }) => Number(r.amount_lbp ?? 0);
 
   const openingCounts = !cut || !inp.openingDate || new Date(inp.openingDate) <= cut;
-  const opening = openingCounts ? round2(inp.opening) : 0;
-  const payments_in = sum(inp.payments.filter((p) => live(p) && within(p.paid_on)).map((p) => Number(p.amount_usd)));
-  const other_in = sum(inp.entries.filter((e) => e.kind === 'income' && live(e) && within(e.entry_date)).map((e) => Number(e.amount_usd)));
+  const openingUsd = openingCounts ? round2(inp.opening) : 0;
+  const openingLbp = openingCounts ? round2(inp.openingLbp ?? 0) : 0;
+  const openingLbpUsd = openingCounts ? round2(inp.openingLbpUsd ?? 0) : 0;
+  const opening = round2(openingUsd + openingLbpUsd);
+
+  const pRows = inp.payments.filter((p) => live(p) && within(p.paid_on));
+  const inRows = inp.entries.filter((e) => e.kind === 'income' && live(e) && within(e.entry_date));
   const pExp = inp.expenses.filter((e) => within(e.expense_date));
+  const outRows = inp.entries.filter((e) => e.kind === 'outflow' && live(e) && within(e.entry_date));
+  const refRows = inp.adjustments.filter((a) => a.kind === 'refund' && live(a) && within(a.effective_date));
+
+  const payments_in = sum(pRows.map((p) => Number(p.amount_usd)));
+  const other_in = sum(inRows.map((e) => Number(e.amount_usd)));
   const expenses_out = sum(pExp.map((e) => Number(e.amount_usd)));
-  const other_out = sum(inp.entries.filter((e) => e.kind === 'outflow' && live(e) && within(e.entry_date)).map((e) => Number(e.amount_usd)));
-  const refunds_out = sum(inp.adjustments.filter((a) => a.kind === 'refund' && live(a) && within(a.effective_date)).map((a) => Number(a.amount_usd)));
+  const other_out = sum(outRows.map((e) => Number(e.amount_usd)));
+  const refunds_out = sum(refRows.map((a) => Number(a.amount_usd)));
   const cash = round2(opening + payments_in + other_in - expenses_out - other_out - refunds_out);
+
+  // 0153: the physical drawers. USD = the USD part of every row; LBP = the
+  // raw lira, never re-rated - both match a recount of the box.
+  const cash_usd = round2(openingUsd
+    + sum(pRows.map(usdPartOf)) + sum(inRows.map(usdPartOf))
+    - sum(pExp.map(usdPartOf)) - sum(outRows.map(usdPartOf)) - sum(refRows.map(usdPartOf)));
+  const cash_lbp = round2(openingLbp
+    + sum(pRows.map(lbpOf)) + sum(inRows.map(lbpOf))
+    - sum(pExp.map(lbpOf)) - sum(outRows.map(lbpOf)) - sum(refRows.map(lbpOf)));
 
   let credits = 0, arrears = 0;
   for (const u of inp.units) {
@@ -893,5 +919,6 @@ export function fundPosition(inp: FundInputs, asOf?: string | Date | null): Fund
     available: round2(cash - credits),
     reserve: round2(cash - credits + arrears),
     fund_paid, unreconciled,
+    cash_usd, cash_lbp,
   };
 }

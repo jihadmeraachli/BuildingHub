@@ -11,6 +11,8 @@ export interface Entity {
   buildingIds: string[];
   blocks: { id: string; name: string }[];
   billingMode: BillingMode;
+  /** 0153: who holds the cash. Always 'compound' for a standalone building. */
+  fundScope: 'compound' | 'block';
 }
 
 export function buildEntities(buildings: Building[], compounds: Compound[]): Entity[] {
@@ -18,11 +20,11 @@ export function buildEntities(buildings: Building[], compounds: Compound[]): Ent
   const byCompound: Record<string, Building[]> = {};
   for (const b of buildings) {
     if (b.compound_id) (byCompound[b.compound_id] ??= []).push(b);
-    else out.push({ key: `b:${b.id}`, kind: 'building', id: b.id, name: b.name, buildingIds: [b.id], blocks: [{ id: b.id, name: b.name }], billingMode: b.billing_mode ?? 'arrears' });
+    else out.push({ key: `b:${b.id}`, kind: 'building', id: b.id, name: b.name, buildingIds: [b.id], blocks: [{ id: b.id, name: b.name }], billingMode: b.billing_mode ?? 'arrears', fundScope: 'compound' });
   }
   for (const [cid, blocks] of Object.entries(byCompound)) {
     const comp = compounds.find((c) => c.id === cid);
-    out.push({ key: `c:${cid}`, kind: 'compound', id: cid, name: comp?.name ?? 'Compound', buildingIds: blocks.map((b) => b.id), blocks: blocks.map((b) => ({ id: b.id, name: b.name })), billingMode: comp?.billing_mode ?? 'arrears' });
+    out.push({ key: `c:${cid}`, kind: 'compound', id: cid, name: comp?.name ?? 'Compound', buildingIds: blocks.map((b) => b.id), blocks: blocks.map((b) => ({ id: b.id, name: b.name })), billingMode: comp?.billing_mode ?? 'arrears', fundScope: comp?.fund_scope === 'block' ? 'block' : 'compound' });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -163,6 +163,8 @@ export interface Compound {
   payment_due_days?: number | null;
   /** LBP-per-USD form prefill (0086) — governs every block. */
   lbp_rate?: number | null;
+  /** Who holds the cash (0153): one compound box, or a box per block. */
+  fund_scope?: 'compound' | 'block';
   created_at: string;
 }
 
@@ -256,6 +258,8 @@ export interface Expense {
   id: string;
   building_id: string | null;
   compound_id: string | null;
+  /** Block whose box paid a compound-scope expense (fund_scope='block'; 0153). */
+  paid_from_building_id?: string | null;
   category: ExpenseCategory;
   /** the catalog row this expense belongs to (0085); category is the legacy mirror */
   expense_type_id?: string | null;
@@ -289,7 +293,10 @@ export interface Fund {
   building_id: string | null;
   compound_id: string | null;
   name: string;
+  /** USD part of the opening drawer; canonical = this + rated LBP part (0153). */
   opening_balance_usd: number;
+  opening_balance_lbp?: number;
+  opening_lbp_rate?: number | null;
   opening_date: string | null;
   note: string | null;
   created_by: string | null;
@@ -336,6 +343,11 @@ export interface FundPosition {
   reserve: number;
   fund_paid: number;
   unreconciled: number;
+  /** 0153: the physical drawers - USD parts, and raw LBP never re-rated. */
+  cash_usd?: number;
+  cash_lbp?: number;
+  /** 0153: block-mode compound-level rows that name no box. */
+  unattributed?: number;
 }
 
 export interface Charge {
@@ -372,7 +384,9 @@ export interface Adjustment {
   unit_id: string;
   building_id: string;
   kind: AdjustmentKind;
-  amount_usd: number;      // positive magnitude
+  amount_usd: number;
+  amount_lbp?: number | null;
+  lbp_rate?: number | null;      // positive magnitude
   /** Owner/tenant sub-ledger this adjustment belongs to (0064). */
   party: Tenure;
   /** the specific tenant (when party='tenant'). 0066 */

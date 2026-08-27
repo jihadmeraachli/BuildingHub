@@ -14,7 +14,7 @@ import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/bal
 import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle, requestLinesAsOf, fundPosition } from '@/lib/reportData';
 import { useAmenities, amenityLabel } from '@/lib/amenities';
 import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
-import { composeUsdTotal, usdPartOf, currencyTag, currencyBreakdown } from '@/lib/currency';
+import { composeUsdTotal, usdPartOf, currencyTag, currencyBreakdown, formatLbp } from '@/lib/currency';
 import type { Unit, Expense, Charge, Payment, Adjustment, AdjustmentKind, Group, Compound, ExpenseCategory, AllocationMethod, AllocationScope, PaymentMethod, Dues, Tenure, PaymentRequest, PaymentRequestLine, BillingMode, Fund, FundEntry, FundEntryKind, Project } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -72,7 +72,7 @@ interface Entity { key: string; kind: 'compound' | 'building'; id: string; name:
 
 type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
-  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string; extraordinary: boolean;
+  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string; extraordinary: boolean; paid_from_block: string;
   scope: ExpScope; method: AllocationMethod; block_id: string; group_id: string; unit_id: string; selectedUnits: string[];
   // T5: for units that HAVE a tenant, charge this party. Owner-only units always
   // go to the owner regardless. (No more 'both' / 'all members'.)
@@ -96,11 +96,11 @@ const fundingOf = (e: Expense): ExpFunding => {
 const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
   cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
-  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false,
+  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false, paid_from_block: '',
   scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner', funding: 'residents', project_id: '', amenity_id: '',
 });
-type FundEntryForm = { kind: FundEntryKind; amount: string; amount_lbp: string; lbp_rate: string; entry_date: string; description: string; counterparty: string };
-const newFundEntryForm = (): FundEntryForm => ({ kind: 'income', amount: '', amount_lbp: '', lbp_rate: '', entry_date: new Date().toISOString().slice(0, 10), description: '', counterparty: '' });
+type FundEntryForm = { kind: FundEntryKind; amount: string; amount_lbp: string; lbp_rate: string; entry_date: string; description: string; counterparty: string; block_id: string };
+const newFundEntryForm = (): FundEntryForm => ({ kind: 'income', amount: '', amount_lbp: '', lbp_rate: '', entry_date: new Date().toISOString().slice(0, 10), description: '', counterparty: '', block_id: '' });
 type PayForm = { unit_id: string; amount: string; amount_lbp: string; lbp_rate: string; method: PaymentMethod; paid_on: string; note: string; paid_by: Tenure; due_id: string };
 const newPayForm = (): PayForm => ({ unit_id: '', amount: '', amount_lbp: '', lbp_rate: '', method: 'cash', paid_on: new Date().toISOString().slice(0, 10), note: '', paid_by: 'owner', due_id: '' });
 
@@ -230,6 +230,9 @@ export default function Finance() {
 
   // ── Fund (0106): cash on hand, apart from what residents owe ──
   const [fund, setFund] = useState<Fund | null>(null);
+  // 0153: who holds the cash - one compound box (default) or a box per block
+  const [fundScope, setFundScope] = useState<'compound' | 'block'>('compound');
+  const [blockFunds, setBlockFunds] = useState<Fund[]>([]);
   // 0109: open projects in scope, offered on the expense form
   const [projects, setProjects] = useState<Project[]>([]);
   // 0112: the lift, the generator — offered on the expense form
@@ -239,15 +242,41 @@ export default function Finance() {
   const [fundEntryForm, setFundEntryForm] = useState<FundEntryForm>(newFundEntryForm());
   const [fundEntryFile, setFundEntryFile] = useState<File | null>(null);
   const [openingOpen, setOpeningOpen] = useState(false);
-  const [openingForm, setOpeningForm] = useState({ amount: '', date: '', note: '' });
+  const [openingForm, setOpeningForm] = useState({ block_id: '', amount: '', lbp: '', lbpRate: '', date: '', note: '' });
 
   function openFundEntry(kind: FundEntryKind) {
-    setFundEntryForm({ ...newFundEntryForm(), kind, lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' });
+    setFundEntryForm({ ...newFundEntryForm(), kind, lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '',
+      block_id: entity && entity.kind === 'compound' && fundScope === 'block' ? (entity.blocks[0]?.id ?? '') : '' });
     setFundEntryFile(null); setFundEntryOpen(true);
   }
+  function openingFormFor(f: Fund | null, blockId: string) {
+    return {
+      block_id: blockId,
+      amount: f ? String(f.opening_balance_usd) : '',
+      lbp: f?.opening_balance_lbp ? String(f.opening_balance_lbp) : '',
+      lbpRate: f?.opening_lbp_rate ? String(f.opening_lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''),
+      date: f?.opening_date ?? '', note: f?.note ?? '',
+    };
+  }
   function openOpening() {
-    setOpeningForm({ amount: fund ? String(fund.opening_balance_usd) : '', date: fund?.opening_date ?? '', note: fund?.note ?? '' });
+    if (entity && entity.kind === 'compound' && fundScope === 'block') {
+      const b0 = entity.blocks[0]?.id ?? '';
+      setOpeningForm(openingFormFor(blockFunds.find((x) => x.building_id === b0) ?? null, b0));
+    } else {
+      setOpeningForm(openingFormFor(fund, ''));
+    }
     setOpeningOpen(true);
+  }
+  async function switchFundScope() {
+    if (!entity || entity.kind !== 'compound') return;
+    const next = fundScope === 'block' ? 'compound' : 'block';
+    const ok = await confirmAsync(t('fund.scopeSwitchTitle'),
+      next === 'block' ? t('fund.scopeSwitchToBlock') : t('fund.scopeSwitchToCompound'));
+    if (!ok) return;
+    const { error } = await supabase.rpc('set_fund_scope', { p_compound: entity.id, p_scope: next });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('fund.scopeSwitched'));
+    loadScope();
   }
   async function saveFundEntry() {
     if (!entity) return;
@@ -256,11 +285,13 @@ export default function Finance() {
     if (lbpPart > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
     const amount = composeUsdTotal(Number(fundEntryForm.amount) || 0, lbpPart, rate);
     if (!(amount > 0) || !fundEntryForm.description.trim()) return;
+    if (entity.kind === 'compound' && fundScope === 'block' && !fundEntryForm.block_id) { toast.error(t('fund.paidFromRequired')); return; }
     setSaving(true);
     const attachment_url = fundEntryFile ? await uploadFile('attachments', `${entity.id}/fund`, fundEntryFile) : null;
     const { error } = await supabase.from('fund_entries').insert({
-      building_id: entity.kind === 'building' ? entity.id : null,
-      compound_id: entity.kind === 'compound' ? entity.id : null,
+      building_id: entity.kind === 'building' ? entity.id
+        : (fundScope === 'block' ? (fundEntryForm.block_id || null) : null),
+      compound_id: entity.kind === 'compound' && fundScope !== 'block' ? entity.id : null,
       kind: fundEntryForm.kind, amount_usd: amount,
       amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
       entry_date: fundEntryForm.entry_date, description: fundEntryForm.description.trim(),
@@ -273,15 +304,24 @@ export default function Finance() {
   async function saveOpening() {
     if (!entity) return;
     const amount = Number(openingForm.amount) || 0;
+    const lbp = Number(openingForm.lbp) || 0;
+    const rate = Number(openingForm.lbpRate) || 0;
+    if (lbp > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
+    const perBlock = entity.kind === 'compound' && fundScope === 'block';
+    if (perBlock && !openingForm.block_id) return;
     setSaving(true);
     const row = {
-      building_id: entity.kind === 'building' ? entity.id : null,
-      compound_id: entity.kind === 'compound' ? entity.id : null,
-      opening_balance_usd: amount, opening_date: openingForm.date || null, note: openingForm.note.trim() || null,
+      building_id: perBlock ? openingForm.block_id : (entity.kind === 'building' ? entity.id : null),
+      compound_id: !perBlock && entity.kind === 'compound' ? entity.id : null,
+      opening_balance_usd: amount,
+      opening_balance_lbp: lbp,
+      opening_lbp_rate: lbp > 0 ? rate : null,
+      opening_date: openingForm.date || null, note: openingForm.note.trim() || null,
       updated_at: new Date().toISOString(),
     };
-    const { error } = fund
-      ? await supabase.from('funds').update(row).eq('id', fund.id)
+    const target = perBlock ? (blockFunds.find((f) => f.building_id === openingForm.block_id) ?? null) : fund;
+    const { error } = target
+      ? await supabase.from('funds').update(row).eq('id', target.id)
       : await supabase.from('funds').insert({ ...row, created_by: profile?.id });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
@@ -332,16 +372,37 @@ export default function Finance() {
     setPayments(paymentRows);
     setExpenses(expenseRows);
     setAdjustments(adjRows);
-    // 0106: the fund row and its entries live at the entity level (compound
-    // or standalone block), never per block inside a compound.
+    // 0106/0153: where the fund lives depends on the compound's fund_scope -
+    // one box for the whole compound (default), or a box per block.
     {
-      const scopeCol = entity.kind === 'compound' ? 'compound_id' : 'building_id';
-      const [{ data: fr }, { data: fe }] = await Promise.all([
-        supabase.from('funds').select('*').eq(scopeCol, entity.id).maybeSingle(),
-        supabase.from('fund_entries').select('*').eq(scopeCol, entity.id).order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
-      ]);
-      setFund((fr as Fund | null) ?? null);
-      setFundEntries((fe as FundEntry[]) ?? []);
+      let scope: 'compound' | 'block' = 'compound';
+      if (entity.kind === 'compound') {
+        const { data: comp } = await supabase.from('compounds').select('fund_scope').eq('id', entity.id).single();
+        scope = (comp as { fund_scope?: string } | null)?.fund_scope === 'block' ? 'block' : 'compound';
+      }
+      setFundScope(scope);
+      const perBlock = entity.kind === 'compound' && scope === 'block';
+      // compounds fetch BOTH levels of entries - block-mode rows carry
+      // building_id, legacy/compound-mode rows carry compound_id
+      const entriesQ = entity.kind === 'compound'
+        ? supabase.from('fund_entries').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`).order('entry_date', { ascending: false }).order('created_at', { ascending: false })
+        : supabase.from('fund_entries').select('*').eq('building_id', entity.id).order('entry_date', { ascending: false }).order('created_at', { ascending: false });
+      if (perBlock) {
+        const [{ data: frs }, { data: fe }] = await Promise.all([
+          supabase.from('funds').select('*').in('building_id', entity.buildingIds),
+          entriesQ,
+        ]);
+        setFund(null); setBlockFunds((frs as Fund[]) ?? []);
+        setFundEntries((fe as FundEntry[]) ?? []);
+      } else {
+        const scopeCol = entity.kind === 'compound' ? 'compound_id' : 'building_id';
+        const [{ data: fr }, { data: fe }] = await Promise.all([
+          supabase.from('funds').select('*').eq(scopeCol, entity.id).maybeSingle(),
+          entriesQ,
+        ]);
+        setFund((fr as Fund | null) ?? null); setBlockFunds([]);
+        setFundEntries((fe as FundEntry[]) ?? []);
+      }
       // 0109: projects an expense can be tagged to — the whole entity's, not
       // just the block's, since a compound project takes block expenses
       const pFilter = entity.kind === 'compound'
@@ -493,16 +554,55 @@ export default function Finance() {
   // 0106: the position as of the period end, from the rows already loaded.
   // Same pure function the tests pin; SQL fund_position() is its twin for the
   // dashboard, where rows are not fetched.
-  const position = useMemo(() => fundPosition({
-    units, charges, payments, adjustments, expenses, entries: fundEntries,
-    opening: Number(fund?.opening_balance_usd ?? 0), openingDate: fund?.opening_date ?? null,
-  }, asOfDate), [units, charges, payments, adjustments, expenses, fundEntries, fund, asOfDate]);
+  const position = useMemo(() => {
+    const blockMode = entity?.kind === 'compound' && fundScope === 'block';
+    const fundsInScope = blockMode ? blockFunds : (fund ? [fund] : []);
+    const openingUsd = round2(fundsInScope.reduce((s, f) => s + Number(f.opening_balance_usd), 0));
+    const openingLbp = round2(fundsInScope.reduce((s, f) => s + Number(f.opening_balance_lbp ?? 0), 0));
+    const openingLbpUsd = round2(fundsInScope.reduce((s, f) => {
+      const l = Number(f.opening_balance_lbp ?? 0); const r = Number(f.opening_lbp_rate ?? 0);
+      return s + (l && r > 0 ? Math.round((l / r) * 100) / 100 : 0);
+    }, 0));
+    return fundPosition({
+      units, charges, payments, adjustments,
+      // block mode: money that names no box counts in no drawer (surfaced below)
+      expenses: blockMode ? expenses.filter((e) => e.paid_from_building_id || e.building_id) : expenses,
+      entries: blockMode ? fundEntries.filter((e) => e.building_id) : fundEntries,
+      opening: openingUsd, openingDate: fundsInScope.length === 1 ? fundsInScope[0].opening_date ?? null : null,
+      openingLbp, openingLbpUsd,
+    }, asOfDate);
+  }, [units, charges, payments, adjustments, expenses, fundEntries, fund, blockFunds, fundScope, entity, asOfDate]);
   // the guard list: expenses whose charges + fund part do not explain the amount
   const unreconciledExpenses = useMemo(() => {
     const billed = new Map<string, number>();
     charges.forEach((c) => { if (c.expense_id && !c.voided_at) billed.set(c.expense_id, (billed.get(c.expense_id) ?? 0) + Number(c.amount_usd)); });
     return expenses.filter((e) => Math.abs(Number(e.amount_usd) - (billed.get(e.id) ?? 0) - Number(e.funded_by_fund_usd ?? 0)) > 0.005);
   }, [charges, expenses]);
+  // 0153, block mode: compound-level money that names no box
+  const unattributedMoney = useMemo(() => {
+    if (!(entity?.kind === 'compound' && fundScope === 'block')) return 0;
+    return expenses.filter((e) => !e.building_id && !e.paid_from_building_id).length
+      + fundEntries.filter((e) => !e.building_id && !e.voided_at).length;
+  }, [entity, fundScope, expenses, fundEntries]);
+  // 0153, block mode: each block's own drawer
+  const blockPositions = useMemo(() => {
+    if (!(entity?.kind === 'compound' && fundScope === 'block')) return [];
+    return entity.blocks.map((b) => {
+      const f = blockFunds.find((x) => x.building_id === b.id) ?? null;
+      const l = Number(f?.opening_balance_lbp ?? 0); const r = Number(f?.opening_lbp_rate ?? 0);
+      const pos = fundPosition({
+        units: units.filter((u) => u.building_id === b.id),
+        charges: charges.filter((c) => c.building_id === b.id),
+        payments: payments.filter((pm) => pm.building_id === b.id),
+        adjustments: adjustments.filter((a) => a.building_id === b.id),
+        expenses: expenses.filter((e) => (e.paid_from_building_id ?? e.building_id) === b.id),
+        entries: fundEntries.filter((e) => e.building_id === b.id),
+        opening: Number(f?.opening_balance_usd ?? 0), openingDate: f?.opening_date ?? null,
+        openingLbp: l, openingLbpUsd: l && r > 0 ? Math.round((l / r) * 100) / 100 : 0,
+      }, asOfDate);
+      return { block: b, pos };
+    });
+  }, [entity, fundScope, blockFunds, units, charges, payments, adjustments, expenses, fundEntries, asOfDate]);
   const pFundEntries = fundEntries.filter((e) => inRange(e.entry_date));
 
   // per-unit book. Balance folds in the opening balance and, when an "as of"
@@ -585,7 +685,7 @@ export default function Finance() {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e), project_id: e.project_id ?? '', amenity_id: e.amenity_id ?? '' });
+    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e), project_id: e.project_id ?? '', amenity_id: e.amenity_id ?? '', paid_from_block: e.paid_from_building_id ?? '' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -615,10 +715,17 @@ export default function Finance() {
       || (chosenType && !chosenType.key ? chosenType.name : CAT_LABEL[expForm.category]);
     const invoice_url = expFile ? await uploadFile('attachments', `${entity.id}/expenses`, expFile) : null;
 
+    // 0153, block mode: a compound-wide expense physically left ONE box
+    if (entity.kind === 'compound' && fundScope === 'block' && expForm.scope === 'all' && !expForm.paid_from_block) {
+      setSaving(false); toast.error(t('fund.paidFromRequired')); return;
+    }
     // expense-level tagging: compound entities carry compound_id; single-block keeps building_id
     const compound_id = entity.kind === 'compound' ? entity.id : null;
     const building_id = entity.kind === 'building' ? entity.id : (expForm.scope === 'block' ? expForm.block_id : null);
     const scope_type: AllocationScope = expForm.scope === 'all' ? (entity.kind === 'compound' ? 'compound' : 'block') : (expForm.scope as AllocationScope);
+    // drawer attribution only (0153) - allocation still follows scope/building
+    const paid_from_building_id = entity.kind === 'compound' && fundScope === 'block' && !building_id
+      ? (expForm.paid_from_block || null) : null;
 
     // 0121: editing goes through one atomic RPC — it preserves each unit's
     // original owner/tenant stamp and any voided charge (H4), and never
@@ -643,7 +750,7 @@ export default function Finance() {
     let expenseId: string | null = null;
     {
       const { data: exp, error } = await supabase.from('expenses').insert({
-        building_id, compound_id, category: expForm.category, description: desc, amount_usd: amount,
+        building_id, compound_id, paid_from_building_id, category: expForm.category, description: desc, amount_usd: amount,
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
         expense_type_id: expForm.expense_type_id || null,
         amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
@@ -1227,17 +1334,30 @@ export default function Finance() {
                   <Card><CardBody>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {t('fund.cashOnHand')}{asOfLabel ? ` · ${t('finance.asOf', { date: asOfLabel })}` : ''}
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2 flex-wrap">
+                          <span>{t('fund.cashOnHand')}{asOfLabel ? ` · ${t('finance.asOf', { date: asOfLabel })}` : ''}</span>
+                          {entity.kind === 'compound' && (
+                            <Badge variant="slate">{fundScope === 'block' ? t('fund.scopeBlock') : t('fund.scopeCompound')}</Badge>
+                          )}
                         </p>
                         <p className={`text-4xl font-bold tracking-tight mt-1 tnum ${position.cash < 0 ? 'text-red-500' : 'text-foreground'}`}>{money(position.cash)}</p>
+                        {position.cash_lbp !== 0 && (
+                          <p className="text-sm tnum mt-1 text-muted-foreground">
+                            {money(position.cash_usd)} <span className="opacity-60">+</span> {formatLbp(position.cash_lbp)} <span className="opacity-60">{t('fund.inTheDrawer')}</span>
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground mt-1">{t('fund.cashHint')}</p>
                       </div>
-                      {canManageFinance && (
-                        <Button variant="secondary" size="sm" onClick={openOpening}>
-                          <Pencil size={14} /> {fund ? t('fund.editOpening') : t('fund.setOpening')}
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {canManageFinance && entity.kind === 'compound' && (
+                          <Button variant="ghost" size="sm" onClick={switchFundScope}>{t('fund.scopeChange')}</Button>
+                        )}
+                        {canManageFinance && (
+                          <Button variant="secondary" size="sm" onClick={openOpening}>
+                            <Pencil size={14} /> {(fund || blockFunds.length > 0) ? t('fund.editOpening') : t('fund.setOpening')}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     {/* the breakdown, one line each, signs shown as they read */}
                     <div className="mt-5 rounded-xl border border-border divide-y divide-border text-sm">
@@ -1272,6 +1392,37 @@ export default function Finance() {
                       <p className="text-xs text-muted-foreground mt-3">{t('fund.fundPaidNote', { amount: money(position.fund_paid) })}</p>
                     )}
                   </CardBody></Card>
+
+                  {/* 0153, block mode: each block's own box */}
+                  {entity.kind === 'compound' && fundScope === 'block' && (
+                    <Card><CardBody>
+                      <p className="text-sm font-semibold text-foreground mb-2">{t('fund.blockBreakdown')}</p>
+                      <div className="overflow-x-auto"><table className="w-full text-sm">
+                        <thead><tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                          <th className="px-3 py-2 text-start font-medium">{t('fund.forBlock')}</th>
+                          <th className="px-3 py-2 text-end font-medium">USD</th>
+                          <th className="px-3 py-2 text-end font-medium">LBP</th>
+                          <th className="px-3 py-2 text-end font-medium">{t('fund.cashOnHand')}</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-border">
+                          {blockPositions.map(({ block, pos }) => (
+                            <tr key={block.id}>
+                              <td className="px-3 py-2 font-medium text-foreground">{block.name}</td>
+                              <td className={`px-3 py-2 text-end tnum ${pos.cash_usd < 0 ? 'text-red-500' : 'text-foreground'}`}>{money(pos.cash_usd)}</td>
+                              <td className={`px-3 py-2 text-end tnum ${pos.cash_lbp < 0 ? 'text-red-500' : 'text-foreground'}`}>{formatLbp(pos.cash_lbp)}</td>
+                              <td className={`px-3 py-2 text-end tnum font-semibold ${pos.cash < 0 ? 'text-red-500' : 'text-foreground'}`}>{money(pos.cash)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table></div>
+                    </CardBody></Card>
+                  )}
+                  {entity.kind === 'compound' && fundScope === 'block' && unattributedMoney > 0 && (
+                    <Card className="border-amber-300 dark:border-amber-800"><CardBody>
+                      <p className="text-sm font-semibold text-foreground">{t('fund.unattributedTitle', { count: unattributedMoney })}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t('fund.unattributedHint')}</p>
+                    </CardBody></Card>
+                  )}
 
                   {/* the guard: expenses nobody explained. Empty after the 0106 backfill. */}
                   {unreconciledExpenses.length > 0 && (
@@ -1587,6 +1738,11 @@ export default function Finance() {
             </div>
           )}
 
+          {entity && entity.kind === 'compound' && fundScope === 'block' && expForm.scope === 'all' && (
+            <SelectField label={t('fund.paidFromBox')} value={expForm.paid_from_block} onValueChange={(v) => setExpForm({ ...expForm, paid_from_block: v })}>
+              {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
+          )}
           {expForm.scope === 'block' && (
             <SelectField label={t('finance.block')} value={expForm.block_id || '__none__'} onValueChange={(v) => setExpForm({ ...expForm, block_id: v === '__none__' ? '' : v })}>
               <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
@@ -1842,6 +1998,11 @@ export default function Finance() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">{fundEntryForm.kind === 'income' ? t('fund.incomeHint') : t('fund.outflowHint')}</p>
           <Input label={t('finance.description')} value={fundEntryForm.description} onChange={(e) => setFundEntryForm({ ...fundEntryForm, description: e.target.value })} placeholder={fundEntryForm.kind === 'income' ? t('fund.incomeExample') : t('fund.outflowExample')} />
+          {entity && entity.kind === 'compound' && fundScope === 'block' && (
+            <SelectField label={t('fund.forBlock')} value={fundEntryForm.block_id} onValueChange={(v) => setFundEntryForm({ ...fundEntryForm, block_id: v })}>
+              {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={fundEntryForm.amount} onChange={(e) => setFundEntryForm({ ...fundEntryForm, amount: e.target.value })} />
             <Input label={t('finance.date')} type="date" value={fundEntryForm.entry_date} onChange={(e) => setFundEntryForm({ ...fundEntryForm, entry_date: e.target.value })} />
@@ -1866,9 +2027,19 @@ export default function Finance() {
       <Modal open={openingOpen} onClose={() => setOpeningOpen(false)} title={t('fund.openingTitle')}>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">{t('fund.openingHint')}</p>
+          {entity && entity.kind === 'compound' && fundScope === 'block' && (
+            <SelectField label={t('fund.forBlock')} value={openingForm.block_id} onValueChange={(v) =>
+              setOpeningForm(openingFormFor(blockFunds.find((x) => x.building_id === v) ?? null, v))}>
+              {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectField>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label={t('finance.amountUsd')} type="number" step="0.01" value={openingForm.amount} onChange={(e) => setOpeningForm({ ...openingForm, amount: e.target.value })} />
             <Input label={t('fund.openingDate')} type="date" value={openingForm.date} onChange={(e) => setOpeningForm({ ...openingForm, date: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('fund.openingLbp')} type="number" step="1" value={openingForm.lbp} onChange={(e) => setOpeningForm({ ...openingForm, lbp: e.target.value })} />
+            <Input label={t('fund.openingLbpRate')} type="number" step="1" value={openingForm.lbpRate} onChange={(e) => setOpeningForm({ ...openingForm, lbpRate: e.target.value })} />
           </div>
           <Input label={t('finance.note')} value={openingForm.note} onChange={(e) => setOpeningForm({ ...openingForm, note: e.target.value })} />
           <div className="flex justify-end gap-2 pt-1">

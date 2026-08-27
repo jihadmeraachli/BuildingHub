@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { useEntities } from '@/lib/entities';
+import { formatLbp } from '@/lib/currency';
 import { supabase } from '@/lib/supabase';
 import { tenantTitle } from '@/lib/reportData';
 import type { Meeting, AdjustmentKind, FundPosition } from '@/types';
@@ -532,6 +533,8 @@ export default function Dashboard() {
           label={`${t('dashboard.cashOnHand')}${mAsOfLabel ? ` · ${t('finance.asOf', { date: mAsOfLabel })}` : ''}`}
           amount={money(Number(fundPos.cash))}
           negative={Number(fundPos.cash) < 0}
+          tag={selEntity?.kind === 'compound' ? (selEntity.fundScope === 'block' ? t('fund.scopeBlock') : t('fund.scopeCompound')) : undefined}
+          sub={Number(fundPos.cash_lbp ?? 0) !== 0 ? `${money(Number(fundPos.cash_usd ?? 0))} + ${formatLbp(Number(fundPos.cash_lbp ?? 0))}` : undefined}
           pill={t('dashboard.percentCollected', { pct: collectionRate })}
           stats={[
             { label: t('dashboard.heldForResidents'), value: money(Number(fundPos.credits)) },
@@ -653,8 +656,8 @@ function Greeting({ name, subtitle, lens, entity }: {
   );
 }
 
-function HeroCard({ label, amount, stats, pill, negative }: {
-  label: string; amount: string; stats: { label: string; value: string }[]; pill?: string; negative?: boolean;
+function HeroCard({ label, amount, sub, tag, stats, pill, negative }: {
+  label: string; amount: string; sub?: string; tag?: string; stats: { label: string; value: string }[]; pill?: string; negative?: boolean;
 }) {
   return (
     <motion.div
@@ -668,7 +671,10 @@ function HeroCard({ label, amount, stats, pill, negative }: {
       <div className="pointer-events-none absolute -bottom-20 -start-10 w-64 h-64 rounded-full blur-3xl bg-black/5 dark:bg-black/10" />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-foreground/60 dark:text-white/70">{label}</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-foreground/60 dark:text-white/70">
+            {label}
+            {tag && <span className="ms-2 normal-case tracking-normal font-medium rounded-full px-2 py-0.5 bg-black/10 text-foreground/70 dark:bg-white/15 dark:text-white/80">{tag}</span>}
+          </p>
           {pill && (
             <span className="text-xs font-semibold rounded-full px-3 py-1 bg-primary/10 text-primary dark:bg-white/20 dark:text-white backdrop-blur-sm">
               {pill}
@@ -678,6 +684,7 @@ function HeroCard({ label, amount, stats, pill, negative }: {
         <p className={cn('text-5xl lg:text-6xl font-bold tracking-tight mt-3 tnum', negative && 'text-red-400 dark:text-red-300')}>
           {amount}
         </p>
+        {sub && <p className="text-base lg:text-lg font-medium tnum mt-1.5 text-foreground/70 dark:text-white/80">{sub}</p>}
         <div className="flex flex-wrap gap-x-8 gap-y-3 mt-6">
           {stats.map((s, i) => (
             <div key={i} className={i > 0 ? 'border-s border-foreground/15 dark:border-white/20 ps-8' : ''}>
