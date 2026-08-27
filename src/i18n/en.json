@@ -1707,8 +1707,8 @@
     "privacyNote": "One email, when we launch. No newsletter, and we do not pass your address to anyone."
   },
   "fund": {
-    "scopeCompound": "One box - whole compound",
-    "scopeBlock": "A box per block",
+    "scopeCompound": "Whole compound",
+    "scopeBlock": "Per block",
     "scopeChange": "Change",
     "scopeSwitchTitle": "Change who holds the cash?",
     "scopeSwitchToBlock": "Each block gets its own cash box. Count each block's box and set its opening cash - the compound-level opening no longer applies. Compound-wide money will ask which block's box paid.",

@@ -1707,8 +1707,8 @@
     "privacyNote": "Un seul e-mail, au lancement. Pas de newsletter, et votre adresse n'est communiquée à personne."
   },
   "fund": {
-    "scopeCompound": "Une caisse - toute la résidence",
-    "scopeBlock": "Une caisse par bloc",
+    "scopeCompound": "Toute la résidence",
+    "scopeBlock": "Par bloc",
     "scopeChange": "Changer",
     "scopeSwitchTitle": "Changer qui tient la caisse ?",
     "scopeSwitchToBlock": "Chaque bloc aura sa propre caisse. Comptez la caisse de chaque bloc et saisissez son encaisse d'ouverture, l'ouverture au niveau de la résidence ne s'applique plus. Toute somme au niveau de la résidence demandera quelle caisse a payé.",
