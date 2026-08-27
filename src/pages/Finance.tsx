@@ -1005,10 +1005,10 @@ export default function Finance() {
             Tenant buckets are per BUILDING so two buildings never comingle. */}
         {showToggle && (
           <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 mb-5 text-sm gap-0.5">
-            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${effView === 'combined' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
-            <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${effView === 'owner' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
+            <button onClick={() => setResidentView('combined')} className={`px-3 py-1.5 rounded-md transition ${effView === 'combined' ? 'border border-primary/40 bg-primary/15 text-primary font-medium' : 'border border-transparent text-muted-foreground hover:text-foreground'}`}>{t('finance.view.combined')}</button>
+            <button onClick={() => setResidentView('owner')} className={`px-3 py-1.5 rounded-md transition ${effView === 'owner' ? 'border border-primary/40 bg-primary/15 text-primary font-medium' : 'border border-transparent text-muted-foreground hover:text-foreground'}`}>{t('finance.view.owner')}</button>
             {tenantBuckets.map((tn) => (
-              <button key={tn.key} onClick={() => setResidentView(tn.key)} className={`px-3 py-1.5 rounded-md transition ${effView === tn.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+              <button key={tn.key} onClick={() => setResidentView(tn.key)} className={`px-3 py-1.5 rounded-md transition ${effView === tn.key ? 'border border-primary/40 bg-primary/15 text-primary font-medium' : 'border border-transparent text-muted-foreground hover:text-foreground'}`}>
                 {tn.label}
               </button>
             ))}

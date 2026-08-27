@@ -405,7 +405,7 @@ export default function Dashboard() {
           <div className="inline-flex flex-wrap rounded-lg border border-border p-0.5 text-sm gap-0.5">
             {viewOptions.map((o) => (
               <button key={o.key} onClick={() => setResidentView(o.key)}
-                className={cn('px-3 py-1.5 rounded-md transition', effective === o.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                className={cn('px-3 py-1.5 rounded-md transition', effective === o.key ? 'border border-primary/40 bg-primary/15 text-primary font-medium' : 'border border-transparent text-muted-foreground hover:text-foreground')}>
                 {o.label}
               </button>
             ))}
