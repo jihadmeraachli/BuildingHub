@@ -2294,7 +2294,7 @@ function RequestPaymentModal({ open, onClose, lines, entityName, onIssue, busy, 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <SelectField label={t('buildings.dueDays')} value={days} onValueChange={setDays}>
-              {[3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
+              {[1, 2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
                 <SelectItem key={d} value={String(d)}>{t('buildings.dueDaysN', { count: d })}</SelectItem>
               ))}
             </SelectField>
