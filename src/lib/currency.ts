@@ -4,7 +4,16 @@
 // the building setting only prefills the form.
 // ============================================================
 
-const r2 = (n: number) => Math.round(n * 100) / 100;
+// Half away from zero, like Postgres NUMERIC ROUND(x, 2) - Math.round alone
+// rounds toward +Infinity and float error flips exact half-cents (finance
+// review 2026-08-28: 1.005 must be 1.01 on BOTH sides, -1.005 must be -1.01).
+const r2 = (n: number) => {
+  if (!n || Number.isNaN(n)) return n === 0 ? 0 : n;
+  return Math.sign(n) * Math.round(Math.abs(n) * 100 + 1e-7) / 100;
+};
+
+/** Canonical USD value of an LBP amount at its frozen rate (0 when no rate). */
+export const lbpToUsd = (lbp: number, rate: number) => (lbp && rate > 0 ? r2(lbp / rate) : 0);
 
 /** usd_part + lbp/rate → the canonical amount_usd. */
 export function composeUsdTotal(usdPart: number, lbpPart: number, rate: number): number {

@@ -30,7 +30,7 @@ interface ProgressRow { label: string; detail?: string; status: RowStatus; error
 interface UserRow { name: string; email: string; phone: string; role: string; }
 interface BuildingRow { name: string; address: string; city: string; compound_name: string; }
 interface UnitRow { label: string; floor: string; building_name: string; compound_name: string; owner_email: string; owner_name: string; owner_phone: string; tenant_email: string; tenant_name: string; tenant_phone: string; share_weight: string; invalid?: string; building_id?: string | null; existing?: { id: string; label: string }; }
-interface DbUnit { id: string; label: string; share_weight: number; building_id: string; }
+interface DbUnit { id: string; label: string; share_weight: number; building_id: string; opening_balance?: number | null; }
 
 
 interface ImportBatch { id: string; file_name: string | null; n_expenses: number; n_charges: number; n_payments: number; created_at: string; reversed_at: string | null; }
@@ -70,6 +70,16 @@ function pickCol(row: Record<string, string>, ...candidates: string[]): string {
 }
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+/** Money from a spreadsheet cell - STRICT. Accepts 1234.56 / 1,234.56 / -150;
+ *  rejects the locale traps that would silently import the WRONG number
+ *  (European "1.234,56" -> 1.23; comma-decimal "12,5" -> 125; SAP-style
+ *  trailing minus "150-" -> +150). NaN = show the row as invalid. */
+function parseMoney(raw: string): number {
+  const s = raw.trim().replace(/^\$/, '').trim();
+  if (!/^-?(\d+|\d{1,3}(,\d{3})+)(\.\d+)?$/.test(s)) return NaN;
+  return Math.round(parseFloat(s.replace(/,/g, '')) * 100) / 100;
+}
 
 /** One label normalizer for "same unit" everywhere (dup detection, AI matcher). */
 const normLabel = (s: string) => s.toLowerCase().replace(/\s+/g, '');
@@ -867,23 +877,24 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
 // ════════════════════════════════════════════════════════════════════════════
 // FINAL DESIGN (Jey, 2026-08-27): admins import BALANCES ONLY - the AI
 // expenses/charges/payments import confused people. One number per unit:
-// positive = the unit holds a credit, negative = the unit owes. A due lands
-// as a charge, a credit as a payment - so the book, statements and reports
-// all derive normally. Units must already exist (Structure import first);
-// nothing imports until every row matches a unit. Batch + undo kept (0035).
+// positive = the unit holds a credit, negative = the unit owes.
+// FINANCE REVIEW (2026-08-28): the number lands in units.opening_balance -
+// the book's carry-in - NOT as charge/payment rows. Charges/payments would
+// have inflated cash on hand and the Collected/Billed KPIs with history that
+// is not this period's money; opening_balance moves balances only (0033),
+// and the drawer is counted separately in the Fund tab. Re-importing a unit
+// REPLACES its opening. Units must already exist; nothing imports until
+// every row matches. (Batch undo does not apply - re-import to correct.)
 
-interface BalanceRow { label: string; block_hint: string; balance: number; unit?: DbUnit; invalid?: string; }
+interface BalanceRow { label: string; block_hint: string; balance: number; raw: string; unit?: DbUnit; invalid?: string; }
 
 function BalancesTab({ entities }: { entities: Entity[] }) {
-  const { user } = useAuth();
   const [entityKey, setEntityKey] = useState('');
   const [dbUnits, setDbUnits] = useState<DbUnit[]>([]);
   const [rows, setRows] = useState<BalanceRow[]>([]);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [step, setStep] = useState<StepState>('upload');
-  const [fileName, setFileName] = useState('');
-  const [fileHash, setFileHash] = useState<string>('');       // SHA-256 of the upload (dedup, 0035)
-  const [batches, setBatches] = useState<ImportBatch[]>([]);  // recent imports for this entity
+  const [batches, setBatches] = useState<ImportBatch[]>([]);  // legacy batches (still undoable)
   const [reversingId, setReversingId] = useState<string>('');
   const { confirmAsync, ConfirmDialog } = useConfirm();
 
@@ -907,7 +918,7 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
   useEffect(() => {
     setRows([]); setStep('upload');
     if (!selectedEntity) { setDbUnits([]); setBatches([]); return; }
-    supabase.from('units').select('id, label, share_weight, building_id')
+    supabase.from('units').select('id, label, share_weight, building_id, opening_balance')
       .in('building_id', selectedEntity.buildingIds)
       .then(({ data }) => setDbUnits((data ?? []) as DbUnit[]));
     loadBatches(selectedEntity);
@@ -926,13 +937,6 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
   async function handleFile(file: File) {
     if (!entityKey || !selectedEntity) { toast.error('Select a building or compound first'); return; }
     try {
-      setFileName(file.name);
-      // SHA-256 of the raw bytes -> detect a re-upload of the same file and
-      // warn before double-posting (0035).
-      const buf = await file.arrayBuffer();
-      const digest = await crypto.subtle.digest('SHA-256', buf);
-      setFileHash([...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join(''));
-
       const data = await parseSpreadsheet(file);
       if (!data.length) { toast.error('File appears empty'); return; }
       const all: BalanceRow[] = data.map(row => {
@@ -940,7 +944,8 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
         return {
           label:      pickCol(row, 'unit label', 'unit', 'apt', 'apartment', 'رقم الشقة', 'الوحدة'),
           block_hint: pickCol(row, 'block name', 'block', 'building', 'المبنى'),
-          balance:    parseFloat(raw.replace(/[$,\s]/g, '')),
+          balance:    parseMoney(raw),
+          raw,
         };
       }).filter(r => r.label);
       // guidance rows travel with the template; never let them import
@@ -950,7 +955,7 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
       // exactly one existing unit, or the import stays disabled.
       const blockByName = Object.fromEntries(selectedEntity.blocks.map(b => [b.name.toLowerCase().trim(), b.id]));
       for (const r of parsed) {
-        if (Number.isNaN(r.balance)) { r.invalid = 'Balance is not a number'; continue; }
+        if (Number.isNaN(r.balance)) { r.invalid = `"${r.raw}" is not a valid amount - use the format 1234.56 (or -1234.56 for a due)`; continue; }
         let pool = dbUnits;
         if (r.block_hint.trim()) {
           const bid = blockByName[r.block_hint.toLowerCase().trim()];
@@ -980,35 +985,6 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
   async function runImport() {
     if (!selectedEntity || invalidRows.length) return;
 
-    // ── Idempotency guard: has this exact file already been imported here? ──
-    if (fileHash) {
-      const { data: dup } = await supabase.from('import_batches')
-        .select('id, created_at, file_name')
-        .eq(selectedEntity.kind === 'compound' ? 'compound_id' : 'building_id', selectedEntity.id)
-        .eq('content_hash', fileHash)
-        .is('reversed_at', null)
-        .limit(1);
-      if (dup && dup.length) {
-        const when = fmtDate((dup[0] as { created_at: string }).created_at);
-        if (!(await confirmAsync('Already imported', `This exact file was already imported here on ${when}. Importing again will double those amounts. Continue anyway?`))) return;
-      }
-    }
-
-    // ── Open a batch and tag every row with it, so it can be undone in one shot ──
-    const { data: batch, error: bErr } = await supabase.from('import_batches').insert({
-      scope_type: selectedEntity.kind,
-      building_id: selectedEntity.kind === 'building' ? selectedEntity.id : null,
-      compound_id: selectedEntity.kind === 'compound' ? selectedEntity.id : null,
-      file_name: fileName || null,
-      content_hash: fileHash || null,
-      n_expenses: 0,
-      n_charges: dueRows.length,
-      n_payments: creditRows.length,
-      created_by: user?.id,
-    }).select('id').single();
-    if (bErr || !batch) { toast.error(`Could not start import: ${bErr?.message ?? 'unknown error'}`); return; }
-    const batchId = (batch as { id: string }).id;
-
     setProgress(rows.map(r => ({
       label: r.label,
       detail: r.balance === 0 ? 'zero balance' : `${money(r.balance)} ${r.balance < 0 ? 'due' : 'credit'}`,
@@ -1022,37 +998,18 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
       try {
         if (!row.unit) throw new Error(row.invalid ?? 'Unmatched unit');
         if (row.balance === 0) {
+          // zero is SKIPPED on purpose: importing it would silently wipe a
+          // pre-existing opening on a unit the admin left at 0 in the sheet
           setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'skipped' } : p));
           continue;
         }
-        if (row.balance < 0) {
-          // amount DUE -> an opening-balance charge on the unit's block book
-          const { error } = await supabase.from('charges').insert({
-            unit_id:     row.unit.id,
-            building_id: row.unit.building_id,
-            category:    'other',
-            description: 'Opening balance',
-            amount_usd:  Math.abs(row.balance),
-            charge_date: todayStr(),
-            billed_to:   'both',
-            created_by:  user?.id,
-            import_batch_id: batchId,
-          });
-          if (error) throw new Error(error.message);
-        } else {
-          // CREDIT held -> an opening-balance payment
-          const { error } = await supabase.from('payments').insert({
-            unit_id:     row.unit.id,
-            building_id: row.unit.building_id,
-            amount_usd:  row.balance,
-            method:      'other' as const,
-            paid_on:     todayStr(),
-            note:        'Opening balance (import)',
-            recorded_by: user?.id,
-            import_batch_id: batchId,
-          });
-          if (error) throw new Error(error.message);
-        }
+        // The number IS the unit's opening balance (positive = credit,
+        // negative = due), the same sign the book uses. SET, not add - a
+        // re-import of a corrected file is the undo.
+        const { error } = await supabase.from('units')
+          .update({ opening_balance: row.balance, opening_balance_date: todayStr() })
+          .eq('id', row.unit.id);
+        if (error) throw new Error(error.message);
         setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done' } : p));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -1060,14 +1017,13 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
       }
     }
     setStep('done');
-    loadBatches(selectedEntity); // refresh the undo list
   }
 
-  function reset() { setStep('upload'); setRows([]); setProgress([]); setFileName(''); setFileHash(''); }
+  function reset() { setStep('upload'); setRows([]); setProgress([]); }
 
   if (step === 'upload') return (
     <div className="space-y-4 max-w-xl">
-      <p className="text-sm text-muted-foreground">Bring each unit's opening balance across from your old books: positive means the unit holds a credit, negative means they owe. A due becomes an opening-balance charge, a credit an opening-balance payment - statements and reports follow from there.</p>
+      <p className="text-sm text-muted-foreground">Bring each unit's opening balance across from your old books: positive means the unit holds a credit, negative means they owe. The number becomes the unit's opening balance - the book starts from it, and cash on hand stays untouched (count the drawer in the Fund tab). Re-importing a unit replaces its opening.</p>
       <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadCsv('balances-template.csv', TEMPLATE)}>
         <Download size={14} /> Download template
       </Button>
@@ -1153,13 +1109,18 @@ function BalancesTab({ entities }: { entities: Entity[] }) {
       <div className="rounded-lg border border-border overflow-hidden text-sm overflow-x-auto">
         <table className="w-full">
           <thead className="bg-muted/40">
-            <tr>{['Unit', ...(selectedEntity?.kind === 'compound' ? ['Block'] : []), 'Balance', ''].map((h, i) => <th key={i} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
+            <tr>{['Unit', ...(selectedEntity?.kind === 'compound' ? ['Block'] : []), 'Current', 'Balance', ''].map((h, i) => <th key={i} className="text-start px-4 py-2 text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
               <tr key={i} className={r.invalid ? 'opacity-40' : ''}>
                 <td className="px-4 py-2 font-medium">{r.label}</td>
                 {selectedEntity?.kind === 'compound' && <td className="px-4 py-2 text-muted-foreground">{blockName(r.unit) || r.block_hint || '—'}</td>}
+                <td className="px-4 py-2 tnum text-muted-foreground text-xs">
+                  {r.unit && Number(r.unit.opening_balance ?? 0) !== 0
+                    ? `${Number(r.unit.opening_balance) < 0 ? '-' : ''}${money(Number(r.unit.opening_balance))}`
+                    : '—'}
+                </td>
                 <td className={`px-4 py-2 tnum ${r.invalid ? 'text-muted-foreground' : r.balance < 0 ? 'text-red-500 dark:text-red-400' : r.balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
                   {Number.isNaN(r.balance) ? '—' : `${r.balance < 0 ? '-' : ''}${money(r.balance)}`}
                 </td>

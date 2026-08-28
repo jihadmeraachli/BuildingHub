@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fundPosition, type FundInputs } from '@/lib/reportData';
+import { usdPartOf } from '@/lib/currency';
 import type { Unit, Charge, Payment, Adjustment, Expense } from '@/types';
 
 /**
@@ -202,5 +203,78 @@ describe('fundPosition', () => {
     });
     const r = fundPosition(inp);
     expect(r.reserve).toBeCloseTo(r.cash - (r.credits - r.arrears), 2);
+  });
+
+  // ── 0153: the physical drawers ─────────────────────────────────────────
+
+  it('a mixed-tender payment splits the drawers: USD part and raw lira', () => {
+    // $150 canonical = $100 in bills + LL 4,475,000 @ 89,500 ($50)
+    const r = fundPosition(base({
+      payments: [payment({ amount_usd: 150, amount_lbp: 4_475_000, lbp_rate: 89_500 })],
+      expenses: [expense({ amount_usd: 30 })],
+    }));
+    expect(r.cash).toBe(120);
+    expect(r.cash_usd).toBe(70);          // 100 in − 30 out
+    expect(r.cash_lbp).toBe(4_475_000);   // raw lira, never re-rated
+  });
+
+  it('an all-lira expense never touches the USD drawer', () => {
+    const r = fundPosition(base({
+      opening: 200, openingLbp: 8_950_000, openingLbpUsd: 100,
+      expenses: [expense({ amount_usd: 100, amount_lbp: 8_950_000, lbp_rate: 89_500 })],
+    }));
+    expect(r.opening).toBe(300);          // canonical = usd part + rated lbp
+    expect(r.cash).toBe(200);
+    expect(r.cash_usd).toBe(200);         // untouched
+    expect(r.cash_lbp).toBe(0);           // the lira left the box
+  });
+
+  it('a lira refund drains only the LBP drawer - raw, a recount of the box', () => {
+    const r = fundPosition(base({
+      opening: 100,
+      adjustments: [adjustment({ kind: 'refund', amount_usd: 10, amount_lbp: 895_000, lbp_rate: 89_500 })],
+    }));
+    expect(r.refunds_out).toBe(10);
+    expect(r.cash).toBe(90);
+    expect(r.cash_usd).toBe(100);         // no bills left the box
+    expect(r.cash_lbp).toBe(-895_000);    // the box owes lira it never held
+  });
+
+  it('the as-of date gates the LBP opening together with the USD one', () => {
+    const inp = base({ opening: 500, openingLbp: 89_500_000, openingLbpUsd: 1000, openingDate: '2026-02-01' });
+    const before = fundPosition(inp, '2026-01-15');
+    expect(before.opening).toBe(0);
+    expect(before.cash_usd).toBe(0);
+    expect(before.cash_lbp).toBe(0);
+    const after = fundPosition(inp, '2026-03-01');
+    expect(after.opening).toBe(1500);
+    expect(after.cash_lbp).toBe(89_500_000);
+  });
+
+  it('mixed fund entries split like payments do', () => {
+    const r = fundPosition(base({
+      entries: [
+        { kind: 'income', amount_usd: 45, amount_lbp: 2_237_500, lbp_rate: 89_500, entry_date: '2026-03-01' },
+        { kind: 'outflow', amount_usd: 10, entry_date: '2026-03-02' },
+      ],
+    }));
+    expect(r.other_in).toBe(45);
+    expect(r.other_out).toBe(10);
+    expect(r.cash).toBe(35);
+    expect(r.cash_usd).toBe(10);          // 20 usd part in − 10 out
+    expect(r.cash_lbp).toBe(2_237_500);
+  });
+
+  it('a unit created after the as-of date does not exist yet (SQL parity)', () => {
+    const inp = base({
+      units: [unit('u1'), unit('u3', { created_at: '2026-06-15', opening_balance: -500 })],
+    });
+    expect(fundPosition(inp, '2026-05-31').arrears).toBe(0);
+    expect(fundPosition(inp, '2026-06-30').arrears).toBe(500);
+  });
+
+  it('usdPartOf rounds exact half-cents away from zero, like NUMERIC ROUND', () => {
+    expect(usdPartOf({ amount_usd: 2, amount_lbp: 995, lbp_rate: 1000 })).toBe(1.01);
+    expect(usdPartOf({ amount_usd: -2, amount_lbp: -995, lbp_rate: 1000 })).toBe(-1.01);
   });
 });

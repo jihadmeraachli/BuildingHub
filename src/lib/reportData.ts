@@ -6,7 +6,7 @@
 // and both pages follow.
 // ============================================================
 import type { Unit, Charge, Payment, Adjustment, Dues, DuesMethod, DuesPlan, Tenure, Expense } from '@/types';
-import { usdPartOf } from './currency';
+import { usdPartOf, lbpToUsd } from './currency';
 import { computeUnitBalances, computeBalance, adjustmentEffect, type OpeningInfo } from '@/lib/balance';
 import { currencyTag } from '@/lib/currency';
 import type { StatementBucket } from '@/lib/pdf';
@@ -835,7 +835,7 @@ export function groupLedger(
 // but is held for them and never counts as the building's own money.
 
 export interface FundInputs {
-  units: (OpeningInfo & { id: string })[];
+  units: (OpeningInfo & { id: string; created_at?: string })[];
   charges: Charge[];
   payments: Payment[];
   adjustments: Adjustment[];
@@ -858,14 +858,35 @@ export interface FundPositionResult {
   cash_usd: number; cash_lbp: number;
 }
 
+/** 0153: fold fund rows into the opening triple, honoring EACH fund's own
+ *  opening_date against the as-of cut - parity with SQL's op CTE, which
+ *  filters per row. Callers pass openingDate: null after using this. */
+export function openingsOf(
+  funds: { opening_balance_usd: number; opening_balance_lbp?: number | null; opening_lbp_rate?: number | null; opening_date?: string | null }[],
+  asOf?: string | Date | null,
+): { opening: number; openingLbp: number; openingLbpUsd: number } {
+  const cut = asOf ? new Date(asOf) : new Date();
+  let usd = 0, lbp = 0, lbpUsd = 0;
+  for (const f of funds) {
+    if (f.opening_date && new Date(f.opening_date) > cut) continue;
+    usd += Number(f.opening_balance_usd);
+    const l = Number(f.opening_balance_lbp ?? 0);
+    lbp += l;
+    lbpUsd += lbpToUsd(l, Number(f.opening_lbp_rate ?? 0));
+  }
+  return { opening: round2(usd), openingLbp: round2(lbp), openingLbpUsd: round2(lbpUsd) };
+}
+
 export function fundPosition(inp: FundInputs, asOf?: string | Date | null): FundPositionResult {
-  const cut = asOf ? new Date(asOf) : null;
-  const within = (d: string) => !cut || new Date(d) <= cut;
+  // no explicit as-of still means "as of now" - SQL clamps at CURRENT_DATE,
+  // so a post-dated row must not appear here either (finance review 2026-08-28)
+  const cut = asOf ? new Date(asOf) : new Date();
+  const within = (d: string) => new Date(d) <= cut;
   const live = (r: { voided_at?: string | null }) => !r.voided_at;
   const sum = (xs: number[]) => round2(xs.reduce((s, n) => s + n, 0));
   const lbpOf = (r: { amount_lbp?: number | null }) => Number(r.amount_lbp ?? 0);
 
-  const openingCounts = !cut || !inp.openingDate || new Date(inp.openingDate) <= cut;
+  const openingCounts = !inp.openingDate || new Date(inp.openingDate) <= cut;
   const openingUsd = openingCounts ? round2(inp.opening) : 0;
   const openingLbp = openingCounts ? round2(inp.openingLbp ?? 0) : 0;
   const openingLbpUsd = openingCounts ? round2(inp.openingLbpUsd ?? 0) : 0;
@@ -895,6 +916,8 @@ export function fundPosition(inp: FundInputs, asOf?: string | Date | null): Fund
 
   let credits = 0, arrears = 0;
   for (const u of inp.units) {
+    // SQL drops units created after the as-of date (bal CTE); mirror it
+    if (u.created_at && new Date(u.created_at) > cut) continue;
     const bal = computeBalance(u,
       inp.charges.filter((c) => c.unit_id === u.id),
       inp.payments.filter((p) => p.unit_id === u.id),

@@ -11,7 +11,7 @@ import { fetchAll } from '@/lib/fetchAll';
 import { useExpenseTypes } from '@/lib/expenseTypes';
 import { fmtDate } from '@/lib/dateFmt';
 import { computeBalance } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, fundPosition, type TenancyRow } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildBudgetVsActual, buildLedger, buildResidentLedger, tenantTitle, fundPosition, type TenancyRow, openingsOf } from '@/lib/reportData';
 import { CustomReportCard } from '@/components/CustomReportCard';
 import type { Unit, Charge, Payment, Expense, Adjustment, Budget, BudgetLine, Fund, FundEntry } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
@@ -179,17 +179,52 @@ export default function Reports() {
   const [bvaLines, setBvaLines] = useState<BudgetLine[]>([]);
   const { types: allExpenseTypes } = useExpenseTypes(entity?.kind, entity?.id);
 
-  // 0106: the fund row and its entries, at the entity level like budgets.
+  // 0106/0153: where the fund lives depends on the compound's fund_scope -
+  // one box (default) or a box per block. Mirrors Finance's loadScope so the
+  // PDF, the Finance card and SQL fund_position() agree (finance review).
   const [fund, setFund] = useState<Fund | null>(null);
+  const [blockFunds, setBlockFunds] = useState<Fund[]>([]);
+  const [fundScope, setFundScope] = useState<'compound' | 'block'>('compound');
   const [fundEntries, setFundEntries] = useState<FundEntry[]>([]);
   useEffect(() => {
-    if (!entity) { setFund(null); setFundEntries([]); return; }
-    const col = entity.kind === 'compound' ? 'compound_id' : 'building_id';
-    Promise.all([
-      supabase.from('funds').select('*').eq(col, entity.id).maybeSingle(),
-      supabase.from('fund_entries').select('*').eq(col, entity.id).order('entry_date', { ascending: false }),
-    ]).then(([{ data: f }, { data: e }]) => { setFund((f as Fund | null) ?? null); setFundEntries((e as FundEntry[]) ?? []); });
+    if (!entity) { setFund(null); setBlockFunds([]); setFundEntries([]); return; }
+    (async () => {
+      let scope: 'compound' | 'block' = 'compound';
+      if (entity.kind === 'compound') {
+        const { data: comp } = await supabase.from('compounds').select('fund_scope').eq('id', entity.id).single();
+        scope = (comp as { fund_scope?: string } | null)?.fund_scope === 'block' ? 'block' : 'compound';
+      }
+      setFundScope(scope);
+      const perBlock = entity.kind === 'compound' && scope === 'block';
+      const entriesQ = entity.kind === 'compound'
+        ? supabase.from('fund_entries').select('*').or(`compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`).order('entry_date', { ascending: false })
+        : supabase.from('fund_entries').select('*').eq('building_id', entity.id).order('entry_date', { ascending: false });
+      if (perBlock) {
+        const [{ data: frs }, { data: e }] = await Promise.all([
+          supabase.from('funds').select('*').in('building_id', entity.buildingIds), entriesQ,
+        ]);
+        setFund(null); setBlockFunds((frs as Fund[]) ?? []); setFundEntries((e as FundEntry[]) ?? []);
+      } else {
+        const col = entity.kind === 'compound' ? 'compound_id' : 'building_id';
+        const [{ data: f }, { data: e }] = await Promise.all([
+          supabase.from('funds').select('*').eq(col, entity.id).maybeSingle(), entriesQ,
+        ]);
+        setFund((f as Fund | null) ?? null); setBlockFunds([]); setFundEntries((e as FundEntry[]) ?? []);
+      }
+    })();
   }, [entityKey, entity?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** 0153-aware fund inputs: scope filters + LBP openings, per as-of. */
+  const fundInputsFor = (asOf: Date | string | null) => {
+    const blockMode = entity?.kind === 'compound' && fundScope === 'block';
+    const fundsInScope = blockMode ? blockFunds : (fund ? [fund] : []);
+    return {
+      units, charges, payments, adjustments,
+      expenses: blockMode ? expenses.filter((x) => x.paid_from_building_id || x.building_id) : expenses,
+      entries: blockMode ? fundEntries.filter((x) => x.building_id) : fundEntries,
+      ...openingsOf(fundsInScope, asOf), openingDate: null as string | null,
+    };
+  };
   useEffect(() => {
     if (!entity) { setBudgets([]); return; }
     const q = entity.kind === 'compound'
@@ -291,13 +326,10 @@ export default function Reports() {
     try {
       const { FundStatementDoc, downloadPdf } = await import('@/lib/pdf');
       const periodEnd = range ? range.to : null;
-      const inputs = {
-        units, charges, payments, adjustments, expenses, entries: fundEntries,
-        opening: Number(fund?.opening_balance_usd ?? 0), openingDate: fund?.opening_date ?? null,
-      };
-      const closing = fundPosition(inputs, periodEnd);
+      const closing = fundPosition(fundInputsFor(periodEnd), periodEnd);
       // opening of the period = closing the day before it starts (all-time: the fund's own opening)
-      const before = range ? fundPosition(inputs, new Date(range.from.getTime() - 1)) : null;
+      const beforeAt = range ? new Date(range.from.getTime() - 1) : null;
+      const before = beforeAt ? fundPosition(fundInputsFor(beforeAt), beforeAt) : null;
       const openingOfPeriod = before ? before.cash : closing.opening;
       // flows INSIDE the period = all-time flows at the end minus those before it
       const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -348,10 +380,7 @@ export default function Reports() {
       }, 0));
       const book = buildBook(units, charges, payments, adjustments, null, th);
       // 0106: cash apart from receivables, as of the period end
-      const fundKpi = fundPosition({
-        units, charges, payments, adjustments, expenses, entries: fundEntries,
-        opening: Number(fund?.opening_balance_usd ?? 0), openingDate: fund?.opening_date ?? null,
-      }, periodEnd);
+      const fundKpi = fundPosition(fundInputsFor(periodEnd), periodEnd);
       const unitLabel = (uid: string) => units.find((u) => u.id === uid)?.label ?? '—';
       const el = (
         <BuildingReportDoc

@@ -11,7 +11,7 @@ import { AttachmentLink } from '@/components/ui/AttachmentLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useManagedBuildings } from '@/lib/useManagedBuildings';
 import { computeBalance, computeUnitBalances, adjustmentEffect } from '@/lib/balance';
-import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle, requestLinesAsOf, fundPosition } from '@/lib/reportData';
+import { tenancyHelpers, buildBook, buildUnitBuckets as buildUnitBucketsShared, tenantTitle, requestLinesAsOf, fundPosition, openingsOf } from '@/lib/reportData';
 import { useAmenities, amenityLabel } from '@/lib/amenities';
 import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
 import { composeUsdTotal, usdPartOf, currencyTag, currencyBreakdown, formatLbp } from '@/lib/currency';
@@ -557,19 +557,15 @@ export default function Finance() {
   const position = useMemo(() => {
     const blockMode = entity?.kind === 'compound' && fundScope === 'block';
     const fundsInScope = blockMode ? blockFunds : (fund ? [fund] : []);
-    const openingUsd = round2(fundsInScope.reduce((s, f) => s + Number(f.opening_balance_usd), 0));
-    const openingLbp = round2(fundsInScope.reduce((s, f) => s + Number(f.opening_balance_lbp ?? 0), 0));
-    const openingLbpUsd = round2(fundsInScope.reduce((s, f) => {
-      const l = Number(f.opening_balance_lbp ?? 0); const r = Number(f.opening_lbp_rate ?? 0);
-      return s + (l && r > 0 ? Math.round((l / r) * 100) / 100 : 0);
-    }, 0));
+    // openingsOf honors EACH fund's own opening_date (parity with SQL's op CTE)
+    const op = openingsOf(fundsInScope, asOfDate);
     return fundPosition({
       units, charges, payments, adjustments,
       // block mode: money that names no box counts in no drawer (surfaced below)
       expenses: blockMode ? expenses.filter((e) => e.paid_from_building_id || e.building_id) : expenses,
       entries: blockMode ? fundEntries.filter((e) => e.building_id) : fundEntries,
-      opening: openingUsd, openingDate: fundsInScope.length === 1 ? fundsInScope[0].opening_date ?? null : null,
-      openingLbp, openingLbpUsd,
+      opening: op.opening, openingDate: null,
+      openingLbp: op.openingLbp, openingLbpUsd: op.openingLbpUsd,
     }, asOfDate);
   }, [units, charges, payments, adjustments, expenses, fundEntries, fund, blockFunds, fundScope, entity, asOfDate]);
   // the guard list: expenses whose charges + fund part do not explain the amount
@@ -581,15 +577,16 @@ export default function Finance() {
   // 0153, block mode: compound-level money that names no box
   const unattributedMoney = useMemo(() => {
     if (!(entity?.kind === 'compound' && fundScope === 'block')) return 0;
-    return expenses.filter((e) => !e.building_id && !e.paid_from_building_id).length
-      + fundEntries.filter((e) => !e.building_id && !e.voided_at).length;
-  }, [entity, fundScope, expenses, fundEntries]);
+    const cut = asOfDate ? new Date(asOfDate) : new Date();
+    return expenses.filter((e) => !e.building_id && !e.paid_from_building_id && new Date(e.expense_date) <= cut).length
+      + fundEntries.filter((e) => !e.building_id && !e.voided_at && new Date(e.entry_date) <= cut).length;
+  }, [entity, fundScope, expenses, fundEntries, asOfDate]);
   // 0153, block mode: each block's own drawer
   const blockPositions = useMemo(() => {
     if (!(entity?.kind === 'compound' && fundScope === 'block')) return [];
     return entity.blocks.map((b) => {
       const f = blockFunds.find((x) => x.building_id === b.id) ?? null;
-      const l = Number(f?.opening_balance_lbp ?? 0); const r = Number(f?.opening_lbp_rate ?? 0);
+      const op = openingsOf(f ? [f] : [], asOfDate);
       const pos = fundPosition({
         units: units.filter((u) => u.building_id === b.id),
         charges: charges.filter((c) => c.building_id === b.id),
@@ -597,8 +594,8 @@ export default function Finance() {
         adjustments: adjustments.filter((a) => a.building_id === b.id),
         expenses: expenses.filter((e) => (e.paid_from_building_id ?? e.building_id) === b.id),
         entries: fundEntries.filter((e) => e.building_id === b.id),
-        opening: Number(f?.opening_balance_usd ?? 0), openingDate: f?.opening_date ?? null,
-        openingLbp: l, openingLbpUsd: l && r > 0 ? Math.round((l / r) * 100) / 100 : 0,
+        opening: op.opening, openingDate: null,
+        openingLbp: op.openingLbp, openingLbpUsd: op.openingLbpUsd,
       }, asOfDate);
       return { block: b, pos };
     });

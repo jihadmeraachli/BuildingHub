@@ -78,7 +78,10 @@ export default function Dashboard() {
   // and counts (units, open issues) are taken AS OF its last day — see 0072.
   const [mPeriod, setMPeriod] = useState<'month' | 'year' | 'all'>('all');
   const [mMonth, setMMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  // LOCAL date, not toISOString: in UTC+ (Beirut) the ISO slice of local
+  // midnight lands on the PREVIOUS day, silently dropping the month's last
+  // day from every as-of query (finance review 2026-08-28).
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const { mFrom, mTo } = useMemo(() => {
     const now = new Date();
     if (mPeriod === 'year') return { mFrom: iso(new Date(now.getFullYear(), 0, 1)), mTo: iso(new Date(now.getFullYear(), 11, 31)) };
