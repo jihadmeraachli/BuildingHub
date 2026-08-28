@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Fragment, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send, Gauge, Landmark, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, AlertCircle, Receipt, HandCoins, BookOpen, Paperclip, FileText, Pencil, Download, Scale, Ban, Send, Gauge, Landmark, ArrowDownToLine, ArrowUpFromLine, Coins } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
@@ -330,6 +330,11 @@ export default function Finance() {
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [expFile, setExpFile] = useState<File | null>(null);
   const [payOpen, setPayOpen] = useState(false);
+  // Special charge (postpaid twin of the prepaid off-budget ask): charges
+  // with NO expense behind them - money collected beyond expenses lands in
+  // Reserve (0106: levies are the reserve's only honest feed).
+  const [scOpen, setScOpen] = useState(false);
+  const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: true });
   const [payForm, setPayForm] = useState<PayForm>(newPayForm());
   const [payFile, setPayFile] = useState<File | null>(null);
   const [detailExpense, setDetailExpense] = useState<Expense | null>(null);
@@ -678,6 +683,31 @@ export default function Finance() {
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
   function openPayment() { setEditingPaymentId(null); setEditingTenantId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '', party: 'owner' }); setAdjOpen(true); }
+  function openSpecialCharge() { setScForm({ label: '', amount: '', method: 'by_shares', billTo: 'owner', requestNow: true }); setScOpen(true); }
+  async function saveSpecialCharge() {
+    const amount = round2(Number(scForm.amount) || 0);
+    if (!entity || amount <= 0 || !scForm.label.trim() || units.length === 0) return;
+    setSaving(true);
+    // charges WITHOUT an expense: nothing left the drawer, so what comes in
+    // against these is the building's own money - it lands in Reserve
+    const rows = allocate(amount, units, scForm.method, {}).filter((r) => r.amount !== 0).map((r) => {
+      const billedTo = scForm.billTo === 'tenant' && hasTenant(r.unit_id) ? 'tenant' : 'owner';
+      return {
+        expense_id: null, unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id,
+        category: 'other', description: scForm.label.trim(), amount_usd: r.amount,
+        charge_date: new Date().toISOString().slice(0, 10),
+        billed_to: billedTo, tenant_id: billedTo === 'tenant' ? activeTenantId(r.unit_id) : null,
+        created_by: profile?.id,
+      };
+    });
+    const { error } = await supabase.from('charges').insert(rows);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('finance.specialChargeCreated'));
+    setScOpen(false); loadScope();
+    // hand straight into the existing request cycle, label prefilled
+    if (scForm.requestNow) { setReqLabel(scForm.label.trim()); setReqOpen(true); }
+  }
   function openExpenseEdit(e: Expense) {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
@@ -1307,6 +1337,13 @@ export default function Finance() {
                       <Send size={16} /> {t('finance.requestPayment')}
                     </Button>
                   )}
+                  {/* postpaid only - the prepaid twin lives on the Prepaid page
+                      as the off-budget special charge (same name, same idea) */}
+                  {tab === 'book' && entity && entity.billingMode !== 'dues' && (
+                    <Button variant="secondary" onClick={openSpecialCharge} disabled={units.length === 0}>
+                      <Coins size={16} /> {t('dues.offBudgetAction')}
+                    </Button>
+                  )}
                   {(tab === 'book' || tab === 'payments') && (
                     <Button variant="tinted" onClick={openPayment} disabled={units.length === 0}>
                       <HandCoins size={16} /> {t('finance.recordPayment')}
@@ -1921,6 +1958,33 @@ export default function Finance() {
           loadScope();
         }}
       />
+
+      {/* Special charge (postpaid): bill everyone, no expense behind it */}
+      <Modal open={scOpen} onClose={() => setScOpen(false)} title={t('dues.offBudgetTitle')}>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">{t('finance.specialChargeHint')}</p>
+          <Input label={t('dues.offBudgetLabel')} value={scForm.label} onChange={(e) => setScForm({ ...scForm, label: e.target.value })} placeholder={t('dues.offBudgetPlaceholder')} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('dues.offBudgetTotal')} type="number" step="0.01" min="0" value={scForm.amount} onChange={(e) => setScForm({ ...scForm, amount: e.target.value })} />
+            <SelectField label={t('dues.method')} value={scForm.method} onValueChange={(v) => setScForm({ ...scForm, method: v as AllocationMethod })}>
+              <SelectItem value="by_shares">{t('dues.methods.by_shares')}</SelectItem>
+              <SelectItem value="equal">{t('dues.methods.equal')}</SelectItem>
+            </SelectField>
+          </div>
+          <SelectField label={t('dues.offBudgetBillTo')} value={scForm.billTo} onValueChange={(v) => setScForm({ ...scForm, billTo: v as Tenure })}>
+            <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
+            <SelectItem value="tenant">{t('dues.billToTenant')}</SelectItem>
+          </SelectField>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" className="accent-primary" checked={scForm.requestNow} onChange={(e) => setScForm({ ...scForm, requestNow: e.target.checked })} />
+            {t('finance.specialChargeRequestNow')}
+          </label>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setScOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={saveSpecialCharge} loading={saving} disabled={!scForm.label.trim() || !(Number(scForm.amount) > 0)}>{t('common.save')}</Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={payOpen} onClose={() => setPayOpen(false)} title={editingPaymentId ? t('finance.editPayment') : t('finance.recordPayment')}>
         <div className="space-y-4">

@@ -32,6 +32,15 @@ less than a tester code, and the hidden pages stay hidden to it.)
 
 ### 28 August 2026 (later) — billing modes renamed for humans
 
+**Special charge for POSTPAID buildings** (same commit-day): Finance -> book
+tab gains "Add special charge" - charges with NO expense behind them, the
+reserve's only honest feed (0106). Split by shares/equal, billed to owners or
+tenants-where-leased, optional immediate payment request (prefills the
+existing request modal). The prepaid twin was always the off-budget special
+charge on the Prepaid page; same name, same idea, both modes covered. Never
+record a reserve collection as an expense (reduces cash) or a lone fund-entry
+income (no per-unit billing/statements).
+
 Everything user-facing now says **Postpaid** (was "Arrears" - billed for
 actual costs) and **Prepaid** (was "Dues" - fixed amounts up front); the
 telecom pair every Lebanese user already knows. DISPLAY ONLY: the DB keeps
