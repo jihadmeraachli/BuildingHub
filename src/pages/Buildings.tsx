@@ -891,6 +891,7 @@ function ExpenseTypesManager({ scopeKind, scopeId }: { scopeKind: 'compound' | '
   const { t } = useTranslation();
   const { types, reload } = useExpenseTypes(scopeKind, scopeId);
   const [newName, setNewName] = useState('');
+  const [newMetered, setNewMetered] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function add() {
@@ -901,10 +902,11 @@ function ExpenseTypesManager({ scopeKind, scopeId }: { scopeKind: 'compound' | '
       building_id: scopeKind === 'building' ? scopeId : null,
       compound_id: scopeKind === 'compound' ? scopeId : null,
       name, sort_order: 100,
+      is_metered: newMetered,
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    setNewName(''); reload();
+    setNewName(''); setNewMetered(false); reload();
   }
 
   async function patch(id: string, fields: Partial<ExpenseType>) {
@@ -922,11 +924,13 @@ function ExpenseTypesManager({ scopeKind, scopeId }: { scopeKind: 'compound' | '
           <div key={ty.id} className={cn('flex items-center justify-between gap-2 py-1.5 text-sm', !ty.active && 'opacity-50')}>
             <span className="text-foreground truncate">{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</span>
             <span className="flex items-center gap-3 shrink-0 text-xs">
-              <label className="flex items-center gap-1 cursor-pointer text-muted-foreground">
-                <input type="checkbox" className="accent-primary" checked={ty.is_metered}
-                  onChange={(e) => patch(ty.id, { is_metered: e.target.checked })} />
-                {t('buildings.metered')}
-              </label>
+              {(ty.key === 'water' || ty.is_metered || /generator|moteur|مولد|موتور/i.test(ty.name)) && (
+                <label className="flex items-center gap-1 cursor-pointer text-muted-foreground">
+                  <input type="checkbox" className="accent-primary" checked={ty.is_metered}
+                    onChange={(e) => patch(ty.id, { is_metered: e.target.checked })} />
+                  {t('buildings.metered')}
+                </label>
+              )}
               <button type="button" onClick={() => patch(ty.id, { active: !ty.active })}
                 className="text-primary hover:underline cursor-pointer">
                 {ty.active ? t('buildings.typeDisable') : t('buildings.typeEnable')}
@@ -940,6 +944,11 @@ function ExpenseTypesManager({ scopeKind, scopeId }: { scopeKind: 'compound' | '
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
           placeholder={t('buildings.newTypePlaceholder')}
           className="flex-1 rounded-lg border border-border bg-background text-foreground px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40" />
+        <label className="flex items-center gap-1 shrink-0 cursor-pointer text-xs text-muted-foreground">
+          <input type="checkbox" className="accent-primary" checked={newMetered}
+            onChange={(e) => setNewMetered(e.target.checked)} />
+          {t('buildings.metered')}
+        </label>
         <Button type="button" variant="secondary" size="sm" onClick={add} loading={busy} disabled={!newName.trim()}>
           {t('common.add')}
         </Button>
