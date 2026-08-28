@@ -30,6 +30,25 @@ less than a tester code, and the hidden pages stay hidden to it.)
 
 ## 1. TL;DR — what this iteration did
 
+### 28 August 2026 — community features, reviews, and a live-verified drawer
+
+Shipped: **Lost & Found** (0154) and **Voting** (0155) with per-scope **voting
+rules** (0156); **cash split USD/LBP + per-block fund scope** (0153); Balances
+import rewritten onto `units.opening_balance`. Two formal review passes ran
+over the arc: **/security-review — no confirmed findings** (secret ballots
+row-unreadable, sealed RPC doors verified), and a **two-auditor finance
+review** whose fixes shipped as **0157** (strict import money parsing,
+Reports/PDF 0153 alignment, SQL/client-twin parity, rounding + timezone).
+
+**Migrations 0153–0157 are ALL APPLIED in prod** (Jey, 27–28 Aug). Live probe
+verified on real data: cash $205.67 = USD drawer $185.67 + LL 1,790,000 @
+89,500 (= $20.00) — **zero cents of drift**. SQL-editor gotcha: fund_position
+is auth-gated; probe with the request.jwt.claims set_config wrapper.
+
+Next up: QA session (28 Aug evening) → Apple Developer enrollment with DUNS
+557923160 (from ~1 Sep) → chase Whish merchant keys (revenue blocker) →
+decide what an UNLICENSED unit loses (0150 phase 2) before Whish go-live.
+
 ### 27 August 2026 — Balances-only import (AI expenses import retired)
 
 Import tab 4 is now **Balances**: one number per existing unit (positive =
