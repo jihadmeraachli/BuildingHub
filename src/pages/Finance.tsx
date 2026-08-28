@@ -337,6 +337,9 @@ export default function Finance() {
   const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: true, days: '7' });
   interface SpecialCharge { id: string; label: string; total_usd: number; method: string; billed_to: string; created_at: string; voided_at: string | null; }
   const [specialCharges, setSpecialCharges] = useState<SpecialCharge[]>([]);
+  // 0159: trashed units keep their financial history; their labels come from
+  // a manager-gated RPC (RLS hides the rows themselves)
+  const [deletedUnits, setDeletedUnits] = useState<Record<string, string>>({});
   const [payForm, setPayForm] = useState<PayForm>(newPayForm());
   const [payFile, setPayFile] = useState<File | null>(null);
   const [detailExpense, setDetailExpense] = useState<Expense | null>(null);
@@ -421,6 +424,8 @@ export default function Finance() {
       const scFilter = entity.kind === 'compound' ? `compound_id.eq.${entity.id}` : `building_id.eq.${entity.id}`;
       const { data: scs } = await supabase.from('special_charges').select('*').or(scFilter).order('created_at', { ascending: false }).limit(20);
       setSpecialCharges((scs ?? []) as typeof specialCharges);
+      const { data: dus } = await supabase.rpc('deleted_unit_labels', { p_building_ids: blocks });
+      setDeletedUnits(Object.fromEntries(((dus ?? []) as { id: string; label: string }[]).map((d) => [d.id, d.label])));
     }
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
@@ -526,7 +531,11 @@ export default function Finance() {
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
     const u = unitById[uid];
-    if (!u) return '—';
+    if (!u) {
+      // a trashed unit's history stays on the books (0159) - name it
+      const dl = deletedUnits[uid];
+      return dl ? `${dl} · ${t('finance.deletedUnit')}` : '—';
+    }
     return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
   };
 

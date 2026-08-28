@@ -506,17 +506,6 @@ export default function Structure() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Input label={t('structure.shareWeight')} type="number" step="0.01" min="0" value={unitForm.share_weight} onChange={(e) => setUnitForm({ ...unitForm, share_weight: e.target.value })} />
-              {/* The share decides how every expense splits, so it is worth
-                  being able to say where it comes from. Shown on the Nizam
-                  page beside the document that fixes it (0103). */}
-              <Input
-                className="mt-2"
-                label={t('structure.shareSourceRef')}
-                placeholder="art. 7"
-                value={unitForm.share_source_ref}
-                onChange={(e) => setUnitForm({ ...unitForm, share_source_ref: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground mt-1">{t('structure.shareSourceRefHint')}</p>
             </div>
             <SelectField label={t('structure.occupancy')} value={unitForm.occupancy} onValueChange={(v) => setUnitForm({ ...unitForm, occupancy: v as Occupancy })}>
               <SelectItem value="occupied">{t('structure.occupied')}</SelectItem>
