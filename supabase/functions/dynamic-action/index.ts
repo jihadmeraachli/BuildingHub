@@ -906,24 +906,12 @@ Deno.serve(async (req) => {
     // repost_expense()/repost_metered_expense() — a re-post of an EXISTING
     // expense, not a new one. Without this, fixing a typo on an expense
     // re-fired this exact email to every resident on it.
-    if (tbl === 'charges' && type === 'INSERT' && !record.notify_suppressed) {
-      const b = await getBuilding(record.building_id);
-      // legacy billed_to='both' means owner; only 'tenant' routes to the tenant.
-      const chargeRecipients = await unitPartyIds(record.unit_id, record.billed_to === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
-      await emailToUserIds(chargeRecipients, (L) => ({
-        subject: L.charge.subj(record.description || L.charge.fallback),
-        html: emailHtml(L, L.charge.title,
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.charge.intro}</p>
-           ${table(row(L.charge.rDescription, esc(record.description || '—')) + row(L.charge.rCategory, esc(L.category[record.category] ?? record.category)) + row(L.charge.rAmount, money(record.amount_usd)))}
-           ${b?.whish_number ? `<p style="color:#475569;font-size:14px;line-height:1.6;margin:12px 0 0;">${L.whish(esc(b.whish_number))}</p>` : ''}`,
-          L.ctaAccount, `${APP_URL}/finance`),
-      }), b?.name ?? 'Abniyah');
-      const { data: chargeUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
-      await whatsappToUserIds(chargeRecipients, 'abniyah_new_charge',
-        (name, lang) => {
-          const base = [name, money(record.amount_usd), chargeUnit?.label ?? '—', b?.name ?? '—'];
-          return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
-        });
+    // (changed 2026-08-29, Jey's QA) New-charge external pings are OFF: a
+    // charge is a ledger line, not an ask - "pay via whish" belongs to
+    // payment REQUESTS and prepaid asks, which keep their email/WhatsApp.
+    // The in-app bell still fires per charge (DB trigger, 0009/0067).
+    if (tbl === 'charges' && type === 'INSERT') {
+      // intentionally silent
     }
 
     // 5. Payment recorded (v3 finance) → the PAYING party only (receipt)

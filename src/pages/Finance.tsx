@@ -334,7 +334,9 @@ export default function Finance() {
   // with NO expense behind them - money collected beyond expenses lands in
   // Reserve (0106: levies are the reserve's only honest feed).
   const [scOpen, setScOpen] = useState(false);
-  const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: true });
+  const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: true, days: '7' });
+  interface SpecialCharge { id: string; label: string; total_usd: number; method: string; billed_to: string; created_at: string; voided_at: string | null; }
+  const [specialCharges, setSpecialCharges] = useState<SpecialCharge[]>([]);
   const [payForm, setPayForm] = useState<PayForm>(newPayForm());
   const [payFile, setPayFile] = useState<File | null>(null);
   const [detailExpense, setDetailExpense] = useState<Expense | null>(null);
@@ -415,6 +417,10 @@ export default function Finance() {
         : `building_id.eq.${entity.id}`;
       const { data: pr } = await supabase.from('projects').select('*').or(pFilter).order('created_at', { ascending: false });
       setProjects((pr as Project[]) ?? []);
+      // 0158: the entity's special charges (listed + voidable on Expenses)
+      const scFilter = entity.kind === 'compound' ? `compound_id.eq.${entity.id}` : `building_id.eq.${entity.id}`;
+      const { data: scs } = await supabase.from('special_charges').select('*').or(scFilter).order('created_at', { ascending: false }).limit(20);
+      setSpecialCharges((scs ?? []) as typeof specialCharges);
     }
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
@@ -683,30 +689,35 @@ export default function Finance() {
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
   function openPayment() { setEditingPaymentId(null); setEditingTenantId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '', party: 'owner' }); setAdjOpen(true); }
-  function openSpecialCharge() { setScForm({ label: '', amount: '', method: 'by_shares', billTo: 'owner', requestNow: true }); setScOpen(true); }
+  function openSpecialCharge() { setScForm({ label: '', amount: '', method: 'by_shares', billTo: 'owner', requestNow: true, days: '7' }); setScOpen(true); }
   async function saveSpecialCharge() {
     const amount = round2(Number(scForm.amount) || 0);
     if (!entity || amount <= 0 || !scForm.label.trim() || units.length === 0) return;
     setSaving(true);
-    // charges WITHOUT an expense: nothing left the drawer, so what comes in
-    // against these is the building's own money - it lands in Reserve
-    const rows = allocate(amount, units, scForm.method, {}).filter((r) => r.amount !== 0).map((r) => {
-      const billedTo = scForm.billTo === 'tenant' && hasTenant(r.unit_id) ? 'tenant' : 'owner';
-      return {
-        expense_id: null, unit_id: r.unit_id, building_id: unitById[r.unit_id]?.building_id,
-        category: 'other', description: scForm.label.trim(), amount_usd: r.amount,
-        charge_date: new Date().toISOString().slice(0, 10),
-        billed_to: billedTo, tenant_id: billedTo === 'tenant' ? activeTenantId(r.unit_id) : null,
-        created_by: profile?.id,
-      };
+    // 0158: one sealed RPC - inserts the charges (block/party/tenant derived
+    // server-side) and issues the NETTED request in the same transaction:
+    // each unit is asked LEAST(its slice, what it actually owes) - old
+    // arrears are never dragged in, credit absorbs first, credit-rich units
+    // are not chased at all.
+    const rows = allocate(amount, units, scForm.method, {}).filter((r) => r.amount > 0)
+      .map((r) => ({ unit_id: r.unit_id, amount: r.amount }));
+    const { error } = await supabase.rpc('create_special_charge', {
+      p_scope_type: entity.kind, p_scope_id: entity.id,
+      p_label: scForm.label.trim(), p_rows: rows,
+      p_method: scForm.method, p_billed_to: scForm.billTo,
+      p_request: scForm.requestNow, p_due_days: Number(scForm.days) || null,
     });
-    const { error } = await supabase.from('charges').insert(rows);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('finance.specialChargeCreated'));
     setScOpen(false); loadScope();
-    // hand straight into the existing request cycle, label prefilled
-    if (scForm.requestNow) { setReqLabel(scForm.label.trim()); setReqOpen(true); }
+  }
+  async function voidSpecialCharge(sc: { id: string; label: string }) {
+    if (!(await confirmAsync(t('finance.specialChargeVoidTitle'), t('finance.specialChargeVoidBody', { label: sc.label })))) return;
+    const { error } = await supabase.rpc('void_special_charge', { p_id: sc.id });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('finance.specialChargeVoided'));
+    loadScope();
   }
   function openExpenseEdit(e: Expense) {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
@@ -1592,6 +1603,29 @@ export default function Finance() {
                 </>
               )}
 
+              {tab === 'expenses' && specialCharges.length > 0 && (
+                <Card className="mb-4"><CardBody className="py-3">
+                  <p className="text-sm font-semibold text-foreground mb-1">{t('finance.specialCharges')}</p>
+                  <div className="divide-y divide-border/60">
+                    {specialCharges.map((sc) => (
+                      <div key={sc.id} className={`flex items-center justify-between gap-3 py-2 text-sm ${sc.voided_at ? 'opacity-50' : ''}`}>
+                        <span className="min-w-0">
+                          <span className="font-medium text-foreground truncate">{sc.label}</span>
+                          <span className="text-xs text-muted-foreground"> · {fmtDate(sc.created_at, 'dd-MM-yyyy')} · {sc.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner')}</span>
+                          {sc.voided_at && <Badge variant="slate" className="ms-2">{t('finance.voided')}</Badge>}
+                        </span>
+                        <span className="flex items-center gap-3 shrink-0">
+                          <span className="tnum font-semibold">{money(Number(sc.total_usd))}</span>
+                          {!sc.voided_at && canManageFinance && (
+                            <button type="button" onClick={() => voidSpecialCharge(sc)}
+                              className="text-xs text-muted-foreground hover:text-red-500 inline-flex items-center gap-1"><Ban size={12} /> {t('finance.void')}</button>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardBody></Card>
+              )}
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
@@ -1713,7 +1747,9 @@ export default function Finance() {
                 const cat = legacyCategoryFor(ty) as ExpenseCategory;
                 setExpForm({ ...expForm, expense_type_id: ty?.id ?? '', category: cat, leasedTo: defaultLeasedTo(cat) });
               }}>
-              {activeTypes.map((ty) => <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>)}
+              {/* metered types post through Metering cycles - offering them
+                  here only invites double entry */}
+              {activeTypes.filter((ty) => !ty.is_metered).map((ty) => <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>)}
               {/* legacy fallback while the catalog loads */}
               {activeTypes.length === 0 && CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`finance.cats.${c}`)}</SelectItem>)}
             </SelectField>
@@ -1975,10 +2011,22 @@ export default function Finance() {
             <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
             <SelectItem value="tenant">{t('dues.billToTenant')}</SelectItem>
           </SelectField>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" className="accent-primary" checked={scForm.requestNow} onChange={(e) => setScForm({ ...scForm, requestNow: e.target.checked })} />
-            {t('finance.specialChargeRequestNow')}
-          </label>
+          <div className="flex items-center gap-4 flex-wrap">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" className="accent-primary" checked={scForm.requestNow} onChange={(e) => setScForm({ ...scForm, requestNow: e.target.checked })} />
+              {t('finance.specialChargeRequestNow')}
+            </label>
+            {scForm.requestNow && (
+              <div className="w-36">
+                <SelectField label={t('buildings.dueDays')} value={scForm.days} onValueChange={(v) => setScForm({ ...scForm, days: v })}>
+                  {[1, 2, 3, 5, 7, 10, 14, 21, 30].map((d) => (
+                    <SelectItem key={d} value={String(d)}>{t('buildings.dueDaysN', { count: d })}</SelectItem>
+                  ))}
+                </SelectField>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">{t('finance.specialChargeNetHint')}</p>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setScOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={saveSpecialCharge} loading={saving} disabled={!scForm.label.trim() || !(Number(scForm.amount) > 0)}>{t('common.save')}</Button>
