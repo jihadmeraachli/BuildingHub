@@ -278,6 +278,10 @@ export interface Expense {
   scope_type: AllocationScope;
   method: AllocationMethod;
   invoice_url: string | null;
+  /** money records are voided, never deleted (0161) */
+  voided_at?: string | null;
+  voided_by?: string | null;
+  void_reason?: string | null;
   /** Part NOT billed to units — paid from the building's own money (0106).
    *  charges + this = amount_usd. 0 = fully billed to residents. */
   funded_by_fund_usd?: number;

@@ -894,7 +894,7 @@ export function fundPosition(inp: FundInputs, asOf?: string | Date | null): Fund
 
   const pRows = inp.payments.filter((p) => live(p) && within(p.paid_on));
   const inRows = inp.entries.filter((e) => e.kind === 'income' && live(e) && within(e.entry_date));
-  const pExp = inp.expenses.filter((e) => within(e.expense_date));
+  const pExp = inp.expenses.filter((e) => live(e) && within(e.expense_date));
   const outRows = inp.entries.filter((e) => e.kind === 'outflow' && live(e) && within(e.entry_date));
   const refRows = inp.adjustments.filter((a) => a.kind === 'refund' && live(a) && within(a.effective_date));
 

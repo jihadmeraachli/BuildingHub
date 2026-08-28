@@ -147,7 +147,7 @@ export default function Finance() {
   // Defaults to the latest tenant once tenancy loads (see effect below).
   const [residentView, setResidentView] = useState<string>('combined');
   // void (soft-cancel) + adjustments (0034)
-  const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments' | 'fund_entries'; id: string; label: string } | null>(null);
+  const [voidTarget, setVoidTarget] = useState<{ table: 'payments' | 'charges' | 'adjustments' | 'fund_entries' | 'expenses'; id: string; label: string } | null>(null);
   const { confirmAsync, ConfirmDialog } = useConfirm();
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
@@ -336,6 +336,7 @@ export default function Finance() {
   const [scOpen, setScOpen] = useState(false);
   const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: false, days: '7' });
   const [scEditing, setScEditing] = useState<SpecialCharge | null>(null);
+  const [scDetail, setScDetail] = useState<SpecialCharge | null>(null);
   interface SpecialCharge { id: string; label: string; total_usd: number; method: string; billed_to: string; created_at: string; voided_at: string | null; }
   const [specialCharges, setSpecialCharges] = useState<SpecialCharge[]>([]);
   // 0159: trashed units keep their financial history; their labels come from
@@ -595,7 +596,7 @@ export default function Finance() {
   const unreconciledExpenses = useMemo(() => {
     const billed = new Map<string, number>();
     charges.forEach((c) => { if (c.expense_id && !c.voided_at) billed.set(c.expense_id, (billed.get(c.expense_id) ?? 0) + Number(c.amount_usd)); });
-    return expenses.filter((e) => Math.abs(Number(e.amount_usd) - (billed.get(e.id) ?? 0) - Number(e.funded_by_fund_usd ?? 0)) > 0.005);
+    return expenses.filter((e) => !e.voided_at && Math.abs(Number(e.amount_usd) - (billed.get(e.id) ?? 0) - Number(e.funded_by_fund_usd ?? 0)) > 0.005);
   }, [charges, expenses]);
   // 0153, block mode: compound-level money that names no box
   const unattributedMoney = useMemo(() => {
@@ -745,6 +746,7 @@ export default function Finance() {
     loadScope();
   }
   function openExpenseEdit(e: Expense) {
+    if (e.voided_at) { toast.error(t('finance.voidedNoEdit')); return; }
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
@@ -892,17 +894,12 @@ export default function Finance() {
     setSaving(false); setExpOpen(false); loadScope();
   }
 
-  async function deleteExpense(id: string) {
-    const e = expenses.find((x) => x.id === id);
-    const msg = e?.is_extraordinary
-      ? t('finance.deleteExtraordinaryConfirm')
-      : e?.meter_cycle_id
-        ? t('finance.deleteMeteredConfirm')
-        : t('finance.deleteExpenseConfirm');
-    if (!(await confirmAsync(t('finance.deleteExpenseTitle'), msg))) return;
-    const { error } = await supabase.from('expenses').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
-    setDetailExpense(null); loadScope();
+  // money records are voided, never deleted (0161): the RPC voids the
+  // expense AND its charges, cancels its extraordinary ask, notifies.
+  function voidExpense(e: Expense) {
+    if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
+    setDetailExpense(null); setVoidReason('');
+    setVoidTarget({ table: 'expenses', id: e.id, label: `${e.description} · ${money(Number(e.amount_usd))}` });
   }
 
   // Void = soft-cancel that keeps the record for audit (replaces hard delete).
@@ -910,7 +907,11 @@ export default function Finance() {
     if (!voidTarget) return;
     setVoiding(true);
     const patch = { voided_at: new Date().toISOString(), voided_by: profile?.id ?? null, void_reason: voidReason.trim() || null };
-    const { error } = await supabase.from(voidTarget.table).update(patch).eq('id', voidTarget.id);
+    // an expense void must cascade (its charges, its extraordinary ask) -
+    // that lives in the sealed RPC, not a bare column update (0161)
+    const { error } = voidTarget.table === 'expenses'
+      ? await supabase.rpc('void_expense', { p_id: voidTarget.id, p_reason: voidReason.trim() || null })
+      : await supabase.from(voidTarget.table).update(patch).eq('id', voidTarget.id);
     setVoiding(false);
     if (error) { toast.error(error.message); return; }
     toast.success(t('finance.voided'));
@@ -1360,7 +1361,14 @@ export default function Finance() {
               {canManageFinance && (
                 <>
                   {tab === 'adjustments' && (
-                    <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.recordAdjustment')}</Button>
+                    <>
+                      <Button variant="secondary" onClick={openAdjustment} disabled={units.length === 0}><Scale size={16} /> {t('finance.recordAdjustment')}</Button>
+                      {/* the contribution: postpaid direct billing, no expense
+                          behind it - the prepaid twin is the off-budget ask */}
+                      {entity && entity.billingMode !== 'dues' && (
+                        <Button variant="tinted" onClick={openSpecialCharge} disabled={units.length === 0}><Coins size={16} /> {t('finance.contributionAdd')}</Button>
+                      )}
+                    </>
                   )}
                   {tab === 'fund' && (
                     <>
@@ -1378,13 +1386,6 @@ export default function Finance() {
                   {tab === 'book' && entity && entity.billingMode !== 'dues' && (
                     <Button variant="secondary" onClick={() => setReqOpen(true)} disabled={units.length === 0}>
                       <Send size={16} /> {t('finance.requestPayment')}
-                    </Button>
-                  )}
-                  {/* postpaid only - the prepaid twin lives on the Prepaid page
-                      as the off-budget special charge (same name, same idea) */}
-                  {tab === 'book' && entity && entity.billingMode !== 'dues' && (
-                    <Button variant="secondary" onClick={openSpecialCharge} disabled={units.length === 0}>
-                      <Coins size={16} /> {t('dues.offBudgetAction')}
                     </Button>
                   )}
                   {(tab === 'book' || tab === 'payments') && (
@@ -1635,43 +1636,6 @@ export default function Finance() {
                 </>
               )}
 
-              {tab === 'expenses' && specialCharges.length > 0 && (
-                <Card className="mb-4">
-                  <div className="px-5 pt-4 pb-1 text-sm font-semibold text-foreground">{t('finance.specialCharges')}</div>
-                  <div className="overflow-x-auto"><table className="w-full text-sm">
-                    <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
-                      <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
-                      <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
-                      <th className="px-5 py-3 text-start font-medium">{t('dues.offBudgetBillTo')}</th>
-                      <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
-                      {canManageFinance && <th className="px-5 py-3" />}
-                    </tr></thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {specialCharges.map((sc) => (
-                        <tr key={sc.id} className={sc.voided_at ? 'opacity-50' : ''}>
-                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(sc.created_at, 'dd-MM-yyyy')}</td>
-                          <td className="px-5 py-3 font-medium text-foreground dark:text-white">
-                            {sc.label}
-                            {sc.voided_at && <Badge variant="slate" className="ms-2">{t('finance.voided')}</Badge>}
-                          </td>
-                          <td className="px-5 py-3 text-muted-foreground">{sc.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner')}</td>
-                          <td className="px-5 py-3 text-end font-semibold tnum">{money(Number(sc.total_usd))}</td>
-                          {canManageFinance && (
-                            <td className="px-5 py-3 text-end whitespace-nowrap">
-                              {!sc.voided_at && (
-                                <>
-                                  <button type="button" onClick={() => openSpecialChargeEdit(sc)} className="p-1.5 rounded-lg text-primary hover:bg-accent cursor-pointer" title={t('finance.specialChargeEditTitle')}><Pencil size={15} /></button>
-                                  <button type="button" onClick={() => voidSpecialCharge(sc)} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
-                                </>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table></div>
-                </Card>
-              )}
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
@@ -1683,9 +1647,11 @@ export default function Finance() {
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pExpenses.map((e) => (
-                      <tr key={e.id} onClick={() => setDetailExpense(e)} className="hover:bg-primary/5 cursor-pointer">
+                      <tr key={e.id} onClick={() => setDetailExpense(e)} className={`hover:bg-primary/5 cursor-pointer ${e.voided_at ? 'opacity-45' : ''}`}>
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.expense_date, 'dd-MM-yyyy')}</td>
-                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}{e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}
+                        <td className="px-5 py-3 font-medium text-foreground dark:text-white"><span className="inline-flex items-center gap-1.5">{e.description}
+                          {e.voided_at && <span className="text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
+                          {e.invoice_url && <Paperclip size={13} className="text-muted-foreground" />}
                           {/* 0106: who bore it. Only shown when the fund did, fully or partly. */}
                           {e.project_id && projects.find((p) => p.id === e.project_id) && (
                             <Badge variant="indigo">{projects.find((p) => p.id === e.project_id)?.title}</Badge>
@@ -1695,7 +1661,7 @@ export default function Finance() {
                           )}</span></td>
                         <td className="px-5 py-3"><Badge>{typeLabel(e)}</Badge></td>
                         <td className="px-5 py-3 text-foreground dark:text-white text-xs">{e.building_id ? blockName[e.building_id] ?? t('finance.aBlock') : (e.compound_id ? t('finance.wholeCompound') : e.scope_type)} · {e.method.replace('_', ' ')}</td>
-                        <td className="px-5 py-3 text-end font-semibold text-foreground dark:text-white tnum">{currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}{money(Number(e.amount_usd))}</td>
+                        <td className={`px-5 py-3 text-end font-semibold tnum ${e.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}{money(Number(e.amount_usd))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1741,6 +1707,43 @@ export default function Finance() {
                 </table></div></Card>
               ))}
 
+              {tab === 'adjustments' && specialCharges.length > 0 && (
+                <Card className="mb-4">
+                  <div className="px-5 pt-4 pb-1 text-sm font-semibold text-foreground">{t('finance.specialCharges')}</div>
+                  <div className="overflow-x-auto"><table className="w-full text-sm">
+                    <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                      <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
+                      <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
+                      <th className="px-5 py-3 text-start font-medium">{t('dues.offBudgetBillTo')}</th>
+                      <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
+                      {canManageFinance && <th className="px-5 py-3 w-8" />}
+                    </tr></thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {specialCharges.map((sc) => (
+                        <tr key={sc.id} onClick={() => setScDetail(sc)} className={`hover:bg-primary/5 cursor-pointer ${sc.voided_at ? 'opacity-45' : ''}`}>
+                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(sc.created_at, 'dd-MM-yyyy')}</td>
+                          <td className="px-5 py-3 font-medium text-foreground dark:text-white">
+                            {sc.label}
+                            {sc.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
+                          </td>
+                          <td className="px-5 py-3 text-muted-foreground">{sc.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner')}</td>
+                          <td className={`px-5 py-3 text-end font-semibold tnum ${sc.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{money(Number(sc.total_usd))}</td>
+                          {canManageFinance && (
+                            <td className="px-3 py-3 text-end whitespace-nowrap">
+                              {!sc.voided_at && (
+                                <>
+                                  <button type="button" onClick={(ev) => { ev.stopPropagation(); openSpecialChargeEdit(sc); }} className="p-1.5 rounded-lg text-primary hover:bg-accent cursor-pointer" title={t('finance.specialChargeEditTitle')}><Pencil size={15} /></button>
+                                  <button type="button" onClick={(ev) => { ev.stopPropagation(); voidSpecialCharge(sc); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
+                                </>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table></div>
+                </Card>
+              )}
               {tab === 'adjustments' && (pAdjustments.length === 0 ? <Empty body={t('finance.noAdjustments')} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
@@ -2042,7 +2045,32 @@ export default function Finance() {
       />
 
       {/* Special charge (postpaid): bill everyone, no expense behind it */}
-      <Modal open={scOpen} onClose={() => setScOpen(false)} title={scEditing ? t('finance.specialChargeEditTitle') : t('dues.offBudgetTitle')}>
+      {/* contribution detail - row-click parity with expenses/payments */}
+      <Modal open={!!scDetail} onClose={() => setScDetail(null)} title={scDetail?.label ?? ''}>
+        {scDetail && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { l: t('finance.date'), v: fmtDate(scDetail.created_at, 'dd-MM-yyyy') },
+                { l: t('finance.amount'), v: money(Number(scDetail.total_usd)) },
+                { l: t('dues.offBudgetBillTo'), v: scDetail.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner') },
+                { l: t('dues.method'), v: scDetail.method === 'equal' ? t('dues.methods.equal') : t('dues.methods.by_shares') },
+              ].map((x) => (
+                <div key={x.l}><p className="text-xs text-muted-foreground">{x.l}</p><p className="text-sm font-medium text-foreground mt-0.5">{x.v}</p></div>
+              ))}
+            </div>
+            {scDetail.voided_at && <Badge variant="slate">{t('finance.voided')}</Badge>}
+            {!scDetail.voided_at && canManageFinance && (
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => { const sc = scDetail; setScDetail(null); openSpecialChargeEdit(sc); }}><Pencil size={15} /> {t('finance.specialChargeEditTitle')}</Button>
+                <Button variant="danger" onClick={() => { const sc = scDetail; setScDetail(null); voidSpecialCharge(sc); }}><Ban size={15} /> {t('finance.void')}</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={scOpen} onClose={() => setScOpen(false)} title={scEditing ? t('finance.specialChargeEditTitle') : t('finance.contributionTitle')}>
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{t('finance.specialChargeHint')}</p>
           <Input label={t('dues.offBudgetLabel')} value={scForm.label} onChange={(e) => setScForm({ ...scForm, label: e.target.value })} placeholder={t('dues.offBudgetPlaceholder')} />
@@ -2243,7 +2271,7 @@ export default function Finance() {
             </div>
             {canManageFinance && (
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <Button variant="danger" onClick={() => deleteExpense(detailExpense.id)}>{t('common.delete')}</Button>
+                {!detailExpense.voided_at && <Button variant="danger" onClick={() => voidExpense(detailExpense)}><Ban size={15} /> {t('finance.void')}</Button>}
                 <Button variant="secondary" onClick={() => openExpenseEdit(detailExpense)}>{t('common.edit')}</Button>
               </div>
             )}
