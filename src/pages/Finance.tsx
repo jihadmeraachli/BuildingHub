@@ -334,7 +334,8 @@ export default function Finance() {
   // with NO expense behind them - money collected beyond expenses lands in
   // Reserve (0106: levies are the reserve's only honest feed).
   const [scOpen, setScOpen] = useState(false);
-  const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: true, days: '7' });
+  const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: false, days: '7' });
+  const [scEditing, setScEditing] = useState<SpecialCharge | null>(null);
   interface SpecialCharge { id: string; label: string; total_usd: number; method: string; billed_to: string; created_at: string; voided_at: string | null; }
   const [specialCharges, setSpecialCharges] = useState<SpecialCharge[]>([]);
   // 0159: trashed units keep their financial history; their labels come from
@@ -700,7 +701,12 @@ export default function Finance() {
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
   function openPayment() { setEditingPaymentId(null); setEditingTenantId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '', party: 'owner' }); setAdjOpen(true); }
-  function openSpecialCharge() { setScForm({ label: '', amount: '', method: 'by_shares', billTo: 'owner', requestNow: true, days: '7' }); setScOpen(true); }
+  function openSpecialCharge() { setScEditing(null); setScForm({ label: '', amount: '', method: 'by_shares', billTo: 'owner', requestNow: false, days: '7' }); setScOpen(true); }
+  function openSpecialChargeEdit(sc: SpecialCharge) {
+    setScEditing(sc);
+    setScForm({ label: sc.label, amount: String(sc.total_usd), method: sc.method as AllocationMethod, billTo: sc.billed_to as Tenure, requestNow: false, days: '7' });
+    setScOpen(true);
+  }
   async function saveSpecialCharge() {
     const amount = round2(Number(scForm.amount) || 0);
     if (!entity || amount <= 0 || !scForm.label.trim() || units.length === 0) return;
@@ -712,15 +718,23 @@ export default function Finance() {
     // are not chased at all.
     const rows = allocate(amount, units, scForm.method, {}).filter((r) => r.amount > 0)
       .map((r) => ({ unit_id: r.unit_id, amount: r.amount }));
-    const { error } = await supabase.rpc('create_special_charge', {
-      p_scope_type: entity.kind, p_scope_id: entity.id,
-      p_label: scForm.label.trim(), p_rows: rows,
-      p_method: scForm.method, p_billed_to: scForm.billTo,
-      p_request: scForm.requestNow, p_due_days: Number(scForm.days) || null,
-    });
+    // edit = replace, audited (0160): old rows voided, one in-app notice
+    // always; with the request box ticked, the request notification goes out
+    const { error } = scEditing
+      ? await supabase.rpc('update_special_charge', {
+          p_id: scEditing.id, p_label: scForm.label.trim(), p_rows: rows,
+          p_method: scForm.method, p_billed_to: scForm.billTo,
+          p_request: scForm.requestNow, p_due_days: Number(scForm.days) || null,
+        })
+      : await supabase.rpc('create_special_charge', {
+          p_scope_type: entity.kind, p_scope_id: entity.id,
+          p_label: scForm.label.trim(), p_rows: rows,
+          p_method: scForm.method, p_billed_to: scForm.billTo,
+          p_request: scForm.requestNow, p_due_days: Number(scForm.days) || null,
+        });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(t('finance.specialChargeCreated'));
+    toast.success(t(scEditing ? 'finance.specialChargeUpdated' : 'finance.specialChargeCreated'));
     setScOpen(false); loadScope();
   }
   async function voidSpecialCharge(sc: { id: string; label: string }) {
@@ -791,6 +805,13 @@ export default function Finance() {
       });
       setSaving(false);
       if (error) { toast.error(error.message); return; }
+      // extraordinary parity (0160): editing REPLACES the expense's own ask -
+      // amounts stay honest and the request notification announces the change
+      const edited = expenses.find((x) => x.id === editingExpenseId) as (Expense & { is_extraordinary?: boolean }) | undefined;
+      if (edited?.is_extraordinary && entity.billingMode !== 'dues') {
+        const { error: rErr } = await supabase.rpc('request_payment_for_expense', { p_expense: editingExpenseId });
+        if (rErr) toast.error(rErr.message);
+      }
       toast.success(t('finance.expenseSaved'));
       setExpOpen(false); loadScope();
       return;
@@ -1615,27 +1636,41 @@ export default function Finance() {
               )}
 
               {tab === 'expenses' && specialCharges.length > 0 && (
-                <Card className="mb-4"><CardBody className="py-3">
-                  <p className="text-sm font-semibold text-foreground mb-1">{t('finance.specialCharges')}</p>
-                  <div className="divide-y divide-border/60">
-                    {specialCharges.map((sc) => (
-                      <div key={sc.id} className={`flex items-center justify-between gap-3 py-2 text-sm ${sc.voided_at ? 'opacity-50' : ''}`}>
-                        <span className="min-w-0">
-                          <span className="font-medium text-foreground truncate">{sc.label}</span>
-                          <span className="text-xs text-muted-foreground"> · {fmtDate(sc.created_at, 'dd-MM-yyyy')} · {sc.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner')}</span>
-                          {sc.voided_at && <Badge variant="slate" className="ms-2">{t('finance.voided')}</Badge>}
-                        </span>
-                        <span className="flex items-center gap-3 shrink-0">
-                          <span className="tnum font-semibold">{money(Number(sc.total_usd))}</span>
-                          {!sc.voided_at && canManageFinance && (
-                            <button type="button" onClick={() => voidSpecialCharge(sc)}
-                              className="text-xs text-muted-foreground hover:text-red-500 inline-flex items-center gap-1"><Ban size={12} /> {t('finance.void')}</button>
+                <Card className="mb-4">
+                  <div className="px-5 pt-4 pb-1 text-sm font-semibold text-foreground">{t('finance.specialCharges')}</div>
+                  <div className="overflow-x-auto"><table className="w-full text-sm">
+                    <thead><tr className="border-b border-slate-100 text-primary text-xs uppercase tracking-wide">
+                      <th className="px-5 py-3 text-start font-medium">{t('finance.date')}</th>
+                      <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
+                      <th className="px-5 py-3 text-start font-medium">{t('dues.offBudgetBillTo')}</th>
+                      <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
+                      {canManageFinance && <th className="px-5 py-3" />}
+                    </tr></thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {specialCharges.map((sc) => (
+                        <tr key={sc.id} className={sc.voided_at ? 'opacity-50' : ''}>
+                          <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(sc.created_at, 'dd-MM-yyyy')}</td>
+                          <td className="px-5 py-3 font-medium text-foreground dark:text-white">
+                            {sc.label}
+                            {sc.voided_at && <Badge variant="slate" className="ms-2">{t('finance.voided')}</Badge>}
+                          </td>
+                          <td className="px-5 py-3 text-muted-foreground">{sc.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner')}</td>
+                          <td className="px-5 py-3 text-end font-semibold tnum">{money(Number(sc.total_usd))}</td>
+                          {canManageFinance && (
+                            <td className="px-5 py-3 text-end whitespace-nowrap">
+                              {!sc.voided_at && (
+                                <>
+                                  <button type="button" onClick={() => openSpecialChargeEdit(sc)} className="p-1.5 rounded-lg text-primary hover:bg-accent cursor-pointer" title={t('finance.specialChargeEditTitle')}><Pencil size={15} /></button>
+                                  <button type="button" onClick={() => voidSpecialCharge(sc)} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
+                                </>
+                              )}
+                            </td>
                           )}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardBody></Card>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table></div>
+                </Card>
               )}
               {tab === 'expenses' && (pExpenses.length === 0 ? <Empty body={t('finance.noExpenses', { period: periodLabel })} /> : (
                 <Card><div className="overflow-x-auto"><table className="w-full text-sm">
@@ -2007,7 +2042,7 @@ export default function Finance() {
       />
 
       {/* Special charge (postpaid): bill everyone, no expense behind it */}
-      <Modal open={scOpen} onClose={() => setScOpen(false)} title={t('dues.offBudgetTitle')}>
+      <Modal open={scOpen} onClose={() => setScOpen(false)} title={scEditing ? t('finance.specialChargeEditTitle') : t('dues.offBudgetTitle')}>
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{t('finance.specialChargeHint')}</p>
           <Input label={t('dues.offBudgetLabel')} value={scForm.label} onChange={(e) => setScForm({ ...scForm, label: e.target.value })} placeholder={t('dues.offBudgetPlaceholder')} />
@@ -2022,13 +2057,13 @@ export default function Finance() {
             <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
             <SelectItem value="tenant">{t('dues.billToTenant')}</SelectItem>
           </SelectField>
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" className="accent-primary" checked={scForm.requestNow} onChange={(e) => setScForm({ ...scForm, requestNow: e.target.checked })} />
               {t('finance.specialChargeRequestNow')}
             </label>
             {scForm.requestNow && (
-              <div className="w-36">
+              <div className="w-40">
                 <SelectField label={t('buildings.dueDays')} value={scForm.days} onValueChange={(v) => setScForm({ ...scForm, days: v })}>
                   {[1, 2, 3, 5, 7, 10, 14, 21, 30].map((d) => (
                     <SelectItem key={d} value={String(d)}>{t('buildings.dueDaysN', { count: d })}</SelectItem>

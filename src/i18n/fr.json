@@ -1283,6 +1283,8 @@
     "specialChargeVoidTitle": "Annuler la charge spéciale",
     "specialChargeVoidBody": "Annuler \"{{label}}\" ? Ses charges quittent le solde de chaque logement et les relances s'arrêtent.",
     "specialChargeVoided": "Charge spéciale annulée.",
+    "specialChargeUpdated": "Charge spéciale modifiée. Les résidents ont été notifiés.",
+    "specialChargeEditTitle": "Modifier la charge spéciale",
     "deletedUnit": "Logement supprimé",
     "requestIssue": "Envoyer l'appel",
     "requestIssued": "Appel de fonds envoyé",

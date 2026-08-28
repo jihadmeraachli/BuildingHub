@@ -1295,6 +1295,8 @@
     "specialChargeVoidTitle": "إلغاء الرسم الخاص",
     "specialChargeVoidBody": "إلغاء \"{{label}}\"؟ تُحذف رسومه من رصيد كل وحدة وتتوقف المطالبة.",
     "specialChargeVoided": "تم إلغاء الرسم الخاص.",
+    "specialChargeUpdated": "تم تعديل الرسم الخاص وإشعار السكان.",
+    "specialChargeEditTitle": "تعديل الرسم الخاص",
     "deletedUnit": "شقة محذوفة",
     "requestIssue": "إرسال الطلب",
     "requestIssued": "تم إرسال طلب الدفع",

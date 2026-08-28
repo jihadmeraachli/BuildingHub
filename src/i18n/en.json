@@ -1283,6 +1283,8 @@
     "specialChargeVoidTitle": "Void special charge",
     "specialChargeVoidBody": "Void \"{{label}}\"? Its charges leave every unit's balance and the chasing stops.",
     "specialChargeVoided": "Special charge voided.",
+    "specialChargeUpdated": "Special charge updated. Residents were notified.",
+    "specialChargeEditTitle": "Edit special charge",
     "deletedUnit": "Deleted unit",
     "requestIssue": "Send request",
     "requestIssued": "Payment request sent",
