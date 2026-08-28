@@ -337,6 +337,8 @@ export default function Finance() {
   const [scForm, setScForm] = useState({ label: '', amount: '', method: 'by_shares' as AllocationMethod, billTo: 'owner' as Tenure, requestNow: false, days: '7' });
   const [scEditing, setScEditing] = useState<SpecialCharge | null>(null);
   const [scDetail, setScDetail] = useState<SpecialCharge | null>(null);
+  const [adjDetail, setAdjDetail] = useState<Adjustment | null>(null);
+  const [feDetail, setFeDetail] = useState<FundEntry | null>(null);
   interface SpecialCharge { id: string; label: string; total_usd: number; method: string; billed_to: string; created_at: string; voided_at: string | null; }
   const [specialCharges, setSpecialCharges] = useState<SpecialCharge[]>([]);
   // 0159: trashed units keep their financial history; their labels come from
@@ -1526,11 +1528,10 @@ export default function Finance() {
                         <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
                         <th className="px-5 py-3 text-start font-medium">{t('fund.counterparty')}</th>
                         <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
-                        {canManageFinance && <th className="px-5 py-3" />}
                       </tr></thead>
                       <tbody className="divide-y divide-slate-50">
                         {pFundEntries.map((e) => (
-                          <tr key={e.id} className={e.voided_at ? 'opacity-50' : ''}>
+                          <tr key={e.id} onClick={() => !e.voided_at && setFeDetail(e)} className={e.voided_at ? 'opacity-50' : 'hover:bg-primary/5 cursor-pointer'}>
                             <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(e.entry_date, 'dd-MM-yyyy')}</td>
                             <td className="px-5 py-3 font-medium text-foreground dark:text-white">
                               <span className="inline-flex items-center gap-1.5">
@@ -1544,11 +1545,6 @@ export default function Finance() {
                               {currencyTag(e) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(e)}</span>}
                               {e.kind === 'income' ? '+' : '−'}{money(Number(e.amount_usd))}
                             </td>
-                            {canManageFinance && (
-                              <td className="px-5 py-3 text-end">
-                                {!e.voided_at && <button type="button" onClick={() => setVoidTarget({ table: 'fund_entries', id: e.id, label: e.description })} className="text-xs text-muted-foreground hover:text-red-500 inline-flex items-center gap-1"><Ban size={12} /> {t('finance.void')}</button>}
-                              </td>
-                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -1676,7 +1672,6 @@ export default function Finance() {
                     <th className="px-5 py-3 text-start font-medium">{t('finance.method')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.note')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
-                    {canManageFinance && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {/* T3: voided payments stay VISIBLE (dimmed + VOIDED badge) for transparency,
@@ -1693,14 +1688,6 @@ export default function Finance() {
                         <td className="px-5 py-3 text-foreground dark:text-white">{t(`finance.methods.${p.method}`)}</td>
                         <td className="px-5 py-3 text-foreground dark:text-white"><span className="inline-flex items-center gap-2">{p.note ?? '—'}{p.receipt_url && <AttachmentLink url={p.receipt_url} className="text-primary hover:text-primary/80 inline-flex" icon={Paperclip} />}</span></td>
                         <td className={`px-5 py-3 text-end font-semibold tnum ${p.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{currencyTag(p) && <span className="me-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">{currencyTag(p)}</span>}{money(Number(p.amount_usd))}</td>
-                        {canManageFinance && (
-                          <td className="px-5 py-3"><div className="flex items-center justify-end gap-1">
-                            {!p.voided_at && <>
-                              <button onClick={(ev) => { ev.stopPropagation(); openPaymentEdit(p); }} className="p-1.5 rounded-lg text-primary hover:text-primary/70 hover:bg-primary/10 cursor-pointer"><Pencil size={15} /></button>
-                              <button onClick={(ev) => { ev.stopPropagation(); setVoidReason(''); setVoidTarget({ table: 'payments', id: p.id, label: `${unitDisplay(p.unit_id)} · ${money(Number(p.amount_usd))}` }); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
-                            </>}
-                          </div></td>
-                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1716,11 +1703,10 @@ export default function Finance() {
                       <th className="px-5 py-3 text-start font-medium">{t('finance.description')}</th>
                       <th className="px-5 py-3 text-start font-medium">{t('dues.offBudgetBillTo')}</th>
                       <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
-                      {canManageFinance && <th className="px-5 py-3 w-8" />}
                     </tr></thead>
                     <tbody className="divide-y divide-slate-50">
                       {specialCharges.map((sc) => (
-                        <tr key={sc.id} onClick={() => setScDetail(sc)} className={`hover:bg-primary/5 cursor-pointer ${sc.voided_at ? 'opacity-45' : ''}`}>
+                        <tr key={sc.id} onClick={() => !sc.voided_at && setScDetail(sc)} className={sc.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}>
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(sc.created_at, 'dd-MM-yyyy')}</td>
                           <td className="px-5 py-3 font-medium text-foreground dark:text-white">
                             {sc.label}
@@ -1728,16 +1714,6 @@ export default function Finance() {
                           </td>
                           <td className="px-5 py-3 text-muted-foreground">{sc.billed_to === 'tenant' ? t('dues.billToTenant') : t('dues.billToOwner')}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${sc.voided_at ? 'line-through text-slate-400' : 'text-foreground dark:text-white'}`}>{money(Number(sc.total_usd))}</td>
-                          {canManageFinance && (
-                            <td className="px-3 py-3 text-end whitespace-nowrap">
-                              {!sc.voided_at && (
-                                <>
-                                  <button type="button" onClick={(ev) => { ev.stopPropagation(); openSpecialChargeEdit(sc); }} className="p-1.5 rounded-lg text-primary hover:bg-accent cursor-pointer" title={t('finance.specialChargeEditTitle')}><Pencil size={15} /></button>
-                                  <button type="button" onClick={(ev) => { ev.stopPropagation(); voidSpecialCharge(sc); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
-                                </>
-                              )}
-                            </td>
-                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -1752,13 +1728,12 @@ export default function Finance() {
                     <th className="px-5 py-3 text-start font-medium">{t('finance.adjKind')}</th>
                     <th className="px-5 py-3 text-start font-medium">{t('finance.note')}</th>
                     <th className="px-5 py-3 text-end font-medium">{t('finance.effect')}</th>
-                    {canManageFinance && <th className="px-5 py-3 w-8" />}
                   </tr></thead>
                   <tbody className="divide-y divide-slate-50">
                     {pAdjustments.map((a) => {
                       const eff = adjustmentEffect(a.kind, Number(a.amount_usd));
                       return (
-                        <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
+                        <tr key={a.id} onClick={() => !a.voided_at && setAdjDetail(a)} className={a.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}>
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(a.effective_date, 'dd-MM-yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
                             {unitDisplay(a.unit_id)}{deletedBadge(a.unit_id)}
@@ -1768,13 +1743,6 @@ export default function Finance() {
                           <td className="px-5 py-3"><Badge>{t(`finance.adjKinds.${a.kind}`)}</Badge></td>
                           <td className="px-5 py-3 text-muted-foreground text-xs">{a.note ?? '—'}{a.counterparty_name ? ` · ${a.counterparty_name}` : ''}</td>
                           <td className={`px-5 py-3 text-end font-semibold tnum ${a.voided_at ? 'line-through text-slate-400' : eff < 0 ? 'text-red-400 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-400'}`}>{money(eff)}</td>
-                          {canManageFinance && (
-                            <td className="px-3 py-3 text-end">
-                              {!a.voided_at && (
-                                <button onClick={() => { setVoidReason(''); setVoidTarget({ table: 'adjustments', id: a.id, label: `${t(`finance.adjKinds.${a.kind}`)} · ${money(eff)}` }); }} className="p-1.5 rounded-lg text-primary hover:text-destructive hover:bg-destructive/10 cursor-pointer" title={t('finance.void')}><Ban size={15} /></button>
-                              )}
-                            </td>
-                          )}
                         </tr>
                       );
                     })}
@@ -2045,6 +2013,53 @@ export default function Finance() {
       />
 
       {/* Special charge (postpaid): bill everyone, no expense behind it */}
+      {/* adjustment detail - row-click parity; Void lives here now */}
+      <Modal open={!!adjDetail} onClose={() => setAdjDetail(null)} title={adjDetail ? t(`finance.adjKinds.${adjDetail.kind}`) : ''}>
+        {adjDetail && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { l: t('finance.unit'), v: unitDisplay(adjDetail.unit_id) },
+                { l: t('finance.date'), v: fmtDate(adjDetail.effective_date, 'dd-MM-yyyy') },
+                { l: t('finance.effect'), v: money(adjustmentEffect(adjDetail.kind, Number(adjDetail.amount_usd))) },
+                { l: t('finance.note'), v: `${adjDetail.note ?? '—'}${adjDetail.counterparty_name ? ` · ${adjDetail.counterparty_name}` : ''}` },
+              ].map((x) => (
+                <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5">{x.v}</p></div>
+              ))}
+            </div>
+            {canManageFinance && !adjDetail.voided_at && (
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button variant="danger" onClick={() => { const a = adjDetail; setAdjDetail(null); setVoidReason(''); setVoidTarget({ table: 'adjustments', id: a.id, label: `${t(`finance.adjKinds.${a.kind}`)} · ${money(adjustmentEffect(a.kind, Number(a.amount_usd)))}` }); }}><Ban size={15} /> {t('finance.void')}</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* fund entry detail - row-click parity; Void lives here now */}
+      <Modal open={!!feDetail} onClose={() => setFeDetail(null)} title={feDetail?.description ?? ''}>
+        {feDetail && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { l: t('finance.date'), v: fmtDate(feDetail.entry_date, 'dd-MM-yyyy') },
+                { l: t('finance.amount'), v: `${feDetail.kind === 'income' ? '+' : '−'}${money(Number(feDetail.amount_usd))}` },
+                { l: t('fund.counterparty'), v: feDetail.counterparty ?? '—' },
+                { l: t('finance.recordedBy'), v: feDetail.kind === 'income' ? t('fund.recordIncome') : t('fund.recordOutflow') },
+              ].map((x) => (
+                <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5">{x.v}</p></div>
+              ))}
+            </div>
+            {feDetail.attachment_url && <AttachmentLink url={feDetail.attachment_url} label={t('finance.viewReceipt')} className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline" />}
+            {canManageFinance && !feDetail.voided_at && (
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button variant="danger" onClick={() => { const e = feDetail; setFeDetail(null); setVoidReason(''); setVoidTarget({ table: 'fund_entries', id: e.id, label: e.description }); }}><Ban size={15} /> {t('finance.void')}</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
       {/* contribution detail - row-click parity with expenses/payments */}
       <Modal open={!!scDetail} onClose={() => setScDetail(null)} title={scDetail?.label ?? ''}>
         {scDetail && (
