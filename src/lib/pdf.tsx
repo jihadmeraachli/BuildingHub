@@ -172,7 +172,7 @@ function BucketBlock({ b }: { b: StatementBucket }) {
         <>
           <View style={[s.tableHead, { marginTop: (b.charges.length > 0 || b.payments.length > 0 || b.adjustments.length > 0) ? 6 : 0 }]}>
             <Text style={[s.tableHeadCell, { flex: 1 }]}>Due date</Text>
-            <Text style={[s.tableHeadCell, { flex: 4.3 }]}>Dues</Text>
+            <Text style={[s.tableHeadCell, { flex: 4.3 }]}>Prepaid</Text>
             <Text style={[s.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Amount due</Text>
           </View>
           {b.dues.map((d) => (

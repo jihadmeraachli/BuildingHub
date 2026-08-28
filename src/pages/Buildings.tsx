@@ -327,8 +327,8 @@ export default function Buildings() {
 
   const billingOptions: FilterOption[] = [
     { value: '', label: 'All' },
-    { value: 'arrears', label: 'Arrears' },
-    { value: 'dues', label: 'Dues' },
+    { value: 'arrears', label: 'Postpaid' },
+    { value: 'dues', label: 'Prepaid' },
   ];
 
   const filtered = useMemo(() => {

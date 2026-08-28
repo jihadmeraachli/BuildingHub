@@ -30,6 +30,18 @@ less than a tester code, and the hidden pages stay hidden to it.)
 
 ## 1. TL;DR — what this iteration did
 
+### 28 August 2026 (later) — billing modes renamed for humans
+
+Everything user-facing now says **Postpaid** (was "Arrears" - billed for
+actual costs) and **Prepaid** (was "Dues" - fixed amounts up front); the
+telecom pair every Lebanese user already knows. DISPLAY ONLY: the DB keeps
+`billing_mode` values `arrears`/`dues` and all internal code/docs keep the
+old terms - only i18n copy (en/ar/fr), two hardcoded filter labels, one PDF
+header, and the EN dues email copy changed. ⚠️ dynamic-action needs a
+redeploy for the email wording. WhatsApp template texts are frozen in Meta
+(param-locked) and keep the old wording until a template revision is worth
+a Meta review round.
+
 ### 28 August 2026 — community features, reviews, and a live-verified drawer
 
 Shipped: **Lost & Found** (0154) and **Voting** (0155) with per-scope **voting
