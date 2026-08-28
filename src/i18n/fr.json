@@ -1738,6 +1738,15 @@
     "deleteBody": "Supprimer \"{{title}}\" des objets trouvés ?"
   },
   "voting": {
+    "rulesButton": "Règles de vote",
+    "rulesIntro": "Définies une fois par immeuble - chaque nouveau vote les applique. Modifiables à tout moment ; les votes déjà ouverts gardent leurs règles de départ.",
+    "rulesApplied": "Règles qui s'appliqueront",
+    "editRules": "Modifier les règles",
+    "rulesSaved": "Règles de vote enregistrées.",
+    "rulesDefault": "règles par défaut",
+    "openBallot": "Scrutin ouvert",
+    "thresholdShort": "adoption à {{pct}}%",
+    "rulesSnapshotNote": "Modifier les règles n'affecte jamais un vote déjà ouvert.",
     "title": "Votes",
     "subtitle": "Le comité soumet une question à l'immeuble - chaque résident a son mot à dire.",
     "newVote": "Nouveau vote",

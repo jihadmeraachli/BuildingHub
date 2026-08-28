@@ -1738,6 +1738,15 @@
     "deleteBody": "Delete \"{{title}}\" from the lost & found?"
   },
   "voting": {
+    "rulesButton": "Voting rules",
+    "rulesIntro": "Set once per building - every new vote uses these rules. You can change them any time; votes already open keep the rules they started with.",
+    "rulesApplied": "These rules will apply",
+    "editRules": "Edit rules",
+    "rulesSaved": "Voting rules saved.",
+    "rulesDefault": "default rules",
+    "openBallot": "Open ballot",
+    "thresholdShort": "pass at {{pct}}%",
+    "rulesSnapshotNote": "Changing the rules never affects a vote that is already open.",
     "title": "Voting",
     "subtitle": "The committee puts a question to the building - every resident gets a say.",
     "newVote": "New vote",
