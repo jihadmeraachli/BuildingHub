@@ -18,7 +18,7 @@ import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins, Cog,
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2, Trash2,
-  ContactRound, ScrollText, ChevronDown, Sparkles,
+  ContactRound, ScrollText, ChevronDown, Sparkles, PackageSearch, Vote,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { isDemoEmail, DEMO_ACCOUNTS, DEMO_HIDDEN_ROUTES } from '@/lib/demo';
@@ -132,6 +132,8 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
     ]) },
     { key: 'community', label: t('nav.secCommunity'), links: gate([
       { to: '/issues',      label: t('nav.issues'),        icon: AlertTriangle },
+      { to: '/lost-found',  label: t('nav.lostFound'),     icon: PackageSearch },
+      { to: '/voting',      label: t('nav.voting'),        icon: Vote },
       { to: '/meetings',    label: t('nav.meetings'),      icon: CalendarDays },
       { to: '/contacts',    label: t('nav.contactsDir'),   icon: ContactRound },
       // Bylaws are a resident's document — RLS lets every resident read their own.

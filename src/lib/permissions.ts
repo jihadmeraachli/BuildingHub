@@ -13,6 +13,7 @@ const BUILDING_ADMIN_CAPS: Capability[] = [
   'issue.view_all', 'issue.update',
   'expense.manage', 'charge.manage', 'payment.record', 'payment.confirm', 'finance.view',
   'meeting.manage',
+  'poll.manage',
   'user.deactivate',
 ];
 

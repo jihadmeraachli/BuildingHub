@@ -120,6 +120,8 @@ export type Capability =
   | 'issue.view_all' | 'issue.update'
   | 'expense.manage' | 'charge.manage' | 'payment.record' | 'payment.confirm' | 'finance.view'
   | 'meeting.manage' | 'org.manage' | 'org.assign_buildings'
+  // vote creation (0155) - admin roles only
+  | 'poll.manage'
   // user lifecycle (migration 0026). 'user.delete' belongs to NO role —
   // platform admin only; it is never granted via role_has_cap().
   | 'user.deactivate' | 'user.delete';

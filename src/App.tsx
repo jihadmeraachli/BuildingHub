@@ -38,6 +38,8 @@ const Collect    = lazy(() => import('@/pages/Collect'));
 const Amenities  = lazy(() => import('@/pages/Amenities'));
 const BuildingContacts = lazy(() => import('@/pages/BuildingContacts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
+const LostFound  = lazy(() => import('@/pages/LostFound'));
+const Voting     = lazy(() => import('@/pages/Voting'));
 const Users      = lazy(() => import('@/pages/Users'));
 const Security   = lazy(() => import('@/pages/Security'));
 const Buildings      = lazy(() => import('@/pages/Buildings'));
@@ -119,6 +121,8 @@ export default function App() {
               <Route path="/amenities" element={<Amenities />} />
               <Route path="/contacts" element={<BuildingContacts />} />
               <Route path="/issues" element={<Issues />} />
+              <Route path="/lost-found" element={<LostFound />} />
+              <Route path="/voting" element={<Voting />} />
               <Route path="/users" element={<Users />} />
               <Route path="/security" element={<Security />} />
               <Route path="/buildings"     element={<Buildings />} />
