@@ -306,7 +306,7 @@ export default function Finance() {
     const amount = Number(openingForm.amount) || 0;
     const lbp = Number(openingForm.lbp) || 0;
     const rate = Number(openingForm.lbpRate) || 0;
-    if (lbp > 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
+    if (lbp !== 0 && rate <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
     const perBlock = entity.kind === 'compound' && fundScope === 'block';
     if (perBlock && !openingForm.block_id) return;
     setSaving(true);
@@ -315,7 +315,7 @@ export default function Finance() {
       compound_id: !perBlock && entity.kind === 'compound' ? entity.id : null,
       opening_balance_usd: amount,
       opening_balance_lbp: lbp,
-      opening_lbp_rate: lbp > 0 ? rate : null,
+      opening_lbp_rate: lbp !== 0 ? rate : null,
       opening_date: openingForm.date || null, note: openingForm.note.trim() || null,
       updated_at: new Date().toISOString(),
     };
