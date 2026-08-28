@@ -1096,7 +1096,7 @@
     "tenantBalanceMoved": "Tenant removed. Balance of {{amt}} transferred to the owner.",
     "poolEmpty": "No licence seats left in the pool. Add licenses on the Billing page, then assign the seat.",
     "deleteUnitTitle": "Delete unit",
-    "deleteUnitConfirm": "Delete this unit? Its charges and payments will be removed too.",
+    "deleteUnitConfirm": "Delete this unit? It moves to the trash — its charges and payments stay on the books. The balance must be exactly zero first.",
     "deleteGroupTitle": "Delete group",
     "deleteGroupConfirm": "Delete this group?"
   },
@@ -1283,7 +1283,7 @@
     "specialChargeVoidTitle": "Void special charge",
     "specialChargeVoidBody": "Void \"{{label}}\"? Its charges leave every unit's balance and the chasing stops.",
     "specialChargeVoided": "Special charge voided.",
-    "deletedUnit": "deleted unit",
+    "deletedUnit": "Deleted unit",
     "requestIssue": "Send request",
     "requestIssued": "Payment request sent",
     "requestReplacesOpen": "This replaces the open request for this building. The previous one is cancelled and the payment window starts again from today.",

@@ -531,13 +531,15 @@ export default function Finance() {
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
   const unitDisplay = (uid: string) => {
     const u = unitById[uid];
-    if (!u) {
-      // a trashed unit's history stays on the books (0159) - name it
-      const dl = deletedUnits[uid];
-      return dl ? `${dl} · ${t('finance.deletedUnit')}` : '—';
-    }
+    // a trashed unit's history stays on the books (0159) - name it plainly;
+    // deletedBadge() adds the visual tag where a row is rendered
+    if (!u) return deletedUnits[uid] ?? '—';
     return multiBlock ? `${blockName[u.building_id] ?? ''} · ${u.label}` : u.label;
   };
+  const deletedBadge = (uid: string) =>
+    !unitById[uid] && deletedUnits[uid]
+      ? <Badge variant="red" className="ms-1.5 align-middle">{t('finance.deletedUnit')}</Badge>
+      : null;
 
   // block-filter (client side) — slices to selected blocks; [] = all
   const inBlock = (bid: string | null) => blockFilters.length === 0 || (bid != null && blockFilters.includes(bid));
@@ -1682,7 +1684,7 @@ export default function Finance() {
                       <tr key={p.id} onClick={() => !p.voided_at && setDetailPayment(p)} className={`${p.voided_at ? 'opacity-45' : 'hover:bg-primary/5 cursor-pointer'}`}>
                         <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(p.paid_on, 'dd-MM-yyyy')}</td>
                         <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
-                          {unitDisplay(p.unit_id)}
+                          {unitDisplay(p.unit_id)}{deletedBadge(p.unit_id)}
                           {p.paid_by === 'tenant' && <TenantTag label={tenantLabelFor(p.tenant_id, p.unit_id, p.paid_on)} />}
                           {p.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           {recorderName(p) && <div className="text-[11px] font-normal text-muted-foreground mt-0.5">{t('finance.recordedBy')} {recorderName(p)}</div>}
@@ -1721,7 +1723,7 @@ export default function Finance() {
                         <tr key={a.id} className={a.voided_at ? 'opacity-45' : ''}>
                           <td className="px-5 py-3 text-foreground dark:text-white whitespace-nowrap">{fmtDate(a.effective_date, 'dd-MM-yyyy')}</td>
                           <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
-                            {unitDisplay(a.unit_id)}
+                            {unitDisplay(a.unit_id)}{deletedBadge(a.unit_id)}
                             {a.party === 'tenant' && <TenantTag label={tenantLabelFor(a.tenant_id, a.unit_id, a.effective_date)} />}
                             {a.voided_at && <span className="ms-2 text-[10px] uppercase tracking-wide bg-slate-500/15 text-slate-400 rounded px-1.5 py-0.5">{t('finance.voidedBadge')}</span>}
                           </td>
@@ -2200,7 +2202,7 @@ export default function Finance() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t('finance.billedToUnits')}</p>
               <div className="rounded-xl border border-border overflow-hidden divide-y divide-border max-h-72 overflow-y-auto">
                 {charges.filter((c) => c.expense_id === detailExpense.id).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm"><span className="text-slate-700">{unitDisplay(c.unit_id)}</span><span className="font-medium text-slate-900 tnum">{money(Number(c.amount_usd))}</span></div>
+                  <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm"><span className="text-slate-700">{unitDisplay(c.unit_id)}{deletedBadge(c.unit_id)}</span><span className="font-medium text-slate-900 tnum">{money(Number(c.amount_usd))}</span></div>
                 ))}
               </div>
             </div>

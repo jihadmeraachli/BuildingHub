@@ -1096,7 +1096,7 @@
     "tenantBalanceMoved": "Locataire retiré. Un solde de {{amt}} a été transféré au propriétaire.",
     "poolEmpty": "Plus aucune licence disponible dans le pool. Ajoutez des licences depuis la page Facturation, puis assignez la licence.",
     "deleteUnitTitle": "Supprimer le lot",
-    "deleteUnitConfirm": "Supprimer ce lot ? Ses charges et paiements seront aussi supprimés.",
+    "deleteUnitConfirm": "Supprimer ce lot ? Il part à la corbeille et ses charges et paiements restent dans les livres. Le solde doit d'abord être exactement à zéro.",
     "deleteGroupTitle": "Supprimer le groupe",
     "deleteGroupConfirm": "Supprimer ce groupe ?"
   },
@@ -1283,7 +1283,7 @@
     "specialChargeVoidTitle": "Annuler la charge spéciale",
     "specialChargeVoidBody": "Annuler \"{{label}}\" ? Ses charges quittent le solde de chaque logement et les relances s'arrêtent.",
     "specialChargeVoided": "Charge spéciale annulée.",
-    "deletedUnit": "logement supprimé",
+    "deletedUnit": "Logement supprimé",
     "requestIssue": "Envoyer l'appel",
     "requestIssued": "Appel de fonds envoyé",
     "requestReplacesOpen": "Cet appel remplace l'appel en cours pour cet immeuble. Le précédent est annulé et le délai de paiement repart d'aujourd'hui.",
