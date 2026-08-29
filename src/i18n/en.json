@@ -1638,6 +1638,8 @@
     "mfaDisableConfirm": "Turn off two-factor authentication? Your account will then be protected by your password only."
   },
   "metering": {
+    "legacyReadOnly": "This cycle was posted by the old metering - it is read-only history.",
+    "latestOnly": "Only the latest cycle can be edited - later cycles chain from it.",
     "modelMbm": "Month by Month",
     "modelMbmDesc": "Each cycle bills exactly what you bought that period, split by what the meters measured. Money in = money out - the fund never carries fuel. Best when you buy roughly what you burn.",
     "modelWa": "Weighted Average",

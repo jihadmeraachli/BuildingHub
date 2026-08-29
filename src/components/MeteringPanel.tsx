@@ -162,8 +162,9 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
   // Ahmad's pull, previewed live: type-bound + quantified + in window + live
   useEffect(() => {
     if (!open || !settings || !from || !to) { setPurchases([]); return; }
+    const bids = [...new Set(units.map((u) => u.building_id))];
     const scopeFilter = entity.kind === 'compound'
-      ? `compound_id.eq.${entity.id},building_id.in.(${units.map((u) => u.building_id).filter((v, i, a) => a.indexOf(v) === i).join(',')})`
+      ? (bids.length ? `compound_id.eq.${entity.id},building_id.in.(${bids.join(',')})` : `compound_id.eq.${entity.id}`)
       : `building_id.eq.${entity.id}`;
     supabase.from('expenses')
       .select('id, description, expense_date, qty, amount_usd, funded_by_fund_usd')
@@ -181,7 +182,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
   const addedCost = pulled.reduce((s, p) => s + Number(p.amount_usd), 0);
 
   // WA opening value, mirroring the server's bridge rules (preview only)
-  const prevFinal = useMemo(() => cycles.find((c) => c.status === 'final' && c.id !== editingCycle?.id), [cycles, editingCycle]);
+  const prevFinal = useMemo(() => cycles.find((c) => c.status === 'final' && c.id !== editingCycle?.id && (!from || c.period_end <= from)), [cycles, editingCycle, from]);
   const openingValue = useMemo(() => {
     if (settings?.model !== 'wa') return 0;
     const q = Number(openingStock) || 0;
@@ -195,11 +196,13 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
 
   async function openCycle() {
     setEditingCycle(null);
-    const last = cycles[0];
+    const last = cycles.find((c) => c.status === 'final');
     // the next period proposes itself: day-after-last, same span forward
     if (last) {
-      const d = (x: string) => new Date(x + 'T00:00:00');
-      const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+      // UTC day math: Lebanon's midnight DST shifts would otherwise land the
+      // proposal ON the previous cycle's end date (double-pull boundary)
+      const d = (x: string) => new Date(x + 'T00:00:00Z');
+      const iso = (x: Date) => x.toISOString().slice(0, 10);
       const span = Math.max(1, Math.round((d(last.period_end).getTime() - d(last.period_start).getTime()) / 864e5));
       const nf = new Date(d(last.period_end).getTime() + 864e5);
       setFrom(iso(nf)); setTo(iso(new Date(nf.getTime() + span * 864e5)));
@@ -219,6 +222,10 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
   }
 
   async function openCycleEdit(c: CycleRow) {
+    if (c.expense_id) { toast.error(t('metering.legacyReadOnly')); return; }
+    if (c.status === 'final' && cycles.some((x) => x.status === 'final' && x.period_end > c.period_end)) {
+      toast.error(t('metering.latestOnly')); return;
+    }
     setEditingCycle(c);
     setFrom(c.period_start); setTo(c.period_end);
     setOpeningStock(String(c.opening_stock)); setClosingStock(String(c.closing_stock));
@@ -264,37 +271,43 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
     const cycleFields = {
       expense_type_id: type.id, period_start: from, period_end: to,
       opening_stock: Number(openingStock) || 0, closing_stock: Number(closingStock) || 0,
-      common_method: settings.common_method, billed_to: settings.billed_to, status: 'draft',
+      common_method: settings.common_method, billed_to: settings.billed_to,
     };
     let cycleId: string;
     if (editingCycle) {
+      // never touch status here - the RPC's guards are status-independent
+      // and finalize sets 'final' itself
       const { error } = await supabase.from('meter_cycles').update(cycleFields).eq('id', editingCycle.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
       cycleId = editingCycle.id;
       await supabase.from('meter_readings').delete().eq('cycle_id', cycleId);
     } else {
       const { data: cyc, error: cErr } = await supabase.from('meter_cycles').insert({
-        [scopeCol]: entity.id, ...cycleFields, created_by: profileId,
+        [scopeCol]: entity.id, ...cycleFields, status: 'draft', created_by: profileId,
       }).select().single();
       if (cErr || !cyc) { toast.error(cErr?.message ?? 'Could not save the cycle'); setSaving(false); return; }
       cycleId = (cyc as { id: string }).id;
+      // a failed finalize keeps THIS draft as the editing target - retry
+      // updates it instead of spawning another draft
+      setEditingCycle(cyc as CycleRow);
     }
-    await supabase.from('meter_readings').insert(readingDrafts.map((r) => ({
+    const { error: rdErr } = await supabase.from('meter_readings').insert(readingDrafts.map((r) => ({
       cycle_id: cycleId, unit_id: r.unitId, start_reading: r.start, end_reading: r.end,
     })));
+    if (rdErr) { toast.error(rdErr.message); setSaving(false); loadCycles(); return; }
 
-    // the server recomputes everything (it is the source of truth) and posts
-    // charges only; on a losses alarm it asks before billing them in
-    let { error } = await supabase.rpc('finalize_meter_cycle', { p_cycle: cycleId });
+    // the server recomputes everything (it is the source of truth), posts
+    // charges only, and returns the total actually billed
+    let { data: postedTotal, error } = await supabase.rpc('finalize_meter_cycle', { p_cycle: cycleId });
     if (error && error.message.startsWith('LOSSES_ALARM|')) {
       const pct = error.message.split('|')[1] ?? '?';
       const ok = await confirmAsync(t('metering.lossAlarmTitle'), t('metering.lossAlarmBody', { pct }));
-      if (ok) ({ error } = await supabase.rpc('finalize_meter_cycle', { p_cycle: cycleId, p_confirm_losses: true }));
-      else { setSaving(false); return; }
+      if (ok) ({ data: postedTotal, error } = await supabase.rpc('finalize_meter_cycle', { p_cycle: cycleId, p_confirm_losses: true }));
+      else { setSaving(false); loadCycles(); return; }
     }
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(t('metering.finalized', { amount: money(result.chargesTotal) }));
+    if (error) { toast.error(error.message); loadCycles(); return; }
+    toast.success(t('metering.finalized', { amount: money(Number(postedTotal ?? result.chargesTotal)) }));
     setOpen(false); setEditingCycle(null);
     loadCycles(); onPosted();
   }
@@ -543,7 +556,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={finalize} loading={saving} disabled={!from || !to || result.chargesTotal <= 0}>
+            <Button onClick={finalize} loading={saving} disabled={!from || !to || (settings?.model !== 'wa' && result.chargesTotal <= 0)}>
               {t(editingCycle ? 'metering.refinalize' : 'metering.finalize')}
             </Button>
           </div>

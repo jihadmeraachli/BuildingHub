@@ -435,11 +435,15 @@ export default function Finance() {
       setDeletedUnits(Object.fromEntries(((dus ?? []) as { id: string; label: string }[]).map((d) => [d.id, d.label])));
       // 0162: purchase-type bindings + the tank as fund money (latest final WA
       // cycle's closing value, one per metered type)
-      const meterScope = entity.kind === 'compound' ? `compound_id.eq.${entity.id}` : `building_id.eq.${entity.id}`;
+      const parentCompound = entity.kind === 'building' ? (buildings.find((b) => b.id === entity.id)?.compound_id ?? null) : null;
+      const meterScope = entity.kind === 'compound'
+        ? `compound_id.eq.${entity.id},building_id.in.(${entity.buildingIds.join(',')})`
+        : parentCompound ? `building_id.eq.${entity.id},compound_id.eq.${parentCompound}` : `building_id.eq.${entity.id}`;
       const [{ data: mss }, { data: mcs }] = await Promise.all([
         supabase.from('meter_settings').select('purchase_expense_type_id').or(meterScope),
         supabase.from('meter_cycles').select('expense_type_id, closing_stock_value')
           .or(meterScope).eq('status', 'final').eq('model', 'wa')
+          .lte('period_end', new Date().toISOString().slice(0, 10))
           .order('period_end', { ascending: false }),
       ]);
       setPurchaseTypeIds(new Set(((mss ?? []) as { purchase_expense_type_id: string }[]).map((x) => x.purchase_expense_type_id)));
@@ -829,6 +833,12 @@ export default function Finance() {
       if (error) { toast.error(error.message); return; }
       // extraordinary parity (0160): editing REPLACES the expense's own ask -
       // amounts stay honest and the request notification announces the change
+      if (purchaseTypeIds.has(expForm.expense_type_id)) {
+        const { error: qErr } = await supabase.from('expenses')
+          .update({ qty: Number(expForm.qty) > 0 ? Number(expForm.qty) : null })
+          .eq('id', editingExpenseId);
+        if (qErr) toast.error(qErr.message);
+      }
       const edited = expenses.find((x) => x.id === editingExpenseId) as (Expense & { is_extraordinary?: boolean }) | undefined;
       if (edited?.is_extraordinary && entity.billingMode !== 'dues') {
         const { error: rErr } = await supabase.rpc('request_payment_for_expense', { p_expense: editingExpenseId });
@@ -2077,7 +2087,7 @@ export default function Finance() {
                 { l: t('finance.date'), v: fmtDate(feDetail.entry_date, 'dd-MM-yyyy') },
                 { l: t('finance.amount'), v: `${feDetail.kind === 'income' ? '+' : '−'}${money(Number(feDetail.amount_usd))}` },
                 { l: t('fund.counterparty'), v: feDetail.counterparty ?? '—' },
-                { l: t('finance.recordedBy'), v: feDetail.kind === 'income' ? t('fund.recordIncome') : t('fund.recordOutflow') },
+                { l: t('finance.category'), v: feDetail.kind === 'income' ? t('fund.recordIncome') : t('fund.recordOutflow') },
               ].map((x) => (
                 <div key={x.l} className="rounded-xl bg-secondary px-3 py-2"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p><p className="text-sm font-semibold text-foreground mt-0.5">{x.v}</p></div>
               ))}

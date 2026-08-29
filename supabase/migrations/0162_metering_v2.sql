@@ -115,8 +115,9 @@ CREATE POLICY meter_settings_write ON meter_settings FOR ALL USING (
 -- 2. The finalize door: SERVER is the source of truth. The client's
 --    computeMeterCycle is the PREVIEW twin of this math.
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS finalize_meter_cycle(UUID, BOOLEAN);
 CREATE OR REPLACE FUNCTION finalize_meter_cycle(p_cycle UUID, p_confirm_losses BOOLEAN DEFAULT FALSE)
-RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS NUMERIC LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_c        meter_cycles;
   v_s        meter_settings;
@@ -142,13 +143,20 @@ BEGIN
     RAISE EXCEPTION 'Not allowed.' USING ERRCODE = '42501';
   END IF;
 
-  -- chain protection: a FINAL cycle may only be re-derived while it is the
-  -- latest one of its type in scope (WA values chain forward)
-  IF v_c.status = 'final' AND EXISTS (
+  -- ONE guard, three attacks (review 30 Aug): overlap, back-dating, and
+  -- re-deriving a non-latest cycle (even after a client flipped its status
+  -- to draft) - no OTHER final cycle may end inside or after this window.
+  IF EXISTS (
     SELECT 1 FROM meter_cycles m WHERE m.expense_type_id = v_c.expense_type_id
       AND COALESCE(m.building_id, m.compound_id) = COALESCE(v_c.building_id, v_c.compound_id)
-      AND m.status = 'final' AND m.period_end > v_c.period_end) THEN
-    RAISE EXCEPTION 'Later cycles exist — only the latest cycle can be recomputed.' USING ERRCODE = 'P0001';
+      AND m.status = 'final' AND m.id <> v_c.id
+      AND m.period_end >= v_c.period_start) THEN
+    RAISE EXCEPTION 'This window overlaps or predates a finalized cycle — cycles only advance forward. Recompute the latest cycle instead.' USING ERRCODE = 'P0001';
+  END IF;
+  -- legacy (v1, expense-backed) cycles are read-only history under v2:
+  -- re-deriving one would leave its old expense + charges live (double bill)
+  IF v_c.expense_id IS NOT NULL THEN
+    RAISE EXCEPTION 'This cycle was posted by the old metering and is read-only. Delete it and re-enter the period under the new model if needed.' USING ERRCODE = 'P0001';
   END IF;
 
   SELECT * INTO v_s FROM meter_settings s
@@ -214,7 +222,10 @@ BEGIN
   SELECT COALESCE(SUM(GREATEST(0, r.end_reading - r.start_reading)) FILTER (WHERE r.unit_id IS NOT NULL), 0),
          COALESCE(SUM(GREATEST(0, r.end_reading - r.start_reading)) FILTER (WHERE r.unit_id IS NULL), 0)
     INTO v_meters, v_common
-  FROM meter_readings r WHERE r.cycle_id = p_cycle;
+  FROM meter_readings r
+  WHERE r.cycle_id = p_cycle
+    AND (r.unit_id IS NULL OR EXISTS (
+          SELECT 1 FROM units u WHERE u.id = r.unit_id AND u.deleted_at IS NULL));
   IF v_meters + v_common <= 0 THEN
     RAISE EXCEPTION 'No meter readings — nothing to allocate against.' USING ERRCODE = 'P0001';
   END IF;
@@ -242,8 +253,8 @@ BEGIN
     v_rate  := NULL;
     v_close_v := 0;
   END IF;
-  IF v_pool <= 0 THEN
-    RAISE EXCEPTION 'Nothing to bill: the pool is zero.' USING ERRCODE = 'P0001';
+  IF v_pool <= 0 AND v_s.model <> 'wa' THEN
+    RAISE EXCEPTION 'Nothing to bill: no purchases in this window.' USING ERRCODE = 'P0001';
   END IF;
   v_billed := v_pool / (v_meters + v_common);
   v_spot   := CASE WHEN v_added_q > 0 THEN v_added_c / v_added_q ELSE NULL END;
@@ -270,9 +281,9 @@ BEGIN
   rows_ AS (
     SELECT su.id AS unit_id, su.building_id,
       ROUND(COALESCE(ur.delta, 0) * v_billed, 2)
-      + ROUND(v_common * v_billed * CASE WHEN v_s.common_method = 'equal'
+      + COALESCE(ROUND(v_common * v_billed * CASE WHEN v_s.common_method = 'equal'
           THEN 1.0 / NULLIF(w.n, 0)
-          ELSE su.share_weight / NULLIF(w.tw, 0) END, 2) AS amount
+          ELSE su.share_weight / NULLIF(w.tw, 0) END, 2), 0) AS amount
     FROM scope_units su CROSS JOIN w
     LEFT JOIN ur ON ur.unit_id = su.id
   )
@@ -301,6 +312,8 @@ BEGIN
     losses_qty = ROUND(v_losses, 3),
     common_method = v_s.common_method, billed_to = v_s.billed_to
   WHERE id = p_cycle;
+
+  RETURN v_total;
 END;
 $$;
 GRANT EXECUTE ON FUNCTION finalize_meter_cycle(UUID, BOOLEAN) TO authenticated;
@@ -323,11 +336,13 @@ BEGIN
                 SELECT 1 FROM buildings b WHERE b.compound_id = v_c.compound_id AND user_can(b.id, 'expense.manage')))) THEN
     RAISE EXCEPTION 'Not allowed to delete this cycle.' USING ERRCODE = '42501';
   END IF;
-  -- WA values chain forward: only the latest final cycle may go
-  IF v_c.status = 'final' AND EXISTS (
+  -- WA values chain forward: a cycle that POSTED anything (charges or a
+  -- legacy expense) may only go latest-backwards - status flips can't dodge it
+  IF (v_c.expense_id IS NOT NULL OR EXISTS (SELECT 1 FROM charges c WHERE c.meter_cycle_id = p_cycle))
+     AND EXISTS (
     SELECT 1 FROM meter_cycles m WHERE m.expense_type_id = v_c.expense_type_id
       AND COALESCE(m.building_id, m.compound_id) = COALESCE(v_c.building_id, v_c.compound_id)
-      AND m.status = 'final' AND m.period_end > v_c.period_end) THEN
+      AND m.status = 'final' AND m.id <> p_cycle AND m.period_end > v_c.period_end) THEN
     RAISE EXCEPTION 'Later cycles exist — delete from the latest backwards.' USING ERRCODE = 'P0001';
   END IF;
 
@@ -364,7 +379,9 @@ BEGIN
   END IF;
   -- 0162: purchase lock - a quantified purchase inside a finalized cycle's
   -- window already priced a rate that charged residents
-  IF v_exp.qty IS NOT NULL AND EXISTS (
+  IF v_exp.qty IS NOT NULL
+     AND v_exp.funded_by_fund_usd >= v_exp.amount_usd - 0.005
+     AND EXISTS (
     SELECT 1 FROM meter_cycles mc
     JOIN meter_settings ms ON ms.expense_type_id = mc.expense_type_id
       AND COALESCE(ms.building_id, ms.compound_id) = COALESCE(mc.building_id, mc.compound_id)
@@ -400,6 +417,41 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION void_expense(UUID, TEXT) TO authenticated;
+
+-- ------------------------------------------------------------
+-- 4b. A pulled purchase's numbers are FROZEN (review 30 Aug): a finalized
+--     cycle priced them into everyone's rate. Any route that changes its
+--     money/date/type/qty (repost_expense included) hits this wall; fix via
+--     an adjustment, or recompute the latest cycle.
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION expenses_purchase_lock_guard() RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF OLD.qty IS NOT NULL
+     AND OLD.funded_by_fund_usd >= OLD.amount_usd - 0.005
+     AND (NEW.amount_usd IS DISTINCT FROM OLD.amount_usd
+       OR NEW.qty IS DISTINCT FROM OLD.qty
+       OR NEW.expense_date IS DISTINCT FROM OLD.expense_date
+       OR NEW.expense_type_id IS DISTINCT FROM OLD.expense_type_id
+       OR NEW.funded_by_fund_usd IS DISTINCT FROM OLD.funded_by_fund_usd)
+     AND EXISTS (
+       SELECT 1 FROM meter_cycles mc
+       JOIN meter_settings ms ON ms.expense_type_id = mc.expense_type_id
+         AND COALESCE(ms.building_id, ms.compound_id) = COALESCE(mc.building_id, mc.compound_id)
+       WHERE ms.purchase_expense_type_id = OLD.expense_type_id
+         AND mc.status = 'final'
+         AND OLD.expense_date BETWEEN mc.period_start AND mc.period_end
+         AND (OLD.building_id = mc.building_id
+              OR OLD.compound_id = mc.compound_id
+              OR (mc.compound_id IS NOT NULL AND OLD.building_id IN (
+                    SELECT b.id FROM buildings b WHERE b.compound_id = mc.compound_id)))) THEN
+    RAISE EXCEPTION 'This purchase was priced into a finalized metering cycle — its numbers are frozen. Correct via an adjustment, or recompute the latest cycle.' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END; $$;
+DROP TRIGGER IF EXISTS expenses_purchase_lock_trg ON expenses;
+CREATE TRIGGER expenses_purchase_lock_trg BEFORE UPDATE ON expenses
+  FOR EACH ROW EXECUTE FUNCTION expenses_purchase_lock_guard();
 
 -- ------------------------------------------------------------
 -- 5. fund_position: stock_on_hand joins the outputs (WA cycles only;

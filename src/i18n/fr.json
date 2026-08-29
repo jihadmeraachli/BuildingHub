@@ -1638,6 +1638,8 @@
     "mfaDisableConfirm": "Désactiver l'authentification à deux facteurs ? Votre compte ne sera plus protégé que par votre mot de passe."
   },
   "metering": {
+    "legacyReadOnly": "Ce cycle vient de l'ancien système de compteurs - historique en lecture seule.",
+    "latestOnly": "Seul le dernier cycle est modifiable - les suivants s'enchaînent dessus.",
     "modelMbm": "Mois par mois",
     "modelMbmDesc": "Chaque cycle facture exactement ce qui a été acheté sur la période, réparti selon les compteurs. Entrées = sorties, la caisse ne porte jamais le fuel. Idéal quand on achète ce qu'on consomme.",
     "modelWa": "Moyenne pondérée",
