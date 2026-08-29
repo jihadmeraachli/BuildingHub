@@ -45,6 +45,11 @@ SET LOCAL lock_timeout = '10s';
 -- 1. Columns + settings.
 -- ------------------------------------------------------------
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty NUMERIC(14,3);
+-- v2 cycles own their charges directly (no expense row) - the column the
+-- whole finalize path hangs on (caught by the 0162 security review: only
+-- expenses.meter_cycle_id existed before)
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS meter_cycle_id UUID REFERENCES meter_cycles(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS charges_meter_cycle_idx ON charges(meter_cycle_id) WHERE meter_cycle_id IS NOT NULL;
 COMMENT ON COLUMN expenses.qty IS
   'Quantity (liters / m³) for a metering purchase expense. NULL = ordinary expense, invisible to metering pulls (0162).';
 
