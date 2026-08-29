@@ -1,29 +1,26 @@
 // ============================================================
-// Metering (0090) — generator / water cycles for expense types flagged
-// `is_metered` (0085). The admin records, per period:
+// Metering v2 (0162) — the PREVIEW twin of finalize_meter_cycle() in SQL.
+// Same inputs → same numbers, so what the admin sees before finalizing is
+// exactly what the server posts. Two models, chosen in meter_settings:
 //
-//   stock:    opening level, quantity bought, cost of what was bought, closing
-//   readings: start/end meter reading per unit, plus the common areas
+//   'mbm'  Month by Month: the pool is the window's PURCHASES; the meters
+//          split it. Money in = money out; losses inherently shared.
+//   'wa'   Weighted Average: the pool is CONSUMPTION × the rolling average
+//          rate = (opening value + purchases) ÷ (opening qty + bought qty).
+//          closing value = closing qty × rate → next cycle's opening value.
 //
-// and the cycle turns into money like this:
+// Losses (consumed − Σ meters) are GROSSED into the billed rate in both
+// models: billedRate = pool ÷ Σ meters. Above the alarm threshold the
+// result flags `alarm` and the server refuses without explicit confirm.
 //
-//   unit_cost   = added_cost / added_qty        (avg cost of what was BOUGHT)
-//   consumed    = opening + added − closing     (what actually left the tank)
-//   total_cost  = consumed × unit_cost
-//   cost_per_kw = total_cost / total_consumption(units + common)
-//   unit pays   = its consumption × cost_per_kw
-//   common cost = common consumption × cost_per_kw, split equal/by-shares
-//                 across the units and added on top
-//
-// The finalized cycle posts ONE expense (the metered type, custom allocation)
-// whose charges are exactly these per-unit amounts — so the book, the party
-// model and the reminders all treat it like any other expense. The expense
-// total is Σ of the ROUNDED per-unit amounts: the book and the charges must
-// agree to the cent, so rounding happens per unit, never on the total.
+// Rounding: per-unit amounts round to cents individually; chargesTotal is
+// the Σ of rounded amounts — the book and the charges agree to the cent.
 // ============================================================
 import type { Unit } from '@/types';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
+
+export type MeterModel = 'mbm' | 'wa';
 
 export interface MeterReadingDraft {
   unitId: string | null;          // null = common areas
@@ -32,33 +29,44 @@ export interface MeterReadingDraft {
 }
 
 export interface MeterCycleInput {
+  model: MeterModel;
   units: Unit[];                  // the units taking part (for the common split)
   readings: MeterReadingDraft[];
   openingStock: number;
-  addedQty: number;
-  addedCostUsd: number;           // canonical USD (compose LBP before calling)
+  /** WA only: value of the opening stock. 0 on an MbM→WA bridge (residents
+   *  already paid for the tank); the setup's initial value on a fresh WA. */
+  openingStockValue: number;
+  addedQty: number;               // pulled from typed purchase expenses
+  addedCostUsd: number;           // pulled — canonical USD
   closingStock: number;
   commonMethod: 'equal' | 'by_shares';
+  lossAlarmPct: number;           // gross-up alarm threshold (settings)
 }
 
 export interface MeterCycleResult {
-  unitCost: number;               // per liter / m³
-  consumed: number;
-  totalCost: number;
-  totalConsumption: number;       // kW / m³, units + common
+  consumed: number;               // opening + added − closing
+  sumMeters: number;              // Σ unit deltas + common delta
   commonConsumption: number;
-  costPerUnitOfConsumption: number;
+  lossesQty: number;              // consumed − Σ meters (≥ 0 when readings sane)
+  lossPct: number;                // of consumed
+  alarm: boolean;                 // lossPct > lossAlarmPct
+  rateWa: number | null;          // WA base rate (null for MbM)
+  rateSpot: number | null;        // this window's purchase price (info only)
+  rateBilled: number;             // pool ÷ Σ meters — what units actually pay
+  pool: number;                   // what this cycle bills in total
+  closingStockValue: number;      // WA: closing qty × rate; MbM: 0
   perUnit: { unitId: string; consumption: number; own: number; common: number; amount: number }[];
-  chargesTotal: number;           // Σ rounded per-unit amounts = the expense amount
-  warnings: string[];             // human-readable oddities (negative delta, …)
+  chargesTotal: number;
+  warnings: string[];             // human-readable oddities
 }
 
 export function computeMeterCycle(input: MeterCycleInput): MeterCycleResult {
   const warnings: string[] = [];
-  const unitCost = input.addedQty > 0 ? input.addedCostUsd / input.addedQty : 0;
+
   const consumed = input.openingStock + input.addedQty - input.closingStock;
   if (consumed < 0) warnings.push('negative-consumption');
-  const totalCost = r2(Math.max(0, consumed) * unitCost);
+  if (input.closingStock > input.openingStock + input.addedQty) warnings.push('closing-exceeds-supply');
+  if (input.addedQty <= 0 && input.closingStock > input.openingStock) warnings.push('stock-rose-no-purchase');
 
   const delta = (r: MeterReadingDraft) => {
     const d = r.end - r.start;
@@ -68,7 +76,25 @@ export function computeMeterCycle(input: MeterCycleInput): MeterCycleResult {
   const unitReadings = input.readings.filter((r) => r.unitId !== null);
   const commonConsumption = input.readings.filter((r) => r.unitId === null).reduce((s, r) => s + delta(r), 0);
   const unitConsumption = new Map(unitReadings.map((r) => [r.unitId as string, delta(r)]));
-  const totalConsumption = [...unitConsumption.values()].reduce((s, d) => s + d, 0) + commonConsumption;
+  const sumMeters = [...unitConsumption.values()].reduce((s, d) => s + d, 0) + commonConsumption;
+
+  const lossesQty = Math.max(0, consumed) - sumMeters;
+  if (lossesQty < 0) warnings.push('meters-exceed-consumed');
+  const lossPct = consumed > 0 ? (100 * Math.max(0, lossesQty)) / consumed : 0;
+  const alarm = lossPct > input.lossAlarmPct;
+
+  // rates
+  const supply = input.openingStock + input.addedQty;
+  const rateWa = input.model === 'wa' && supply > 0
+    ? (input.openingStockValue + input.addedCostUsd) / supply
+    : null;
+  const rateSpot = input.addedQty > 0 ? input.addedCostUsd / input.addedQty : null;
+
+  const pool = input.model === 'wa'
+    ? r2(Math.max(0, consumed) * (rateWa ?? 0))
+    : r2(input.addedCostUsd);
+  const rateBilled = sumMeters > 0 ? pool / sumMeters : 0;
+  const closingStockValue = input.model === 'wa' ? r2(input.closingStock * (rateWa ?? 0)) : 0;
 
   // the common split follows the participating units
   const weights = new Map(input.units.map((u) => [u.id, Number(u.share_weight) || 0]));
@@ -79,31 +105,28 @@ export function computeMeterCycle(input: MeterCycleInput): MeterCycleResult {
       : (weights.get(unitId) ?? 0) / totalWeight;
 
   let perUnit: MeterCycleResult['perUnit'];
-  let costPerUnitOfConsumption = 0;
-
-  if (totalConsumption > 0) {
-    costPerUnitOfConsumption = totalCost / totalConsumption;
-    const commonCost = commonConsumption * costPerUnitOfConsumption;
+  if (sumMeters > 0) {
+    const commonCost = commonConsumption * rateBilled;
     perUnit = input.units.map((u) => {
       const cons = unitConsumption.get(u.id) ?? 0;
-      const own = cons * costPerUnitOfConsumption;
+      const own = cons * rateBilled;
       const common = commonCost * commonShare(u.id);
-      return { unitId: u.id, consumption: cons, own: r2(own), common: r2(common), amount: r2(own + common) };
+      return { unitId: u.id, consumption: cons, own: r2(own), common: r2(common), amount: r2(r2(own) + r2(common)) };
     });
   } else {
     // nothing metered moved but the stock did (idle burn, a leak): the whole
-    // cost is a common cost, split by the chosen method
-    if (totalCost > 0) warnings.push('no-consumption-cost-split-as-common');
+    // pool is a common cost, split by the chosen method
+    if (pool > 0) warnings.push('no-consumption-cost-split-as-common');
     perUnit = input.units.map((u) => {
-      const common = totalCost * commonShare(u.id);
+      const common = pool * commonShare(u.id);
       return { unitId: u.id, consumption: 0, own: 0, common: r2(common), amount: r2(common) };
     });
   }
 
   return {
-    unitCost: r2(unitCost), consumed: r2(consumed), totalCost,
-    totalConsumption: r2(totalConsumption), commonConsumption: r2(commonConsumption),
-    costPerUnitOfConsumption,
+    consumed: r2(consumed), sumMeters: r2(sumMeters), commonConsumption: r2(commonConsumption),
+    lossesQty: r2(Math.max(0, lossesQty)), lossPct: r2(lossPct), alarm,
+    rateWa, rateSpot, rateBilled, pool, closingStockValue,
     perUnit,
     chargesTotal: r2(perUnit.reduce((s, p) => s + p.amount, 0)),
     warnings,

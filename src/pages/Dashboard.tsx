@@ -544,6 +544,9 @@ export default function Dashboard() {
             { label: t('dashboard.availableToSpend'), value: money(Number(fundPos.available)) },
             { label: t('dashboard.stillToCollect'),   value: money(Number(fundPos.arrears)) },
             { label: t('dashboard.reserveLabel'),     value: money(Number(fundPos.reserve)) },
+            ...(Number(fundPos.stock_on_hand ?? 0) > 0
+              ? [{ label: t('fund.stockOnHand'), value: money(Number(fundPos.stock_on_hand)) }]
+              : []),
           ]}
         />
       ) : (

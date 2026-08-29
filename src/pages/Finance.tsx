@@ -72,7 +72,7 @@ interface Entity { key: string; kind: 'compound' | 'building'; id: string; name:
 
 type ExpScope = 'all' | 'block' | 'group' | 'units' | 'unit';
 type ExpForm = {
-  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string; extraordinary: boolean; paid_from_block: string;
+  category: ExpenseCategory; expense_type_id: string; description: string; amount: string; amount_lbp: string; lbp_rate: string; expense_date: string; extraordinary: boolean; paid_from_block: string; qty: string;
   scope: ExpScope; method: AllocationMethod; block_id: string; group_id: string; unit_id: string; selectedUnits: string[];
   // T5: for units that HAVE a tenant, charge this party. Owner-only units always
   // go to the owner regardless. (No more 'both' / 'all members'.)
@@ -96,7 +96,7 @@ const fundingOf = (e: Expense): ExpFunding => {
 const defaultLeasedTo = (cat: ExpenseCategory): Tenure =>
   cat === 'water' || cat === 'electricity' ? 'tenant' : 'owner';
 const newExpForm = (): ExpForm => ({
-  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false, paid_from_block: '',
+  category: 'common_expenses', expense_type_id: '', description: '', amount: '', amount_lbp: '', lbp_rate: '', expense_date: new Date().toISOString().slice(0, 10), extraordinary: false, paid_from_block: '', qty: '',
   scope: 'all', method: 'by_shares', block_id: '', group_id: '', unit_id: '', selectedUnits: [], leasedTo: 'owner', funding: 'residents', project_id: '', amenity_id: '',
 });
 type FundEntryForm = { kind: FundEntryKind; amount: string; amount_lbp: string; lbp_rate: string; entry_date: string; description: string; counterparty: string; block_id: string };
@@ -344,6 +344,9 @@ export default function Finance() {
   // 0159: trashed units keep their financial history; their labels come from
   // a manager-gated RPC (RLS hides the rows themselves)
   const [deletedUnits, setDeletedUnits] = useState<Record<string, string>>({});
+  // 0162: expense types bound as metering purchases (qty field + fund hint)
+  const [purchaseTypeIds, setPurchaseTypeIds] = useState<Set<string>>(new Set());
+  const [stockOnHand, setStockOnHand] = useState(0);
   const [payForm, setPayForm] = useState<PayForm>(newPayForm());
   const [payFile, setPayFile] = useState<File | null>(null);
   const [detailExpense, setDetailExpense] = useState<Expense | null>(null);
@@ -430,6 +433,21 @@ export default function Finance() {
       setSpecialCharges((scs ?? []) as typeof specialCharges);
       const { data: dus } = await supabase.rpc('deleted_unit_labels', { p_building_ids: blocks });
       setDeletedUnits(Object.fromEntries(((dus ?? []) as { id: string; label: string }[]).map((d) => [d.id, d.label])));
+      // 0162: purchase-type bindings + the tank as fund money (latest final WA
+      // cycle's closing value, one per metered type)
+      const meterScope = entity.kind === 'compound' ? `compound_id.eq.${entity.id}` : `building_id.eq.${entity.id}`;
+      const [{ data: mss }, { data: mcs }] = await Promise.all([
+        supabase.from('meter_settings').select('purchase_expense_type_id').or(meterScope),
+        supabase.from('meter_cycles').select('expense_type_id, closing_stock_value')
+          .or(meterScope).eq('status', 'final').eq('model', 'wa')
+          .order('period_end', { ascending: false }),
+      ]);
+      setPurchaseTypeIds(new Set(((mss ?? []) as { purchase_expense_type_id: string }[]).map((x) => x.purchase_expense_type_id)));
+      const latestByType = new Map<string, number>();
+      ((mcs ?? []) as { expense_type_id: string; closing_stock_value: number | null }[]).forEach((c) => {
+        if (!latestByType.has(c.expense_type_id)) latestByType.set(c.expense_type_id, Number(c.closing_stock_value ?? 0));
+      });
+      setStockOnHand(round2([...latestByType.values()].reduce((a, b) => a + b, 0)));
     }
     const ids = unitList.map((x) => x.id);
     if (ids.length) {
@@ -752,7 +770,7 @@ export default function Finance() {
     if (e.meter_cycle_id) { toast.error(t('finance.meteredNoEdit')); return; }
     const myCharges = charges.filter((c) => c.expense_id === e.id);
     setEditingExpenseId(e.id); setDetailExpense(null); setExpFile(null);
-    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e), project_id: e.project_id ?? '', amenity_id: e.amenity_id ?? '', paid_from_block: e.paid_from_building_id ?? '' });
+    setExpForm({ category: e.category, expense_type_id: e.expense_type_id ?? '', description: e.description, extraordinary: false, amount: String(usdPartOf(e)), amount_lbp: e.amount_lbp ? String(e.amount_lbp) : '', lbp_rate: e.lbp_rate ? String(e.lbp_rate) : (effectiveLbpRate ? String(effectiveLbpRate) : ''), expense_date: e.expense_date, scope: 'units', method: e.method, block_id: '', group_id: '', unit_id: '', selectedUnits: myCharges.map((c) => c.unit_id), leasedTo: myCharges.some((c) => c.billed_to === 'tenant') ? 'tenant' : 'owner', funding: fundingOf(e), project_id: e.project_id ?? '', amenity_id: e.amenity_id ?? '', paid_from_block: e.paid_from_building_id ?? '', qty: e.qty != null ? String(e.qty) : '' });
     setCustom(Object.fromEntries(myCharges.map((c) => [c.unit_id, String(c.amount_usd)])));
     setExpOpen(true);
   }
@@ -827,6 +845,7 @@ export default function Finance() {
         building_id, compound_id, paid_from_building_id, category: expForm.category, description: desc, amount_usd: amount,
         expense_date: expForm.expense_date, scope_type, method: expForm.method, invoice_url, created_by: profile?.id,
         expense_type_id: expForm.expense_type_id || null,
+        qty: purchaseTypeIds.has(expForm.expense_type_id) && Number(expForm.qty) > 0 ? Number(expForm.qty) : null,
         amount_lbp: lbpPart > 0 ? lbpPart : null, lbp_rate: lbpPart > 0 ? rate : null,
         is_extraordinary: !fromFund && expForm.extraordinary,
         funded_by_fund_usd,
@@ -1426,6 +1445,11 @@ export default function Finance() {
                             {money(position.cash_usd)} <span className="opacity-60">+</span> {formatLbp(position.cash_lbp)} <span className="opacity-60">{t('fund.inTheDrawer')}</span>
                           </p>
                         )}
+                        {stockOnHand > 0 && (
+                          <p className="text-sm tnum mt-1 text-muted-foreground">
+                            {t('fund.stockOnHand')}: <span className="font-medium text-foreground">{money(stockOnHand)}</span>
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground mt-1">{t('fund.cashHint')}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1775,6 +1799,14 @@ export default function Finance() {
                 <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
                 <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={expForm.amount_lbp} onChange={(e) => setExpForm({ ...expForm, amount_lbp: e.target.value })} />
               </div>
+              {/* 0162: this type feeds a metering cycle - the quantity is what
+                  the cycle prices; fund-paid + quantified = pulled */}
+              {expForm.expense_type_id !== '' && purchaseTypeIds.has(expForm.expense_type_id) && (
+                <div className="mt-2">
+                  <Input label={t('finance.purchaseQty')} type="number" step="0.001" min="0" value={expForm.qty} onChange={(e) => setExpForm({ ...expForm, qty: e.target.value })} />
+                  <p className="text-xs text-muted-foreground mt-1">{t('finance.purchaseQtyHint')}</p>
+                </div>
+              )}
               {Number(expForm.amount_lbp) > 0 && (
                 <div className="grid grid-cols-2 gap-3 items-end">
                   <Input label={t('finance.lbpRate')} type="number" step="0.01" min="0" value={expForm.lbp_rate} onChange={(e) => setExpForm({ ...expForm, lbp_rate: e.target.value })} />

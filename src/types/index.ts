@@ -278,6 +278,8 @@ export interface Expense {
   scope_type: AllocationScope;
   method: AllocationMethod;
   invoice_url: string | null;
+  /** Quantity (L / m³) - marks a metering PURCHASE expense (0162). */
+  qty?: number | null;
   /** money records are voided, never deleted (0161) */
   voided_at?: string | null;
   voided_by?: string | null;
@@ -354,6 +356,8 @@ export interface FundPosition {
   cash_lbp?: number;
   /** 0153: block-mode compound-level rows that name no box. */
   unattributed?: number;
+  /** 0162: latest WA metering closing stock value - the tank as fund money. */
+  stock_on_hand?: number;
 }
 
 export interface Charge {

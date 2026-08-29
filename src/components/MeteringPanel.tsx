@@ -1,40 +1,55 @@
 // ============================================================
-// Metering (0090) — a Finance tab for expense types flagged `is_metered`
-// (generator, water). Record a cycle: stock in/bought/out + start/end readings
-// per unit and for the common areas. Finalizing posts ONE ordinary expense with
-// custom per-unit charges (math in lib/metering, tested), so the book, the
-// party model and the reminders treat metered money like any other expense.
+// Metering v2 (0162) — two models chosen per metered type in meter_settings:
+//   'mbm' Month by Month  — bills the window's purchases, meters split them
+//   'wa'  Weighted Average — bills consumption at the rolling average rate;
+//                            the tank's value shows in the fund as stock
+// Purchases are TYPE-BOUND fund expenses pulled by the cycle window (Ahmad's
+// rule) — repairs and contracts are ordinary expenses, invisible here. The
+// cycle posts CHARGES ONLY through finalize_meter_cycle(); the client math
+// (lib/metering, tested) is the PREVIEW twin of that RPC.
 // ============================================================
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Gauge, Trash2 } from 'lucide-react';
+import { Plus, Gauge, Trash2, Settings2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
-import { useExpenseTypes, legacyCategoryFor } from '@/lib/expenseTypes';
-import { computeMeterCycle, type MeterReadingDraft } from '@/lib/metering';
-import { composeUsdTotal } from '@/lib/currency';
+import { useExpenseTypes } from '@/lib/expenseTypes';
+import { computeMeterCycle, type MeterReadingDraft, type MeterModel } from '@/lib/metering';
 import { fmtDate } from '@/lib/dateFmt';
-import type { Unit, Tenure } from '@/types';
+import { useConfirm } from '@/lib/useConfirm';
+import type { Unit } from '@/types';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SelectField, SelectItem } from '@/components/ui/Select';
+import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { fmtMoney } from '@/lib/money';
 
-// one formatter, following the reader's language (src/lib/money.ts)
 const money = (n: number) => fmtMoney(n);
+
 interface CycleRow {
   id: string; expense_type_id: string; period_start: string; period_end: string;
   opening_stock: number; added_qty: number; added_cost_usd: number; closing_stock: number;
-  added_cost_lbp: number | null; lbp_rate: number | null;
+  opening_stock_value: number | null; closing_stock_value: number | null;
+  model: MeterModel | null; rate_billed: number | null; rate_spot: number | null; losses_qty: number | null;
   common_method: 'equal' | 'by_shares'; billed_to: 'tenant_where_leased' | 'owner';
   status: string; expense_id: string | null; created_at: string;
 }
+interface SettingsRow {
+  id: string; expense_type_id: string; model: MeterModel;
+  purchase_expense_type_id: string; loss_alarm_pct: number;
+  billed_to: 'tenant_where_leased' | 'owner'; common_method: 'equal' | 'by_shares';
+  initial_stock_qty: number; initial_stock_value: number;
+}
+interface PurchaseRow {
+  id: string; description: string; expense_date: string;
+  qty: number; amount_usd: number; funded_by_fund_usd: number;
+}
 
-export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenantId, profileId, onPosted, rateBuildingId }: {
+export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant, activeTenantId: _activeTenantId, profileId, onPosted, rateBuildingId: _rateBuildingId }: {
   entity: { kind: 'compound' | 'building'; id: string; name: string };
   rateBuildingId?: string;
   units: Unit[];
@@ -46,50 +61,144 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
 }) {
   const { t } = useTranslation();
   const { types } = useExpenseTypes(entity.kind, entity.id);
+  const { confirmAsync, ConfirmDialog } = useConfirm();
   const metered = types.filter((ty) => ty.active && ty.is_metered);
+  const typeLabel = (id: string) => {
+    const ty = types.find((x) => x.id === id);
+    return ty ? (ty.key ? t(`finance.cats.${ty.key}`) : ty.name) : '—';
+  };
 
   const [typeId, setTypeId] = useState('');
   useEffect(() => { if (!typeId && metered.length) setTypeId(metered[0].id); }, [metered, typeId]);
   const type = metered.find((ty) => ty.id === typeId);
 
+  const scopeCol = entity.kind === 'compound' ? 'compound_id' : 'building_id';
+
+  // ── settings (0162): the model + the bound purchase type ──────────────────
+  const [settings, setSettings] = useState<SettingsRow | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  async function loadSettings() {
+    if (!typeId) { setSettings(null); return; }
+    const { data } = await supabase.from('meter_settings').select('*')
+      .eq(scopeCol, entity.id).eq('expense_type_id', typeId).maybeSingle();
+    setSettings((data as SettingsRow | null) ?? null);
+    setSettingsLoaded(true);
+  }
+
   const [cycles, setCycles] = useState<CycleRow[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<CycleRow | null>(null);
   async function loadCycles() {
     if (!typeId) { setCycles([]); return; }
-    const q = entity.kind === 'compound'
-      ? supabase.from('meter_cycles').select('*').eq('compound_id', entity.id)
-      : supabase.from('meter_cycles').select('*').eq('building_id', entity.id);
-    const { data } = await q.eq('expense_type_id', typeId).order('period_end', { ascending: false });
+    const { data } = await supabase.from('meter_cycles').select('*')
+      .eq(scopeCol, entity.id).eq('expense_type_id', typeId)
+      .order('period_end', { ascending: false });
     setCycles((data as CycleRow[]) ?? []);
   }
-  useEffect(() => { loadCycles(); }, [typeId, entity.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setSettingsLoaded(false); loadSettings(); loadCycles(); }, [typeId, entity.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── the new-cycle form ────────────────────────────────────────────────────
+  // ── settings modal (the chooser + properties) ─────────────────────────────
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [sForm, setSForm] = useState({
+    model: 'mbm' as MeterModel, purchaseTypeId: '', lossAlarm: '10',
+    billedTo: 'tenant_where_leased' as 'tenant_where_leased' | 'owner',
+    commonMethod: 'by_shares' as 'equal' | 'by_shares',
+    initialQty: '0', initialBilled: true, initialValue: '0',
+  });
+  const hasFinalCycles = cycles.some((c) => c.status === 'final');
+  function openSetup() {
+    setSForm({
+      model: settings?.model ?? 'mbm',
+      purchaseTypeId: settings?.purchase_expense_type_id ?? typeId,
+      lossAlarm: String(settings?.loss_alarm_pct ?? 10),
+      billedTo: settings?.billed_to ?? 'tenant_where_leased',
+      commonMethod: settings?.common_method ?? 'by_shares',
+      initialQty: String(settings?.initial_stock_qty ?? 0),
+      initialBilled: (settings?.initial_stock_value ?? 0) === 0,
+      initialValue: String(settings?.initial_stock_value ?? 0),
+    });
+    setSetupOpen(true);
+  }
+  async function saveSettings() {
+    if (!typeId) return;
+    // WA→MbM exit gate: the tank's fund-owned value must be gone first
+    if (settings?.model === 'wa' && sForm.model === 'mbm') {
+      const latest = cycles.find((c) => c.status === 'final' && c.model === 'wa');
+      if (latest && Number(latest.closing_stock_value ?? 0) > 0.005) {
+        toast.error(t('metering.waExitBlocked', { value: money(Number(latest.closing_stock_value)) }));
+        return;
+      }
+    }
+    const row = {
+      [scopeCol]: entity.id, expense_type_id: typeId,
+      model: sForm.model,
+      purchase_expense_type_id: sForm.purchaseTypeId || typeId,
+      loss_alarm_pct: Math.min(100, Math.max(0, Number(sForm.lossAlarm) || 10)),
+      billed_to: sForm.billedTo, common_method: sForm.commonMethod,
+      initial_stock_qty: hasFinalCycles ? (settings?.initial_stock_qty ?? 0) : (Number(sForm.initialQty) || 0),
+      initial_stock_value: hasFinalCycles ? (settings?.initial_stock_value ?? 0)
+        : (sForm.initialBilled ? 0 : Number(sForm.initialValue) || 0),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = settings
+      ? await supabase.from('meter_settings').update(row).eq('id', settings.id)
+      : await supabase.from('meter_settings').insert({ ...row, created_by: profileId });
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('metering.settingsSaved'));
+    setSetupOpen(false); loadSettings();
+  }
+
+  // ── the cycle form ────────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  // editing an existing cycle re-derives and RE-POSTS: the expense amount and
-  // its charges are replaced, exactly like editing an ordinary expense
   const [editingCycle, setEditingCycle] = useState<CycleRow | null>(null);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [openingStock, setOpeningStock] = useState('');
-  const [addedQty, setAddedQty] = useState('');
-  const [addedUsd, setAddedUsd] = useState('');
-  const [addedLbp, setAddedLbp] = useState('');
-  const [lbpRate, setLbpRate] = useState('');
   const [closingStock, setClosingStock] = useState('');
-  const [commonMethod, setCommonMethod] = useState<'equal' | 'by_shares'>('by_shares');
-  const [billedTo, setBilledTo] = useState<'tenant_where_leased' | 'owner'>('tenant_where_leased');
   const [reads, setReads] = useState<Record<string, { start: string; end: string }>>({});
+  const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const COMMON = '__common__';
+
+  // Ahmad's pull, previewed live: type-bound + quantified + in window + live
+  useEffect(() => {
+    if (!open || !settings || !from || !to) { setPurchases([]); return; }
+    const scopeFilter = entity.kind === 'compound'
+      ? `compound_id.eq.${entity.id},building_id.in.(${units.map((u) => u.building_id).filter((v, i, a) => a.indexOf(v) === i).join(',')})`
+      : `building_id.eq.${entity.id}`;
+    supabase.from('expenses')
+      .select('id, description, expense_date, qty, amount_usd, funded_by_fund_usd')
+      .eq('expense_type_id', settings.purchase_expense_type_id)
+      .not('qty', 'is', null).is('voided_at', null)
+      .gte('expense_date', from).lte('expense_date', to)
+      .or(scopeFilter)
+      .order('expense_date')
+      .then(({ data }) => setPurchases((data as PurchaseRow[]) ?? []));
+  }, [open, settings, from, to, entity.id, entity.kind, units]);
+
+  const fundPaid = (p: PurchaseRow) => Number(p.funded_by_fund_usd) >= Number(p.amount_usd) - 0.005;
+  const pulled = purchases.filter(fundPaid);
+  const addedQty = pulled.reduce((s, p) => s + Number(p.qty), 0);
+  const addedCost = pulled.reduce((s, p) => s + Number(p.amount_usd), 0);
+
+  // WA opening value, mirroring the server's bridge rules (preview only)
+  const prevFinal = useMemo(() => cycles.find((c) => c.status === 'final' && c.id !== editingCycle?.id), [cycles, editingCycle]);
+  const openingValue = useMemo(() => {
+    if (settings?.model !== 'wa') return 0;
+    const q = Number(openingStock) || 0;
+    if (prevFinal && prevFinal.model === 'wa') {
+      const pq = Number(prevFinal.closing_stock) || 0;
+      return pq > 0 ? Math.round((q * Number(prevFinal.closing_stock_value ?? 0) / pq) * 100) / 100 : 0;
+    }
+    if (prevFinal) return 0;                          // MbM→WA bridge
+    return Number(settings?.initial_stock_value ?? 0); // fresh WA setup
+  }, [settings, openingStock, prevFinal]);
 
   async function openCycle() {
     setEditingCycle(null);
-    setFrom(''); setTo(''); setAddedQty(''); setAddedUsd(''); setAddedLbp('');
-    setCommonMethod('by_shares'); setBilledTo('tenant_where_leased');
-    // prefill: last cycle's closing stock and end readings become the starts
+    setFrom(''); setTo('');
     const last = cycles[0];
-    setOpeningStock(last ? String(last.closing_stock) : '');
+    setOpeningStock(last ? String(last.closing_stock) : String(settings?.initial_stock_qty ?? ''));
+    setClosingStock('');
     const init: Record<string, { start: string; end: string }> = { [COMMON]: { start: '', end: '' } };
     for (const u of units) init[u.id] = { start: '', end: '' };
     if (last) {
@@ -99,27 +208,13 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
       }
     }
     setReads(init);
-    // effective_lbp_rate cascades block → compound, so any block id works
-    const bid = entity.kind === 'building' ? entity.id : rateBuildingId;
-    if (bid) {
-      const { data } = await supabase.rpc('effective_lbp_rate', { p_building: bid });
-      setLbpRate(data ? String(data) : '');
-    } else setLbpRate('');
     setOpen(true);
   }
 
   async function openCycleEdit(c: CycleRow) {
     setEditingCycle(c);
     setFrom(c.period_start); setTo(c.period_end);
-    setOpeningStock(String(c.opening_stock)); setAddedQty(String(c.added_qty));
-    // split the stored cost back into the USD part + the LBP log (0086)
-    const lbp = Number(c.added_cost_lbp ?? 0);
-    const rate = Number(c.lbp_rate ?? 0);
-    setAddedLbp(lbp > 0 ? String(lbp) : '');
-    setLbpRate(rate > 0 ? String(rate) : '');
-    setAddedUsd(String(Math.round((Number(c.added_cost_usd) - (lbp > 0 && rate > 0 ? lbp / rate : 0)) * 100) / 100));
-    setClosingStock(String(c.closing_stock));
-    setCommonMethod(c.common_method); setBilledTo(c.billed_to);
+    setOpeningStock(String(c.opening_stock)); setClosingStock(String(c.closing_stock));
     const init: Record<string, { start: string; end: string }> = { [COMMON]: { start: '', end: '' } };
     for (const u of units) init[u.id] = { start: '', end: '' };
     const { data } = await supabase.from('meter_readings').select('unit_id, start_reading, end_reading').eq('cycle_id', c.id);
@@ -131,8 +226,6 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
   }
 
   async function deleteCycle(c: CycleRow) {
-    // one transaction (0092): the expense, its charges and the cycle go
-    // together, or nothing does
     const { error } = await supabase.rpc('delete_meter_cycle', { p_cycle: c.id });
     setConfirmDelete(null);
     if (error) { toast.error(error.message); return; }
@@ -146,115 +239,56 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
       .map(([k, v]) => ({ unitId: k === COMMON ? null : k, start: Number(v.start) || 0, end: Number(v.end) || 0 })),
     [reads]);
 
-  const totalCostUsd = composeUsdTotal(Number(addedUsd) || 0, Number(addedLbp) || 0, Number(lbpRate) || 0);
   const result = useMemo(() => computeMeterCycle({
+    model: settings?.model ?? 'mbm',
     units,
     readings: readingDrafts,
     openingStock: Number(openingStock) || 0,
-    addedQty: Number(addedQty) || 0,
-    addedCostUsd: Number.isNaN(totalCostUsd) ? 0 : totalCostUsd,
+    openingStockValue: openingValue,
+    addedQty, addedCostUsd: addedCost,
     closingStock: Number(closingStock) || 0,
-    commonMethod,
-  }), [units, readingDrafts, openingStock, addedQty, totalCostUsd, closingStock, commonMethod]);
+    commonMethod: settings?.common_method ?? 'by_shares',
+    lossAlarmPct: Number(settings?.loss_alarm_pct ?? 10),
+  }), [settings, units, readingDrafts, openingStock, openingValue, addedQty, addedCost, closingStock]);
 
   async function finalize() {
-    if (!type || !from || !to) return;
-    if ((Number(addedLbp) || 0) > 0 && (Number(lbpRate) || 0) <= 0) { toast.error(t('finance.lbpNeedsRate')); return; }
-    if (result.chargesTotal <= 0) { toast.error(t('metering.nothingToPost')); return; }
+    if (!type || !settings || !from || !to) return;
     setSaving(true);
-    const lbp = Number(addedLbp) || 0;
     const cycleFields = {
       expense_type_id: type.id, period_start: from, period_end: to,
-      opening_stock: Number(openingStock) || 0, added_qty: Number(addedQty) || 0,
-      added_cost_usd: Number.isNaN(totalCostUsd) ? 0 : totalCostUsd,
-      added_cost_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(lbpRate) : null,
-      closing_stock: Number(closingStock) || 0,
-      common_method: commonMethod, billed_to: billedTo, status: 'final',
+      opening_stock: Number(openingStock) || 0, closing_stock: Number(closingStock) || 0,
+      common_method: settings.common_method, billed_to: settings.billed_to, status: 'draft',
     };
-
     let cycleId: string;
     if (editingCycle) {
       const { error } = await supabase.from('meter_cycles').update(cycleFields).eq('id', editingCycle.id);
       if (error) { toast.error(error.message); setSaving(false); return; }
       cycleId = editingCycle.id;
-      // readings are replaced wholesale — they ARE the new derivation
       await supabase.from('meter_readings').delete().eq('cycle_id', cycleId);
     } else {
       const { data: cyc, error: cErr } = await supabase.from('meter_cycles').insert({
-        building_id: entity.kind === 'building' ? entity.id : null,
-        compound_id: entity.kind === 'compound' ? entity.id : null,
-        ...cycleFields, created_by: profileId,
+        [scopeCol]: entity.id, ...cycleFields, created_by: profileId,
       }).select().single();
       if (cErr || !cyc) { toast.error(cErr?.message ?? 'Could not save the cycle'); setSaving(false); return; }
       cycleId = (cyc as { id: string }).id;
     }
-
     await supabase.from('meter_readings').insert(readingDrafts.map((r) => ({
       cycle_id: cycleId, unit_id: r.unitId, start_reading: r.start, end_reading: r.end,
     })));
 
-    const typeName = type.key ? t(`finance.cats.${type.key}`) : type.name;
-    const desc = `${typeName} · ${fmtDate(from, 'dd-MM')} – ${fmtDate(to, 'dd-MM-yyyy')}`;
-    const expenseFields = {
-      category: legacyCategoryFor(type), expense_type_id: type.id,
-      description: desc, amount_usd: result.chargesTotal,
-      amount_lbp: lbp > 0 ? lbp : null, lbp_rate: lbp > 0 ? Number(lbpRate) : null,
-      expense_date: to, scope_type: entity.kind === 'compound' ? 'compound' : 'block',
-      method: 'custom',
-    };
-
-    const unitByIdPre = Object.fromEntries(units.map((u) => [u.id, u]));
-    const buildCharges = (expId: string | null) => result.perUnit.filter((p) => p.amount > 0).map((p) => {
-      const bt: Tenure = billedTo === 'tenant_where_leased' && hasTenant(p.unitId) ? 'tenant' : 'owner';
-      return {
-        expense_id: expId, unit_id: p.unitId, building_id: unitByIdPre[p.unitId]?.building_id,
-        category: legacyCategoryFor(type), description: desc, amount_usd: p.amount,
-        charge_date: to, billed_to: bt,
-        tenant_id: bt === 'tenant' ? activeTenantId(p.unitId) : null, created_by: profileId,
-      };
-    });
-
-    let expenseId = editingCycle?.expense_id ?? null;
-    if (expenseId) {
-      // re-post in ONE transaction (0092): update + rebuild charges together.
-      // The DB guard on metered expenses only admits changes through this path.
-      const { error } = await supabase.rpc('repost_metered_expense', {
-        p_expense: expenseId,
-        p_fields: expenseFields,
-        p_charges: buildCharges(null).map(({ expense_id: _e, created_by: _c, ...rest }) => rest),
-      });
-      if (error) { toast.error(error.message); setSaving(false); return; }
-      toast.success(t('metering.reposted', { amount: money(result.chargesTotal) }));
-      setSaving(false); setOpen(false); setEditingCycle(null);
-      loadCycles(); onPosted();
-      return;
-    } else {
-      const { data: exp, error: eErr } = await supabase.from('expenses').insert({
-        building_id: entity.kind === 'building' ? entity.id : null,
-        compound_id: entity.kind === 'compound' ? entity.id : null,
-        ...expenseFields, created_by: profileId, meter_cycle_id: cycleId,
-      }).select().single();
-      if (eErr || !exp) { toast.error(eErr?.message ?? 'Could not post the expense'); setSaving(false); return; }
-      expenseId = (exp as { id: string }).id;
-      await supabase.from('meter_cycles').update({ expense_id: expenseId }).eq('id', cycleId);
+    // the server recomputes everything (it is the source of truth) and posts
+    // charges only; on a losses alarm it asks before billing them in
+    let { error } = await supabase.rpc('finalize_meter_cycle', { p_cycle: cycleId });
+    if (error && error.message.startsWith('LOSSES_ALARM|')) {
+      const pct = error.message.split('|')[1] ?? '?';
+      const ok = await confirmAsync(t('metering.lossAlarmTitle'), t('metering.lossAlarmBody', { pct }));
+      if (ok) ({ error } = await supabase.rpc('finalize_meter_cycle', { p_cycle: cycleId, p_confirm_losses: true }));
+      else { setSaving(false); return; }
     }
-
-    const unitById = Object.fromEntries(units.map((u) => [u.id, u]));
-    const charges = result.perUnit.filter((p) => p.amount > 0).map((p) => {
-      const bt: Tenure = billedTo === 'tenant_where_leased' && hasTenant(p.unitId) ? 'tenant' : 'owner';
-      return {
-        expense_id: expenseId, unit_id: p.unitId, building_id: unitById[p.unitId]?.building_id,
-        category: legacyCategoryFor(type), description: desc, amount_usd: p.amount,
-        charge_date: to, billed_to: bt,
-        tenant_id: bt === 'tenant' ? activeTenantId(p.unitId) : null, created_by: profileId,
-      };
-    });
-    if (charges.length) {
-      const { error: chErr } = await supabase.from('charges').insert(charges);
-      if (chErr) { toast.error(chErr.message); setSaving(false); return; }
-    }
-    toast.success(t(editingCycle ? 'metering.reposted' : 'metering.posted', { amount: money(result.chargesTotal) }));
-    setSaving(false); setOpen(false); setEditingCycle(null);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('metering.finalized', { amount: money(result.chargesTotal) }));
+    setOpen(false); setEditingCycle(null);
     loadCycles(); onPosted();
   }
 
@@ -270,16 +304,46 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
     );
   }
 
+  // ── first-run: the model chooser (demo-page style cards) ──────────────────
+  const needsSetup = settingsLoaded && !settings;
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <SelectField label="" value={typeId} onValueChange={setTypeId}>
           {metered.map((ty) => <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>)}
         </SelectField>
-        {canManage && <Button variant="tinted" onClick={openCycle}><Plus size={16} /> {t('metering.newCycle')}</Button>}
+        <div className="flex items-center gap-2">
+          {settings && (
+            <Badge variant="slate">{settings.model === 'wa' ? t('metering.modelWa') : t('metering.modelMbm')}</Badge>
+          )}
+          {canManage && settings && (
+            <Button variant="ghost" size="sm" onClick={openSetup}><Settings2 size={14} /> {t('metering.settingsBtn')}</Button>
+          )}
+          {canManage && settings && <Button variant="tinted" onClick={openCycle}><Plus size={16} /> {t('metering.newCycle')}</Button>}
+        </div>
       </div>
 
-      {cycles.length === 0
+      {needsSetup && (
+        <Card><CardBody>
+          <p className="text-sm font-semibold text-foreground">{t('metering.setupTitle', { type: type ? typeLabel(type.id) : '' })}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 mb-4">{t('metering.setupIntro')}</p>
+          {canManage ? (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {(['mbm', 'wa'] as MeterModel[]).map((m) => (
+                <button key={m} type="button"
+                  onClick={() => { openSetup(); setSForm((f) => ({ ...f, model: m, purchaseTypeId: typeId })); }}
+                  className="text-start rounded-xl border border-border p-4 hover:border-primary/50 hover:bg-primary/5 transition cursor-pointer">
+                  <p className="font-semibold text-foreground">{t(m === 'mbm' ? 'metering.modelMbm' : 'metering.modelWa')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t(m === 'mbm' ? 'metering.modelMbmDesc' : 'metering.modelWaDesc')}</p>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">{t('metering.noCycles')}</p>}
+        </CardBody></Card>
+      )}
+
+      {settings && (cycles.length === 0
         ? <Card><CardBody><p className="text-sm text-muted-foreground text-center py-8">{t('metering.noCycles')}</p></CardBody></Card>
         : (
           <Card><div className="overflow-x-auto"><table className="w-full text-sm">
@@ -288,19 +352,25 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
               <th className="px-5 py-3 text-end font-medium">{t('metering.opening')}</th>
               <th className="px-5 py-3 text-end font-medium">{t('metering.bought')}</th>
               <th className="px-5 py-3 text-end font-medium">{t('metering.closing')}</th>
-              <th className="px-5 py-3 text-end font-medium">{t('finance.amount')}</th>
-              {canManage && <th className="px-5 py-3 text-end font-medium">{t('common.actions')}</th>}
+              <th className="px-5 py-3 text-end font-medium">{t('metering.rateBilled')}</th>
+              <th className="px-5 py-3 text-end font-medium">{t('metering.losses')}</th>
+              {canManage && <th className="px-5 py-3 w-8" />}
             </tr></thead>
             <tbody className="divide-y divide-border/60">
               {cycles.map((c) => (
                 <tr key={c.id} className={canManage ? 'hover:bg-secondary/40 cursor-pointer' : ''} onClick={() => canManage && openCycleEdit(c)}>
-                  <td className="px-5 py-3 text-foreground">{fmtDate(c.period_start, 'dd-MM')} – {fmtDate(c.period_end, 'dd-MM-yyyy')}</td>
+                  <td className="px-5 py-3 text-foreground">
+                    {fmtDate(c.period_start, 'dd-MM')} – {fmtDate(c.period_end, 'dd-MM-yyyy')}
+                    {c.status === 'draft' && <Badge variant="yellow" className="ms-2">{t('metering.draft')}</Badge>}
+                  </td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.opening_stock).toLocaleString()}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.added_qty).toLocaleString()} · {money(Number(c.added_cost_usd))}</td>
                   <td className="px-5 py-3 text-end text-muted-foreground tnum">{Number(c.closing_stock).toLocaleString()}</td>
-                  <td className="px-5 py-3 text-end font-semibold text-foreground tnum">
-                    {money(Math.max(0, (Number(c.opening_stock) + Number(c.added_qty) - Number(c.closing_stock))) * (Number(c.added_qty) > 0 ? Number(c.added_cost_usd) / Number(c.added_qty) : 0))}
+                  <td className="px-5 py-3 text-end tnum text-foreground">
+                    {c.rate_billed != null ? Number(c.rate_billed).toFixed(4) : '—'}
+                    {c.rate_spot != null && <span className="text-xs text-muted-foreground"> / {Number(c.rate_spot).toFixed(4)}</span>}
                   </td>
+                  <td className="px-5 py-3 text-end text-muted-foreground tnum">{c.losses_qty != null ? Number(c.losses_qty).toLocaleString() : '—'}</td>
                   {canManage && (
                     <td className="px-5 py-3 text-end">
                       <button onClick={(ev) => { ev.stopPropagation(); setConfirmDelete(c); }}
@@ -313,9 +383,63 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
               ))}
             </tbody>
           </table></div></Card>
-        )}
+        ))}
 
-      {/* ── new cycle ── */}
+      {/* ── settings ── */}
+      <Modal open={setupOpen} onClose={() => setSetupOpen(false)} title={t('metering.setupTitle', { type: type ? typeLabel(type.id) : '' })} size="lg">
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {(['mbm', 'wa'] as MeterModel[]).map((m) => (
+              <button key={m} type="button" onClick={() => setSForm({ ...sForm, model: m })}
+                className={`text-start rounded-xl border p-4 transition cursor-pointer ${sForm.model === m ? 'border-primary/50 bg-primary/10' : 'border-border hover:border-primary/40'}`}>
+                <p className="font-semibold text-foreground">{t(m === 'mbm' ? 'metering.modelMbm' : 'metering.modelWa')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t(m === 'mbm' ? 'metering.modelMbmDesc' : 'metering.modelWaDesc')}</p>
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label={t('metering.purchaseType')} value={sForm.purchaseTypeId} onValueChange={(v) => setSForm({ ...sForm, purchaseTypeId: v })}>
+              {types.filter((ty) => ty.active).map((ty) => (
+                <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>
+              ))}
+            </SelectField>
+            <Input label={t('metering.lossAlarm')} type="number" min="0" max="100" value={sForm.lossAlarm} onChange={(e) => setSForm({ ...sForm, lossAlarm: e.target.value })} />
+          </div>
+          <p className="text-xs text-muted-foreground -mt-2">{t('metering.purchaseTypeHint')}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label={t('metering.commonSplit')} value={sForm.commonMethod} onValueChange={(v) => setSForm({ ...sForm, commonMethod: v as 'equal' | 'by_shares' })}>
+              <SelectItem value="by_shares">{t('dues.methods.by_shares')}</SelectItem>
+              <SelectItem value="equal">{t('dues.methods.equal')}</SelectItem>
+            </SelectField>
+            <SelectField label={t('dues.billTo')} value={sForm.billedTo} onValueChange={(v) => setSForm({ ...sForm, billedTo: v as 'tenant_where_leased' | 'owner' })}>
+              <SelectItem value="tenant_where_leased">{t('dues.billToTenant')}</SelectItem>
+              <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
+            </SelectField>
+          </div>
+          {sForm.model === 'wa' && !hasFinalCycles && (
+            <div className="rounded-xl border border-border p-3 space-y-3">
+              <p className="text-sm font-medium text-foreground">{t('metering.initialTitle')}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Input label={t('metering.initialQty')} type="number" step="0.001" value={sForm.initialQty} onChange={(e) => setSForm({ ...sForm, initialQty: e.target.value })} />
+                {!sForm.initialBilled && (
+                  <Input label={t('metering.initialValue')} type="number" step="0.01" value={sForm.initialValue} onChange={(e) => setSForm({ ...sForm, initialValue: e.target.value })} />
+                )}
+              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" className="accent-primary" checked={sForm.initialBilled} onChange={(e) => setSForm({ ...sForm, initialBilled: e.target.checked })} />
+                {t('metering.initialBilledQ')}
+              </label>
+              <p className="text-xs text-muted-foreground">{t('metering.initialHint')}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="secondary" onClick={() => setSetupOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={saveSettings}>{t('common.save')}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── the cycle ── */}
       <Modal open={open} onClose={() => { setOpen(false); setEditingCycle(null); }} title={t(editingCycle ? 'metering.editCycle' : 'metering.newCycle')} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -323,25 +447,32 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
             <Input label={t('dues.periodTo')} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
 
+          {/* Ahmad's pull, visible: the exact invoices that price this cycle */}
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1.5">{t('metering.purchases', { type: settings ? typeLabel(settings.purchase_expense_type_id) : '' })}</p>
+            {purchases.length === 0
+              ? <p className="text-xs text-muted-foreground">{t('metering.purchasesNone')}</p>
+              : (
+                <div className="rounded-xl border border-border divide-y divide-border/60 max-h-32 overflow-y-auto">
+                  {purchases.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
+                      <span className="text-foreground">{fmtDate(p.expense_date, 'dd-MM')} · {p.description}
+                        {!fundPaid(p) && <span className="ms-1.5 text-[10px] text-amber-600 dark:text-amber-400">{t('metering.notFundPaid')}</span>}
+                      </span>
+                      <span className="tnum text-muted-foreground">{Number(p.qty).toLocaleString()} · {money(Number(p.amount_usd))}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            <p className="text-xs text-muted-foreground mt-1">{t('metering.purchasesTotal', { qty: addedQty.toLocaleString(), cost: money(addedCost) })}</p>
+          </div>
+
           <div>
             <p className="text-sm font-medium text-foreground mb-1.5">{t('metering.stockTitle')}</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Input label={t('metering.opening')} type="number" step="0.001" value={openingStock} onChange={(e) => setOpeningStock(e.target.value)} />
-              <Input label={t('metering.boughtQty')} type="number" step="0.001" value={addedQty} onChange={(e) => setAddedQty(e.target.value)} />
               <Input label={t('metering.closing')} type="number" step="0.001" value={closingStock} onChange={(e) => setClosingStock(e.target.value)} />
             </div>
-            <div className="grid grid-cols-3 gap-3 mt-2">
-              <Input label={t('metering.boughtUsd')} type="number" step="0.01" value={addedUsd} onChange={(e) => setAddedUsd(e.target.value)} />
-              <Input label={t('finance.amountLbp')} type="number" step="1" value={addedLbp} onChange={(e) => setAddedLbp(e.target.value)} />
-              <Input label={t('finance.lbpRate')} type="number" step="0.01" value={lbpRate} onChange={(e) => setLbpRate(e.target.value)} disabled={!(Number(addedLbp) > 0)} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              {t('metering.stockMath', {
-                consumed: result.consumed.toLocaleString(),
-                unitCost: result.unitCost.toFixed(2),
-                total: money(result.totalCost),
-              })}
-            </p>
           </div>
 
           <div>
@@ -368,22 +499,22 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField label={t('metering.commonSplit')} value={commonMethod} onValueChange={(v) => setCommonMethod(v as 'equal' | 'by_shares')}>
-              <SelectItem value="by_shares">{t('dues.methods.by_shares')}</SelectItem>
-              <SelectItem value="equal">{t('dues.methods.equal')}</SelectItem>
-            </SelectField>
-            <SelectField label={t('dues.billTo')} value={billedTo} onValueChange={(v) => setBilledTo(v as 'tenant_where_leased' | 'owner')}>
-              <SelectItem value="tenant_where_leased">{t('dues.billToTenant')}</SelectItem>
-              <SelectItem value="owner">{t('dues.billToOwner')}</SelectItem>
-            </SelectField>
-          </div>
-
-          {/* preview: the same math that posts */}
+          {/* the derivation, live: consumed / meters / losses / rates */}
           <div className="rounded-xl border border-border overflow-hidden">
-            <div className="px-3 py-2 bg-secondary/50 text-xs font-medium text-muted-foreground flex justify-between">
-              <span>{t('metering.previewHead', { rate: result.costPerUnitOfConsumption.toFixed(4) })}</span>
-              <span className="tnum">{money(result.chargesTotal)}</span>
+            <div className="px-3 py-2 bg-secondary/50 text-xs text-muted-foreground space-y-0.5">
+              <div className="flex justify-between">
+                <span>{t('metering.derivation', { consumed: result.consumed.toLocaleString(), meters: result.sumMeters.toLocaleString() })}</span>
+                <span className="tnum font-medium text-foreground">{money(result.chargesTotal)}</span>
+              </div>
+              <div className="flex justify-between flex-wrap gap-x-4">
+                <span>
+                  {t('metering.rateLine', { billed: result.rateBilled.toFixed(4) })}
+                  {result.rateSpot != null && <> · {t('metering.spotLine', { spot: result.rateSpot.toFixed(4) })}</>}
+                </span>
+                <span className={result.alarm ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}>
+                  {t('metering.lossLine', { qty: result.lossesQty.toLocaleString(), pct: result.lossPct.toFixed(1) })}
+                </span>
+              </div>
             </div>
             <div className="max-h-40 overflow-y-auto divide-y divide-border/60">
               {result.perUnit.filter((p) => p.amount > 0).map((p) => {
@@ -418,6 +549,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant, activeTenan
         title={t('metering.deleteTitle')} message={t('metering.deleteConfirm')}
         confirmLabel={t('common.delete')}
       />
+      {ConfirmDialog}
     </div>
   );
 }
