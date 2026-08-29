@@ -195,8 +195,15 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
 
   async function openCycle() {
     setEditingCycle(null);
-    setFrom(''); setTo('');
     const last = cycles[0];
+    // the next period proposes itself: day-after-last, same span forward
+    if (last) {
+      const d = (x: string) => new Date(x + 'T00:00:00');
+      const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+      const span = Math.max(1, Math.round((d(last.period_end).getTime() - d(last.period_start).getTime()) / 864e5));
+      const nf = new Date(d(last.period_end).getTime() + 864e5);
+      setFrom(iso(nf)); setTo(iso(new Date(nf.getTime() + span * 864e5)));
+    } else { setFrom(''); setTo(''); }
     setOpeningStock(last ? String(last.closing_stock) : String(settings?.initial_stock_qty ?? ''));
     setClosingStock('');
     const init: Record<string, { start: string; end: string }> = { [COMMON]: { start: '', end: '' } };
