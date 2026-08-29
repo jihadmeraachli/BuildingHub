@@ -25,7 +25,8 @@ const APP_GUIDE = `
 
 Abniyah (app.abniyah.com) is a building management app for Lebanon. It manages
 residential buildings and compounds: who lives where, shared expenses, payments,
-dues, issues, meetings, inspections, service contracts and contacts. It works in
+prepaid billing, metered utilities (generator, water), issues, meetings, votes,
+a lost & found, inspections, service contracts and contacts. It works in
 English and Arabic (the globe icon in the top bar switches language, and the
 choice is remembered on your profile). There are iOS and web versions.
 
@@ -48,16 +49,19 @@ live in or own.
 
 Under "Managing", a selector sits at the top of the side menu listing every
 building/compound the person manages. Pick one there ONCE and every page
-(Dashboard, Finance, Dues, Issues, Meetings, Reports...) shows that entity.
+(Dashboard, Finance, Prepaid Budget, Issues, Meetings, Reports...) shows that entity.
 Managers of several entities also get "All buildings" for pages that can
 aggregate (Issues, Meetings, Inspections, Contracts, People); money pages
-(Finance, Dues, Reports) always need one entity picked.
+(Finance, Prepaid Budget, Reports) always need one entity picked.
 Under "My home", the same spot lists the person's units ("All my units" or one).
 
 ## Dashboard
 
-Managers: balance hero (money in the fund), KPIs, collected-vs-billed chart,
-coverage (reserve, runway, dues issued), open issues, upcoming meetings, and a
+Managers: the CASH ON HAND hero - the physical box, shown split into USD and
+LBP when lira is held, with held-for-residents, available-to-spend,
+still-to-collect, reserve, and (when a Weighted-Average meter tank holds
+value) stock on hand. Below it: KPIs, collected-vs-billed chart, coverage
+(reserve, runway, prepayments issued), open issues, upcoming meetings, and a
 period filter (all time / this year / a month). Compound managers can filter by
 block. Residents (My home): their unit cards with balances, a statement
 preview, and upcoming meetings.
@@ -66,8 +70,9 @@ preview, and upcoming meetings.
 
 The money workbench for the selected building/compound.
 - RECORD AN EXPENSE: Finance → Record Expense. Choose category (water,
-  electricity, cleaning, elevator, generator...), amount (USD), date, an
-  invoice photo/PDF (optional), and the SCOPE: whole compound, one block, a
+  electricity, cleaning, elevator, generator...), amount (USD, optionally an
+  LBP part at a frozen rate), date, an invoice photo/PDF (optional), a
+  QUANTITY in liters/m³ when the type feeds a metering cycle, and the SCOPE: whole compound, one block, a
   group of units, selected units, or one unit. Then the ALLOCATION method: by
   shares (each unit's share weight), equal split, or custom amounts. Saving
   the expense automatically creates a CHARGE on every unit in scope - that is
@@ -79,7 +84,22 @@ The money workbench for the selected building/compound.
   and an "as of" date picker for a historical snapshot. Owner and tenant money
   are tracked separately per unit (a leased unit shows both parties).
 - Adjustments tab: manual credits/debits with a reason (e.g. correcting an
-  error, move-out settlement).
+  error, move-out settlement). The same tab carries CONTRIBUTIONS (postpaid
+  only): bill every unit directly with no expense behind it - a reserve
+  top-up or an emergency collection. Split by shares or equally, billed to
+  owners or tenants-where-leased, with an optional immediate payment request
+  that asks each unit ONLY this charge, netted against any credit it holds.
+  Contributions are editable and voidable; residents are notified of changes.
+- FUND tab: cash on hand and its physical drawers (USD bills and raw LBP),
+  the opening cash (USD + LBP at a frozen rate, set with "Edit opening
+  cash"), other income and outflows, and - under Weighted-Average metering -
+  the tank's value as stock on hand. Compounds choose who holds the cash:
+  one box for the whole compound (default) or a box per block, shown as a
+  tag on the fund card.
+- Money records are VOIDED, never deleted (expenses, payments, charges,
+  adjustments, contributions): a void keeps the record visible with a badge,
+  moves balances back, and notifies affected residents. In every finance
+  table, CLICK THE ROW to open its detail window - all actions live there.
 - Residents see a read-only "My Account" statement of their own unit instead.
 
 ## Reports
@@ -90,22 +110,63 @@ filters. Residents: their own unit statement PDF and the building's expense
 report (transparency - every resident can see what the building spent, so they
 know what their charges paid for).
 
-## Billing modes: arrears vs dues
+## Billing modes: Postpaid vs Prepaid
 
 Each building/compound has a billing mode (set in Buildings):
-- ARREARS (default): residents pay their actual balance after expenses land.
-  Payment requests can be issued: a snapshot of what each party owes, sent to
-  everyone with a balance, chased automatically until paid.
-- DUES (prepaid): a dues plan collects fixed amounts every period
+- POSTPAID (default): residents are billed for actual costs and pay their
+  balance after expenses land. Payment requests snapshot what each party owes
+  and chase it automatically. A request issued from a contribution asks ONLY
+  that charge, netted against any credit - older balances stay with the
+  regular request cycle.
+- PREPAID: a prepaid plan collects fixed amounts every period
   (monthly/quarterly/semiannual/annual) split by shares, equally, or custom.
-  "Generate dues" opens a run where you choose who pays (tenants where leased,
-  or owners only), the amounts, the scope (all units / a group / selected),
-  and whether to TRUE-UP (net each unit's ask against its real balance - a
-  unit in credit is asked for less). Special one-time charges (e.g. roof
-  repair billed to owners, a fuel surcharge billed to tenants) are raised with
-  "Add special charge" without touching the plan.
-Reminders go out automatically (email + WhatsApp): daily until the due date,
-weekly after, chasing every unpaid period.
+  "Generate prepayments" opens a run where you choose who pays (tenants where
+  leased, or owners only), the amounts, the scope (all units / a group /
+  selected), and whether to TRUE-UP (net each unit's ask against its real
+  balance - a unit in credit is asked for less). One-time special charges
+  (e.g. roof repair billed to owners) are raised with "Add special charge"
+  without touching the plan.
+Reminders go out automatically (in-app + email + WhatsApp): daily until the
+due date, weekly after, always quoting what is STILL owed.
+
+## Metering (generator electricity, trucked water) - step by step
+
+For utilities bought in bulk and consumed through meters. Full setup:
+1. Buildings -> your building -> Expense types: tick METERED on Water (and
+   add a "Generator" type, marking it metered, if the building runs one).
+2. Finance -> Metering tab -> pick the type -> choose the PRICING MODEL
+   (one-time setup per type, via two cards):
+   - MONTH BY MONTH: each cycle bills exactly what was bought in its dates,
+     split by the meters. Money in = money out. Best when the building buys
+     roughly what it burns.
+   - WEIGHTED AVERAGE: each cycle bills what was CONSUMED, priced at the
+     running average cost of the tank. Rates stay smooth when prices jump
+     and the tank's value shows in the fund as stock on hand. Best for big
+     tanks. A fresh setup asks the starting tank quantity and whether
+     residents already paid for that stock.
+3. In the same setup: the PURCHASE EXPENSE TYPE (which type's invoices feed
+   this meter - defaults to the type itself), the LOSS ALARM %, who is
+   billed (tenants where leased / owners), and how the common areas split
+   (by shares / equal).
+4. RECORD PURCHASES as normal expenses under that purchase type, paid from
+   the fund, WITH THE QUANTITY (a liters/m³ field appears automatically for
+   bound types). These invoices are the ONLY thing a cycle prices - repairs
+   and contracts stay ordinary expenses and never touch the rate.
+5. NEW CYCLE: the dates propose themselves (day after the last cycle, same
+   length - editable). The cycle lists the pulled purchase invoices
+   read-only, prefills the opening stock and start readings from the last
+   cycle, and asks only the closing stock and the end readings - per unit
+   and for the COMMON AREAS meter.
+6. FINALIZE & BILL UNITS: the app computes the rate (billed rate and market
+   rate are both shown), bills each unit its own consumption plus its share
+   of the common areas, and posts CHARGES ONLY - the purchase invoices were
+   already the expenses, so nothing is double counted. LOSSES (tank
+   consumption minus all meters) are billed into the rate; above the alarm
+   threshold the app asks before proceeding - a high number means a leak or
+   theft worth investigating first.
+Editing rules: only the LATEST cycle can be recomputed or deleted, and a
+purchase invoice used by a finalized cycle cannot be voided (correct with an
+adjustment instead).
 
 ## Whish payments
 
@@ -132,6 +193,25 @@ resolved.
 Managers schedule meetings (date, time, agenda, optional online link) - every
 resident gets an email with a calendar invite (.ics) plus in-app notification.
 After the meeting, minutes/summary can be recorded. Past meetings stay listed.
+
+## Lost & Found
+
+Anyone in the building can post a found item with a photo taken on the spot;
+every resident gets a notification ("new item - check if it's yours"). Any
+resident can claim an item; everyone then sees it as claimed, and managers
+also see WHO claimed it and can mark it returned.
+
+## Voting
+
+Building/compound admins create votes (e.g. choosing a provider or approving
+work); every resident is notified and votes in the app. VOTING RULES are set
+ONCE per building under "Voting rules" and every new vote uses them: who
+votes (every resident / owners only / one vote per unit), vote weight (one
+person one vote / by ownership share), single or multiple choice, secret or
+open ballot, abstentions, quorum %, pass threshold %, and whether results
+show live or only after closing. Each vote keeps the rules it opened with.
+Results show as bars with turnout vs quorum; when a vote closes the leading
+option shows Passed, No majority, or No quorum.
 
 ## Contacts
 
@@ -165,7 +245,9 @@ Filter by service or status. Residents can view contracts read-only.
 - Units page (Structure): add units per building with label (e.g. 101, A3),
   floor, share weight (its slice of shared expenses), occupancy. Units can be
   grouped (e.g. "Tower A shops") for targeted expenses. Units can carry an
-  opening balance when migrating from paper/Excel.
+  opening balance when migrating from paper/Excel. A unit can be DELETED only
+  when its balance is exactly zero; its financial history is archived with a
+  "Deleted unit" tag, never destroyed.
 - People: invite residents by email (they get an invitation link), assign them
   to units as OWNER or TENANT. A unit can have an owner and a tenant at the
   same time; their money is tracked separately. Move-outs end the membership
@@ -173,21 +255,35 @@ Filter by service or status. Residents can view contracts read-only.
 
 ## Import
 
-Bring existing data from Excel: upload a sheet of units/balances and the AI
-maps the columns automatically (Arabic headers work). Also an AI document
-import for expense invoices and PDFs. Every import can be undone as a batch.
+Building/compound admins get two imports (CSV or Excel; Arabic headers work):
+- STRUCTURE: units with their owners and tenants in one sheet (unit label,
+  floor, share, block name for compounds, owner/tenant name + email + phone).
+  People are invited and linked automatically; licence seats are assigned
+  while the pool lasts. Templates are header row + guide row - data starts
+  on row 3, and the guide row is skipped automatically.
+- BALANCES: one number per EXISTING unit - positive means the unit holds
+  credit, negative means it owes. The number becomes the unit's OPENING
+  BALANCE (the book starts from it; cash on hand is untouched - count the
+  drawer separately in the Fund tab). Re-importing a unit replaces its
+  opening. Units must exist first; nothing imports until every row matches.
+Org and platform admins additionally get Users and Buildings imports.
 
 ## Licenses
 
-Free during beta. Account caps: a building account manages up to 50 units, a
-compound account up to 250, an organization up to 2500.
+Units are free structure; what a unit needs is an assigned LICENCE SEAT.
+Seats are bought on the Billing/Licenses page (monthly or annual, per unit),
+assigned or released per unit in Structure, and released automatically when
+a unit is trashed (a restored unit comes back unlicensed). Renewal amounts
+follow ASSIGNED seats. The Licenses page shows the pool and what is left.
 
 ## Settings and notifications
 
 Settings: profile (name, phone with country code), language preference,
 notification preferences. Notifications arrive on up to three channels: the
-in-app bell, email, and WhatsApp (charges, payments received, dues, reminders,
-meeting invites, issue updates) - in the user's preferred language.
+in-app bell, email, and WhatsApp - in the user's preferred language. New
+charges notify IN-APP ONLY (a charge is a ledger line, not an ask); payment
+requests, receipts, prepayments and reminders also go by email and WhatsApp;
+votes, lost & found and issue updates ring the in-app bell.
 
 ## Getting started (new admin)
 
