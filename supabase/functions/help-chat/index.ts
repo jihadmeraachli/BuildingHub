@@ -223,6 +223,23 @@ painter, generator man...) with tap-to-call numbers, plus every service
 contract's provider automatically (elevator company, cleaning company...).
 Admins add/edit contacts; residents see them read-only.
 
+## Amenities
+
+The building's equipment register: the lift, the generator, the water tank,
+solar panels... Each amenity has a kind (or a custom name via "Other" +
+"What is it?"), brand, quantity, serial number, location, install date,
+purchase price (informational - it never touches balances) and expected
+life, from which the app suggests a replacement year.
+
+TO SEE WHAT AN AMENITY COSTS: open Amenities and CLICK the amenity - its
+detail shows every linked contract, inspection, expense and issue, and at
+the bottom "Spent on it so far": the sum of all Finance expenses tagged to
+it. That figure is the running cost of owning that equipment (repairs,
+maintenance, contracts billed as expenses) and keeps growing over its
+life, while the purchase price stays fixed. To feed it, tag the amenity
+when recording an expense (the "Amenity" selector on the expense form);
+inspections, contracts and issues can be tagged the same way.
+
 ## Inspections
 
 Periodic checks organized under CATEGORIES the admin creates (Generator,
