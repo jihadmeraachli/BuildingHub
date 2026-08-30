@@ -291,6 +291,12 @@ export default function Projects() {
             </SelectField>
             <Input label={t('projects.estimateUsd')} type="number" step="0.01" min="0" value={form.estimate} onChange={(e) => setForm({ ...form, estimate: e.target.value })} />
           </div>
+          {editId && (
+            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5">
+              <span className="text-sm text-muted-foreground">{t('projects.spentFromFinance')}</span>
+              <span className="text-sm font-semibold tnum text-foreground">{money(actualOf.get(editId) ?? 0)}</span>
+            </div>
+          )}
           {/* 0123: the contractor/company is picked from Contacts — add it there first. */}
           {contacts.length > 0 ? (
             <SelectField label={t('projects.contractor')} value={form.contact_id || '__none__'} onValueChange={(v) => setForm({ ...form, contact_id: v === '__none__' ? '' : v })}>
