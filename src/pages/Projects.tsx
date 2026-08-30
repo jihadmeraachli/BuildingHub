@@ -199,12 +199,12 @@ export default function Projects() {
                           <><span>•</span><span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span></>
                         )}
                       </div>
-                      {p.over && <p className="text-xs text-rose-500 mt-1">{t('projects.overBy', { amount: money(p.actual - (p.est ?? 0)) })}</p>}
+                      {p.over && <p className="text-xs text-rose-500 dark:text-rose-300 mt-1">{t('projects.overBy', { amount: money(p.actual - (p.est ?? 0)) })}</p>}
                     </div>
                     <div className="w-44 flex-shrink-0">
                       <div className="flex items-baseline justify-between gap-2 text-sm">
                         <span className="text-muted-foreground text-xs">{t('projects.spent')}</span>
-                        <span className={`tnum font-semibold ${p.over ? 'text-rose-500' : 'text-foreground'}`}>{money(p.actual)}</span>
+                        <span className={`tnum font-semibold ${p.over ? 'text-rose-500 dark:text-rose-300' : 'text-foreground'}`}>{money(p.actual)}</span>
                       </div>
                       <div className="flex items-baseline justify-between gap-2 text-sm mt-0.5">
                         <span className="text-muted-foreground text-xs">{t('projects.estimate')}</span>
@@ -212,7 +212,7 @@ export default function Projects() {
                       </div>
                       {p.pct != null && (
                         <div className="mt-2 h-1.5 rounded-full bg-secondary overflow-hidden">
-                          <div className={`h-full rounded-full ${p.over ? 'bg-rose-500' : 'bg-primary'}`} style={{ width: `${p.pct}%` }} />
+                          <div className={`h-full rounded-full ${p.over ? 'bg-rose-500 dark:bg-rose-400' : 'bg-primary'}`} style={{ width: `${p.pct}%` }} />
                         </div>
                       )}
                     </div>
@@ -252,7 +252,7 @@ export default function Projects() {
                 ].map((x) => (
                   <div key={x.l} className="rounded-xl bg-secondary px-3 py-2">
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wide">{x.l}</p>
-                    <p className={`text-sm font-semibold mt-0.5 tnum ${x.red ? 'text-rose-500' : 'text-foreground'}`}>{x.v}</p>
+                    <p className={`text-sm font-semibold mt-0.5 tnum ${x.red ? 'text-rose-500 dark:text-rose-300' : 'text-foreground'}`}>{x.v}</p>
                   </div>
                 ))}
               </div>
