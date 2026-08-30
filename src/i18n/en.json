@@ -1100,7 +1100,7 @@
     "tenantBalanceMoved": "Tenant removed. Balance of {{amt}} transferred to the owner.",
     "poolEmpty": "No licence seats left in the pool. Add licenses on the Billing page, then assign the seat.",
     "deleteUnitTitle": "Delete unit",
-    "deleteUnitConfirm": "Delete this unit? It moves to the trash — its charges and payments stay on the books. The balance must be exactly zero first.",
+    "deleteUnitConfirm": "Delete this unit? It moves to the trash - its charges and payments stay on the books. The balance must be exactly zero first.",
     "deleteGroupTitle": "Delete group",
     "deleteGroupConfirm": "Delete this group?"
   },

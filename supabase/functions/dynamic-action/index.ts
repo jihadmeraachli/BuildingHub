@@ -15,7 +15,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // opt-in that can't break email delivery by accident.
 const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') ?? '';
 
-// Record fields are attacker-influenced text — escape before interpolating into HTML.
+// Record fields are attacker-influenced text - escape before interpolating into HTML.
 const esc = (v: unknown) =>
   String(v ?? '')
     .replace(/&/g, '&amp;')
@@ -32,7 +32,7 @@ const safeUrl = (v: unknown): string | null => {
 // ── Email primitives ─────────────────────────────────────────────────────────
 interface Attachment { filename: string; content: string; }
 
-/** Returns null on success, or Resend's error text. The caller logs it — this
+/** Returns null on success, or Resend's error text. The caller logs it - this
  *  used to return nothing, so every send was logged as "sent" even when Resend
  *  rejected it, and a bounced building looked identical to a delivered one. */
 async function sendEmail(to: string, subject: string, html: string, fromName?: string, attachments?: Attachment[]): Promise<string | null> {
@@ -102,16 +102,16 @@ function lbpNote(rec: { amount_usd?: number; amount_lbp?: number | null; lbp_rat
 }
 
 // ── WhatsApp primitives (Meta Cloud API) ─────────────────────────────────────
-// Disabled until both secrets are set — same two-step opt-in as WEBHOOK_SECRET,
+// Disabled until both secrets are set - same two-step opt-in as WEBHOOK_SECRET,
 // so deploying this code changes nothing until the Meta account is ready.
 // Template names below must match the pre-approved templates in Meta Business
-// Manager EXACTLY (name + variable count/order) — see docs/WHATSAPP_SETUP.md.
+// Manager EXACTLY (name + variable count/order) - see docs/WHATSAPP_SETUP.md.
 const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') ?? '';
 const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
 const WHATSAPP_LANG = Deno.env.get('WHATSAPP_LANG') || 'en';
 // Per-language templates (0060): OFF = legacy bilingual bodies (params doubled,
 // single language code). Flip to '1' ONLY after the per-language template
-// variants are approved in Meta — see docs/WHATSAPP_SETUP.md Part 2b.
+// variants are approved in Meta - see docs/WHATSAPP_SETUP.md Part 2b.
 const WHATSAPP_PER_LANG = Deno.env.get('WHATSAPP_PER_LANG') === '1';
 const whatsappEnabled = () => Boolean(WHATSAPP_TOKEN && WHATSAPP_PHONE_ID);
 
@@ -143,10 +143,10 @@ function waPhone(raw: string | null | undefined): string | null {
 }
 
 /** Template params may not be empty or contain newlines/tabs (Meta rejects the send). */
-const waParam = (v: unknown) => (String(v ?? '').replace(/\s+/g, ' ').trim() || '—');
+const waParam = (v: unknown) => (String(v ?? '').replace(/\s+/g, ' ').trim() || '-');
 
 async function sendWhatsApp(toPhone: string, templateName: string, params: string[], lang: WaLang = 'en') {
-  // Legacy mode: templates are BILINGUAL — an Arabic section ({{1}}..{{n}})
+  // Legacy mode: templates are BILINGUAL - an Arabic section ({{1}}..{{n}})
   // then an English section ({{n+1}}..{{2n}}); the same values are sent twice.
   // Per-language mode (WHATSAPP_PER_LANG): one language variant per recipient,
   // params sent once, language code per profile. Bodies: docs/WHATSAPP_SETUP.md.
@@ -218,7 +218,7 @@ async function getUserEmail(userId: string): Promise<string | null> {
 }
 
 /** owner/occupant user ids of a unit (new model). ended_at IS NULL is load-bearing:
- *  removing an owner CLOSES the membership (kept for financial history) — closed
+ *  removing an owner CLOSES the membership (kept for financial history) - closed
  *  rows must never receive notifications. */
 async function unitOwnerIds(unitId: string): Promise<string[]> {
   const { data } = await supabase.from('memberships').select('user_id').eq('unit_id', unitId).is('ended_at', null);
@@ -237,7 +237,7 @@ async function unitPartyIds(unitId: string, party: 'owner' | 'tenant' | 'both', 
   const rows = ((data ?? []) as { user_id: string; tenure: string }[]).filter((m) => m.tenure === party);
   const ids = rows.map((m) => m.user_id);
   // Dues audit D4: when a dues row names a specific tenant, resolve to THAT
-  // tenant if still active, else NOBODY — never fall back to the unit's current
+  // tenant if still active, else NOBODY - never fall back to the unit's current
   // tenant, which leaks a departed tenant's dues notification (and its amount)
   // to their replacement.
   if (party === 'tenant' && tenantId) return ids.includes(tenantId) ? [tenantId] : [];
@@ -296,7 +296,7 @@ const b64url = (bytes: ArrayBuffer | Uint8Array) =>
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 // Apple rejects a token older than an hour, and refuses one regenerated more
-// often than every 20 minutes — so it is cached, not rebuilt per notification.
+// often than every 20 minutes - so it is cached, not rebuilt per notification.
 let apnsJwtCache = { token: '', madeAt: 0 };
 async function apnsJwt(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -331,7 +331,7 @@ async function apnsPost(host: string, token: string, payload: unknown) {
   });
 }
 
-/** Push to a set of users, honouring notify_push. Never throws — a push
+/** Push to a set of users, honouring notify_push. Never throws - a push
  *  failure must not stop the email that carries the same news. */
 async function pushToUserIds(ids: string[], title: string, body?: string) {
   try {
@@ -368,7 +368,7 @@ async function pushToUserIds(ids: string[], title: string, body?: string) {
         continue;
       }
       console.log(res.ok
-        ? `[push] sent — "${title}"`
+        ? `[push] sent - "${title}"`
         : `[push] FAILED ${res.status}: ${await res.text().catch(() => '')}`);
     }
   } catch (e) {
@@ -380,7 +380,7 @@ async function pushToUserIds(ids: string[], title: string, body?: string) {
  *
  *  The caller hands over a BUILDER rather than a finished subject and body,
  *  because one event now produces up to three different emails. Recipients are
- *  grouped by preferred_language and the builder runs once per group — not once
+ *  grouped by preferred_language and the builder runs once per group - not once
  *  per person, which would re-render the same HTML for every neighbour in a
  *  200-unit compound. */
 async function emailToUserIds(
@@ -408,16 +408,16 @@ async function emailToUserIds(
     const { subject, html } = build(DICT[lang]);
     // Same event, one alert per channel: everything that emails also pushes.
     // The subject is already a complete, specific line ("Payment received"),
-    // and iOS shows the app name above it, so it works as the alert title —
+    // and iOS shows the app name above it, so it works as the alert title -
     // and now it reaches the phone in the same language as the email.
     // Push honours notify_push separately, so it goes to the whole group.
     void pushToUserIds(members.map((m) => m.id), subject);
     for (const p of members) {
-      if (!p.notify_email) { console.log(`[email] skip ${p.id} — notify_email off`); continue; }
+      if (!p.notify_email) { console.log(`[email] skip ${p.id} - notify_email off`); continue; }
       const email = await getUserEmail(p.id);
-      if (!email) { console.log(`[email] skip ${p.id} — no auth email`); continue; }
+      if (!email) { console.log(`[email] skip ${p.id} - no auth email`); continue; }
       const err = await sendEmail(email, subject, html, fromName, attachments);
-      console.log(err ? `[email] FAILED ${email}: ${err}` : `[email] sent ${email} [${lang}] — "${subject}"`);
+      console.log(err ? `[email] FAILED ${email}: ${err}` : `[email] sent ${email} [${lang}] - "${subject}"`);
     }
   }
 }
@@ -462,7 +462,7 @@ function generateIcs(uid: string, title: string, meeting_date: string, meeting_t
 // it can no longer be silently absent.
 //
 // TERMINOLOGY is lifted from src/i18n/{ar,fr}.json rather than translated
-// fresh, so an email says the same word the screen does — a French syndic
+// fresh, so an email says the same word the screen does - a French syndic
 // reads "lot" and "appel de fonds" in both places.
 //
 // ESCAPING, and this matters: `subj` builders take RAW text, because a subject
@@ -486,18 +486,18 @@ const EN = {
   whish: (n: string) => `You can pay directly through <strong>Whish</strong> to <strong>${n}</strong>.`,
 
   billing: {
-    trialSubj: (scope: string) => `Welcome to Abniyah — your 30-day trial for ${scope} has started`,
+    trialSubj: (scope: string) => `Welcome to Abniyah - your 30-day trial for ${scope} has started`,
     trialTitle: 'Your trial has started',
     trialBody: (scope: string, d: string) =>
       `Everything is unlocked for <strong>${scope}</strong> until <strong>${d}</strong>: unlimited licences, every feature, no card. We will remind you before it ends; nothing is ever charged until you subscribe.`,
     invoiceSubj: (scope: string, amount: string) => `Invoice for ${scope}: ${amount}`,
     invoiceTitle: 'Invoice issued',
     invoiceBody: (scope: string, amount: string, due: string, period: string) =>
-      `An invoice of <strong>${amount}</strong> for <strong>${scope}</strong> (${period}) is ready. Pay it from the Billing page by <strong>${due}</strong> — Whish or card.`,
+      `An invoice of <strong>${amount}</strong> for <strong>${scope}</strong> (${period}) is ready. Pay it from the Billing page by <strong>${due}</strong> - Whish or card.`,
     receiptSubj: (scope: string, amount: string) => `Payment received for ${scope}: ${amount}`,
     receiptTitle: 'Payment received',
     receiptBody: (scope: string, amount: string, period: string) =>
-      `Thank you — <strong>${amount}</strong> received for <strong>${scope}</strong> (${period}). Your subscription is active; the receipt is on the Billing page.`,
+      `Thank you - <strong>${amount}</strong> received for <strong>${scope}</strong> (${period}). Your subscription is active; the receipt is on the Billing page.`,
     cta: 'Open Billing',
   },
   reg: {
@@ -570,7 +570,7 @@ const EN = {
     title: 'Payment requested',
     fallback: 'Outstanding balance',
     intro: (what: string, unit: string, amount: string) =>
-      `<strong>${what}</strong> — unit <strong>${unit}</strong> has <strong style="color:#dc2626;">${amount}</strong> to settle.`,
+      `<strong>${what}</strong> - unit <strong>${unit}</strong> has <strong style="color:#dc2626;">${amount}</strong> to settle.`,
     rAmount: 'Amount', rDueBy: 'Due by',
   },
   invite: {
@@ -609,18 +609,18 @@ const AR: Dict = {
   whish: (n: string) => `يمكنك الدفع مباشرة عبر <strong>Whish</strong> إلى <strong>${n}</strong>.`,
 
   billing: {
-    trialSubj: (scope: string) => `أهلاً بك في أبنية — بدأت تجربتك المجانية لـ${scope} لمدة 30 يوماً`,
+    trialSubj: (scope: string) => `أهلاً بك في أبنية - بدأت تجربتك المجانية لـ${scope} لمدة 30 يوماً`,
     trialTitle: 'بدأت تجربتك',
     trialBody: (scope: string, d: string) =>
       `كل شيء مفتوح لـ<strong>${scope}</strong> حتى <strong>${d}</strong>: رخص غير محدودة، كل الميزات، بلا بطاقة. سنذكّرك قبل النهاية؛ لا يُقتطع شيء أبداً قبل أن تشترك.`,
     invoiceSubj: (scope: string, amount: string) => `فاتورة لـ${scope}: ${amount}`,
     invoiceTitle: 'صدرت فاتورة',
     invoiceBody: (scope: string, amount: string, due: string, period: string) =>
-      `فاتورة بقيمة <strong>${amount}</strong> لـ<strong>${scope}</strong> (${period}) جاهزة. سدّدها من صفحة الفوترة قبل <strong>${due}</strong> — عبر Whish أو البطاقة.`,
+      `فاتورة بقيمة <strong>${amount}</strong> لـ<strong>${scope}</strong> (${period}) جاهزة. سدّدها من صفحة الفوترة قبل <strong>${due}</strong> - عبر Whish أو البطاقة.`,
     receiptSubj: (scope: string, amount: string) => `استلمنا دفعة لـ${scope}: ${amount}`,
     receiptTitle: 'استلمنا الدفعة',
     receiptBody: (scope: string, amount: string, period: string) =>
-      `شكراً — استلمنا <strong>${amount}</strong> لـ<strong>${scope}</strong> (${period}). اشتراكك فعّال؛ الإيصال في صفحة الفوترة.`,
+      `شكراً - استلمنا <strong>${amount}</strong> لـ<strong>${scope}</strong> (${period}). اشتراكك فعّال؛ الإيصال في صفحة الفوترة.`,
     cta: 'فتح الفوترة',
   },
   reg: {
@@ -693,7 +693,7 @@ const AR: Dict = {
     title: 'طلب دفع',
     fallback: 'الرصيد المستحق',
     intro: (what: string, unit: string, amount: string) =>
-      `<strong>${what}</strong> — على الشقة <strong>${unit}</strong> تسوية <strong style="color:#dc2626;">${amount}</strong>.`,
+      `<strong>${what}</strong> - على الشقة <strong>${unit}</strong> تسوية <strong style="color:#dc2626;">${amount}</strong>.`,
     rAmount: 'المبلغ', rDueBy: 'الاستحقاق قبل',
   },
   invite: {
@@ -716,7 +716,7 @@ const AR: Dict = {
   },
 };
 
-// French typography: a no-break space ( ) before : ; ! ? — the same
+// French typography: a no-break space ( ) before : ; ! ? - the same
 // convention src/i18n/fr.json already follows, so an email reads the way the
 // screens do instead of looking machine-translated.
 const FR: Dict = {
@@ -734,18 +734,18 @@ const FR: Dict = {
   whish: (n: string) => `Vous pouvez régler directement via <strong>Whish</strong> au <strong>${n}</strong>.`,
 
   billing: {
-    trialSubj: (scope: string) => `Bienvenue sur Abniyah — votre essai de 30 jours pour ${scope} a commencé`,
+    trialSubj: (scope: string) => `Bienvenue sur Abniyah - votre essai de 30 jours pour ${scope} a commencé`,
     trialTitle: 'Votre essai a commencé',
     trialBody: (scope: string, d: string) =>
       `Tout est ouvert pour <strong>${scope}</strong> jusqu’au <strong>${d}</strong> : licences illimitées, toutes les fonctions, sans carte. Nous vous préviendrons avant la fin ; rien n’est débité tant que vous ne vous abonnez pas.`,
     invoiceSubj: (scope: string, amount: string) => `Facture pour ${scope} : ${amount}`,
     invoiceTitle: 'Facture émise',
     invoiceBody: (scope: string, amount: string, due: string, period: string) =>
-      `Une facture de <strong>${amount}</strong> pour <strong>${scope}</strong> (${period}) est prête. Réglez-la depuis la page Facturation avant le <strong>${due}</strong> — Whish ou carte.`,
+      `Une facture de <strong>${amount}</strong> pour <strong>${scope}</strong> (${period}) est prête. Réglez-la depuis la page Facturation avant le <strong>${due}</strong> - Whish ou carte.`,
     receiptSubj: (scope: string, amount: string) => `Paiement reçu pour ${scope} : ${amount}`,
     receiptTitle: 'Paiement reçu',
     receiptBody: (scope: string, amount: string, period: string) =>
-      `Merci — <strong>${amount}</strong> reçus pour <strong>${scope}</strong> (${period}). Votre abonnement est actif ; le reçu est sur la page Facturation.`,
+      `Merci - <strong>${amount}</strong> reçus pour <strong>${scope}</strong> (${period}). Votre abonnement est actif ; le reçu est sur la page Facturation.`,
     cta: 'Ouvrir la facturation',
   },
   reg: {
@@ -818,7 +818,7 @@ const FR: Dict = {
     title: 'Demande de paiement',
     fallback: 'Solde à régler',
     intro: (what: string, unit: string, amount: string) =>
-      `<strong>${what}</strong> — le lot <strong>${unit}</strong> a <strong style="color:#dc2626;">${amount}</strong> à régler.`,
+      `<strong>${what}</strong> - le lot <strong>${unit}</strong> a <strong style="color:#dc2626;">${amount}</strong> à régler.`,
     rAmount: 'Montant', rDueBy: 'À régler avant le',
   },
   invite: {
@@ -864,7 +864,7 @@ Deno.serve(async (req) => {
           subject: L.reg.subj,
           html: emailHtml(L, L.reg.title,
             `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.reg.intro}</p>
-             ${table(row(L.reg.name, esc(record.full_name)) + row(L.reg.apartment, esc(record.apartment_number ?? '—')) + row(L.reg.phone, esc(record.phone ?? '—')))}`,
+             ${table(row(L.reg.name, esc(record.full_name)) + row(L.reg.apartment, esc(record.apartment_number ?? '-')) + row(L.reg.phone, esc(record.phone ?? '-')))}`,
             L.reg.cta, `${APP_URL}/users`),
         }),
         b?.name ?? 'Abniyah');
@@ -873,7 +873,7 @@ Deno.serve(async (req) => {
     // 2. (removed 2026-08-26) The "resident approved" email is gone: activation
     //    now happens when the invitee accepts and signs in themselves - mailing
     //    them "you have been approved" at that moment was redundant, and on
-    //    imports it fired with building '—'. The invitation email (Supabase
+    //    imports it fired with building '-'. The invitation email (Supabase
     //    Auth template) is the one and only onboarding email.
 
     // 3. New issue → admins (excluding reporter)
@@ -883,8 +883,8 @@ Deno.serve(async (req) => {
       await emailToUserIds(admins, (L) => ({
         subject: L.issue.subj(record.title),
         html: emailHtml(L, L.issue.title,
-          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.issue.intro(esc(b?.name ?? '—'))}</p>
-           ${table(row(L.issue.rTitle, esc(record.title)) + row(L.issue.rPriority, esc(L.priority[record.priority] ?? record.priority)) + row(L.issue.rLocation, esc(record.location ?? '—')) + (record.apartment_number ? row(L.issue.rApartment, esc(record.apartment_number)) : '') + row(L.issue.rDescription, esc(record.description ?? '—')))}`,
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.issue.intro(esc(b?.name ?? '-'))}</p>
+           ${table(row(L.issue.rTitle, esc(record.title)) + row(L.issue.rPriority, esc(L.priority[record.priority] ?? record.priority)) + row(L.issue.rLocation, esc(record.location ?? '-')) + (record.apartment_number ? row(L.issue.rApartment, esc(record.apartment_number)) : '') + row(L.issue.rDescription, esc(record.description ?? '-')))}`,
           L.ctaIssue, `${APP_URL}/issues`),
       }), b?.name ?? 'Abniyah');
     }
@@ -903,7 +903,7 @@ Deno.serve(async (req) => {
 
     // 4. New charge (v3 finance) → the BILLED party only (owner or tenant)
     // 0121 (finance audit H4): notify_suppressed marks a charge written by
-    // repost_expense()/repost_metered_expense() — a re-post of an EXISTING
+    // repost_expense()/repost_metered_expense() - a re-post of an EXISTING
     // expense, not a new one. Without this, fixing a typo on an expense
     // re-fired this exact email to every resident on it.
     // (changed 2026-08-29, Jey's QA) New-charge external pings are OFF: a
@@ -927,7 +927,7 @@ Deno.serve(async (req) => {
       }), b?.name ?? 'Abniyah');
       const { data: payUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(payRecipients, 'abniyah_payment_received',
-        (name) => [name, money(record.amount_usd), payUnit?.label ?? '—', b?.name ?? '—']);
+        (name) => [name, money(record.amount_usd), payUnit?.label ?? '-', b?.name ?? '-']);
     }
 
     // 5b. Payment edited (amount changed) → the paying party only
@@ -961,14 +961,14 @@ Deno.serve(async (req) => {
     //   end_membership() inserts a PAIR of transfer rows; drive off the
     //   TENANT-party row so each side gets exactly one email. Requires a
     //   Database Webhook on `adjustments` INSERT (see docs/DEPENDENCIES.md).
-    //   NOTE: no WhatsApp here — that needs a new approved Meta template
+    //   NOTE: no WhatsApp here - that needs a new approved Meta template
     //   (existing template param counts are frozen); email + in-app cover it.
     if (tbl === 'adjustments' && type === 'INSERT'
         && (record.kind === 'transfer_in' || record.kind === 'transfer_out') && record.party === 'tenant') {
       const b = await getBuilding(record.building_id);
       const { data: adjUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       const detail = (L: Dict) => table(
-        row(L.transfer.rUnit, esc(adjUnit?.label ?? '—')) +
+        row(L.transfer.rUnit, esc(adjUnit?.label ?? '-')) +
         row(L.transfer.rAmount, money(record.amount_usd)) +
         (record.counterparty_name ? row(L.transfer.rFormer, esc(record.counterparty_name)) : ''));
       await emailToUserIds(await unitPartyIds(record.unit_id, 'owner'), (L) => ({
@@ -991,7 +991,7 @@ Deno.serve(async (req) => {
     //     Dues used to fan to every membership on the unit; once they carry
     //     billed_to + tenant_id a tenant's dues must not reach the owner, and a
     //     former tenant must not hear about the current period at all.
-    //     ⚠️ WhatsApp param count stays 6 — only the recipients changed.
+    //     ⚠️ WhatsApp param count stays 6 - only the recipients changed.
     if (tbl === 'dues' && type === 'INSERT') {
       const b = await getBuilding(record.building_id);
       const duesParty = record.billed_to === 'tenant' ? 'tenant' : 'owner';
@@ -1010,13 +1010,13 @@ Deno.serve(async (req) => {
       const { data: duesUnit } = await supabase.from('units').select('label').eq('id', record.unit_id).single();
       await whatsappToUserIds(duesTo, 'abniyah_dues_issued',
         (name, lang) => {
-          const base = [name, record.period_label, money(record.amount_due), duesUnit?.label ?? '—', b?.name ?? '—'];
+          const base = [name, record.period_label, money(record.amount_due), duesUnit?.label ?? '-', b?.name ?? '-'];
           return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
         });
     }
 
     // 5e. Dues edited (amount changed) → the *effective* billed party only.
-    //   D14: a departed tenant's dues offload to the owner — resolve recipients
+    //   D14: a departed tenant's dues offload to the owner - resolve recipients
     //   through effective_obligation_party (as 5f-ii does) so the owner, now
     //   silently carrying it, is the one told. D9/D10: skip a suppressed edit.
     if (tbl === 'dues' && type === 'UPDATE' && record.amount_due !== old_record?.amount_due && !record.notify_suppressed) {
@@ -1056,7 +1056,7 @@ Deno.serve(async (req) => {
     // 5f-ii. Payment request issued (0076/0077) → the billed party only.
     //   Needs a Database Webhook on `payment_request_lines` INSERT, or only the
     //   in-app bell fires (same footgun as the adjustments webhook).
-    //   ⚠️ Reuses abniyah_payment_reminder — param count stays 5 with payLine.
+    //   ⚠️ Reuses abniyah_payment_reminder - param count stays 5 with payLine.
     if (tbl === 'payment_request_lines' && type === 'INSERT') {
       const { data: pr } = await supabase.from('payment_requests')
         .select('label, due_date').eq('id', record.request_id).single();
@@ -1071,7 +1071,7 @@ Deno.serve(async (req) => {
       const amount = money(record.amount_requested);
       await emailToUserIds(to, (L) => {
         // the request's own label when it has one, else the generic phrase in
-        // the reader's language — an untranslated fallback was the giveaway
+        // the reader's language - an untranslated fallback was the giveaway
         const what = pr?.label ? esc(pr.label) : L.request.fallback;
         return {
           subject: L.request.subj(b?.name ?? 'Abniyah', prUnit?.label ?? ''),
@@ -1084,7 +1084,7 @@ Deno.serve(async (req) => {
       }, b?.name ?? 'Abniyah');
       await whatsappToUserIds(to, 'abniyah_payment_reminder',
         (name, lang) => {
-          const base = [name, amount, prUnit?.label ?? '—', b?.name ?? '—'];
+          const base = [name, amount, prUnit?.label ?? '-', b?.name ?? '-'];
           return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
         });
     }
@@ -1098,15 +1098,15 @@ Deno.serve(async (req) => {
         ? await supabase.from('profiles').select('full_name').eq('id', record.invited_by).single()
         : { data: null };
       await emailToUserIds([record.user_id], (L) => ({
-        subject: L.invite.subj(unit?.label ?? '', b?.name ?? '—'),
+        subject: L.invite.subj(unit?.label ?? '', b?.name ?? '-'),
         html: emailHtml(L, L.invite.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.invite.intro(esc(inviter?.full_name ?? L.invite.defaultInviter))}</p>
-           ${table(row(L.invite.rUnit, esc(unit?.label ?? '—')) + row(L.invite.rBuilding, esc(b?.name ?? '—')) + row(L.invite.rAs, esc(L.tenure[record.tenure] ?? record.tenure)))}
+           ${table(row(L.invite.rUnit, esc(unit?.label ?? '-')) + row(L.invite.rBuilding, esc(b?.name ?? '-')) + row(L.invite.rAs, esc(L.tenure[record.tenure] ?? record.tenure)))}
            <p style="color:#64748b;font-size:13px;margin-top:16px;">${L.invite.hint}</p>`,
           L.invite.cta, `${APP_URL}/dashboard`),
       }), b?.name ?? 'Abniyah');
       await whatsappToUserIds([record.user_id], 'abniyah_unit_invite',
-        (name) => [name, inviter?.full_name ?? 'A building admin', unit?.label ?? '—', b?.name ?? '—']);
+        (name) => [name, inviter?.full_name ?? 'A building admin', unit?.label ?? '-', b?.name ?? '-']);
     }
 
     // 6. Scheduled meeting → all building residents (+ .ics)
@@ -1128,7 +1128,7 @@ Deno.serve(async (req) => {
         const scope = await subscriptionScopeName(sub);
         const ids = await subscriptionAdminIds(sub);
         const period = `${record.period_start} → ${record.period_end}`;
-        // 0117 pay-first: invoices are born already paid — an INSERT with
+        // 0117 pay-first: invoices are born already paid - an INSERT with
         // status 'paid' is a receipt, not an "invoice issued".
         const isReceipt = type === 'UPDATE' || record.status === 'paid';
         await emailToUserIds(ids, (L) => ({
@@ -1152,7 +1152,7 @@ Deno.serve(async (req) => {
         return {
           subject: L.meeting.subj(record.title),
           html: emailHtml(L, L.meeting.title(esc(record.title)),
-            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.meeting.intro(esc(b?.name ?? '—'))}</p>
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.meeting.intro(esc(b?.name ?? '-'))}</p>
              ${table(row(L.meeting.rDate, esc(record.meeting_date)) + (record.meeting_time ? row(L.meeting.rTime, esc(record.meeting_time.slice(0, 5))) : '') + joinRow + (record.summary ? row(L.meeting.rNotes, esc(record.summary)) : ''))}
              <p style="color:#64748b;font-size:13px;margin-top:16px;">${L.meeting.icsNote}</p>`,
             L.meeting.cta, `${APP_URL}/meetings`),
