@@ -211,7 +211,7 @@ export default function Inspections() {
   const isOverdue = (r: Inspection) => r.status === 'due' && r.inspection_date < today();
 
   const renderCard = (r: Inspection) => (
-    <Card key={r.id} className={r.status === 'due' ? 'border-amber-500/40' : undefined}><CardBody>
+    <Card key={r.id} className={`${canManage ? 'cursor-pointer hover:bg-primary/5 transition-colors ' : ''}${r.status === 'due' ? 'border-amber-500/40' : ''}`} onClick={() => canManage && openEdit(r)}><CardBody>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -230,7 +230,7 @@ export default function Inspections() {
           </div>
         </div>
         {canManage && (
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             {r.status === 'due'
               ? <Button size="sm" variant="tinted" onClick={() => openEdit(r)}>{t('inspections.recordNow')}</Button>
               : <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>}

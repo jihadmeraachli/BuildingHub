@@ -238,7 +238,7 @@ export default function Contracts() {
         ) : (
           <div className="space-y-3">
             {vRows.map((r) => (
-              <Card key={r.id}><CardBody>
+              <Card key={r.id} className={canManage ? 'cursor-pointer hover:bg-primary/5 transition-colors' : undefined} onClick={() => canManage && openEdit(r)}><CardBody>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -261,7 +261,7 @@ export default function Contracts() {
                     </div>
                   </div>
                   {canManage && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
                       <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
                     </div>

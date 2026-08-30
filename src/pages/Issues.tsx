@@ -14,6 +14,7 @@ import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { useAmenities, amenityLabel } from '@/lib/amenities';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -76,6 +77,7 @@ export default function Issues() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [issueAmenityId, setIssueAmenityId] = useState('');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [myOnly, setMyOnly] = useState(false);
   // Deep-linkable: the dashboard's Open-issues card lands here pre-filtered.
@@ -151,6 +153,7 @@ export default function Issues() {
   }, [myUnits, buildings, t]);
 
   function openCreate() {
+    setIssueAmenityId('');
     if (isManager) {
       const def = blockFilter || (entity?.kind === 'building' ? entity.id : (entity?.blocks[0]?.id ?? ''));
       setCreateBuildingId(def);
@@ -160,6 +163,8 @@ export default function Issues() {
     }
     setModalOpen(true);
   }
+
+  const amenities = useAmenities(entity?.kind, entity?.id); // 0112: tag "the lift", "the generator"
 
   async function onSubmit(data: { title: string; description: string; location: string; priority: IssuePriority; photos: FileList }) {
     let buildingId = '';
@@ -196,6 +201,7 @@ export default function Issues() {
     // not run 0074 yet (unknown column would reject the whole insert).
     if (unitId) payload.unit_id = unitId;
     if (aptLabel) payload.apartment_number = aptLabel;
+    if (issueAmenityId) payload.amenity_id = issueAmenityId;
     const { error } = await supabase.from('issues').insert(payload);
     if (error) { toast.error(`Could not log issue: ${error.message}`); return; }
     toast.success(t('issues.issueLogged'));
@@ -338,6 +344,12 @@ export default function Issues() {
             <textarea className="rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 min-h-[80px]" {...register('description', { required: true })} />
           </div>
           <Input label={t('issues.location')} {...register('location', { required: true })} />
+          {amenities.length > 0 && (
+            <SelectField label={t('amenities.linkLabel')} value={issueAmenityId || '__none__'} onValueChange={(v) => setIssueAmenityId(v === '__none__' ? '' : v)}>
+              <SelectItem value="__none__">{t('amenities.linkNone')}</SelectItem>
+              {amenities.filter((a) => a.active).map((a) => <SelectItem key={a.id} value={a.id}>{amenityLabel(a)}</SelectItem>)}
+            </SelectField>
+          )}
           <Controller name="priority" control={control} rules={{ required: true }} render={({ field }) => (
             <SelectField label={t('issues.priority')} value={field.value ?? 'low'} onValueChange={field.onChange}>
               <SelectItem value="low">{t('issues.priorities.low')}</SelectItem>
