@@ -155,18 +155,21 @@ Deno.serve(async (req) => {
       if (inviteErr.message?.toLowerCase().includes('already')) {
         // Import mode: look up the existing user and return their ID so the caller can create a membership
         if (mode === 'import') {
-          const { data: existing } = await admin.auth.admin.getUserByEmail(email.trim().toLowerCase());
-          if (existing?.user) {
+          // NOTE: admin.auth.admin.getUserByEmail does NOT exist in
+          // supabase-js v2 - it threw here and every existing-user link
+          // silently failed. auth_user_id_by_email (0163) is the lookup.
+          const { data: existingId } = await admin.rpc('auth_user_id_by_email', { p_email: email });
+          if (existingId) {
             // A real name arrived for someone we only knew by email (earlier
             // imports used the email as the name) - upgrade it, never overwrite
             // a name the person chose themselves.
             if (full_name?.trim() && !full_name.includes('@')) {
-              const { data: prof } = await admin.from('profiles').select('full_name').eq('id', existing.user.id).single();
+              const { data: prof } = await admin.from('profiles').select('full_name').eq('id', existingId).single();
               if (!prof?.full_name || prof.full_name.includes('@')) {
-                await admin.from('profiles').update({ full_name: full_name.trim() }).eq('id', existing.user.id);
+                await admin.from('profiles').update({ full_name: full_name.trim() }).eq('id', existingId);
               }
             }
-            return json({ success: true, user_id: existing.user.id, existing: true });
+            return json({ success: true, user_id: existingId, existing: true });
           }
         }
         return json({

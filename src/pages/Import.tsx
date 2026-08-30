@@ -654,24 +654,28 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
    *  insert when an identical live membership already exists, so re-imports
    *  never duplicate links. `cache` (email -> user id) spans one run: a
    *  landlord owning 20 units costs one invite-user call, not 20. */
-  async function linkParty(cache: Map<string, string>, unitId: string, buildingId: string, email: string, name: string, phone: string, tenure: 'owner' | 'tenant') {
-    if (!email.includes('@')) return;
+  /** Returns '' on success, else a short note for the progress row - a
+   *  failed link must never be silent (QA 30 Aug: it was). */
+  async function linkParty(cache: Map<string, string>, unitId: string, buildingId: string, email: string, name: string, phone: string, tenure: 'owner' | 'tenant'): Promise<string> {
+    if (!email.includes('@')) return '';
     const key = email.trim().toLowerCase();
     let userId = cache.get(key);
     if (!userId) {
-      const { data: inv } = await supabase.functions.invoke('invite-user', {
+      const { data: inv, error: invErr } = await supabase.functions.invoke('invite-user', {
         body: { email: key, full_name: name.trim() || email, mode: 'import', building_id: buildingId,
                 phone: normalizePhone(phone) || null },
       });
-      if (!inv?.user_id) return;
+      if (invErr || !inv?.user_id) return ' - ' + tenure + ' not linked (' + key + ': ' + (invErr?.message ?? inv?.error ?? 'invite failed') + ')';
       userId = inv.user_id as string;
       cache.set(key, userId);
     }
     const { data: already } = await supabase.from('memberships').select('id')
       .eq('unit_id', unitId).eq('user_id', userId).eq('tenure', tenure).is('ended_at', null).limit(1);
     if (!already?.length) {
-      await supabase.from('memberships').insert({ user_id: userId, unit_id: unitId, tenure });
+      const { error: mErr } = await supabase.from('memberships').insert({ user_id: userId, unit_id: unitId, tenure });
+      if (mErr) return ' - ' + tenure + ' not linked (' + mErr.message + ')';
     }
+    return '';
   }
 
   async function runImport() {
@@ -703,11 +707,9 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           const { error: upErr } = await supabase.from('units')
             .update({ share_weight: parseFloat(row.share_weight) || 1 }).eq('id', ex.id);
           if (upErr) throw new Error(upErr.message);
-          await Promise.all([
-            linkParty(invited, ex.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner'),
-            linkParty(invited, ex.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant'),
-          ]);
-          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: 'updated existing unit' } : p));
+          const exNotes = await linkParty(invited, ex.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner')
+            + await linkParty(invited, ex.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant');
+          setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: exNotes ? 'error' : 'done', detail: 'updated existing unit' + exNotes, error: exNotes ? exNotes.slice(3) : undefined } : p));
           continue;
         }
 
@@ -721,14 +723,11 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
           .select('id').single();
         if (uErr) throw new Error(uErr.message);
 
-        await Promise.all([
-          linkParty(invited, unit.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner'),
-          linkParty(invited, unit.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant'),
-        ]);
+        let note = await linkParty(invited, unit.id, buildingId, row.owner_email, row.owner_name, row.owner_phone, 'owner');
+        note += await linkParty(invited, unit.id, buildingId, row.tenant_email, row.tenant_name, row.tenant_phone, 'tenant');
 
         // Seat auto-assignment (Structure parity): consume a licence while the
         // pool has one; past that the unit is created UNLICENSED and says so.
-        let note = '';
         const sid = subByBuilding[buildingId];
         if (sid && (left[sid] ?? 0) > 0) {
           const { error: licErr } = await supabase.from('license_assignments').insert({
@@ -744,7 +743,8 @@ function UnitsTab({ entities }: { entities: Entity[] }) {
         } else if (sid) {
           note = ' · unlicensed (pool empty)';
         }
-        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'done', detail: (p.detail ?? '') + note } : p));
+        const failed = note.includes('not linked');
+        setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: failed ? 'error' : 'done', detail: (p.detail ?? '') + note, error: failed ? note.slice(3) : undefined } : p));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         setProgress(prev => prev.map((p, j) => j === i ? { ...p, status: 'error', error: msg } : p));
