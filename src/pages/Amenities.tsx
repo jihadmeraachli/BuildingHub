@@ -186,35 +186,38 @@ export default function Amenities() {
             <p className="text-sm text-muted-foreground">{entity ? t('amenities.none') : t('common.pickEntity')}</p>
           </div></CardBody></Card>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {vRows.map((r) => {
               const n = counts[r.id] ?? empty; const age = ageLabel(r);
               return (
                 <Card key={r.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${!r.active ? 'opacity-60' : ''}`} onClick={() => openDetail(r)}><CardBody>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="inline-flex items-center gap-1.5"><Badge color="indigo">{t(`amenities.kinds.${r.kind}`)}</Badge>{!r.active && <Badge color="slate">{t('amenities.retired')}</Badge>}</span>
-                      <h3 className="font-semibold text-foreground mt-2 truncate">{r.name}</h3>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{[r.location, scopeLabel(r)].filter(Boolean).join(' · ')}</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-foreground">{r.name}</h3>
+                        <Badge color="indigo">{t(`amenities.kinds.${r.kind}`)}</Badge>
+                        {!r.active && <Badge color="slate">{t('amenities.retired')}</Badge>}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        {r.location && <span>{r.location}</span>}
+                        {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
+                        {r.install_date && <><span>•</span><span>{t('amenities.installed', { date: fmtDate(r.install_date, 'MMM yyyy') })}</span></>}
+                        {age && <><span>•</span><span className={(replaceYear(r) ?? 9999) - new Date().getFullYear() <= 0 ? 'text-rose-500' : undefined}>{age}</span></>}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground flex-shrink-0">
+                      <span className="inline-flex items-center gap-1"><FileSignature size={12} /> {n.c}</span>
+                      <span className="inline-flex items-center gap-1"><ClipboardCheck size={12} /> {n.i}</span>
+                      <span className="inline-flex items-center gap-1"><Receipt size={12} /> {n.e}</span>
+                      <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> {n.s}</span>
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                        <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
                       </div>
                     )}
                   </div>
-                  <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1"><FileSignature size={12} /> {n.c}</span>
-                    <span className="inline-flex items-center gap-1"><ClipboardCheck size={12} /> {n.i}</span>
-                    <span className="inline-flex items-center gap-1"><Receipt size={12} /> {n.e}</span>
-                    <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> {n.s}</span>
-                  </div>
-                  {(r.install_date || age) && (
-                    <p className={`text-xs mt-2 ${age && (replaceYear(r) ?? 9999) - new Date().getFullYear() <= 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
-                      {r.install_date ? t('amenities.installed', { date: fmtDate(r.install_date, 'MMM yyyy') }) : ''}{r.install_date && age ? ' · ' : ''}{age ?? ''}
-                    </p>
-                  )}
                 </CardBody></Card>
               );
             })}
