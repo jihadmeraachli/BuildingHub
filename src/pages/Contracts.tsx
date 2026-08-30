@@ -189,7 +189,7 @@ export default function Contracts() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('contracts.title')}</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('contracts.title')}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{t('contracts.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -236,35 +236,36 @@ export default function Contracts() {
             <p className="text-sm text-muted-foreground">{t('contracts.noContracts')}</p>
           </div></CardBody></Card>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {vRows.map((r) => (
               <Card key={r.id}><CardBody>
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <span className="inline-flex items-center gap-1.5"><Badge color="indigo">{svcLabel(r)}</Badge>{statusBadge(r)}</span>
-                    <h3 className="font-semibold text-foreground mt-2">{r.provider_name}</h3>
-                    {scopeLabel(r) && <p className="text-[11px] text-muted-foreground mt-0.5">{scopeLabel(r)}</p>}
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-foreground">{r.provider_name}</h3>
+                      <Badge color="indigo">{svcLabel(r)}</Badge>
+                      {statusBadge(r)}
+                    </div>
+                    {r.notes && <p className="text-sm text-muted-foreground mb-2">{r.notes}</p>}
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      {r.amount_usd != null && (
+                        <span className="text-foreground tnum font-medium">{money(Number(r.amount_usd))}{r.billing_cycle && <span className="text-muted-foreground font-normal"> / {t(`contracts.cycles.${r.billing_cycle}`)}</span>}</span>
+                      )}
+                      {(r.start_date || r.end_date) && (
+                        <><span>•</span><span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span></>
+                      )}
+                      {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
+                      {r.contact_name && <><span>•</span><span>{r.contact_name}</span></>}
+                      {r.contact_phone && <><span>•</span><span className="inline-flex items-center gap-1"><Phone size={11} /> {r.contact_phone}</span></>}
+                      {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-primary hover:underline" /></>}
+                    </div>
                   </div>
                   {canManage && (
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
-                      <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
+                      <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
                     </div>
                   )}
-                </div>
-                {r.contact_name && <p className="text-sm text-muted-foreground mt-2">{r.contact_name}</p>}
-                {r.contact_phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone size={11} /> {r.contact_phone}</p>}
-                <div className="mt-3 pt-3 border-t border-border space-y-1 text-sm">
-                  {r.amount_usd != null && (
-                    <p className="text-foreground tnum font-medium">{money(Number(r.amount_usd))}{r.billing_cycle && <span className="text-muted-foreground text-xs font-normal"> / {t(`contracts.cycles.${r.billing_cycle}`)}</span>}</p>
-                  )}
-                  {(r.start_date || r.end_date) && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-2">
-                      {r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}
-                    </p>
-                  )}
-                  {r.notes && <p className="text-xs text-muted-foreground">{r.notes}</p>}
-                  {r.attachment_url && <AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-xs text-primary hover:underline pt-1" />}
                 </div>
               </CardBody></Card>
             ))}
