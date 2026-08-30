@@ -29,9 +29,11 @@ import { SkeletonCards } from '@/components/ui/Skeleton';
  */
 const KINDS: AmenityKind[] = ['elevator', 'generator', 'water_tank', 'water_pump', 'solar', 'hvac', 'fire_safety', 'gate', 'intercom', 'parking', 'storage', 'roof', 'other'];
 const money = (n: number) => fmtMoney(n);
+const kindLabelOf = (a: { kind: AmenityKind; kind_other?: string | null }, t: (k: string) => string) =>
+  a.kind === 'other' && a.kind_other ? a.kind_other : t(`amenities.kinds.${a.kind}`);
 
-type Form = { kind: AmenityKind; name: string; location: string; install_date: string; cost: string; life: string; notes: string; active: boolean; scope: 'all' | 'block'; block_id: string };
-const newForm = (): Form => ({ kind: 'elevator', name: '', location: '', install_date: '', cost: '', life: '', notes: '', active: true, scope: 'all', block_id: '' });
+type Form = { kind: AmenityKind; kind_other: string; name: string; brand: string; quantity: string; serial_no: string; location: string; install_date: string; cost: string; life: string; notes: string; active: boolean; scope: 'all' | 'block'; block_id: string };
+const newForm = (): Form => ({ kind: 'elevator', kind_other: '', name: '', brand: '', quantity: '', serial_no: '', location: '', install_date: '', cost: '', life: '', notes: '', active: true, scope: 'all', block_id: '' });
 
 type Linked = {
   contracts: { id: string; provider_name: string; end_date: string | null; amount_usd: number | null }[];
@@ -113,7 +115,9 @@ export default function Amenities() {
   function openEdit(r: Amenity) {
     setEditId(r.id); setFile(null); setDetail(null);
     setForm({
-      kind: r.kind, name: r.name, location: r.location ?? '', install_date: r.install_date ?? '',
+      kind: r.kind, kind_other: r.kind_other ?? '', name: r.name, brand: r.brand ?? '',
+      quantity: r.quantity != null ? String(r.quantity) : '', serial_no: r.serial_no ?? '',
+      location: r.location ?? '', install_date: r.install_date ?? '',
       cost: r.cost_usd != null ? String(r.cost_usd) : '', life: r.expected_life_years != null ? String(r.expected_life_years) : '',
       notes: r.notes ?? '', active: r.active, scope: r.building_id && entity?.kind === 'compound' ? 'block' : 'all', block_id: r.building_id ?? '',
     });
@@ -128,7 +132,11 @@ export default function Amenities() {
     const building_id = entity.kind === 'building' ? entity.id : (form.scope === 'block' ? form.block_id : null);
     if (!compound_id && !building_id) { setSaving(false); toast.error(t('projects.pickBlock')); return; }
     const base: Record<string, unknown> = {
-      kind: form.kind, name: form.name.trim(), location: form.location.trim() || null,
+      kind: form.kind, kind_other: form.kind === 'other' ? form.kind_other.trim() || null : null,
+      name: form.name.trim(), brand: form.brand.trim() || null,
+      quantity: Number(form.quantity) > 0 ? Math.round(Number(form.quantity)) : null,
+      serial_no: form.serial_no.trim() || null,
+      location: form.location.trim() || null,
       install_date: form.install_date || null, cost_usd: form.cost ? Number(form.cost) : null,
       expected_life_years: form.life ? Number(form.life) : null, notes: form.notes.trim() || null,
       active: form.active, building_id, compound_id, updated_at: new Date().toISOString(),
@@ -195,11 +203,14 @@ export default function Amenities() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold text-foreground">{r.name}</h3>
-                        <Badge color="indigo">{t(`amenities.kinds.${r.kind}`)}</Badge>
+                        <Badge color="indigo">{kindLabelOf(r, t)}</Badge>
                         {!r.active && <Badge color="slate">{t('amenities.retired')}</Badge>}
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         {r.location && <span>{r.location}</span>}
+                        {r.brand && <><span>•</span><span>{r.brand}</span></>}
+                        {r.quantity != null && r.quantity > 1 && <><span>•</span><span>×{r.quantity}</span></>}
+                        {r.serial_no && <><span>•</span><span className="tnum">{t('amenities.serialNo')}: {r.serial_no}</span></>}
                         {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
                         {r.install_date && <><span>•</span><span>{t('amenities.installed', { date: fmtDate(r.install_date, 'MMM yyyy') })}</span></>}
                         {age && <><span>•</span><span className={(replaceYear(r) ?? 9999) - new Date().getFullYear() <= 0 ? 'text-rose-500' : undefined}>{age}</span></>}
@@ -228,8 +239,11 @@ export default function Amenities() {
         {detail && (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <Badge color="indigo">{t(`amenities.kinds.${detail.kind}`)}</Badge>
+              <Badge color="indigo">{kindLabelOf(detail, t)}</Badge>
               {detail.location && <span>{detail.location}</span>}
+              {detail.brand && <span>· {detail.brand}</span>}
+              {detail.quantity != null && detail.quantity > 1 && <span>· ×{detail.quantity}</span>}
+              {detail.serial_no && <span className="tnum">· {t('amenities.serialNo')}: {detail.serial_no}</span>}
               {scopeLabel(detail) && <span>· {scopeLabel(detail)}</span>}
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -282,6 +296,14 @@ export default function Amenities() {
               {KINDS.map((k) => <SelectItem key={k} value={k}>{t(`amenities.kinds.${k}`)}</SelectItem>)}
             </SelectField>
             <Input label={t('amenities.name')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('amenities.namePlaceholder')} />
+          </div>
+          {form.kind === 'other' && (
+            <Input label={t('amenities.otherSpecify')} value={form.kind_other} onChange={(e) => setForm({ ...form, kind_other: e.target.value })} placeholder={t('amenities.otherPlaceholder')} />
+          )}
+          <div className="grid grid-cols-3 gap-3">
+            <Input label={t('amenities.brand')} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+            <Input label={t('amenities.quantity')} type="number" step="1" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+            <Input label={t('amenities.serialNo')} value={form.serial_no} onChange={(e) => setForm({ ...form, serial_no: e.target.value })} />
           </div>
           {entity?.kind === 'compound' && multiBlock && (
             <div className="grid grid-cols-2 gap-3">

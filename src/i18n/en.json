@@ -2020,6 +2020,11 @@
     "linkedNone": "None.",
     "lifetimeSpend": "Spent on it so far: {{amount}}.",
     "deleteConfirm": "Delete this amenity? Contracts, inspections and expenses stay, unlinked.",
+    "brand": "Brand",
+    "quantity": "Quantity",
+    "serialNo": "Serial #",
+    "otherSpecify": "What is it?",
+    "otherPlaceholder": "e.g. Pressure booster",
     "kinds": {
       "elevator": "Elevator",
       "generator": "Generator",

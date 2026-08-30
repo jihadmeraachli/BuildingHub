@@ -590,7 +590,12 @@ export interface Amenity {
   building_id: string | null;
   compound_id: string | null;
   kind: AmenityKind;
+  /** What "other" is (0166); shown instead of the kind label. */
+  kind_other?: string | null;
   name: string;
+  brand?: string | null;
+  quantity?: number | null;
+  serial_no?: string | null;
   location: string | null;
   install_date: string | null;
   cost_usd: number | null;

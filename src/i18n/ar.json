@@ -2040,6 +2040,11 @@
     "linkedNone": "لا شيء.",
     "lifetimeSpend": "المصروف عليه حتى الآن: {{amount}}.",
     "deleteConfirm": "حذف هذا المرفق؟ تبقى العقود والفحوصات والمصاريف من دون ربط.",
+    "brand": "العلامة التجارية",
+    "quantity": "الكمية",
+    "serialNo": "الرقم التسلسلي",
+    "otherSpecify": "ما هو؟",
+    "otherPlaceholder": "مثال: مضخة ضغط",
     "kinds": {
       "elevator": "مصعد",
       "generator": "موتور",
