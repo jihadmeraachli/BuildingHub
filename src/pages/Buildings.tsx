@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { safeHttpUrl } from '@/lib/safeUrl';
+import { MapsLinkInput, coordsFromMapsUrl } from '@/components/MapPicker';
 import { useForm } from 'react-hook-form';
 import { Plus, Building2, MapPin, ExternalLink, Pencil, Trash2, Search, X, ChevronDown } from 'lucide-react';
 import { toast } from '@/lib/toast';
@@ -42,7 +43,8 @@ type ColFilters = {
 const EMPTY_FILTERS: ColFilters = { city: '', org: '', compound: '', status: '', billing: '' };
 
 function buildEmbedUrl(b: Building): string {
-  const query = encodeURIComponent(`${b.address}, ${b.city}, ${b.country}`);
+  const pin = coordsFromMapsUrl(b.maps_url);
+  const query = pin ? `${pin[0]},${pin[1]}` : encodeURIComponent(`${b.address}, ${b.city}, ${b.country}`);
   return `https://maps.google.com/maps?q=${query}&output=embed`;
 }
 
@@ -743,7 +745,9 @@ export default function Buildings() {
               </SelectField>
             )} />
           )}
-          <Input label={t('buildings.mapsLink')} placeholder={t('buildings.mapsPlaceholder')} {...register('maps_url')} />
+          <Controller name="maps_url" control={control} render={({ field }) => (
+            <MapsLinkInput label={t('buildings.mapsLink')} placeholder={t('buildings.mapsPlaceholder')} value={field.value ?? ''} onChange={field.onChange} />
+          )} />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>{t('common.cancel')}</Button>
             <Button type="submit" loading={isSubmitting}>{t('common.save')}</Button>
@@ -764,7 +768,7 @@ export default function Buildings() {
           </div>
           <Input label={t('buildings.contactEmail')} type="email" value={ebForm.contact_email} onChange={e => setEbForm({ ...ebForm, contact_email: e.target.value })} />
           <PhoneInput label={t('buildings.contactPhone')} value={ebForm.contact_phone} onChange={(v) => setEbForm({ ...ebForm, contact_phone: v })} />
-          <Input label={t('buildings.mapsLink')} value={ebForm.maps_url} onChange={e => setEbForm({ ...ebForm, maps_url: e.target.value })} />
+          <MapsLinkInput label={t('buildings.mapsLink')} value={ebForm.maps_url} onChange={v => setEbForm({ ...ebForm, maps_url: v })} />
           {isPlatformAdmin && organizations.length > 0 && (
             <SelectField label={t('nav.organizations')} value={ebForm.org_id || '__none__'} onValueChange={v => setEbForm({ ...ebForm, org_id: v === '__none__' ? '' : v })}>
               <SelectItem value="__none__">{t('buildings.noOrgOption')}</SelectItem>
