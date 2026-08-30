@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, ClipboardCheck, Pencil, Trash2, FolderCog } from 'lucide-react';
+import { Plus, ClipboardCheck, Pencil, Trash2, FolderCog, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
@@ -71,6 +71,16 @@ export default function Inspections() {
   const [newCat, setNewCat] = useState('');
   const [catBusy, setCatBusy] = useState(false);
   const [confirmCatDelete, setConfirmCatDelete] = useState<string | null>(null);
+
+  // collapsible category sections - persisted like the sidebar menu
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('abniyah_inspections_collapsed') || '{}'); } catch { return {}; }
+  });
+  const toggleGroup = (k: string) => {
+    const next = { ...collapsed, [k]: !collapsed[k] };
+    setCollapsed(next);
+    try { localStorage.setItem('abniyah_inspections_collapsed', JSON.stringify(next)); } catch { /* private mode */ }
+  };
 
   const canManage = isPlatformAdmin || !!entity?.buildingIds.some((id) => can('building.manage', id));
   const multiBlock = (entity?.blocks.length ?? 0) > 1;
@@ -284,12 +294,14 @@ export default function Inspections() {
               const due = list.filter((r) => r.status === 'due');
               return (
                 <section key={g}>
-                  <div className="flex items-center gap-2 mb-2">
+                  <button type="button" onClick={() => toggleGroup(g)}
+                    className="group w-full flex items-center gap-2 mb-2 cursor-pointer">
+                    <ChevronDown size={14} className={`shrink-0 text-muted-foreground/50 transition-transform group-hover:text-muted-foreground ${collapsed[g] ? '-rotate-90 rtl:rotate-90' : ''}`} />
                     <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">{groupLabel(g)}</h2>
                     <span className="text-xs text-muted-foreground">{list.length}</span>
                     {due.length > 0 && <Badge color={due.some(isOverdue) ? 'red' : 'yellow'}>{due.some(isOverdue) ? t('inspections.overdue') : t('inspections.statuses.due')}</Badge>}
-                  </div>
-                  <div className="space-y-3">{list.map(renderCard)}</div>
+                  </button>
+                  {!collapsed[g] && <div className="space-y-3">{list.map(renderCard)}</div>}
                 </section>
               );
             })}
