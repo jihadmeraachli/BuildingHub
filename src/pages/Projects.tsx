@@ -332,7 +332,9 @@ export default function Projects() {
             <label className="text-sm font-medium text-muted-foreground">{t('projects.attachment')}</label>
             <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-muted-foreground file:me-3 file:py-2 file:px-3 file:rounded-lg file:border file:border-border file:text-sm file:bg-accent file:text-accent-foreground file:cursor-pointer" />
           </div>
-          <p className="text-xs text-muted-foreground">{t('projects.howActualWorks')}</p>
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5">
+            <p className="text-xs text-foreground/80 leading-relaxed">{t('projects.howActualWorks')}</p>
+          </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={save} loading={saving} disabled={!form.title.trim()}>{t('common.save')}</Button>

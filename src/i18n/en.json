@@ -1968,7 +1968,7 @@
     "attachment": "Quote or document (optional)",
     "viewDoc": "View document",
     "descriptionPlaceholder": "What is being done, by whom, and what the committee agreed.",
-    "howActualWorks": "Spent is never typed in here: it is the sum of the expenses tagged to this project in Finance.",
+    "howActualWorks": "You only enter the estimate here. The \"Spent\" amount fills itself: record an expense in Finance, tag it to this project, and it is counted automatically.",
     "deleteConfirm": "Delete this project? Its expenses stay in the book, untagged.",
     "pickBlock": "Pick a block, or apply it to the whole compound.",
     "contractor": "Contractor / Company",

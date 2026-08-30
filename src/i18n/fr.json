@@ -1968,7 +1968,7 @@
     "attachment": "Devis ou document (facultatif)",
     "viewDoc": "Voir le document",
     "descriptionPlaceholder": "Ce qui est fait, par qui, et ce que le comité a décidé.",
-    "howActualWorks": "Le montant dépensé ne se saisit pas ici : c’est la somme des dépenses rattachées à ce projet dans Finances.",
+    "howActualWorks": "Vous ne saisissez ici que le budget estime. Le montant \"Depense\" se remplit tout seul : enregistrez une depense dans Finances, rattachez-la a ce projet, et elle est comptee automatiquement.",
     "deleteConfirm": "Supprimer ce projet ? Ses dépenses restent dans le livret, sans rattachement.",
     "pickBlock": "Choisissez un bloc, ou appliquez-le à tout le complexe.",
     "contractor": "Entrepreneur / Société",
