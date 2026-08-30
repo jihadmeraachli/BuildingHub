@@ -225,10 +225,17 @@ Admins add/edit contacts; residents see them read-only.
 
 ## Inspections
 
-Track periodic safety checks: generator, elevator, fire safety, water tank,
-electrical, HVAC. Each has a date, inspector, outcome, status (passed /
-failed / action required / pending), next-due date and an attached report.
-Admins get reminded when an inspection is coming due. Filter by time period.
+Periodic checks organized under CATEGORIES the admin creates (Generator,
+Pest control, Fire safety...) via the Categories button. Each record has a
+date, inspector (picked from Contacts), outcome, status (passed / failed /
+action required / pending), and an attached report.
+
+THE CYCLE: when recording an inspection you can set a "next due" date -
+the app then AUTOMATICALLY creates the next inspection as a "Due" record
+on that date. When the day comes, press Record on it, enter the result and
+the next due date, and the cycle continues by itself. Clearing the next-due
+date removes the pending Due record. Admins get a reminder email (Mondays)
+for inspections due within 7 days or overdue.
 
 ## Service contracts
 

@@ -494,7 +494,15 @@ export interface Dues {
 }
 
 export type InspectionCategory = 'generator' | 'elevator' | 'fire_safety' | 'water_tank' | 'electrical' | 'hvac' | 'other';
-export type InspectionStatus = 'passed' | 'failed' | 'action_required' | 'pending';
+export type InspectionStatus = 'passed' | 'failed' | 'action_required' | 'pending' | 'due';
+
+/** User-created inspection category (0165). */
+export interface InspectionCategoryRow {
+  id: string;
+  building_id: string | null;
+  compound_id: string | null;
+  name: string;
+}
 
 export interface Inspection {
   id: string;
@@ -512,6 +520,10 @@ export interface Inspection {
   amenity_id?: string | null;
   /** The inspector/company, picked from Contacts (0123). */
   contact_id?: string | null;
+  /** User-created category (0165); legacy enum rows have NULL. */
+  category_id?: string | null;
+  /** Chain (0165): the completed inspection that auto-created this due row. */
+  spawned_from?: string | null;
   created_by: string | null;
   created_at: string;
 }
