@@ -181,44 +181,46 @@ export default function Projects() {
             <p className="text-sm text-muted-foreground">{entity ? t('projects.none') : t('common.pickEntity')}</p>
           </div></CardBody></Card>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {vRows.map((r) => {
               const p = progress(r);
               return (
                 <Card key={r.id} className="cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setDetail(r)}><CardBody>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <Badge color={statusColor[r.status]}>{t(`projects.status.${r.status}`)}</Badge>
-                      <h3 className="font-semibold text-foreground mt-2 truncate">{r.title}</h3>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {[scopeLabel(r), r.contact_id ? contactName[r.contact_id] : null].filter(Boolean).join(' · ')}
-                      </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-foreground">{r.title}</h3>
+                        <Badge color={statusColor[r.status]}>{t(`projects.status.${r.status}`)}</Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
+                        {r.contact_id && contactName[r.contact_id] && <><span>•</span><span>{contactName[r.contact_id]}</span></>}
+                        {(r.start_date || r.end_date) && (
+                          <><span>•</span><span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span></>
+                        )}
+                      </div>
+                      {p.over && <p className="text-xs text-red-500 mt-1">{t('projects.overBy', { amount: money(p.actual - (p.est ?? 0)) })}</p>}
+                    </div>
+                    <div className="w-44 flex-shrink-0">
+                      <div className="flex items-baseline justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground text-xs">{t('projects.spent')}</span>
+                        <span className={`tnum font-semibold ${p.over ? 'text-red-500' : 'text-foreground'}`}>{money(p.actual)}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2 text-sm mt-0.5">
+                        <span className="text-muted-foreground text-xs">{t('projects.estimate')}</span>
+                        <span className="tnum text-foreground">{p.est != null ? money(p.est) : '—'}</span>
+                      </div>
+                      {p.pct != null && (
+                        <div className="mt-2 h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div className={`h-full rounded-full ${p.over ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${p.pct}%` }} />
+                        </div>
+                      )}
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                        <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
                       </div>
-                    )}
-                  </div>
-                  {/* the two numbers that matter, and the bar between them */}
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <div className="flex items-baseline justify-between gap-2 text-sm">
-                      <span className="text-muted-foreground">{t('projects.spent')}</span>
-                      <span className={`tnum font-semibold ${p.over ? 'text-red-500' : 'text-foreground'}`}>{money(p.actual)}</span>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-2 text-sm mt-0.5">
-                      <span className="text-muted-foreground">{t('projects.estimate')}</span>
-                      <span className="tnum text-foreground">{p.est != null ? money(p.est) : '—'}</span>
-                    </div>
-                    {p.pct != null && (
-                      <div className="mt-2 h-1.5 rounded-full bg-secondary overflow-hidden">
-                        <div className={`h-full rounded-full ${p.over ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${p.pct}%` }} />
-                      </div>
-                    )}
-                    {p.over && <p className="text-xs text-red-500 mt-1">{t('projects.overBy', { amount: money(p.actual - (p.est ?? 0)) })}</p>}
-                    {(r.start_date || r.end_date) && (
-                      <p className="text-xs text-muted-foreground mt-2">{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</p>
                     )}
                   </div>
                 </CardBody></Card>
