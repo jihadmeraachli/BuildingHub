@@ -266,3 +266,11 @@ html, body {
     background-clip: text;
   }
 }
+
+/* Native checkboxes/radios follow the theme, never browser blue */
+@layer base {
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--color-primary);
+  }
+}
