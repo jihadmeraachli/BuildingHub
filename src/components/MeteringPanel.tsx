@@ -60,7 +60,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
   onPosted: () => void;
 }) {
   const { t } = useTranslation();
-  const { types } = useExpenseTypes(entity.kind, entity.id);
+  const { types, reload: reloadTypes } = useExpenseTypes(entity.kind, entity.id);
   const { confirmAsync, ConfirmDialog } = useConfirm();
   const metered = types.filter((ty) => ty.active && ty.is_metered);
   const typeLabel = (id: string) => {
@@ -108,7 +108,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
   function openSetup() {
     setSForm({
       model: settings?.model ?? 'mbm',
-      purchaseTypeId: settings?.purchase_expense_type_id ?? typeId,
+      purchaseTypeId: settings?.purchase_expense_type_id ?? '',
       lossAlarm: String(settings?.loss_alarm_pct ?? 10),
       billedTo: settings?.billed_to ?? 'tenant_where_leased',
       commonMethod: settings?.common_method ?? 'by_shares',
@@ -120,6 +120,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
   }
   async function saveSettings() {
     if (!typeId) return;
+    if (!sForm.purchaseTypeId) { toast.error(t('metering.purchaseTypeRequired')); return; }
     // WA→MbM exit gate: the tank's fund-owned value must be gone first
     if (settings?.model === 'wa' && sForm.model === 'mbm') {
       const latest = cycles.find((c) => c.status === 'final' && c.model === 'wa');
@@ -131,7 +132,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
     const row = {
       [scopeCol]: entity.id, expense_type_id: typeId,
       model: sForm.model,
-      purchase_expense_type_id: sForm.purchaseTypeId || typeId,
+      purchase_expense_type_id: sForm.purchaseTypeId,
       loss_alarm_pct: Math.min(100, Math.max(0, Number(sForm.lossAlarm) || 10)),
       billed_to: sForm.billedTo, common_method: sForm.commonMethod,
       initial_stock_qty: hasFinalCycles ? (settings?.initial_stock_qty ?? 0) : (Number(sForm.initialQty) || 0),
@@ -145,6 +146,21 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
     if (error) { toast.error(error.message); return; }
     toast.success(t('metering.settingsSaved'));
     setSetupOpen(false); loadSettings();
+  }
+
+  const suggestedPurchaseName = t('metering.purchaseTypeNewName', { type: type ? typeLabel(type.id) : '' });
+  async function createPurchaseType() {
+    const existing = types.find((ty) => ty.active && !ty.is_metered && ty.name === suggestedPurchaseName);
+    if (existing) { setSForm((f) => ({ ...f, purchaseTypeId: existing.id })); return; }
+    const { data, error } = await supabase.from('expense_types').insert({
+      building_id: entity.kind === 'building' ? entity.id : null,
+      compound_id: entity.kind === 'compound' ? entity.id : null,
+      name: suggestedPurchaseName, sort_order: 100, is_metered: false,
+    }).select('id').single();
+    if (error || !data) { toast.error(error?.message ?? 'Could not create the type'); return; }
+    reloadTypes();
+    setSForm((f) => ({ ...f, purchaseTypeId: (data as { id: string }).id }));
+    toast.success(t('metering.purchaseTypeCreated', { name: suggestedPurchaseName }));
   }
 
   // ── the cycle form ────────────────────────────────────────────────────────
@@ -352,7 +368,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
             <div className="grid sm:grid-cols-2 gap-3">
               {(['mbm', 'wa'] as MeterModel[]).map((m) => (
                 <button key={m} type="button"
-                  onClick={() => { openSetup(); setSForm((f) => ({ ...f, model: m, purchaseTypeId: typeId })); }}
+                  onClick={() => { openSetup(); setSForm((f) => ({ ...f, model: m })); }}
                   className="text-start rounded-xl border border-border p-4 hover:border-primary/50 hover:bg-primary/5 transition cursor-pointer">
                   <p className="font-semibold text-foreground">{t(m === 'mbm' ? 'metering.modelMbm' : 'metering.modelWa')}</p>
                   <p className="text-xs text-muted-foreground mt-1">{t(m === 'mbm' ? 'metering.modelMbmDesc' : 'metering.modelWaDesc')}</p>
@@ -419,13 +435,21 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
           </div>
           <div className="grid grid-cols-2 gap-3">
             <SelectField label={t('metering.purchaseType')} value={sForm.purchaseTypeId} onValueChange={(v) => setSForm({ ...sForm, purchaseTypeId: v })}>
-              {types.filter((ty) => ty.active).map((ty) => (
+              {types.filter((ty) => ty.active && (!ty.is_metered || ty.id === sForm.purchaseTypeId)).map((ty) => (
                 <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>
               ))}
             </SelectField>
             <Input label={t('metering.lossAlarm')} type="number" min="0" max="100" value={sForm.lossAlarm} onChange={(e) => setSForm({ ...sForm, lossAlarm: e.target.value })} />
           </div>
-          <p className="text-xs text-muted-foreground -mt-2">{t('metering.purchaseTypeHint')}</p>
+          <div className="-mt-2 space-y-1.5">
+            <p className="text-xs text-muted-foreground">{t('metering.purchaseTypeHint')}</p>
+            {!types.some((ty) => ty.active && !ty.is_metered && ty.name === suggestedPurchaseName) && (
+              <button type="button" onClick={createPurchaseType}
+                className="text-xs font-medium text-primary hover:underline cursor-pointer">
+                + {t('metering.purchaseTypeCreate', { name: suggestedPurchaseName })}
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <SelectField label={t('metering.commonSplit')} value={sForm.commonMethod} onValueChange={(v) => setSForm({ ...sForm, commonMethod: v as 'equal' | 'by_shares' })}>
               <SelectItem value="by_shares">{t('dues.methods.by_shares')}</SelectItem>

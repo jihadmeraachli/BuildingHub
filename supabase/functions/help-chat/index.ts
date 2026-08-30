@@ -144,9 +144,11 @@ For utilities bought in bulk and consumed through meters. Full setup:
      and the tank's value shows in the fund as stock on hand. Best for big
      tanks. A fresh setup asks the starting tank quantity and whether
      residents already paid for that stock.
-3. In the same setup: the PURCHASE EXPENSE TYPE (which type's invoices feed
-   this meter - defaults to the type itself), the LOSS ALARM %, who is
-   billed (tenants where leased / owners), and how the common areas split
+3. In the same setup: the PURCHASE EXPENSE TYPE - which type's invoices
+   feed this meter. Choose it deliberately; one click creates a dedicated
+   type (e.g. "Generator purchases") so deliveries never mix with the
+   metered billing category. Also: the LOSS ALARM %, who is billed
+   (tenants where leased / owners), and the common-areas split
    (by shares / equal).
 4. RECORD PURCHASES as normal expenses under that purchase type, paid from
    the fund, WITH THE QUANTITY (a liters/m³ field appears automatically for
