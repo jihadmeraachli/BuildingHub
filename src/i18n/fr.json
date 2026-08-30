@@ -809,6 +809,7 @@
     "status": "Statut",
     "photos": "Photos",
     "resolutionNotes": "Notes de résolution",
+    "resolvedOn": "Resolu le {{date}}",
     "reportedBy": "Signalé par",
     "reportedOn": "Signalé le",
     "priorities": {

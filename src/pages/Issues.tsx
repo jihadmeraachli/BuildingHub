@@ -273,7 +273,8 @@ export default function Issues() {
         : (
           <div className="space-y-3">
             {vIssues.map((issue) => (
-              <Card key={issue.id}><CardBody>
+              <Card key={issue.id} className={isManager ? 'cursor-pointer hover:bg-primary/5 transition-colors' : undefined}
+                onClick={() => { if (isManager) { setSelectedIssue(issue); setValue('status', issue.status); setValue('resolution_notes', issue.resolution_notes ?? ''); } }}><CardBody>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -306,10 +307,15 @@ export default function Issues() {
                       <span>{fmtDate(issue.created_at, 'dd-MM-yyyy')}</span>
                       {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
                     </div>
-                    {issue.resolution_notes && <p className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{issue.resolution_notes}</p>}
+                    {(issue.resolution_notes || issue.resolved_at) && (
+                      <div className="mt-2 rounded-xl border border-emerald-500/30 px-3 py-2">
+                        {issue.resolution_notes && <p className="text-sm text-emerald-700 dark:text-emerald-300">{issue.resolution_notes}</p>}
+                        {issue.resolved_at && <p className="text-xs text-muted-foreground mt-0.5">{t('issues.resolvedOn', { date: fmtDate(issue.resolved_at, 'dd-MM-yyyy') })}</p>}
+                      </div>
+                    )}
                   </div>
                   {isManager && (
-                    <Button size="sm" variant="secondary" onClick={() => { setSelectedIssue(issue); setValue('status', issue.status); setValue('resolution_notes', issue.resolution_notes ?? ''); }}>
+                    <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setSelectedIssue(issue); setValue('status', issue.status); setValue('resolution_notes', issue.resolution_notes ?? ''); }}>
                       {t('issues.updateStatus')}
                     </Button>
                   )}

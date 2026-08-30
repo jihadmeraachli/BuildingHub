@@ -821,6 +821,7 @@
     "status": "الحالة",
     "photos": "الصور",
     "resolutionNotes": "ملاحظات الحل",
+    "resolvedOn": "تم الحل في {{date}}",
     "reportedBy": "أُبلغ من قِبل",
     "reportedOn": "تاريخ الإبلاغ",
     "priorities": {
