@@ -1263,7 +1263,7 @@ Deno.serve(async (req) => {
         for (let attempt = 0; attempt < 8 && options.length === 0; attempt++) {
           if (attempt > 0) await new Promise((r) => setTimeout(r, 1000));
           const { data: opts } = await supabase.from('poll_options')
-            .select('id, label').eq('poll_id', record.id).order('sort_order');
+            .select('id, label').eq('poll_id', record.id).order('position');
           options = (opts ?? []) as { id: string; label: string }[];
         }
         const oneClick = record.choice_type === 'single' && options.length > 0;
