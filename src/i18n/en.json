@@ -1794,6 +1794,7 @@
     "claimTitle": "Claim this item",
     "claimBody": "Confirm that \"{{title}}\" is yours. The finder and the building admin will be notified.",
     "claimed": "Claimed. The admin was notified - arrange the pickup.",
+    "reportedBy": "Reported by {{name}}",
     "claimedBy": "Claimed by {{name}}",
     "thisIsMine": "This is mine",
     "markReturned": "Mark returned",

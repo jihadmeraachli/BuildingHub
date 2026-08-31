@@ -1794,6 +1794,7 @@
     "claimTitle": "Réclamer cet objet",
     "claimBody": "Confirmez que \"{{title}}\" vous appartient. La personne qui l'a trouvé et l'administration seront notifiées.",
     "claimed": "Réclamé. L'administration a été notifiée - organisez la remise.",
+    "reportedBy": "Signale par {{name}}",
     "claimedBy": "Réclamé par {{name}}",
     "thisIsMine": "C'est à moi",
     "markReturned": "Marquer comme rendu",

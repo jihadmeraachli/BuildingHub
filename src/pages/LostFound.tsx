@@ -6,7 +6,7 @@ import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useViewableBuildings } from '@/lib/useViewableBuildings';
-import { uploadFile } from '@/lib/upload';
+import { uploadFile, getSignedUrl } from '@/lib/upload';
 import { useConfirm } from '@/lib/useConfirm';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +45,8 @@ export default function LostFound() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ building_id: '', title: '', found_where: '', description: '' });
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [detail, setDetail] = useState<LostItem | null>(null);
   const [preview, setPreview] = useState<string>('');
 
   const buildingName = useMemo(
@@ -64,12 +66,17 @@ export default function LostFound() {
       .in('building_id', ids).order('created_at', { ascending: false });
     const rows = (data ?? []) as LostItem[];
     setItems(rows);
-    if (isManagerAnywhere) {
-      const uids = [...new Set(rows.flatMap(r => [r.claimed_by, r.created_by]).filter(Boolean))] as string[];
-      if (uids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', uids);
-        setNames(Object.fromEntries(((profs ?? []) as { id: string; full_name: string | null }[]).map(p => [p.id, p.full_name ?? ''])));
-      }
+    // 0105 scoped the bucket - raw public URLs 400 now; sign like AttachmentLink
+    const signed: Record<string, string> = {};
+    await Promise.all(rows.filter(r => r.photo_url).map(async r => {
+      signed[r.id] = await getSignedUrl(r.photo_url as string);
+    }));
+    setPhotos(signed);
+    // names for "reported by" (everyone); RLS decides what resolves
+    const uids = [...new Set(rows.flatMap(r => [r.claimed_by, r.created_by]).filter(Boolean))] as string[];
+    if (uids.length) {
+      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', uids);
+      setNames(Object.fromEntries(((profs ?? []) as { id: string; full_name: string | null }[]).map(p => [p.id, p.full_name ?? ''])));
     }
     setLoading(false);
   }
@@ -145,9 +152,9 @@ export default function LostFound() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map(item => (
-            <Card key={item.id} className={item.status !== 'open' ? 'opacity-80' : ''}>
-              {item.photo_url ? (
-                <img src={item.photo_url} alt={item.title} className="w-full h-44 object-cover rounded-t-xl" />
+            <Card key={item.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${item.status !== 'open' ? 'opacity-80' : ''}`} onClick={() => setDetail(item)}>
+              {item.photo_url && photos[item.id] ? (
+                <img src={photos[item.id]} alt={item.title} className="w-full h-44 object-cover rounded-t-xl" />
               ) : (
                 <div className="w-full h-44 rounded-t-xl bg-secondary flex items-center justify-center">
                   <PackageSearch size={32} className="text-muted-foreground/40" />
@@ -162,6 +169,7 @@ export default function LostFound() {
                   {viewable.length > 1 && <>{buildingName[item.building_id] ?? ''} · </>}
                   {item.found_where && <>{item.found_where} · </>}
                   {fmtDate(item.created_at)}
+                  {item.created_by && names[item.created_by] && <> · {t('lostfound.reportedBy', { name: names[item.created_by] })}</>}
                 </p>
                 {item.description && <p className="text-sm text-muted-foreground mt-2">{item.description}</p>}
                 {/* managers see who claimed; residents only that it is claimed */}
@@ -170,7 +178,7 @@ export default function LostFound() {
                     {t('lostfound.claimedBy', { name: names[item.claimed_by] || '—' })}
                   </p>
                 )}
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                   {item.status === 'open' && (
                     <Button size="sm" variant="outline" onClick={() => claim(item)}>{t('lostfound.thisIsMine')}</Button>
                   )}
@@ -190,6 +198,44 @@ export default function LostFound() {
           ))}
         </div>
       )}
+
+      <Modal open={!!detail} onClose={() => setDetail(null)} title={detail?.title ?? ''} size="lg">
+        {detail && (
+          <div className="space-y-4">
+            {detail.photo_url && photos[detail.id] && (
+              <img src={photos[detail.id]} alt={detail.title} className="w-full max-h-96 object-contain rounded-xl bg-secondary" />
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={statusColor[detail.status]}>{t(`lostfound.status_${detail.status}`)}</Badge>
+              <span className="text-xs text-muted-foreground">
+                {viewable.length > 1 && <>{buildingName[detail.building_id] ?? ''} · </>}
+                {detail.found_where && <>{detail.found_where} · </>}
+                {fmtDate(detail.created_at)}
+                {detail.created_by && names[detail.created_by] && <> · {t('lostfound.reportedBy', { name: names[detail.created_by] })}</>}
+              </span>
+            </div>
+            {detail.description && <p className="text-sm text-muted-foreground">{detail.description}</p>}
+            {detail.claimed_by && canManageItem(detail) && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">{t('lostfound.claimedBy', { name: names[detail.claimed_by] || '—' })}</p>
+            )}
+            <div className="flex items-center gap-2 pt-1">
+              {detail.status === 'open' && (
+                <Button size="sm" variant="outline" onClick={() => { claim(detail); setDetail(null); }}>{t('lostfound.thisIsMine')}</Button>
+              )}
+              {detail.status === 'claimed' && canManageItem(detail) && (
+                <Button size="sm" variant="ghost" onClick={() => { markReturned(detail); setDetail(null); }}>
+                  <CheckCheck size={14} /> {t('lostfound.markReturned')}
+                </Button>
+              )}
+              {canManageItem(detail) && (
+                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive ms-auto" onClick={() => { remove(detail); setDetail(null); }}>
+                  <Trash2 size={14} />
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title={t('lostfound.reportTitle')}>
         <div className="space-y-4">
