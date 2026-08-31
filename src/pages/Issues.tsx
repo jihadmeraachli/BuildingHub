@@ -83,7 +83,7 @@ export default function Issues() {
   // Deep-linkable: the dashboard's Open-issues card lands here pre-filtered.
   const urlStatus = new URLSearchParams(window.location.search).get('status');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>(
-    urlStatus === 'open' || urlStatus === 'in_progress' || urlStatus === 'resolved' ? urlStatus : 'all');
+    urlStatus === 'all' || urlStatus === 'open' || urlStatus === 'in_progress' || urlStatus === 'resolved' ? urlStatus : 'open');
   const [createBuildingId, setCreateBuildingId] = useState('');
   const [units, setUnits] = useState<{ id: string; label: string }[]>([]);
 
