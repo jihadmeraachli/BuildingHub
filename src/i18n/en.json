@@ -1803,6 +1803,22 @@
     "returnedDone": "Marked as returned.",
     "deleteBody": "Delete \"{{title}}\" from the lost & found?"
   },
+  "voteLink": {
+    "confirmTitle": "Confirm your vote",
+    "youAreVoting": "You are voting on",
+    "yourChoice": "Your choice",
+    "confirm": "Confirm my vote",
+    "changeable": "You can change your vote any time before the vote closes.",
+    "done": "Vote recorded",
+    "doneBody": "Thank you. You can change it any time before the vote closes, from the email or in the app.",
+    "closed": "This vote is closed",
+    "closedBody": "Voting had already ended, so nothing was recorded.",
+    "invalid": "This link is not valid",
+    "invalidBody": "The link is damaged or was not meant for you. Open the app to vote.",
+    "error": "Could not record the vote",
+    "errorBody": "Something went wrong. Please vote in the app instead.",
+    "openApp": "Open Abniyah"
+  },
   "voting": {
     "rulesButton": "Voting rules",
     "rulesIntro": "Set once per building - every new vote uses these rules. You can change them any time; votes already open keep the rules they started with.",

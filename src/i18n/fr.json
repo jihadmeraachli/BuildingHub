@@ -1803,6 +1803,22 @@
     "returnedDone": "Marqué comme rendu.",
     "deleteBody": "Supprimer \"{{title}}\" des objets trouvés ?"
   },
+  "voteLink": {
+    "confirmTitle": "Confirmez votre vote",
+    "youAreVoting": "Vous votez sur",
+    "yourChoice": "Votre choix",
+    "confirm": "Confirmer mon vote",
+    "changeable": "Vous pouvez modifier votre vote a tout moment avant la cloture.",
+    "done": "Vote enregistre",
+    "doneBody": "Merci. Vous pouvez le modifier a tout moment avant la cloture, depuis le mail ou dans l'application.",
+    "closed": "Ce vote est clos",
+    "closedBody": "Le vote etait deja termine, rien n'a ete enregistre.",
+    "invalid": "Ce lien n'est pas valide",
+    "invalidBody": "Le lien est endommage ou ne vous etait pas destine. Ouvrez l'application pour voter.",
+    "error": "Impossible d'enregistrer le vote",
+    "errorBody": "Une erreur est survenue. Merci de voter dans l'application.",
+    "openApp": "Ouvrir Abniyah"
+  },
   "voting": {
     "rulesButton": "Règles de vote",
     "rulesIntro": "Définies une fois par immeuble - chaque nouveau vote les applique. Modifiables à tout moment ; les votes déjà ouverts gardent leurs règles de départ.",

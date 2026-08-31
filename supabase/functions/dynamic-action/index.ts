@@ -8,7 +8,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // service-role client → bypasses RLS, can read grants/memberships/profiles freely
 const serviceKeyForHmac = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-const SUPABASE_FN_URL = (Deno.env.get('SUPABASE_URL') ?? '') + '/functions/v1';
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Optional shared secret: when the WEBHOOK_SECRET env var is set, requests must
@@ -1272,7 +1271,10 @@ Deno.serve(async (req) => {
           if (oneClick && uid) {
             const links = await Promise.all(options.map(async (op) => {
               const sig = await voteLinkSig(uid, record.id, op.id);
-              const href = `${SUPABASE_FN_URL}/vote-click?u=${uid}&p=${record.id}&o=${op.id}&s=${sig}`;
+              // the app's PUBLIC /vote page: Supabase rewrites function
+              // responses on *.supabase.co to text/plain, so the confirm UI
+              // cannot live in the function - it calls vote-click as an API
+              const href = `${APP_URL}/vote?u=${uid}&p=${record.id}&o=${op.id}&s=${sig}`;
               return `<a href="${href}" style="display:block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:11px 16px;margin:0 0 8px;color:#0f172a;text-decoration:none;font-size:14px;font-weight:600;">${esc(op.label)}</a>`;
             }));
             optionsHtml = `<p style="color:#64748b;font-size:13px;margin:16px 0 8px;">${L.vote.oneClick}</p>${links.join('')}

@@ -40,6 +40,7 @@ const BuildingContacts = lazy(() => import('@/pages/BuildingContacts'));
 const Issues     = lazy(() => import('@/pages/Issues'));
 const LostFound  = lazy(() => import('@/pages/LostFound'));
 const Voting     = lazy(() => import('@/pages/Voting'));
+const VoteConfirm = lazy(() => import('@/pages/VoteConfirm'));
 const Users      = lazy(() => import('@/pages/Users'));
 const Security   = lazy(() => import('@/pages/Security'));
 const Buildings      = lazy(() => import('@/pages/Buildings'));
@@ -99,6 +100,9 @@ export default function App() {
             <Route path="/no-license" element={<NoLicense />} />
             <Route path="/set-password" element={<SetPassword />} />
             <Route path="/demo" element={<DemoEntry />} />
+            {/* 0168: the one-click ballot from the vote email - PUBLIC by design,
+                the signed link is verified server-side by vote-click */}
+            <Route path="/vote" element={<VoteConfirm />} />
             <Route
               element={
                 <ProtectedRoute>
