@@ -31,7 +31,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 function page(title: string, bodyHtml: string, lang = 'en') {
   const rtl = lang === 'ar';
-  return new Response(`<!DOCTYPE html><html lang="${lang}"${rtl ? ' dir="rtl"' : ''}><head>
+  const html = `<!DOCTYPE html><html lang="${lang}"${rtl ? ' dir="rtl"' : ''}><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${esc(title)}</title></head>
   <body style="margin:0;background:#f5f6f8;font-family:'Segoe UI',Tahoma,Arial,sans-serif;${rtl ? 'direction:rtl;' : ''}">
@@ -42,7 +42,14 @@ function page(title: string, bodyHtml: string, lang = 'en') {
     <div style="background:#fff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 16px 16px;padding:28px;">
       ${bodyHtml}
     </div>
-  </div></body></html>`, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  </div></body></html>`;
+  // Encode to UTF-8 bytes and set the header on a Headers object: the plain
+  // string + header literal came back as text/plain - browsers rendered the
+  // source, offered a .txt download, and mangled Arabic/French.
+  const headers = new Headers();
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'no-store');
+  return new Response(new TextEncoder().encode(html), { headers });
 }
 
 const T = {
@@ -67,7 +74,7 @@ type Lang = keyof typeof T;
 const btn = (label: string) =>
   `<button type="submit" style="background:#0F4A3F;color:#fff;border:0;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer;">${label}</button>`;
 const appLink = (label: string) =>
-  `<p style="margin-top:20px;"><a href="${APP_URL}/voting" style="color:#0F4A3F;font-size:14px;">${label} →</a></p>`;
+  `<p style="margin-top:20px;"><a href="${APP_URL}/voting" style="color:#0F4A3F;font-size:14px;">${label} &rarr;</a></p>`;
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
