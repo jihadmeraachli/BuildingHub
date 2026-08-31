@@ -1256,9 +1256,16 @@ Deno.serve(async (req) => {
       const closesText = String(record.closes_at ?? '').slice(0, 16).replace('T', ' ');
 
       if (opened) {
-        const { data: opts } = await supabase.from('poll_options')
-          .select('id, label').eq('poll_id', record.id).order('sort_order');
-        const options = (opts ?? []) as { id: string; label: string }[];
+        // the app inserts the poll row FIRST and its options a beat later,
+        // while the webhook fires instantly - wait for the options so the
+        // one-click buttons actually make it into the email
+        let options: { id: string; label: string }[] = [];
+        for (let attempt = 0; attempt < 8 && options.length === 0; attempt++) {
+          if (attempt > 0) await new Promise((r) => setTimeout(r, 1000));
+          const { data: opts } = await supabase.from('poll_options')
+            .select('id, label').eq('poll_id', record.id).order('sort_order');
+          options = (opts ?? []) as { id: string; label: string }[];
+        }
         const oneClick = record.choice_type === 'single' && options.length > 0;
         await emailToUserIds(ids, async (L, uid) => {
           let optionsHtml = '';
