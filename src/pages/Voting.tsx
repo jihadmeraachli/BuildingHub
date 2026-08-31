@@ -478,15 +478,16 @@ export default function Voting() {
                           <p className="text-xs text-muted-foreground px-3 py-2.5">{t('voting.rollEmpty')}</p>
                         ) : (
                           (roll[poll.id] ?? []).map((b, i) => (
-                            <div key={`${b.voter_id ?? 'x'}-${b.unit_label}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2">
-                              <span className="flex items-center gap-2 min-w-0">
-                                {rollIcon(b.status)}
-                                <span className="text-sm text-foreground truncate">{b.voter_name || t('voting.rollNobody')}</span>
-                                {b.unit_label && <span className="text-xs text-muted-foreground truncate">{b.unit_label}</span>}
-                              </span>
-                              <span className="text-xs shrink-0 text-end">
+                            <div key={`${b.voter_id ?? 'x'}-${b.unit_label}-${i}`} className="flex items-center gap-2 px-3 py-2 min-w-0">
+                              {rollIcon(b.status)}
+                              <span className="text-sm text-foreground truncate">{b.voter_name || t('voting.rollNobody')}</span>
+                              {b.unit_label && <span className="text-xs text-muted-foreground truncate">{b.unit_label}</span>}
+                              {/* the choice sits right next to the name - on a wide
+                                  screen a justified layout pushed it far away */}
+                              <span className="text-xs text-muted-foreground/50">·</span>
+                              <span className="text-xs truncate">
                                 {b.status === 'voted'
-                                  ? <span className="text-foreground">{b.choices.join(', ')}</span>
+                                  ? <span className="font-medium text-foreground">{b.choices.join(', ')}</span>
                                   : b.status === 'abstained'
                                     ? <span className="text-amber-600 dark:text-amber-400">{t('voting.rollAbstained')}</span>
                                     : <span className="text-muted-foreground">{t('voting.rollPending')}</span>}
