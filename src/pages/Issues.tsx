@@ -115,9 +115,11 @@ export default function Issues() {
   // Values: '__common__' (manager), 'c:<buildingId>' (resident common), '<unitId>'.
   const [loggingFor, setLoggingFor] = useState('__common__');
 
+  // priority DISPLAYED 'Low' but its form value started undefined while
+  // required - an untouched priority silently blocked the whole submit
   const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<{
     title: string; description: string; location: string; priority: IssuePriority; photos: FileList;
-  }>();
+  }>({ defaultValues: { priority: 'low' } });
   const { register: registerUpdate, handleSubmit: handleUpdate, setValue, control: controlUpdate } = useForm<{ status: IssueStatus; resolution_notes: string }>();
 
   useEffect(() => { if (effectiveBuildingIds.length) loadIssues(); else setIssues([]); }, [idsKey, myOnly, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -335,7 +337,7 @@ export default function Issues() {
         )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={t('issues.logIssue')} size="lg">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit, () => toast.error(t('issues.fillRequired')))} className="space-y-4">
           {isManager && blockOptions.length > 1 && (
             <SelectField label={t('finance.block')} value={createBuildingId} onValueChange={(v) => { setCreateBuildingId(v); setLoggingFor('__common__'); }}>
               {blockOptions.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}

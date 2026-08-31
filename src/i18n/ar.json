@@ -821,6 +821,7 @@
     "status": "الحالة",
     "photos": "الصور",
     "resolutionNotes": "ملاحظات الحل",
+    "fillRequired": "أكمل الحقول المطلوبة أولاً: العنوان والوصف والموقع.",
     "resolvedOn": "تم الحل في {{date}}",
     "resolvedOnBy": "تم الحل في {{date}} بواسطة {{name}}",
     "reportedBy": "أُبلغ من قِبل",

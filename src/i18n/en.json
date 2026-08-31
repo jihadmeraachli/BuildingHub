@@ -809,6 +809,7 @@
     "status": "Status",
     "photos": "Photos",
     "resolutionNotes": "Resolution Notes",
+    "fillRequired": "Fill the required fields first: title, description and location.",
     "resolvedOn": "Resolved on {{date}}",
     "resolvedOnBy": "Resolved on {{date}} by {{name}}",
     "reportedBy": "Reported by",

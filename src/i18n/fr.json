@@ -809,6 +809,7 @@
     "status": "Statut",
     "photos": "Photos",
     "resolutionNotes": "Notes de résolution",
+    "fillRequired": "Renseignez d'abord les champs requis : titre, description et emplacement.",
     "resolvedOn": "Resolu le {{date}}",
     "resolvedOnBy": "Resolu le {{date}} par {{name}}",
     "reportedBy": "Signalé par",
