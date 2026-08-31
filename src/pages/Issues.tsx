@@ -133,10 +133,13 @@ export default function Issues() {
 
   async function loadIssues() {
     setLoading(true);
-    let q = supabase.from('issues').select('*, reporter:profiles(full_name, apartment_number)').in('building_id', effectiveBuildingIds);
+    // !reported_by: 0167 added a SECOND profiles FK (resolved_by), which made
+    // the bare profiles embed ambiguous and silently emptied the whole list
+    let q = supabase.from('issues').select('*, reporter:profiles!reported_by(full_name, apartment_number)').in('building_id', effectiveBuildingIds);
     if (myOnly) q = q.eq('reported_by', profile?.id);
     if (statusFilter !== 'all') q = q.eq('status', statusFilter);
-    const { data } = await q.order('created_at', { ascending: false });
+    const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) toast.error(error.message);
     setIssues((data as Issue[]) ?? []);
     setLoading(false);
   }
