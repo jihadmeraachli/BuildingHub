@@ -34,6 +34,13 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/functions\//],
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // A frequent-deploy day left old workers serving a precache whose
+        // files the next deploy had replaced: a plain refresh died with
+        // ERR_FAILED while ctrl+shift+R (which bypasses the worker) worked.
+        // Drop stale precaches and let a new worker take over at once.
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],
