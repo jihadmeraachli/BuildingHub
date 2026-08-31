@@ -167,48 +167,49 @@ export default function LostFound() {
           </div>
         </CardBody></Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-3">
           {shown.map(item => (
             <Card key={item.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${item.status !== 'open' ? 'opacity-80' : ''}`} onClick={() => setDetail(item)}>
-              {item.photo_url && photos[item.id] ? (
-                <img src={photos[item.id]} alt={item.title} className="w-full h-44 object-cover rounded-t-xl" />
-              ) : (
-                <div className="w-full h-44 rounded-t-xl bg-secondary flex items-center justify-center">
-                  <PackageSearch size={32} className="text-muted-foreground/40" />
-                </div>
-              )}
               <CardBody>
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-foreground">{item.title}</p>
-                  <Badge variant={statusColor[item.status]}>{t(`lostfound.status_${item.status}`)}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {viewable.length > 1 && <>{buildingName[item.building_id] ?? ''} · </>}
-                  {item.found_where && <>{item.found_where} · </>}
-                  {fmtDate(item.created_at)}
-                  {item.created_by && names[item.created_by] && <> · {t('lostfound.reportedBy', { name: names[item.created_by] })}</>}
-                </p>
-                {item.description && <p className="text-sm text-muted-foreground mt-2">{item.description}</p>}
-                {/* managers see who claimed; residents only that it is claimed */}
-                {item.claimed_by && canManageItem(item) && (
-                  <p className="text-xs mt-2 text-amber-600 dark:text-amber-400">
-                    {t('lostfound.claimedBy', { name: names[item.claimed_by] || '—' })}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                  {item.status === 'open' && (
-                    <Button size="sm" variant="outline" onClick={() => claim(item)}>{t('lostfound.thisIsMine')}</Button>
+                <div className="flex items-start gap-4">
+                  {item.photo_url && photos[item.id] ? (
+                    <img src={photos[item.id]} alt={item.title} className="w-20 h-20 object-cover rounded-xl flex-shrink-0" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+                      <PackageSearch size={24} className="text-muted-foreground/40" />
+                    </div>
                   )}
-                  {item.status === 'claimed' && canManageItem(item) && (
-                    <Button size="sm" variant="ghost" onClick={() => markReturned(item)}>
-                      <CheckCheck size={14} /> {t('lostfound.markReturned')}
-                    </Button>
-                  )}
-                  {canManageItem(item) && (
-                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive ms-auto" onClick={() => remove(item)}>
-                      <Trash2 size={14} />
-                    </Button>
-                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <p className="font-semibold text-foreground">{item.title}</p>
+                      <Badge variant={statusColor[item.status]}>{t(`lostfound.status_${item.status}`)}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {viewable.length > 1 && <>{buildingName[item.building_id] ?? ''} · </>}
+                      {item.found_where && <>{item.found_where} · </>}
+                      {fmtDate(item.created_at)}
+                      {item.created_by && names[item.created_by] && <> · {t('lostfound.reportedBy', { name: names[item.created_by] })}</>}
+                    </p>
+                    {item.description && <p className="text-sm text-muted-foreground mt-1">{item.description}</p>}
+                    {item.claimed_by && canManageItem(item) && (
+                      <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">{t('lostfound.claimedBy', { name: names[item.claimed_by] || '—' })}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    {item.status === 'open' && (
+                      <Button size="sm" variant="outline" onClick={() => claim(item)}>{t('lostfound.thisIsMine')}</Button>
+                    )}
+                    {item.status === 'claimed' && canManageItem(item) && (
+                      <Button size="sm" variant="ghost" onClick={() => markReturned(item)}>
+                        <CheckCheck size={14} /> {t('lostfound.markReturned')}
+                      </Button>
+                    )}
+                    {canManageItem(item) && (
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(item)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardBody>
             </Card>
