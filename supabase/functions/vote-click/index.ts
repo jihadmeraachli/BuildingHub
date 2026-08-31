@@ -24,6 +24,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.abniyah.com';
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
 const CORS = {
@@ -50,6 +51,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   const url = new URL(req.url);
+  // A human landing here (an email sent before the links moved to the app,
+  // or a pasted link) gets bounced to the confirm page; the page itself asks
+  // for data with f=json. Redirects are not touched by the text/plain rewrite.
+  if (req.method === 'GET' && url.searchParams.get('f') !== 'json') {
+    return new Response(null, { status: 302, headers: { ...CORS, Location: `${APP_URL}/vote?${url.searchParams.toString()}` } });
+  }
   const u = url.searchParams.get('u') ?? '';
   const p = url.searchParams.get('p') ?? '';
   const o = url.searchParams.get('o') ?? '';

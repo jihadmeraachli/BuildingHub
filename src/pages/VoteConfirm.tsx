@@ -33,7 +33,8 @@ export default function VoteConfirm() {
   const [errMsg, setErrMsg] = useState('');
 
   const call = useCallback(async (method: 'GET' | 'POST') => {
-    const res = await fetch(`${FN}?${qs}`, { method });
+    // f=json: a bare GET on the function redirects humans to this page
+    const res = await fetch(`${FN}?${qs}&f=json`, { method });
     // the gateway forces text/plain on function responses; parse it ourselves
     return JSON.parse(await res.text()) as {
       ok: boolean; reason?: string; error?: string; title?: string; option?: string; cast?: boolean;
