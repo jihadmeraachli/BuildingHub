@@ -34,7 +34,7 @@ const statusColor: Record<LostItem['status'], 'orange' | 'slate' | 'green'> = {
 
 export default function LostFound() {
   const { t } = useTranslation();
-  const { user, can, canAny, isPlatformAdmin, residentLens } = useAuth();
+  const { user, can, isPlatformAdmin, residentLens } = useAuth();
   const { buildings: viewable } = useViewableBuildings();
   const { confirmAsync, ConfirmDialog } = useConfirm();
 
@@ -55,7 +55,6 @@ export default function LostFound() {
   );
   const idsKey = viewable.map(b => b.id).sort().join(',');
   // managers see WHO claimed; residents only see "claimed"
-  const isManagerAnywhere = (isPlatformAdmin || canAny('issue.update')) && !residentLens;
   const canManageItem = (i: LostItem) => (isPlatformAdmin || can('issue.update', i.building_id)) && !residentLens;
 
   async function load() {
