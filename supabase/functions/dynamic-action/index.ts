@@ -7,6 +7,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // service-role client → bypasses RLS, can read grants/memberships/profiles freely
+const serviceKeyForHmac = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const SUPABASE_FN_URL = (Deno.env.get('SUPABASE_URL') ?? '') + '/functions/v1';
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Optional shared secret: when the WEBHOOK_SECRET env var is set, requests must
@@ -245,6 +247,13 @@ async function unitPartyIds(unitId: string, party: 'owner' | 'tenant' | 'both', 
 }
 
 /** everyone living in a building: memberships ∪ legacy profiles.building_id */
+async function voteLinkSig(uid: string, poll: string, option: string): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(serviceKeyForHmac),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${uid}:${poll}:${option}`));
+  return btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 async function buildingResidentIds(buildingId: string): Promise<string[]> {
   const ids = new Set<string>();
   const { data: us } = await supabase.from('units').select('id').eq('building_id', buildingId);
@@ -385,7 +394,7 @@ async function pushToUserIds(ids: string[], title: string, body?: string) {
  *  200-unit compound. */
 async function emailToUserIds(
   ids: string[],
-  build: (L: Dict) => { subject: string; html: string },
+  build: (L: Dict, uid?: string) => { subject: string; html: string } | Promise<{ subject: string; html: string }>,
   fromName?: string,
   attachments?: Attachment[],
 ) {
@@ -405,17 +414,18 @@ async function emailToUserIds(
   }
 
   for (const [lang, members] of groups) {
-    const { subject, html } = build(DICT[lang]);
     // Same event, one alert per channel: everything that emails also pushes.
-    // The subject is already a complete, specific line ("Payment received"),
-    // and iOS shows the app name above it, so it works as the alert title -
-    // and now it reaches the phone in the same language as the email.
-    // Push honours notify_push separately, so it goes to the whole group.
-    void pushToUserIds(members.map((m) => m.id), subject);
+    // The subject is a complete, specific line and iOS shows the app name
+    // above it, so it doubles as the alert title, in the reader's language.
+    // The builder runs per member since 0168: signed one-click vote links
+    // are personal, so two neighbours' emails are no longer identical.
+    const { subject: groupSubject } = await build(DICT[lang], members[0]?.id);
+    void pushToUserIds(members.map((m) => m.id), groupSubject);
     for (const p of members) {
       if (!p.notify_email) { console.log(`[email] skip ${p.id} - notify_email off`); continue; }
       const email = await getUserEmail(p.id);
       if (!email) { console.log(`[email] skip ${p.id} - no auth email`); continue; }
+      const { subject, html } = await build(DICT[lang], p.id);
       const err = await sendEmail(email, subject, html, fromName, attachments);
       console.log(err ? `[email] FAILED ${email}: ${err}` : `[email] sent ${email} [${lang}] - "${subject}"`);
     }
@@ -597,6 +607,18 @@ const EN = {
     intro: (b: string, w: string) => `A new item was posted to the lost & found at <strong>${b}</strong>` + (w ? ` (found: <strong>${w}</strong>)` : '') + `. Check if it's yours.`,
     cta: 'Open Lost & Found',
   },
+  vote: {
+    subjOpen: (t: string) => `Vote: ${t}`,
+    titleOpen: (t: string) => `Voting is open: ${t}`,
+    introOpen: (b: string, d: string) => `A vote is open at <strong>${b}</strong> until <strong>${d}</strong>. Have your say.`,
+    oneClick: 'Vote with one click - you can change it any time before the close:',
+    orApp: 'Or vote in the app:',
+    cta: 'Cast your vote',
+    subjClosed: (t: string) => `Vote closed: ${t}`,
+    titleClosed: (t: string) => `The results are in: ${t}`,
+    introClosed: (b: string) => `Voting has closed at <strong>${b}</strong>.`,
+    ctaResults: 'See the results',
+  },
 };
 type Dict = typeof EN;
 
@@ -725,6 +747,18 @@ const AR: Dict = {
     title: (t: string) => `عُثر على: ${t}`,
     intro: (b: string, w: string) => `أُضيف غرض جديد إلى المفقودات في <strong>${b}</strong>` + (w ? ` (مكان العثور: <strong>${w}</strong>)` : '') + `. تحقق إن كان لك.`,
     cta: 'فتح المفقودات',
+  },
+  vote: {
+    subjOpen: (t: string) => `تصويت: ${t}`,
+    titleOpen: (t: string) => `التصويت مفتوح: ${t}`,
+    introOpen: (b: string, d: string) => `هناك تصويت مفتوح في <strong>${b}</strong> حتى <strong>${d}</strong>. شارك برأيك.`,
+    oneClick: 'صوّت بنقرة واحدة - يمكنك تغيير صوتك في أي وقت قبل الإغلاق:',
+    orApp: 'أو صوّت من التطبيق:',
+    cta: 'أدلِ بصوتك',
+    subjClosed: (t: string) => `أُغلق التصويت: ${t}`,
+    titleClosed: (t: string) => `صدرت النتائج: ${t}`,
+    introClosed: (b: string) => `أُغلق التصويت في <strong>${b}</strong>.`,
+    ctaResults: 'عرض النتائج',
   },
 };
 
@@ -856,6 +890,18 @@ const FR: Dict = {
     title: (t: string) => `Objet trouvé : ${t}`,
     intro: (b: string, w: string) => `Un nouvel objet a été déposé aux objets trouvés à <strong>${b}</strong>` + (w ? ` (trouvé : <strong>${w}</strong>)` : '') + `. Vérifiez s'il est à vous.`,
     cta: 'Ouvrir les objets trouvés',
+  },
+  vote: {
+    subjOpen: (t: string) => `Vote : ${t}`,
+    titleOpen: (t: string) => `Le vote est ouvert : ${t}`,
+    introOpen: (b: string, d: string) => `Un vote est ouvert à <strong>${b}</strong> jusqu'au <strong>${d}</strong>. Donnez votre avis.`,
+    oneClick: 'Votez en un clic - modifiable à tout moment avant la clôture :',
+    orApp: 'Ou votez dans l\'application :',
+    cta: 'Voter',
+    subjClosed: (t: string) => `Vote clos : ${t}`,
+    titleClosed: (t: string) => `Les résultats sont là : ${t}`,
+    introClosed: (b: string) => `Le vote est clos à <strong>${b}</strong>.`,
+    ctaResults: 'Voir les résultats',
   },
 };
 
@@ -1191,6 +1237,57 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.lost.intro(esc(b?.name ?? '-'), record.found_where ? esc(record.found_where) : '')}</p>`,
           L.lost.cta, `${APP_URL}/lost-found`),
       }), b?.name ?? 'Abniyah');
+    }
+
+    // ── Voting (0155/0168): open -> email+push with one-click option links
+    //    (single-choice polls; multi-choice link to the app). Close -> the
+    //    results email. Bells were already sent by the 0155 triggers.
+    if (tbl === 'polls' && (type === 'INSERT'
+        || (type === 'UPDATE' && old_record?.status === 'open' && record.status === 'closed'))) {
+      const opened = type === 'INSERT';
+      const scopeBuildings: string[] = record.building_id ? [record.building_id]
+        : ((await supabase.from('buildings').select('id').eq('compound_id', record.compound_id)).data ?? []).map((b: { id: string }) => b.id);
+      const b = record.building_id ? await getBuilding(record.building_id) : null;
+      const cname = record.compound_id
+        ? ((await supabase.from('compounds').select('name').eq('id', record.compound_id).single()).data?.name ?? '-') : null;
+      const scopeName = cname ?? b?.name ?? '-';
+      const idSets = await Promise.all(scopeBuildings.map((id) => buildingResidentIds(id)));
+      const ids = [...new Set(idSets.flat())].filter((id) => id !== record.created_by);
+      const closesText = String(record.closes_at ?? '').slice(0, 16).replace('T', ' ');
+
+      if (opened) {
+        const { data: opts } = await supabase.from('poll_options')
+          .select('id, label').eq('poll_id', record.id).order('sort_order');
+        const options = (opts ?? []) as { id: string; label: string }[];
+        const oneClick = record.choice_type === 'single' && options.length > 0;
+        await emailToUserIds(ids, async (L, uid) => {
+          let optionsHtml = '';
+          if (oneClick && uid) {
+            const links = await Promise.all(options.map(async (op) => {
+              const sig = await voteLinkSig(uid, record.id, op.id);
+              const href = `${SUPABASE_FN_URL}/vote-click?u=${uid}&p=${record.id}&o=${op.id}&s=${sig}`;
+              return `<a href="${href}" style="display:block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:11px 16px;margin:0 0 8px;color:#0f172a;text-decoration:none;font-size:14px;font-weight:600;">${esc(op.label)}</a>`;
+            }));
+            optionsHtml = `<p style="color:#64748b;font-size:13px;margin:16px 0 8px;">${L.vote.oneClick}</p>${links.join('')}
+              <p style="color:#94a3b8;font-size:12px;margin:12px 0 0;">${L.vote.orApp}</p>`;
+          }
+          return {
+            subject: L.vote.subjOpen(record.title),
+            html: emailHtml(L, L.vote.titleOpen(esc(record.title)),
+              `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.vote.introOpen(esc(scopeName), esc(closesText))}</p>
+               ${record.description ? `<p style="color:#64748b;font-size:13px;margin:0 0 4px;">${esc(record.description)}</p>` : ''}
+               ${optionsHtml}`,
+              L.vote.cta, `${APP_URL}/voting`),
+          };
+        }, scopeName);
+      } else {
+        await emailToUserIds(ids, (L) => ({
+          subject: L.vote.subjClosed(record.title),
+          html: emailHtml(L, L.vote.titleClosed(esc(record.title)),
+            `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.vote.introClosed(esc(scopeName))}</p>`,
+            L.vote.ctaResults, `${APP_URL}/voting`),
+        }), scopeName);
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
