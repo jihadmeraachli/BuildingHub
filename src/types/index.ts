@@ -95,6 +95,9 @@ export interface Issue {
   photo_urls: string[];
   resolution_notes: string | null;
   resolved_at: string | null;
+  /** Who resolved it (0167): audit id + display-name snapshot. */
+  resolved_by?: string | null;
+  resolved_by_name?: string | null;
   created_at: string;
   reporter?: Profile;
 }

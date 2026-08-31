@@ -213,6 +213,8 @@ export default function Issues() {
     await supabase.from('issues').update({
       status: data.status, resolution_notes: data.resolution_notes,
       resolved_at: data.status === 'resolved' ? new Date().toISOString() : null,
+      resolved_by: data.status === 'resolved' ? (profile?.id ?? null) : null,
+      resolved_by_name: data.status === 'resolved' ? (profile?.full_name ?? null) : null,
     }).eq('id', selectedIssue.id);
     toast.success(t('issues.statusUpdated'));
     setSelectedIssue(null); loadIssues();
@@ -310,7 +312,13 @@ export default function Issues() {
                     {(issue.resolution_notes || issue.resolved_at) && (
                       <div className="mt-2 rounded-xl border border-emerald-500/30 px-3 py-2">
                         {issue.resolution_notes && <p className="text-sm text-emerald-700 dark:text-emerald-300">{issue.resolution_notes}</p>}
-                        {issue.resolved_at && <p className="text-xs text-muted-foreground mt-0.5">{t('issues.resolvedOn', { date: fmtDate(issue.resolved_at, 'dd-MM-yyyy') })}</p>}
+                        {issue.resolved_at && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {issue.resolved_by_name
+                              ? t('issues.resolvedOnBy', { date: fmtDate(issue.resolved_at, 'dd-MM-yyyy'), name: issue.resolved_by_name })
+                              : t('issues.resolvedOn', { date: fmtDate(issue.resolved_at, 'dd-MM-yyyy') })}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

@@ -810,6 +810,7 @@
     "photos": "Photos",
     "resolutionNotes": "Resolution Notes",
     "resolvedOn": "Resolved on {{date}}",
+    "resolvedOnBy": "Resolved on {{date}} by {{name}}",
     "reportedBy": "Reported by",
     "reportedOn": "Reported on",
     "priorities": {

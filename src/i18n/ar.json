@@ -822,6 +822,7 @@
     "photos": "الصور",
     "resolutionNotes": "ملاحظات الحل",
     "resolvedOn": "تم الحل في {{date}}",
+    "resolvedOnBy": "تم الحل في {{date}} بواسطة {{name}}",
     "reportedBy": "أُبلغ من قِبل",
     "reportedOn": "تاريخ الإبلاغ",
     "priorities": {
