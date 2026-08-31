@@ -591,6 +591,12 @@ const EN = {
     icsNote: '📎 A calendar invite (.ics) is attached.',
     cta: 'View in Abniyah',
   },
+  lost: {
+    subj: (t: string) => `Lost & found: ${t}`,
+    title: (t: string) => `Found: ${t}`,
+    intro: (b: string, w: string) => `A new item was posted to the lost & found at <strong>${b}</strong>` + (w ? ` (found: <strong>${w}</strong>)` : '') + `. Check if it's yours.`,
+    cta: 'Open Lost & Found',
+  },
 };
 type Dict = typeof EN;
 
@@ -713,6 +719,12 @@ const AR: Dict = {
     joinLink: 'رابط الانضمام',
     icsNote: '📎 مرفق دعوة تقويم (.ics).',
     cta: 'عرض في أبنية',
+  },
+  lost: {
+    subj: (t: string) => `مفقودات: ${t}`,
+    title: (t: string) => `عُثر على: ${t}`,
+    intro: (b: string, w: string) => `أُضيف غرض جديد إلى المفقودات في <strong>${b}</strong>` + (w ? ` (مكان العثور: <strong>${w}</strong>)` : '') + `. تحقق إن كان لك.`,
+    cta: 'فتح المفقودات',
   },
 };
 
@@ -838,6 +850,12 @@ const FR: Dict = {
     joinLink: 'Lien de connexion',
     icsNote: '📎 Une invitation calendrier (.ics) est jointe.',
     cta: 'Voir dans Abniyah',
+  },
+  lost: {
+    subj: (t: string) => `Objets trouvés : ${t}`,
+    title: (t: string) => `Objet trouvé : ${t}`,
+    intro: (b: string, w: string) => `Un nouvel objet a été déposé aux objets trouvés à <strong>${b}</strong>` + (w ? ` (trouvé : <strong>${w}</strong>)` : '') + `. Vérifiez s'il est à vous.`,
+    cta: 'Ouvrir les objets trouvés',
   },
 };
 
@@ -1159,6 +1177,20 @@ Deno.serve(async (req) => {
         };
       }, b?.name ?? 'Abniyah',
         ics ? [{ filename: 'meeting-invite.ics', content: toBase64(ics) }] : undefined);
+    }
+
+    // ── Lost & found (0154): a new item -> email + push to the whole
+    //    building, except the poster. The in-app bell already fired via the
+    //    DB trigger - one alert per channel, no doubling.
+    if (tbl === 'lost_items' && type === 'INSERT') {
+      const b = await getBuilding(record.building_id);
+      const ids = (await buildingResidentIds(record.building_id)).filter((id) => id !== record.created_by);
+      await emailToUserIds(ids, (L) => ({
+        subject: L.lost.subj(record.title),
+        html: emailHtml(L, L.lost.title(esc(record.title)),
+          `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.lost.intro(esc(b?.name ?? '-'), record.found_where ? esc(record.found_where) : '')}</p>`,
+          L.lost.cta, `${APP_URL}/lost-found`),
+      }), b?.name ?? 'Abniyah');
     }
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
