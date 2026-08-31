@@ -1788,6 +1788,7 @@
     "post": "Post it",
     "posted": "Posted. Everyone in the building was notified.",
     "empty": "Nothing in the lost & found right now.",
+    "filterAll": "All items",
     "status_open": "Unclaimed",
     "status_claimed": "Claimed",
     "status_returned": "Returned",

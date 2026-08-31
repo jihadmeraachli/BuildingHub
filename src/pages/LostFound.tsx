@@ -11,7 +11,7 @@ import { useConfirm } from '@/lib/useConfirm';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { SelectField, SelectItem } from '@/components/ui/Select';
+import { RadixSelect, SelectField, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { SkeletonCards } from '@/components/ui/Skeleton';
@@ -47,6 +47,8 @@ export default function LostFound() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [detail, setDetail] = useState<LostItem | null>(null);
+  // claimed/unclaimed filter - a lost & found page is about what is still waiting
+  const [statusFilter, setStatusFilter] = useState<'open' | 'claimed' | 'all'>('open');
   const [preview, setPreview] = useState<string>('');
 
   const buildingName = useMemo(
@@ -129,6 +131,10 @@ export default function LostFound() {
     load();
   }
 
+  const shown = statusFilter === 'all' ? items
+    : statusFilter === 'open' ? items.filter(i => i.status === 'open')
+    : items.filter(i => i.status === 'claimed' || i.status === 'returned');
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -136,12 +142,24 @@ export default function LostFound() {
           <h1 className="text-2xl font-bold tracking-tight">{t('lostfound.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('lostfound.subtitle')}</p>
         </div>
-        {viewable.length > 0 && (
-          <Button onClick={openReport}><Plus size={15} /> {t('lostfound.report')}</Button>
-        )}
+        <div className="flex items-center gap-2">
+          <RadixSelect value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="open">{t('lostfound.status_open')}</SelectItem>
+              <SelectItem value="claimed">{t('lostfound.status_claimed')}</SelectItem>
+              <SelectItem value="all">{t('lostfound.filterAll')}</SelectItem>
+            </SelectContent>
+          </RadixSelect>
+          {viewable.length > 0 && (
+            <Button onClick={openReport}><Plus size={15} /> {t('lostfound.report')}</Button>
+          )}
+        </div>
       </div>
 
-      {loading ? <SkeletonCards count={3} /> : items.length === 0 ? (
+      {loading ? <SkeletonCards count={3} /> : shown.length === 0 ? (
         <Card><CardBody>
           <div className="text-center py-10 text-muted-foreground">
             <PackageSearch size={28} className="mx-auto mb-2 opacity-60" />
@@ -150,7 +168,7 @@ export default function LostFound() {
         </CardBody></Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map(item => (
+          {shown.map(item => (
             <Card key={item.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${item.status !== 'open' ? 'opacity-80' : ''}`} onClick={() => setDetail(item)}>
               {item.photo_url && photos[item.id] ? (
                 <img src={photos[item.id]} alt={item.title} className="w-full h-44 object-cover rounded-t-xl" />

@@ -1788,6 +1788,7 @@
     "post": "Publier",
     "posted": "Publié. Tout l'immeuble a été notifié.",
     "empty": "Rien aux objets trouvés pour le moment.",
+    "filterAll": "Tous les objets",
     "status_open": "Non réclamé",
     "status_claimed": "Réclamé",
     "status_returned": "Rendu",
