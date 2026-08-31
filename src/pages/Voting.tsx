@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Vote as VoteIcon, X, Lock, SlidersHorizontal } from 'lucide-react';
+import { Plus, Vote as VoteIcon, X, Lock, SlidersHorizontal, Users, Check, MinusCircle, Clock } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +37,17 @@ interface Poll {
   created_by: string | null; created_at: string;
 }
 interface PollOption { id: string; poll_id: string; label: string; position: number; }
+/** 0169: one line of the roll call - a voter (or a unit) and what they did. */
+interface BallotRow {
+  voter_id: string | null;
+  voter_name: string;
+  unit_label: string;
+  status: 'voted' | 'abstained' | 'pending';
+  choices: string[];
+  weight: number;
+  voted_at: string | null;
+}
+
 interface ResultRow {
   option_id: string | null; label: string;
   votes: number | null; vote_weight: number | null;
@@ -90,10 +101,33 @@ export default function Voting() {
     p.compound_id ? (entities.find(e => e.id === p.compound_id)?.name ?? t('voting.wholeCompound'))
       : (viewable.find(b => b.id === p.building_id)?.name ?? '');
 
+  const rollIcon = (st: BallotRow['status']) =>
+    st === 'voted' ? <Check size={13} className="text-emerald-500" />
+    : st === 'abstained' ? <MinusCircle size={13} className="text-amber-500" />
+    : <Clock size={13} className="text-muted-foreground" />;
+
   const effectiveStatus = (p: Poll): 'open' | 'closed' =>
     p.status === 'closed' || new Date(p.closes_at) <= new Date() ? 'closed' : 'open';
 
   const effectiveRules = (entityKey: string): Rules => defaults[entityKey] ?? RULE_DEFAULTS;
+
+  // ── the roll call (0169): who voted what, who abstained, who is pending.
+  //    Server-side by design - a SECRET ballot returns nothing to anyone, so
+  //    this button can never leak one.
+  const [rollOpen, setRollOpen] = useState<string | null>(null);
+  const [roll, setRoll] = useState<Record<string, BallotRow[]>>({});
+  const [rollBusy, setRollBusy] = useState(false);
+
+  async function toggleRoll(pollId: string) {
+    if (rollOpen === pollId) { setRollOpen(null); return; }
+    setRollOpen(pollId);
+    if (roll[pollId]) return;
+    setRollBusy(true);
+    const { data, error } = await supabase.rpc('poll_ballots', { p_poll: pollId });
+    setRollBusy(false);
+    if (error) { toast.error(error.message); return; }
+    setRoll(prev => ({ ...prev, [pollId]: (data ?? []) as BallotRow[] }));
+  }
 
   async function loadResults(pollIds: string[]) {
     const pairs = await Promise.all(pollIds.map(async id => {
@@ -428,6 +462,51 @@ export default function Voting() {
                   })}
                   {poll.quorum_pct > 0 && <> · {t('voting.quorumTarget', { pct: poll.quorum_pct })}{quorumMet ? ' ✓' : ''}</>}
                 </p>
+
+                {/* 0169: the roll call - managers only, open ballots only */}
+                {isPollManager && !poll.anonymous && (
+                  <div className="mt-3">
+                    <button type="button" onClick={() => toggleRoll(poll.id)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline cursor-pointer">
+                      <Users size={13} /> {rollOpen === poll.id ? t('voting.hideRoll') : t('voting.showRoll')}
+                    </button>
+                    {rollOpen === poll.id && (
+                      <div className="mt-2 rounded-xl border border-border divide-y divide-border/60">
+                        {rollBusy && !roll[poll.id] ? (
+                          <p className="text-xs text-muted-foreground px-3 py-2.5">{t('common.loading')}</p>
+                        ) : (roll[poll.id] ?? []).length === 0 ? (
+                          <p className="text-xs text-muted-foreground px-3 py-2.5">{t('voting.rollEmpty')}</p>
+                        ) : (
+                          (roll[poll.id] ?? []).map((b, i) => (
+                            <div key={`${b.voter_id ?? 'x'}-${b.unit_label}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2">
+                              <span className="flex items-center gap-2 min-w-0">
+                                {rollIcon(b.status)}
+                                <span className="text-sm text-foreground truncate">{b.voter_name || t('voting.rollNobody')}</span>
+                                {b.unit_label && <span className="text-xs text-muted-foreground truncate">{b.unit_label}</span>}
+                              </span>
+                              <span className="text-xs shrink-0 text-end">
+                                {b.status === 'voted'
+                                  ? <span className="text-foreground">{b.choices.join(', ')}</span>
+                                  : b.status === 'abstained'
+                                    ? <span className="text-amber-600 dark:text-amber-400">{t('voting.rollAbstained')}</span>
+                                    : <span className="text-muted-foreground">{t('voting.rollPending')}</span>}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    {rollOpen === poll.id && (roll[poll.id] ?? []).length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        {t('voting.rollSummary', {
+                          voted: (roll[poll.id] ?? []).filter(b => b.status === 'voted').length,
+                          abstained: (roll[poll.id] ?? []).filter(b => b.status === 'abstained').length,
+                          pending: (roll[poll.id] ?? []).filter(b => b.status === 'pending').length,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {st === 'open' && (
                   <div className="flex items-center gap-2 mt-3">
