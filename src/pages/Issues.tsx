@@ -210,12 +210,13 @@ export default function Issues() {
 
   async function onUpdateStatus(data: { status: IssueStatus; resolution_notes: string }) {
     if (!selectedIssue) return;
-    await supabase.from('issues').update({
+    const { error } = await supabase.from('issues').update({
       status: data.status, resolution_notes: data.resolution_notes,
       resolved_at: data.status === 'resolved' ? new Date().toISOString() : null,
       resolved_by: data.status === 'resolved' ? (profile?.id ?? null) : null,
       resolved_by_name: data.status === 'resolved' ? (profile?.full_name ?? null) : null,
     }).eq('id', selectedIssue.id);
+    if (error) { toast.error(error.message); return; }
     toast.success(t('issues.statusUpdated'));
     setSelectedIssue(null); loadIssues();
   }
