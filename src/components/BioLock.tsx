@@ -21,6 +21,19 @@ import { loadDevicePrefs } from '@/lib/devicePrefs';
  */
 type Status = 'checking' | 'locked' | 'open';
 
+// "Once per launch" must survive PAGE RELOADS - a pull-to-refresh remounts
+// React, and component state alone re-armed the gate mid-session (annoying
+// re-scan on every refresh). sessionStorage lives exactly as long as the app
+// run: it survives reloads, and iOS wipes it on termination, so a cold start
+// still locks. Wrapped in try/catch - a blocked storage read must fail LOCKED.
+const UNLOCK_FLAG = 'abniyah_bio_unlocked';
+const alreadyUnlockedThisLaunch = () => {
+  try { return sessionStorage.getItem(UNLOCK_FLAG) === '1'; } catch { return false; }
+};
+const rememberUnlock = () => {
+  try { sessionStorage.setItem(UNLOCK_FLAG, '1'); } catch { /* still unlocked for this mount */ }
+};
+
 export function BioLock({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   // Always start by checking on native: the Face ID preference lives in the
@@ -37,6 +50,7 @@ export function BioLock({ children }: { children: ReactNode }) {
       await loadDevicePrefs();
       if (cancelled) return;
       if (!bioLoginEnabled()) { setStatus('open'); return; }
+      if (alreadyUnlockedThisLaunch()) { setStatus('open'); return; }
       // Only gate when there is a session worth protecting. This sits outside
       // AuthProvider, so read the persisted session directly.
       const { data } = await supabase.auth.getSession();
@@ -50,7 +64,7 @@ export function BioLock({ children }: { children: ReactNode }) {
     setPrompting(true);
     const ok = await bioAuthenticate(t('bio.reason'));
     setPrompting(false);
-    if (ok) setStatus('open');
+    if (ok) { rememberUnlock(); setStatus('open'); }
     else setFailed(true);
   }, [prompting, t]);
 
@@ -64,6 +78,7 @@ export function BioLock({ children }: { children: ReactNode }) {
    *  failed or unavailable Face ID would be a dead end on the user's own app. */
   const usePassword = useCallback(async () => {
     await supabase.auth.signOut();
+    rememberUnlock();
     setStatus('open');
   }, []);
 
