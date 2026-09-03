@@ -1618,7 +1618,12 @@ export default function Finance() {
                       return (
                         <Fragment key={r.unit.id}>
                         <tr className="hover:bg-slate-50/60">
-                          <td className="px-5 py-3 font-semibold text-foreground dark:text-white">{unitDisplay(r.unit.id)}</td>
+                          <td className="px-5 py-3 font-semibold text-foreground dark:text-white">
+                            {unitDisplay(r.unit.id)}
+                            {/* owner-only units never render sub-rows, so the
+                                main row carries the owner's name (QA, 3 Sep) */}
+                            {!r.split && r.ownerName && <span className="ms-2 text-xs font-normal text-muted-foreground">{r.ownerName}</span>}
+                          </td>
                           <td className="px-5 py-3"><div className="flex items-center gap-2"><MiniBar pct={pct} color={pct >= 100 ? '#10b981' : pct > 0 ? '#f59e0b' : '#e2e8f0'} /><span className="text-xs text-foreground dark:text-white tnum w-9 text-end">{Math.round(pct)}%</span></div></td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.charged)}</td>
                           <td className="px-5 py-3 text-end text-foreground dark:text-white tnum">{money(r.paid)}</td>
