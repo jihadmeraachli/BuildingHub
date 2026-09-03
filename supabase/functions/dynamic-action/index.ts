@@ -1251,7 +1251,11 @@ Deno.serve(async (req) => {
         ? ((await supabase.from('compounds').select('name').eq('id', record.compound_id).single()).data?.name ?? '-') : null;
       const scopeName = cname ?? b?.name ?? '-';
       const idSets = await Promise.all(scopeBuildings.map((id) => buildingResidentIds(id)));
-      const ids = [...new Set(idSets.flat())].filter((id) => id !== record.created_by);
+      // NO creator exclusion here, unlike other events: this email IS the
+      // ballot (and the results). A committee leader who is also an owner
+      // votes from the inbox like every other resident - creating the poll
+      // must not cost them that.
+      const ids = [...new Set(idSets.flat())];
       const closesText = String(record.closes_at ?? '').slice(0, 16).replace('T', ' ');
 
       if (opened) {
