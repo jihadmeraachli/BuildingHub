@@ -192,7 +192,7 @@ export default function Projects() {
                         <h3 className="font-semibold text-foreground">{r.title}</h3>
                         <Badge color={statusColor[r.status]}>{t(`projects.status.${r.status}`)}</Badge>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['•'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                         {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
                         {r.contact_id && contactName[r.contact_id] && <span>{contactName[r.contact_id]}</span>}
                         {(r.start_date || r.end_date) && (

@@ -221,7 +221,7 @@ export default function Inspections() {
               : <Badge color={statusColor[r.status]}>{t(`inspections.statuses.${r.status}`)}</Badge>}
           </div>
           {r.outcome && <p className="text-sm text-muted-foreground mb-2">{r.outcome}</p>}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['•'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
             <span>{r.status === 'due' ? `${t('inspections.nextDue')}: ` : ''}{fmtDate(r.inspection_date, 'dd-MM-yyyy')}</span>
             {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
             {r.inspector && <span>{r.inspector}</span>}

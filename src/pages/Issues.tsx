@@ -304,7 +304,7 @@ export default function Issues() {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['•'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                       <span>{issue.location}</span>
                       {multiBlock && <span>{blockName[issue.building_id]}</span>}
                       <span>{issue.apartment_number ? `Apt ${issue.apartment_number}` : t('issues.commonArea')}</span>

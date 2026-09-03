@@ -247,7 +247,7 @@ export default function Contracts() {
                       {statusBadge(r)}
                     </div>
                     {r.notes && <p className="text-sm text-muted-foreground mb-2">{r.notes}</p>}
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['•'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                       {r.amount_usd != null && (
                         <span className="text-foreground tnum font-medium">{money(Number(r.amount_usd))}{r.billing_cycle && <span className="text-muted-foreground font-normal"> / {t(`contracts.cycles.${r.billing_cycle}`)}</span>}</span>
                       )}

@@ -206,7 +206,7 @@ export default function Amenities() {
                         <Badge color="indigo">{kindLabelOf(r, t)}</Badge>
                         {!r.active && <Badge color="slate">{t('amenities.retired')}</Badge>}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['•'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                         {r.location && <span>{r.location}</span>}
                         {r.brand && <span>{r.brand}</span>}
                         {r.quantity != null && r.quantity > 1 && <span>×{r.quantity}</span>}
