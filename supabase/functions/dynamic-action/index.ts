@@ -310,8 +310,13 @@ async function apnsJwt(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   if (apnsJwtCache.token && now - apnsJwtCache.madeAt < 1800) return apnsJwtCache.token;
 
+  // Tolerate a key pasted with LITERAL backslash-n sequences (how the
+  // Frankfurt migration corrupted it once: 'expected valid PKCS#8 data'):
+  // turn them into real newlines before stripping the armor.
+  const pem = APNS_PRIVATE_KEY.replace(/\n/g, '
+');
   const der = Uint8Array.from(
-    atob(APNS_PRIVATE_KEY.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '')),
+    atob(pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '')),
     (c) => c.charCodeAt(0),
   );
   const key = await crypto.subtle.importKey(
