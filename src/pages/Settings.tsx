@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@/lib/toast';
-import { BellRing, Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, User as UserIcon } from 'lucide-react';
+import { AlertTriangle, BellRing, Camera, Fingerprint, Loader2, Mail, ShieldCheck, Smartphone, Trash2, User as UserIcon } from 'lucide-react';
 import type { Factor } from '@supabase/supabase-js';
 import Cropper from 'react-easy-crop';
 import { Navigate } from 'react-router-dom';
@@ -114,6 +114,28 @@ function SettingsInner() {
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
   const [savingPw, setSavingPw] = useState(false);
+
+  // ---- delete account (0170): Apple 5.1.1(v) requires self-service ----
+  const [delOpen, setDelOpen] = useState(false);
+  const [delBlockers, setDelBlockers] = useState<string[] | null>(null);
+  const [delConfirm, setDelConfirm] = useState('');
+  const [delBusy, setDelBusy] = useState(false);
+
+  async function openDelete() {
+    setDelConfirm(''); setDelBlockers(null); setDelOpen(true);
+    const { data, error } = await supabase.rpc('can_delete_own_account');
+    if (error) { toast.error(error.message); setDelOpen(false); return; }
+    setDelBlockers((data as string[]) ?? []);
+  }
+
+  async function doDelete() {
+    setDelBusy(true);
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) { setDelBusy(false); toast.error(error.message); return; }
+    // the login no longer exists - clear the local session and leave
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  }
 
   // ---- 2FA (TOTP via Supabase MFA — optional, per user) ----
   const [mfaFactors, setMfaFactors] = useState<Factor[]>([]);
@@ -582,6 +604,52 @@ function SettingsInner() {
       </Card>
 
       {/* enroll: QR + verify code */}
+      {/* danger zone (0170) */}
+      <Card className="mt-5 border-rose-500/30">
+        <CardBody>
+          <div className="flex items-center gap-2 mb-1">
+            <Trash2 size={15} className="text-rose-500" />
+            <p className="text-sm font-semibold text-foreground">{t('settings.delTitle')}</p>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">{t('settings.delNote')}</p>
+          <Button variant="danger" size="sm" onClick={openDelete}>{t('settings.delButton')}</Button>
+        </CardBody>
+      </Card>
+
+      <Modal open={delOpen} onClose={() => setDelOpen(false)} title={t('settings.delConfirmTitle')} size="sm">
+        {delBlockers === null ? (
+          <p className="text-sm text-muted-foreground py-2">{t('common.loading')}</p>
+        ) : delBlockers.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-sm text-foreground">{t('settings.delBlocked')}</p>
+            </div>
+            <ul className="space-y-1.5">
+              {delBlockers.map((b, i) => (
+                <li key={i} className="text-sm text-muted-foreground rounded-lg bg-secondary px-3 py-2">{b}</li>
+              ))}
+            </ul>
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setDelOpen(false)}>{t('common.close')}</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">{t('settings.delWarn')}</p>
+            <Input label={t('settings.delTypeEmail')} value={delConfirm} onChange={e => setDelConfirm(e.target.value)} autoComplete="off" />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDelOpen(false)}>{t('common.cancel')}</Button>
+              <Button variant="danger" loading={delBusy}
+                disabled={delConfirm.trim().toLowerCase() !== (user?.email ?? '').toLowerCase()}
+                onClick={doDelete}>
+                {t('settings.delDo')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal open={!!enrollment} onClose={cancelEnroll} title={t('settings.mfaScanTitle')} size="sm">
         {enrollment && (
           <div className="space-y-4">
