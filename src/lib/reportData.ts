@@ -46,7 +46,15 @@ export function tenancyHelpers(
     id ? (tenancy.find((m) => m.user_id === id)?.profiles?.full_name ?? null) : null;
   const activeTenantId = (unitId: string): string | null =>
     tenancy.find((m) => m.unit_id === unitId && m.tenure === 'tenant' && !m.ended_at)?.user_id ?? null;
-  return { activeTenantIds, everTenantIds, nameById, activeTenantId };
+  /** The unit's current owner name(s) - the owner ledger belongs to the unit,
+   *  but the row reads better with the person on it (QA, 3 Sep). */
+  const ownerNames = (unitId: string): string | null => {
+    const names = tenancy
+      .filter((m) => m.unit_id === unitId && m.tenure === 'owner' && !m.ended_at)
+      .map((m) => m.profiles?.full_name).filter(Boolean);
+    return names.length ? names.join(', ') : null;
+  };
+  return { activeTenantIds, everTenantIds, nameById, activeTenantId, ownerNames };
 }
 export type TenancyHelpers = ReturnType<typeof tenancyHelpers>;
 
@@ -56,6 +64,7 @@ export interface BookRow {
   ownerCharged: number; ownerPaid: number; ownerAdj: number;
   tenantCharged: number; tenantPaid: number; tenantAdj: number;
   hasActiveTenant: boolean; activeTenantName: string | null;
+  ownerName: string | null;
   curTenantCharged: number; curTenantPaid: number; curTenantAdj: number; curTenant: number;
   fmrTenantCharged: number; fmrTenantPaid: number; fmrTenantAdj: number; fmrTenant: number;
   showFormer: boolean; fmrTenantNames: string[];
@@ -108,6 +117,7 @@ export function buildBook(
     const split = th.activeTenantIds.has(u.id) || (th.everTenantIds.has(u.id) && bal.tenant !== 0) || showFormer;
     return { unit: u, charged, paid, adj, balance: bal.total, owner: bal.owner, tenant: bal.tenant, split, ownerCharged, ownerPaid, ownerAdj, tenantCharged, tenantPaid, tenantAdj,
       hasActiveTenant: th.activeTenantIds.has(u.id), activeTenantName: th.nameById(activeTid),
+      ownerName: th.ownerNames(u.id),
       curTenantCharged, curTenantPaid, curTenantAdj, curTenant,
       fmrTenantCharged, fmrTenantPaid, fmrTenantAdj, fmrTenant, showFormer, fmrTenantNames };
   });

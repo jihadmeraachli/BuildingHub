@@ -1648,7 +1648,9 @@ export default function Finance() {
                             );
                           };
                           return (<>
-                            {sub(t('finance.owner'), r.ownerCharged, r.ownerPaid, r.ownerAdj, r.owner, !r.hasActiveTenant && !r.showFormer)}
+                            {sub(
+                              <>{t('finance.owner')}{r.ownerName && <span className="text-muted-foreground/70">: {r.ownerName}</span>}</>,
+                              r.ownerCharged, r.ownerPaid, r.ownerAdj, r.owner, !r.hasActiveTenant && !r.showFormer)}
                             {r.hasActiveTenant && sub(
                               <>{t('finance.currentTenant')}: <TenantTag label={r.activeTenantName ?? t('finance.tenantTag')} /></>,
                               r.curTenantCharged, r.curTenantPaid, r.curTenantAdj, r.curTenant, !r.showFormer)}
