@@ -212,7 +212,7 @@ export default function Inspections() {
 
   const renderCard = (r: Inspection) => (
     <Card key={r.id} className={`${canManage ? 'cursor-pointer hover:bg-primary/5 transition-colors ' : ''}${r.status === 'due' ? 'border-amber-500/40' : ''}`} onClick={() => canManage && openEdit(r)}><CardBody>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h3 className="font-semibold text-foreground">{r.title}</h3>
@@ -221,12 +221,12 @@ export default function Inspections() {
               : <Badge color={statusColor[r.status]}>{t(`inspections.statuses.${r.status}`)}</Badge>}
           </div>
           {r.outcome && <p className="text-sm text-muted-foreground mb-2">{r.outcome}</p>}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
             <span>{r.status === 'due' ? `${t('inspections.nextDue')}: ` : ''}{fmtDate(r.inspection_date, 'dd-MM-yyyy')}</span>
-            {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
-            {r.inspector && <><span>•</span><span>{r.inspector}</span></>}
-            {r.status !== 'due' && r.next_due_date && <><span>•</span><span>{t('inspections.nextDue')}: {fmtDate(r.next_due_date, 'dd-MM-yyyy')}</span></>}
-            {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('inspections.viewReport')} className="inline-flex items-center gap-1 text-primary hover:underline" /></>}
+            {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
+            {r.inspector && <span>{r.inspector}</span>}
+            {r.status !== 'due' && r.next_due_date && <span>{t('inspections.nextDue')}: {fmtDate(r.next_due_date, 'dd-MM-yyyy')}</span>}
+            {r.attachment_url && <AttachmentLink url={r.attachment_url} label={t('inspections.viewReport')} className="inline-flex items-center gap-1 text-primary hover:underline" />}
           </div>
         </div>
         {canManage && (

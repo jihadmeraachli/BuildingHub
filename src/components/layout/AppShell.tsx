@@ -66,7 +66,7 @@ export function AppShell() {
         )}
         <BillingBanner />
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main ref={mainRef} className="relative flex-1 overflow-y-auto p-4 lg:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-6">
+        <main ref={mainRef} className="relative flex-1 overflow-y-auto overflow-x-clip p-4 lg:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-6">
           <PullIndicator innerRef={ptrRef} />
           <Outlet />
         </main>

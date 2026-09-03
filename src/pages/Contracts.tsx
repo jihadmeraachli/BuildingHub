@@ -239,7 +239,7 @@ export default function Contracts() {
           <div className="space-y-3">
             {vRows.map((r) => (
               <Card key={r.id} className={canManage ? 'cursor-pointer hover:bg-primary/5 transition-colors' : undefined} onClick={() => canManage && openEdit(r)}><CardBody>
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="font-semibold text-foreground">{r.provider_name}</h3>
@@ -247,17 +247,17 @@ export default function Contracts() {
                       {statusBadge(r)}
                     </div>
                     {r.notes && <p className="text-sm text-muted-foreground mb-2">{r.notes}</p>}
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                       {r.amount_usd != null && (
                         <span className="text-foreground tnum font-medium">{money(Number(r.amount_usd))}{r.billing_cycle && <span className="text-muted-foreground font-normal"> / {t(`contracts.cycles.${r.billing_cycle}`)}</span>}</span>
                       )}
                       {(r.start_date || r.end_date) && (
-                        <><span>•</span><span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span></>
+                        <span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span>
                       )}
-                      {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
-                      {r.contact_name && <><span>•</span><span>{r.contact_name}</span></>}
-                      {r.contact_phone && <><span>•</span><span className="inline-flex items-center gap-1"><Phone size={11} /> {r.contact_phone}</span></>}
-                      {r.attachment_url && <><span>•</span><AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-primary hover:underline" /></>}
+                      {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
+                      {r.contact_name && <span>{r.contact_name}</span>}
+                      {r.contact_phone && <span className="inline-flex items-center gap-1"><Phone size={11} /> {r.contact_phone}</span>}
+                      {r.attachment_url && <AttachmentLink url={r.attachment_url} label={t('contracts.viewDoc')} className="inline-flex items-center gap-1 text-primary hover:underline" />}
                     </div>
                   </div>
                   {canManage && (

@@ -723,7 +723,7 @@ export default function Finance() {
   const preview = useMemo(() => allocate(Number(expForm.amount) || 0, targetUnits, expForm.method, custom), [expForm.amount, expForm.method, targetUnits, custom]);
   const previewSum = preview.reduce((s, r) => s + r.amount, 0);
 
-  function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
+  function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '', expense_type_id: activeTypes.find((ty) => ty.key === 'common_expenses')?.id ?? '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
   function openPayment() { setEditingPaymentId(null); setEditingTenantId(null); setPayForm({ ...newPayForm(), lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '' }); setPayFile(null); setPayOpen(true); }
   function openAdjustment() { setAdjForm({ unit_id: '', kind: 'discount', amount: '', effective_date: new Date().toISOString().slice(0, 10), note: '', party: 'owner' }); setAdjOpen(true); }
   function openSpecialCharge() { setScEditing(null); setScForm({ label: '', amount: '', method: 'by_shares', billTo: 'owner', requestNow: false, days: '7' }); setScOpen(true); }
@@ -1388,7 +1388,7 @@ export default function Finance() {
             {/* Contextual toolbar: each tab shows ITS action. Record Payment
                 (the calm primary) also lives on Book — that's where you see a
                 balance and take the money; never hide it behind a tab switch. */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {canManageFinance && (
                 <>
                   {tab === 'adjustments' && (
@@ -1791,7 +1791,7 @@ export default function Finance() {
       {/* Expense modal */}
       <Modal open={expOpen} onClose={() => setExpOpen(false)} title={editingExpenseId ? t('finance.editExpense') : t('finance.recordExpense')} size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('finance.category')} value={expForm.expense_type_id || expForm.category}
               onValueChange={(v) => {
                 const ty = activeTypes.find((x) => x.id === v);
@@ -1805,7 +1805,7 @@ export default function Finance() {
               {activeTypes.length === 0 && CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`finance.cats.${c}`)}</SelectItem>)}
             </SelectField>
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={expForm.amount} onChange={(e) => setExpForm({ ...expForm, amount: e.target.value })} />
                 <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={expForm.amount_lbp} onChange={(e) => setExpForm({ ...expForm, amount_lbp: e.target.value })} />
               </div>
@@ -1818,7 +1818,7 @@ export default function Finance() {
                 </div>
               )}
               {Number(expForm.amount_lbp) > 0 && (
-                <div className="grid grid-cols-2 gap-3 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                   <Input label={t('finance.lbpRate')} type="number" step="0.01" min="0" value={expForm.lbp_rate} onChange={(e) => setExpForm({ ...expForm, lbp_rate: e.target.value })} />
                   <p className="text-sm text-muted-foreground pb-2.5">
                     {t('finance.totalUsd')}: <span className="font-semibold text-foreground tnum">
@@ -1831,7 +1831,7 @@ export default function Finance() {
             </div>
           </div>
           <Input label={t('finance.description')} value={expForm.description} onChange={(e) => setExpForm({ ...expForm, description: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('finance.date')} type="date" value={expForm.expense_date} onChange={(e) => setExpForm({ ...expForm, expense_date: e.target.value })} />
             {!editingExpenseId && expForm.funding !== 'fund' && (
               <label className="flex items-start gap-2.5 cursor-pointer rounded-xl border border-border p-3">
@@ -2059,7 +2059,7 @@ export default function Finance() {
       <Modal open={!!adjDetail} onClose={() => setAdjDetail(null)} title={adjDetail ? t(`finance.adjKinds.${adjDetail.kind}`) : ''}>
         {adjDetail && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { l: t('finance.unit'), v: unitDisplay(adjDetail.unit_id) },
                 { l: t('finance.date'), v: fmtDate(adjDetail.effective_date, 'dd-MM-yyyy') },
@@ -2082,7 +2082,7 @@ export default function Finance() {
       <Modal open={!!feDetail} onClose={() => setFeDetail(null)} title={feDetail?.description ?? ''}>
         {feDetail && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { l: t('finance.date'), v: fmtDate(feDetail.entry_date, 'dd-MM-yyyy') },
                 { l: t('finance.amount'), v: `${feDetail.kind === 'income' ? '+' : '−'}${money(Number(feDetail.amount_usd))}` },
@@ -2106,7 +2106,7 @@ export default function Finance() {
       <Modal open={!!scDetail} onClose={() => setScDetail(null)} title={scDetail?.label ?? ''}>
         {scDetail && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { l: t('finance.date'), v: fmtDate(scDetail.created_at, 'dd-MM-yyyy') },
                 { l: t('finance.amount'), v: money(Number(scDetail.total_usd)) },
@@ -2131,7 +2131,7 @@ export default function Finance() {
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">{t('finance.specialChargeHint')}</p>
           <Input label={t('dues.offBudgetLabel')} value={scForm.label} onChange={(e) => setScForm({ ...scForm, label: e.target.value })} placeholder={t('dues.offBudgetPlaceholder')} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('dues.offBudgetTotal')} type="number" step="0.01" min="0" value={scForm.amount} onChange={(e) => setScForm({ ...scForm, amount: e.target.value })} />
             <SelectField label={t('dues.method')} value={scForm.method} onValueChange={(v) => setScForm({ ...scForm, method: v as AllocationMethod })}>
               <SelectItem value="by_shares">{t('dues.methods.by_shares')}</SelectItem>
@@ -2171,14 +2171,14 @@ export default function Finance() {
             <SelectItem value="__none__">{t('finance.selectUnit')}</SelectItem>
             {book.map((r) => <SelectItem key={r.unit.id} value={r.unit.id}>{unitDisplay(r.unit.id)} ({money(r.balance)})</SelectItem>)}
           </SelectField>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
                 <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={payForm.amount_lbp} onChange={(e) => setPayForm({ ...payForm, amount_lbp: e.target.value })} />
               </div>
               {Number(payForm.amount_lbp) > 0 && (
-                <div className="grid grid-cols-2 gap-3 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                   <Input label={t('finance.lbpRate')} type="number" step="0.01" min="0" value={payForm.lbp_rate} onChange={(e) => setPayForm({ ...payForm, lbp_rate: e.target.value })} />
                   <p className="text-sm text-muted-foreground pb-2.5">
                     {t('finance.totalUsd')}: <span className="font-semibold text-foreground tnum">
@@ -2243,11 +2243,11 @@ export default function Finance() {
               {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectField>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" value={fundEntryForm.amount} onChange={(e) => setFundEntryForm({ ...fundEntryForm, amount: e.target.value })} />
             <Input label={t('finance.date')} type="date" value={fundEntryForm.entry_date} onChange={(e) => setFundEntryForm({ ...fundEntryForm, entry_date: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('finance.amountLbp')} type="number" step="1" min="0" value={fundEntryForm.amount_lbp} onChange={(e) => setFundEntryForm({ ...fundEntryForm, amount_lbp: e.target.value })} />
             <Input label={t('finance.lbpRate')} type="number" step="1" min="0" value={fundEntryForm.lbp_rate} onChange={(e) => setFundEntryForm({ ...fundEntryForm, lbp_rate: e.target.value })} />
           </div>
@@ -2273,11 +2273,11 @@ export default function Finance() {
               {entity.blocks.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectField>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('finance.amountUsd')} type="number" step="0.01" value={openingForm.amount} onChange={(e) => setOpeningForm({ ...openingForm, amount: e.target.value })} />
             <Input label={t('fund.openingDate')} type="date" value={openingForm.date} onChange={(e) => setOpeningForm({ ...openingForm, date: e.target.value })} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('fund.openingLbp')} type="number" step="1" value={openingForm.lbp} onChange={(e) => setOpeningForm({ ...openingForm, lbp: e.target.value })} />
             <Input label={t('fund.openingLbpRate')} type="number" step="1" value={openingForm.lbpRate} onChange={(e) => setOpeningForm({ ...openingForm, lbpRate: e.target.value })} />
           </div>
@@ -2341,7 +2341,7 @@ export default function Finance() {
         {detailPayment && (
           <div className="space-y-4">
             <div className="rounded-2xl bg-emerald-500/10 px-4 py-3"><p className="text-xs text-emerald-600 dark:text-emerald-400">{t('finance.amount')}</p><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tnum">{money(Number(detailPayment.amount_usd))}</p>{currencyBreakdown(detailPayment) && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">{currencyBreakdown(detailPayment)}</p>}</div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
                 { l: t('finance.unit'), v: unitDisplay(detailPayment.unit_id) },
                 { l: t('finance.method'), v: t(`finance.methods.${detailPayment.method}`) },

@@ -199,21 +199,21 @@ export default function Amenities() {
               const n = counts[r.id] ?? empty; const age = ageLabel(r);
               return (
                 <Card key={r.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${!r.active ? 'opacity-60' : ''}`} onClick={() => openDetail(r)}><CardBody>
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold text-foreground">{r.name}</h3>
                         <Badge color="indigo">{kindLabelOf(r, t)}</Badge>
                         {!r.active && <Badge color="slate">{t('amenities.retired')}</Badge>}
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                         {r.location && <span>{r.location}</span>}
-                        {r.brand && <><span>•</span><span>{r.brand}</span></>}
-                        {r.quantity != null && r.quantity > 1 && <><span>•</span><span>×{r.quantity}</span></>}
-                        {r.serial_no && <><span>•</span><span className="tnum">{t('amenities.serialNo')}: {r.serial_no}</span></>}
-                        {scopeLabel(r) && <><span>•</span><span>{scopeLabel(r)}</span></>}
-                        {r.install_date && <><span>•</span><span>{t('amenities.installed', { date: fmtDate(r.install_date, 'MMM yyyy') })}</span></>}
-                        {age && <><span>•</span><span className={(replaceYear(r) ?? 9999) - new Date().getFullYear() <= 0 ? 'text-rose-500' : undefined}>{age}</span></>}
+                        {r.brand && <span>{r.brand}</span>}
+                        {r.quantity != null && r.quantity > 1 && <span>×{r.quantity}</span>}
+                        {r.serial_no && <span className="tnum">{t('amenities.serialNo')}: {r.serial_no}</span>}
+                        {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
+                        {r.install_date && <span>{t('amenities.installed', { date: fmtDate(r.install_date, 'MMM yyyy') })}</span>}
+                        {age && <span className={(replaceYear(r) ?? 9999) - new Date().getFullYear() <= 0 ? 'text-rose-500' : undefined}>{age}</span>}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground flex-shrink-0">

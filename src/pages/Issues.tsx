@@ -283,7 +283,7 @@ export default function Issues() {
             {vIssues.map((issue) => (
               <Card key={issue.id} className={isManager ? 'cursor-pointer hover:bg-primary/5 transition-colors' : undefined}
                 onClick={() => { if (isManager) { setSelectedIssue(issue); setValue('status', issue.status); setValue('resolution_notes', issue.resolution_notes ?? ''); } }}><CardBody>
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="font-medium text-foreground">{issue.title}</h3>
@@ -304,16 +304,13 @@ export default function Issues() {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                       <span>{issue.location}</span>
-                      {multiBlock && <><span>•</span><span>{blockName[issue.building_id]}</span></>}
-                      <span>•</span>
+                      {multiBlock && <span>{blockName[issue.building_id]}</span>}
                       <span>{issue.apartment_number ? `Apt ${issue.apartment_number}` : t('issues.commonArea')}</span>
-                      <span>•</span>
                       <span>{t('issues.reportedBy')}: {issue.reporter?.full_name}{issue.reporter?.apartment_number ? ` (${issue.reporter.apartment_number})` : ''}</span>
-                      <span>•</span>
                       <span>{fmtDate(issue.created_at, 'dd-MM-yyyy')}</span>
-                      {issue.photo_urls?.length > 0 && <><span>•</span><span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span></>}
+                      {issue.photo_urls?.length > 0 && <span className="flex items-center gap-0.5"><Image size={11} /> {issue.photo_urls.length}</span>}
                     </div>
                     {(issue.resolution_notes || issue.resolved_at) && (
                       <div className="mt-2 rounded-xl border border-emerald-500/30 px-3 py-2">

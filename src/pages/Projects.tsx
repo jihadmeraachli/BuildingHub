@@ -186,17 +186,17 @@ export default function Projects() {
               const p = progress(r);
               return (
                 <Card key={r.id} className="cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setDetail(r)}><CardBody>
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold text-foreground">{r.title}</h3>
                         <Badge color={statusColor[r.status]}>{t(`projects.status.${r.status}`)}</Badge>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground [&>*+*]:before:content-['\u2022'] [&>*+*]:before:me-2 [&>*+*]:before:text-muted-foreground/50">
                         {scopeLabel(r) && <span>{scopeLabel(r)}</span>}
-                        {r.contact_id && contactName[r.contact_id] && <><span>•</span><span>{contactName[r.contact_id]}</span></>}
+                        {r.contact_id && contactName[r.contact_id] && <span>{contactName[r.contact_id]}</span>}
                         {(r.start_date || r.end_date) && (
-                          <><span>•</span><span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span></>
+                          <span>{r.start_date ? fmtDate(r.start_date, 'MMM yyyy') : '—'} → {r.end_date ? fmtDate(r.end_date, 'MMM yyyy') : '—'}</span>
                         )}
                       </div>
                       {p.over && <p className="text-xs text-rose-500 dark:text-rose-300 mt-1">{t('projects.overBy', { amount: money(p.actual - (p.est ?? 0)) })}</p>}
