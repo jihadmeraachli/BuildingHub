@@ -20,6 +20,22 @@ export const pushSupported = Capacitor.isNativePlatform();
 
 let listenersBound = false;
 
+/** Deep link (3 Sep): the sender stamps each push with the in-app route it
+ *  belongs to; tapping the notification lands THERE, not wherever the app
+ *  was left. Bound at module load - AuthContext imports this file, so the
+ *  listener exists before a cold-start tap is delivered. A full navigation
+ *  (not SPA push) works from every state; the bio gate's per-launch
+ *  sessionStorage unlock survives it. */
+function bindTapListener() {
+  PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+    const route = (action.notification.data as { route?: string } | undefined)?.route;
+    if (typeof route === 'string' && /^\/[a-z0-9\-/]*$/i.test(route)) {
+      window.location.href = route;
+    }
+  });
+}
+if (pushSupported) bindTapListener();
+
 /** Why enabling failed, when it does. Surfaced in Settings so a silent
  *  misconfiguration is not mistaken for "it just doesn't work".
  *  'no-token'  — iOS actively refused to issue one (carries Apple's reason)
@@ -143,5 +159,6 @@ export async function disablePush(): Promise<void> {
     }
     await PushNotifications.removeAllListeners();
     listenersBound = false;
+    bindTapListener(); // removeAllListeners took the tap deep-link with it
   } catch { /* best effort — signing out must not fail on this */ }
 }

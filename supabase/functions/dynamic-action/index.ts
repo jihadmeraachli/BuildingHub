@@ -345,7 +345,7 @@ async function apnsPost(host: string, token: string, payload: unknown) {
 
 /** Push to a set of users, honouring notify_push. Never throws - a push
  *  failure must not stop the email that carries the same news. */
-async function pushToUserIds(ids: string[], title: string, body?: string) {
+async function pushToUserIds(ids: string[], title: string, body?: string, route?: string) {
   try {
     if (!pushEnabled()) return;
     const uniq = [...new Set(ids)];
@@ -360,7 +360,8 @@ async function pushToUserIds(ids: string[], title: string, body?: string) {
       .from('device_tokens').select('token').in('user_id', allowed);
     if (!devices?.length) return;
 
-    const payload = { aps: { alert: body ? { title, body } : { title }, sound: 'default' } };
+    // `route` rides outside aps as custom data - the app opens it on tap
+    const payload = { aps: { alert: body ? { title, body } : { title }, sound: 'default' }, ...(route ? { route } : {}) };
 
     for (const d of devices as { token: string }[]) {
       // TestFlight AND the App Store are both "production"; only builds run
@@ -397,7 +398,7 @@ async function pushToUserIds(ids: string[], title: string, body?: string) {
  *  200-unit compound. */
 async function emailToUserIds(
   ids: string[],
-  build: (L: Dict, uid?: string) => { subject: string; html: string } | Promise<{ subject: string; html: string }>,
+  build: (L: Dict, uid?: string) => { subject: string; html: string; route?: string } | Promise<{ subject: string; html: string; route?: string }>,
   fromName?: string,
   attachments?: Attachment[],
 ) {
@@ -422,8 +423,8 @@ async function emailToUserIds(
     // above it, so it doubles as the alert title, in the reader's language.
     // The builder runs per member since 0168: signed one-click vote links
     // are personal, so two neighbours' emails are no longer identical.
-    const { subject: groupSubject } = await build(DICT[lang], members[0]?.id);
-    void pushToUserIds(members.map((m) => m.id), groupSubject);
+    const { subject: groupSubject, route: groupRoute } = await build(DICT[lang], members[0]?.id);
+    void pushToUserIds(members.map((m) => m.id), groupSubject, undefined, groupRoute);
     for (const p of members) {
       if (!p.notify_email) { console.log(`[email] skip ${p.id} - notify_email off`); continue; }
       const email = await getUserEmail(p.id);
@@ -928,7 +929,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(
         await buildingAdminIds(record.building_id),
         (L) => ({
-          subject: L.reg.subj,
+          subject: L.reg.subj, route: '/users',
           html: emailHtml(L, L.reg.title,
             `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.reg.intro}</p>
              ${table(row(L.reg.name, esc(record.full_name)) + row(L.reg.apartment, esc(record.apartment_number ?? '-')) + row(L.reg.phone, esc(record.phone ?? '-')))}`,
@@ -948,7 +949,7 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       const admins = (await buildingAdminIds(record.building_id)).filter((id) => id !== record.reported_by);
       await emailToUserIds(admins, (L) => ({
-        subject: L.issue.subj(record.title),
+        subject: L.issue.subj(record.title), route: '/issues',
         html: emailHtml(L, L.issue.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.issue.intro(esc(b?.name ?? '-'))}</p>
            ${table(row(L.issue.rTitle, esc(record.title)) + row(L.issue.rPriority, esc(L.priority[record.priority] ?? record.priority)) + row(L.issue.rLocation, esc(record.location ?? '-')) + (record.apartment_number ? row(L.issue.rApartment, esc(record.apartment_number)) : '') + row(L.issue.rDescription, esc(record.description ?? '-')))}`,
@@ -960,7 +961,7 @@ Deno.serve(async (req) => {
     if (tbl === 'issues' && type === 'UPDATE' && old_record?.status !== 'resolved' && record.status === 'resolved') {
       const b = await getBuilding(record.building_id);
       await emailToUserIds([record.reported_by], (L) => ({
-        subject: L.issueDone.subj(record.title),
+        subject: L.issueDone.subj(record.title), route: '/issues',
         html: emailHtml(L, L.issueDone.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;">${esc(record.title)}</p>
            ${record.resolution_notes ? table(row(L.issueDone.rNotes, esc(record.resolution_notes))) : ''}`,
@@ -986,7 +987,7 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       const payRecipients = await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id);
       await emailToUserIds(payRecipients, (L) => ({
-        subject: L.paid.subj,
+        subject: L.paid.subj, route: '/finance',
         html: emailHtml(L, L.paid.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.paid.intro}</p>
            ${table(row(L.paid.rAmount, money(record.amount_usd)) + (lbpNote(record) ? row(L.paid.rPaidAs, esc(lbpNote(record)!)) : '') + row(L.paid.rMethod, esc(L.method[record.method] ?? record.method)) + row(L.paid.rDate, esc(record.paid_on)))}`,
@@ -1003,7 +1004,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(
         await unitPartyIds(record.unit_id, record.paid_by === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
         (L) => ({
-          subject: L.paidEdit.subj,
+          subject: L.paidEdit.subj, route: '/finance',
           html: emailHtml(L, L.paidEdit.title,
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.paidEdit.intro}</p>
              ${table(row(L.paidEdit.rNewAmount, money(record.amount_usd)) + row(L.paidEdit.rDate, esc(record.paid_on)))}`,
@@ -1017,7 +1018,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(
         await unitPartyIds(old_record.unit_id, old_record.paid_by === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
         (L) => ({
-          subject: L.paidGone.subj,
+          subject: L.paidGone.subj, route: '/finance',
           html: emailHtml(L, L.paidGone.title,
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.paidGone.intro(money(old_record.amount_usd))}</p>`,
             L.ctaAccount, `${APP_URL}/finance`),
@@ -1039,14 +1040,14 @@ Deno.serve(async (req) => {
         row(L.transfer.rAmount, money(record.amount_usd)) +
         (record.counterparty_name ? row(L.transfer.rFormer, esc(record.counterparty_name)) : ''));
       await emailToUserIds(await unitPartyIds(record.unit_id, 'owner'), (L) => ({
-        subject: L.transfer.ownerSubj,
+        subject: L.transfer.ownerSubj, route: '/finance',
         html: emailHtml(L, L.transfer.ownerTitle,
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.transfer.ownerIntro}</p>${detail(L)}`,
           L.ctaAccount, `${APP_URL}/finance`),
       }), b?.name ?? 'Abniyah');
       if (record.tenant_id) {
         await emailToUserIds([record.tenant_id], (L) => ({
-          subject: L.transfer.tenantSubj,
+          subject: L.transfer.tenantSubj, route: '/finance',
           html: emailHtml(L, L.transfer.tenantTitle,
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.transfer.tenantIntro}</p>${detail(L)}`,
             L.ctaAccount, `${APP_URL}/finance`),
@@ -1065,7 +1066,7 @@ Deno.serve(async (req) => {
       const duesTo = await unitPartyIds(record.unit_id, duesParty, record.tenant_id);
       const what = record.kind === 'off_budget' && record.label ? esc(record.label) : null;
       await emailToUserIds(duesTo, (L) => ({
-        subject: L.dues.subj(record.period_label, money(record.amount_due)),
+        subject: L.dues.subj(record.period_label, money(record.amount_due)), route: '/finance',
         html: emailHtml(L, L.dues.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.dues.intro(esc(record.period_label))}</p>
            ${table(
@@ -1094,7 +1095,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(
         await unitPartyIds(record.unit_id, eff5e === 'tenant' ? 'tenant' : 'owner', record.tenant_id),
         (L) => ({
-          subject: L.dues.editSubj(record.period_label),
+          subject: L.dues.editSubj(record.period_label), route: '/finance',
           html: emailHtml(L, L.dues.editTitle,
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.dues.editIntro(esc(record.period_label))}</p>
              ${table(row(L.dues.rNewAmount, money(record.amount_due)) + (record.due_date ? row(L.dues.rDueDate, esc(record.due_date)) : ''))}`,
@@ -1113,7 +1114,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(
         await unitPartyIds(old_record.unit_id, eff5f === 'tenant' ? 'tenant' : 'owner', old_record.tenant_id),
         (L) => ({
-          subject: L.dues.goneSubj(old_record.period_label),
+          subject: L.dues.goneSubj(old_record.period_label), route: '/finance',
           html: emailHtml(L, L.dues.goneTitle,
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.dues.goneIntro(esc(old_record.period_label))}</p>`,
             L.ctaAccount, `${APP_URL}/finance`),
@@ -1141,7 +1142,7 @@ Deno.serve(async (req) => {
         // the reader's language - an untranslated fallback was the giveaway
         const what = pr?.label ? esc(pr.label) : L.request.fallback;
         return {
-          subject: L.request.subj(b?.name ?? 'Abniyah', prUnit?.label ?? ''),
+          subject: L.request.subj(b?.name ?? 'Abniyah', prUnit?.label ?? ''), route: '/finance',
           html: emailHtml(L, L.request.title,
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">
                ${L.request.intro(what, esc(prUnit?.label ?? ''), amount)}</p>
@@ -1165,7 +1166,7 @@ Deno.serve(async (req) => {
         ? await supabase.from('profiles').select('full_name').eq('id', record.invited_by).single()
         : { data: null };
       await emailToUserIds([record.user_id], (L) => ({
-        subject: L.invite.subj(unit?.label ?? '', b?.name ?? '-'),
+        subject: L.invite.subj(unit?.label ?? '', b?.name ?? '-'), route: '/dashboard',
         html: emailHtml(L, L.invite.title,
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.invite.intro(esc(inviter?.full_name ?? L.invite.defaultInviter))}</p>
            ${table(row(L.invite.rUnit, esc(unit?.label ?? '-')) + row(L.invite.rBuilding, esc(b?.name ?? '-')) + row(L.invite.rAs, esc(L.tenure[record.tenure] ?? record.tenure)))}
@@ -1182,7 +1183,7 @@ Deno.serve(async (req) => {
       const scope = await subscriptionScopeName(record);
       const ids = await subscriptionAdminIds(record);
       await emailToUserIds(ids, (L) => ({
-        subject: L.billing.trialSubj(scope),
+        subject: L.billing.trialSubj(scope), route: '/licenses',
         html: emailHtml(L, L.billing.trialTitle,
           `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.billing.trialBody(esc(scope), String(record.trial_ends_at).slice(0, 10))}</p>`,
           L.billing.cta, `${APP_URL}/licenses`),
@@ -1199,7 +1200,7 @@ Deno.serve(async (req) => {
         // status 'paid' is a receipt, not an "invoice issued".
         const isReceipt = type === 'UPDATE' || record.status === 'paid';
         await emailToUserIds(ids, (L) => ({
-          subject: isReceipt ? L.billing.receiptSubj(scope, centsFmt(record.amount_cents)) : L.billing.invoiceSubj(scope, centsFmt(record.amount_cents)),
+          subject: isReceipt ? L.billing.receiptSubj(scope, centsFmt(record.amount_cents)) : L.billing.invoiceSubj(scope, centsFmt(record.amount_cents)), route: '/licenses',
           html: emailHtml(L, isReceipt ? L.billing.receiptTitle : L.billing.invoiceTitle,
             `<p style="color:#475569;font-size:14px;line-height:1.6;">${isReceipt
               ? L.billing.receiptBody(esc(scope), centsFmt(record.amount_cents), period)
@@ -1217,7 +1218,7 @@ Deno.serve(async (req) => {
       await emailToUserIds(await buildingResidentIds(record.building_id), (L) => {
         const joinRow = meetingHref ? row(L.meeting.rOnline, `<a href="${esc(meetingHref)}">${L.meeting.joinLink}</a>`) : '';
         return {
-          subject: L.meeting.subj(record.title),
+          subject: L.meeting.subj(record.title), route: '/meetings',
           html: emailHtml(L, L.meeting.title(esc(record.title)),
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.meeting.intro(esc(b?.name ?? '-'))}</p>
              ${table(row(L.meeting.rDate, esc(record.meeting_date)) + (record.meeting_time ? row(L.meeting.rTime, esc(record.meeting_time.slice(0, 5))) : '') + joinRow + (record.summary ? row(L.meeting.rNotes, esc(record.summary)) : ''))}
@@ -1235,7 +1236,7 @@ Deno.serve(async (req) => {
       const b = await getBuilding(record.building_id);
       const ids = (await buildingResidentIds(record.building_id)).filter((id) => id !== record.created_by);
       await emailToUserIds(ids, (L) => ({
-        subject: L.lost.subj(record.title),
+        subject: L.lost.subj(record.title), route: '/lost-found',
         html: emailHtml(L, L.lost.title(esc(record.title)),
           `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.lost.intro(esc(b?.name ?? '-'), record.found_where ? esc(record.found_where) : '')}</p>`,
           L.lost.cta, `${APP_URL}/lost-found`),
@@ -1289,7 +1290,7 @@ Deno.serve(async (req) => {
               <p style="color:#94a3b8;font-size:12px;margin:12px 0 0;">${L.vote.orApp}</p>`;
           }
           return {
-            subject: L.vote.subjOpen(record.title),
+            subject: L.vote.subjOpen(record.title), route: '/voting',
             html: emailHtml(L, L.vote.titleOpen(esc(record.title)),
               `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.vote.introOpen(esc(scopeName), esc(closesText))}</p>
                ${record.description ? `<p style="color:#64748b;font-size:13px;margin:0 0 4px;">${esc(record.description)}</p>` : ''}
@@ -1299,7 +1300,7 @@ Deno.serve(async (req) => {
         }, scopeName);
       } else {
         await emailToUserIds(ids, (L) => ({
-          subject: L.vote.subjClosed(record.title),
+          subject: L.vote.subjClosed(record.title), route: '/voting',
           html: emailHtml(L, L.vote.titleClosed(esc(record.title)),
             `<p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 12px;">${L.vote.introClosed(esc(scopeName))}</p>`,
             L.vote.ctaResults, `${APP_URL}/voting`),
