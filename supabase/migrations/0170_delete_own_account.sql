@@ -31,11 +31,11 @@ BEGIN
   END IF;
 
   IF is_platform_admin() THEN
-    v_blockers := v_blockers || 'Platform owner accounts cannot be deleted from the app.';
+    v_blockers := array_append(v_blockers, 'Platform owner accounts cannot be deleted from the app.');
   END IF;
 
   IF EXISTS (SELECT 1 FROM grants WHERE user_id = v_uid) THEN
-    v_blockers := v_blockers || 'You still hold management access — ask another administrator to remove your roles first.';
+    v_blockers := array_append(v_blockers, 'You still hold management access — ask another administrator to remove your roles first.');
   END IF;
 
   FOR r IN
@@ -70,6 +70,48 @@ BEGIN
     RAISE EXCEPTION 'Cannot delete: %', array_to_string(v_blockers, ' ') USING ERRCODE = '42501';
   END IF;
   DELETE FROM auth.users WHERE id = v_uid;
+END;
+$$;
+
+-- The RLS audit (3 Sep) caught this empirically: appending a BARE string
+-- literal to TEXT[] with || resolves to array_cat and Postgres tries to
+-- parse the message itself as an array -> "malformed array literal". The
+-- format()-built entries never hit it (typed TEXT -> array_append). Fixed
+-- above with explicit array_append, and the SAME latent bug is fixed here
+-- in 0026's admin-side can_delete_user, restated verbatim otherwise.
+CREATE OR REPLACE FUNCTION can_delete_user(p_target UUID)
+RETURNS TEXT[] LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
+DECLARE
+  v_blockers TEXT[] := '{}';
+  r RECORD;
+BEGIN
+  IF NOT is_platform_admin() THEN
+    RETURN ARRAY['Only the platform admin can delete an account.'];
+  END IF;
+
+  IF p_target = auth.uid() THEN
+    v_blockers := array_append(v_blockers, 'You cannot delete your own account.');
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM grants WHERE user_id = p_target) THEN
+    v_blockers := array_append(v_blockers, 'Revoke their management access first.');
+  END IF;
+
+  FOR r IN
+    SELECT u.label, unit_balance(m.unit_id) AS bal
+      FROM memberships m JOIN units u ON u.id = m.unit_id
+     WHERE m.user_id = p_target AND m.ended_at IS NULL
+  LOOP
+    IF r.bal < 0 THEN
+      v_blockers := v_blockers || format('Unit %s owes %s — settle or write it off first.',
+                                          r.label, to_char(abs(r.bal), 'FM999999990.00'));
+    ELSIF r.bal > 0 THEN
+      v_blockers := v_blockers || format('Unit %s is in credit %s — refund or clear it first.',
+                                          r.label, to_char(r.bal, 'FM999999990.00'));
+    END IF;
+  END LOOP;
+
+  RETURN v_blockers;
 END;
 $$;
 
