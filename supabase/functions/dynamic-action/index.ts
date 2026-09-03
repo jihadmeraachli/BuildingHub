@@ -313,8 +313,7 @@ async function apnsJwt(): Promise<string> {
   // Tolerate a key pasted with LITERAL backslash-n sequences (how the
   // Frankfurt migration corrupted it once: 'expected valid PKCS#8 data'):
   // turn them into real newlines before stripping the armor.
-  const pem = APNS_PRIVATE_KEY.replace(/\n/g, '
-');
+  const pem = APNS_PRIVATE_KEY.replace(/\\n/g, '\n');
   const der = Uint8Array.from(
     atob(pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '')),
     (c) => c.charCodeAt(0),
