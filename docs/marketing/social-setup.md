@@ -32,15 +32,20 @@ Known limits accepted going in (all tools share them):
 - Boosting + comment handling are done **natively and free** via Meta Business
   Suite (Boost button + app notifications), not through the tool.
 
-## Phase 0 — decisions & materials (before creating anything)
+## Phase 0 — decisions & materials (DECIDED 2026-09-04)
 
-1. **Handle**: one bilingual account per platform (two accounts halves reach).
-   Try in order: `@abniyah` → `@abniyahapp` → `@abniyah.app`. Check on
-   Instagram and TikTok first (scarcest), use the same everywhere.
-2. **Public WhatsApp number** — still the #1 blocker (HANDOFF). Every bio's
-   CTA is a `wa.me/961XXXXXXXX` link. Decide the number first.
-3. **Email for all accounts**: info@tatawwor.com (company, not personal —
-   accounts must survive people).
+1. **Handle: `@abniyahapp`** everywhere, one bilingual account per platform.
+   (`@abniyah` is taken on Instagram by an unrelated personal account —
+   verified 2026-09-04; `@abniyahapp` confirmed free on Instagram AND TikTok
+   the same day. Register it everywhere promptly — handles are first-come.)
+2. **Public WhatsApp number: `+961 78 995 443`** (the Tatawwor line) —
+   WhatsApp Business app, on a phone someone answers daily; every bio's CTA
+   is `wa.me/96178995443`. ⚠️ This number must NEVER become the Cloud API
+   sender — that stays a separate dedicated SIM (WHATSAPP_SETUP.md: API
+   registration is irreversible).
+3. **Email for all signups: info@abniyah.com** — M365 alias of the
+   abniyah.com shared mailbox (DEPENDENCIES.md), visible to both Jey and
+   Ahmad; never a personal address.
 4. **Assets**: app icon as profile picture (square, from the iOS asset set);
    a cover image (dashboard screenshot from the demo building works).
 5. **Bios** (Arabic first, then English, per the calendar):
