@@ -92,6 +92,15 @@ Third parties that process data (for the privacy policy, already listed
 there): Supabase (database/auth, EU-Frankfurt), Resend (email), Apple APNs
 (push), Meta WhatsApp Cloud API (optional notifications).
 
+**Provisioned (2026-09-04, verified by logging in):** review account
+`jihad.meraachli+applereview@gmail.com` (password with Jey) — owner of unit
+**601** in the Tulip demo block, created fresh with zero balance so
+self-deletion works, +1 license added to the demo subscription to cover it.
+A dedicated gate code for reviewers exists in `beta_access_codes` (note
+"Apple App Review", scope `full`) — value stays out of the repo per 0036;
+keep it active while any gated build is in review. If the account gets
+deleted, re-run the provisioning SQL (auth user → membership → license).
+
 ## Review notes (paste into "Notes for Review")
 
 ```
