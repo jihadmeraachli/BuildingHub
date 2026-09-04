@@ -53,6 +53,25 @@ Known limits accepted going in (all tools share them):
    - EN: `Your building, finally organized. Dues, votes, maintenance & money — built for Lebanon.`
    - Link: the wa.me link (site is behind the beta gate — nothing else to link).
 
+## STATUS 2026-09-04 — accounts ALL CREATED (one evening, Jey)
+
+- **Meta**: reused the existing Tatawwor portfolio (the WhatsApp Cloud API
+  one). Abniyah Facebook page created inside it — dressed, username
+  `abniyahapp`, WhatsApp +961 78 995 443 connected (switched from the old
+  empty Tatawwor page). Instagram `@abniyahapp` created as Business and
+  linked to the page. Avatar = mark only (no wordmark text).
+- **TikTok**: `@abniyahapp` live as Business; verification review pending
+  (~3 days); display name stuck as "abniyahapp" until ~2026-09-11 (TikTok
+  7-day lock) — then rename to "Abniyah".
+- **LinkedIn**: Tatawwor L.L.C page already existed under Jey's
+  jihad.meraachli@tatawwor.com account; dressed 2026-09-04.
+- **Language decision (Jey)**: pages and posts are ENGLISH-first; Arabic
+  reserved for ads later. (Week 1 batch was written Arabic-first — use its
+  English variants; future batches English-first.)
+- Remaining: Ahmad as second full-control admin (Meta People invite +
+  LinkedIn super admin + TikTok creds), and the scheduler decision
+  (Blaze trial vs Claude-generated batches + cheap scheduler).
+
 ## Phase 1 — Meta (Facebook + Instagram): the backbone
 
 Order matters: Business portfolio → Facebook Page → Instagram → link them.
