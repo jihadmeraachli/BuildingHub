@@ -99,16 +99,22 @@ Abniyah is a building-management platform for residential buildings in
 Lebanon. Residents see their dues and statements, vote, and report issues;
 building committees manage collections, funds, metering and maintenance.
 
-REVIEW ACCESS: use the demo — open the app and tap "Try the demo" (or
-navigate to /demo). It signs into a fully populated read-only building, no
-credentials needed. If you prefer a real account, we can provision one on
-request.
+ACCESS CODE: the app is in a limited rollout and asks for an access code
+on first launch. Enter: <ACCESS CODE>
+
+REVIEW ACCOUNT (same as the sign-in fields above):
+  Email: jihad.meraachli+applereview@gmail.com
+  Password: <PASSWORD>
+It is a resident (unit owner) in a fully populated demo building. To see
+the building manager's side, tap "Try the demo" on the welcome screen —
+no credentials needed.
 
 NATIVE FUNCTIONALITY beyond the web experience: push notifications via
 APNs (charges, payments, votes, issues), Face ID sign-in, and sessions
 stored in the iOS Keychain.
 
 ACCOUNT DELETION: Settings → Delete account (self-service, per 5.1.1(v)).
+The review account above can delete itself; we re-provision it on request.
 
 No in-app purchases: building subscriptions are billed to the building
 committee (an organization) outside the app, per 3.1.3(b).
