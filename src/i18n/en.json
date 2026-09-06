@@ -142,8 +142,8 @@
     "mfaInvalidCode": "That code didn't work. Try again.",
     "welcomeBack": "Welcome back",
     "signInToContinue": "Sign in to continue",
-    "heroTitle1": "Run your building",
-    "heroTitle2": "like a pro.",
+    "heroTitle1": "Your building,",
+    "heroTitle2": "finally organized.",
     "heroTagline": "Expenses, collections, and the building book. All in one place. Built to manage buildings with privacy in mind."
   },
   "register": {
@@ -506,7 +506,7 @@
         "a": "Their own login showing their balance, charges and receipts, building votes they can cast in one tap from their email, meetings, lost & found, the ability to report maintenance issues with photos, and notifications on WhatsApp, email and push in their language."
       }
     },
-    "ctaTitle": "Ready to run your building like a pro?",
+    "ctaTitle": "Ready to get your building organized?",
     "ctaBody": "Set up your building today. Free for 30 days, and your data stays yours.",
     "features": {
       "f1": {

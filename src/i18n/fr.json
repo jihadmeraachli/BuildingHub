@@ -142,8 +142,8 @@
     "mfaInvalidCode": "Ce code n'a pas fonctionné. Réessayez.",
     "welcomeBack": "Content de vous revoir",
     "signInToContinue": "Connectez-vous pour continuer",
-    "heroTitle1": "Gérez votre immeuble",
-    "heroTitle2": "comme un pro.",
+    "heroTitle1": "Votre immeuble,",
+    "heroTitle2": "enfin organisé.",
     "heroTagline": "Les dépenses, les encaissements et le livre de l'immeuble. Tout au même endroit, et conçu pour respecter la vie privée."
   },
   "register": {
@@ -506,7 +506,7 @@
         "a": "Leur propre accès : leur solde, leurs charges et leurs reçus, les votes de l'immeuble à un geste depuis leur e-mail, les réunions, les objets trouvés, la possibilité de signaler un incident avec photos, et des notifications sur WhatsApp, par e-mail et sur mobile dans leur langue."
       }
     },
-    "ctaTitle": "Prêt à gérer votre immeuble comme un pro ?",
+    "ctaTitle": "Prêt à organiser votre immeuble ?",
     "ctaBody": "Mettez votre immeuble en place dès aujourd'hui. Gratuit pendant 30 jours, et vos données restent les vôtres.",
     "features": {
       "f1": {
