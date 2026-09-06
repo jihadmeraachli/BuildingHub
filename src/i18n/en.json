@@ -1410,7 +1410,8 @@
       "passed": "Passed",
       "failed": "Failed",
       "action_required": "Action required",
-      "pending": "Pending", "due": "Due"
+      "pending": "Pending",
+      "due": "Due"
     },
     "deleteTitle": "Delete inspection",
     "deleteConfirm": "Delete this inspection?"
@@ -1769,7 +1770,8 @@
     "refinalize": "Recompute & re-post",
     "deleteConfirm": "Delete this cycle? Its charges are removed and balances move back. Under Weighted Average only the latest cycle can be deleted.",
     "deleted": "Cycle deleted - its charges were removed.",
-    "deleteTitle": "Delete cycle"
+    "deleteTitle": "Delete cycle",
+    "bought": "Bought"
   },
   "bylaws": {
     "title": "Building Rules",

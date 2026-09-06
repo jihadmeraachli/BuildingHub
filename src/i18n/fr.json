@@ -1770,7 +1770,8 @@
     "refinalize": "Recalculer et recomptabiliser",
     "deleteConfirm": "Supprimer ce cycle ? La dépense comptabilisée et toutes les charges qui en découlent sont supprimées avec lui, et les soldes des résidents reviennent en arrière. Les paiements déjà reçus restent au crédit.",
     "deleted": "Cycle supprimé : sa dépense et ses charges ont été retirées.",
-    "deleteTitle": "Supprimer le cycle"
+    "deleteTitle": "Supprimer le cycle",
+    "bought": "Acheté"
   },
   "bylaws": {
     "title": "Règlement de copropriété",
