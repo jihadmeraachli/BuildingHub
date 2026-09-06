@@ -28,6 +28,7 @@ Requires `.env.local` (gitignored): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY
 - **Billing mode** per building/compound: `arrears` (pay actual balance) or `dues` (fixed prepayments). Default `arrears` — don't change existing behavior.
 - **Notifications = two channels.** In-app 🔔 (DB triggers, migrations `0009/0011/0012/0015`) and email (edge function `dynamic-action` + Database Webhooks). Same event → one of each; don't double up within a channel.
 - **Storage:** one public bucket `attachments` (migration `0005`). Use `src/lib/upload.ts`.
+- **Every new user-writable table joins the demo read-only guard.** Attach `deny_demo_write_trg` in the same migration that CREATEs the table (loop pattern in `0171`). The public demo's personas hold a real `building_admin` grant; this trigger — not the client — is what keeps the showcase read-only, and it also fires inside SECURITY DEFINER RPCs. The demo-admin-closed-a-poll bug (2026-09-06) was exactly a table that missed enrollment.
 - **Money is USD only** for now. `amount_usd` everywhere.
 - **i18n:** user-facing strings go through `t()` with keys in `src/i18n/en.json` + `ar.json`. Arabic falls back to English if a key is missing.
 
