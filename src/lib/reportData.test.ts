@@ -111,6 +111,14 @@ describe('buildLedger', () => {
     expect(rows.map((r) => r.id)).toEqual(['live']);
   });
 
+  it('drops voided expenses the same way (QA 2026-09-06: a voided delivery inflated the report)', () => {
+    const rows = buildLedger([
+      expense({ id: 'live-e', amount_usd: 350 }),
+      expense({ id: 'dead-e', amount_usd: 400, voided_at: '2026-09-06' }),
+    ], [], ledgerOpts);
+    expect(rows.map((r) => r.id)).toEqual(['live-e']);
+  });
+
   it('sorts newest first across both kinds', () => {
     const rows = buildLedger(
       [expense({ id: 'old', expense_date: '2026-01-10' })],

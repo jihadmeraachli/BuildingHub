@@ -39,7 +39,8 @@
     "optional": "اختياري",
     "clearAll": "مسح الكل",
     "selectAll": "تحديد الكل",
-    "reactivate": "إعادة تفعيل"
+    "reactivate": "إعادة تفعيل",
+    "continue": "متابعة"
   },
   "trash": {
     "title": "سلة المحذوفات",

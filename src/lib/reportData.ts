@@ -651,6 +651,9 @@ export function buildLedger(
   const rows: LedgerRow[] = [];
 
   for (const e of expenses) {
+    if (e.voided_at) continue;   // symmetric with payments below — a voided
+                                 // expense is not money that moved (QA 6 Sep:
+                                 // a voided $400 delivery inflated the report)
     rows.push({
       id: e.id,
       kind: 'expense',

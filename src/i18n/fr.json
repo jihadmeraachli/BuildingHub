@@ -39,7 +39,8 @@
     "optional": "facultatif",
     "clearAll": "Tout effacer",
     "selectAll": "Tout sélectionner",
-    "reactivate": "Réactiver"
+    "reactivate": "Réactiver",
+    "continue": "Continuer"
   },
   "trash": {
     "title": "Corbeille",

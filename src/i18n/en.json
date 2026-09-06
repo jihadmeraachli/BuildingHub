@@ -39,7 +39,8 @@
     "optional": "optional",
     "clearAll": "Clear all",
     "selectAll": "Select all",
-    "reactivate": "Reactivate"
+    "reactivate": "Reactivate",
+    "continue": "Continue"
   },
   "trash": {
     "title": "Recycle bin",
