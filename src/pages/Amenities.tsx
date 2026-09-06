@@ -225,7 +225,7 @@ export default function Amenities() {
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
                       </div>
                     )}
                   </div>
@@ -246,7 +246,7 @@ export default function Amenities() {
               {detail.serial_no && <span className="tnum">· {t('amenities.serialNo')}: {detail.serial_no}</span>}
               {scopeLabel(detail) && <span>· {scopeLabel(detail)}</span>}
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { l: t('amenities.installedLabel'), v: detail.install_date ? fmtDate(detail.install_date, 'dd-MM-yyyy') : '—' },
                 { l: t('amenities.cost'), v: detail.cost_usd != null ? money(Number(detail.cost_usd)) : '—' },
@@ -300,7 +300,7 @@ export default function Amenities() {
           {form.kind === 'other' && (
             <Input label={t('amenities.otherSpecify')} value={form.kind_other} onChange={(e) => setForm({ ...form, kind_other: e.target.value })} placeholder={t('amenities.otherPlaceholder')} />
           )}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input label={t('amenities.brand')} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
             <Input label={t('amenities.quantity')} type="number" step="1" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
             <Input label={t('amenities.serialNo')} value={form.serial_no} onChange={(e) => setForm({ ...form, serial_no: e.target.value })} />
@@ -320,7 +320,7 @@ export default function Amenities() {
             </div>
           )}
           <Input label={t('amenities.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder={t('amenities.locationPlaceholder')} />
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input label={t('amenities.installedLabel')} type="date" value={form.install_date} onChange={(e) => setForm({ ...form, install_date: e.target.value })} />
             <Input label={t('amenities.cost')} type="number" step="0.01" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
             <Input label={t('amenities.life')} type="number" step="1" min="1" value={form.life} onChange={(e) => setForm({ ...form, life: e.target.value })} />

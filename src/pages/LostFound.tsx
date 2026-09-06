@@ -206,7 +206,7 @@ export default function LostFound() {
                     )}
                     {canManageItem(item) && (
                       <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(item)}>
-                        <Trash2 size={14} />
+                        <Trash2 size={14} /> {t('common.delete')}
                       </Button>
                     )}
                   </div>
@@ -247,7 +247,7 @@ export default function LostFound() {
               )}
               {canManageItem(detail) && (
                 <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive ms-auto" onClick={() => { remove(detail); setDetail(null); }}>
-                  <Trash2 size={14} />
+                  <Trash2 size={14} /> {t('common.delete')}
                 </Button>
               )}
             </div>

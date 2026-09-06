@@ -195,7 +195,7 @@ export default function Bylaws() {
                     </Button>
                     {canManage && (
                       <Button variant="ghost" onClick={() => setConfirmDelete(current)} aria-label={t('common.delete')}>
-                        <Trash2 size={15} />
+                        <Trash2 size={15} /> {t('common.delete')}
                       </Button>
                     )}
                   </div>
@@ -250,7 +250,7 @@ export default function Bylaws() {
                           </Button>
                           {canManage && (
                             <Button variant="ghost" onClick={() => setConfirmDelete(d)}>
-                              <Trash2 size={14} />
+                              <Trash2 size={14} /> {t('common.delete')}
                             </Button>
                           )}
                         </div>

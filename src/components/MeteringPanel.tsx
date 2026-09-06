@@ -410,8 +410,8 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
                   {canManage && (
                     <td className="px-5 py-3 text-end">
                       <button onClick={(ev) => { ev.stopPropagation(); setConfirmDelete(c); }}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
-                        <Trash2 size={15} />
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer inline-flex items-center gap-1">
+                        <Trash2 size={15} /> {t('common.delete')}
                       </button>
                     </td>
                   )}
@@ -433,7 +433,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('metering.purchaseType')} value={sForm.purchaseTypeId} onValueChange={(v) => setSForm({ ...sForm, purchaseTypeId: v })}>
               {types.filter((ty) => ty.active && (!ty.is_metered || ty.id === sForm.purchaseTypeId)).map((ty) => (
                 <SelectItem key={ty.id} value={ty.id}>{ty.key ? t(`finance.cats.${ty.key}`) : ty.name}</SelectItem>
@@ -450,7 +450,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('metering.commonSplit')} value={sForm.commonMethod} onValueChange={(v) => setSForm({ ...sForm, commonMethod: v as 'equal' | 'by_shares' })}>
               <SelectItem value="by_shares">{t('dues.methods.by_shares')}</SelectItem>
               <SelectItem value="equal">{t('dues.methods.equal')}</SelectItem>
@@ -463,7 +463,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
           {sForm.model === 'wa' && !hasFinalCycles && (
             <div className="rounded-xl border border-border p-3 space-y-3">
               <p className="text-sm font-medium text-foreground">{t('metering.initialTitle')}</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input label={t('metering.initialQty')} type="number" step="0.001" value={sForm.initialQty} onChange={(e) => setSForm({ ...sForm, initialQty: e.target.value })} />
                 {!sForm.initialBilled && (
                   <Input label={t('metering.initialValue')} type="number" step="0.01" value={sForm.initialValue} onChange={(e) => setSForm({ ...sForm, initialValue: e.target.value })} />
@@ -486,7 +486,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
       {/* ── the cycle ── */}
       <Modal open={open} onClose={() => { setOpen(false); setEditingCycle(null); }} title={t(editingCycle ? 'metering.editCycle' : 'metering.newCycle')} size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('dues.periodFrom')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             <Input label={t('dues.periodTo')} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
@@ -513,7 +513,7 @@ export function MeteringPanel({ entity, units, canManage, hasTenant: _hasTenant,
 
           <div>
             <p className="text-sm font-medium text-foreground mb-1.5">{t('metering.stockTitle')}</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label={t('metering.opening')} type="number" step="0.001" value={openingStock} onChange={(e) => setOpeningStock(e.target.value)} />
               <Input label={t('metering.closing')} type="number" step="0.001" value={closingStock} onChange={(e) => setClosingStock(e.target.value)} />
             </div>

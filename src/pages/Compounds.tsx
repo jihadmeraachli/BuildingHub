@@ -357,7 +357,7 @@ export default function Compounds() {
                     </td>
                   </tr>
                 ) : filtered.map(c => (
-                  <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                  <tr key={c.id} onClick={() => openEdit(c)} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -388,12 +388,12 @@ export default function Compounds() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(c); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
                           <Pencil size={14} />
                         </button>
                         {canDeleteCompound(c.org_id) && (
-                          <button onClick={() => setConfirmDelete(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
-                            <Trash2 size={14} />
+                          <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(c.id); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1">
+                            <Trash2 size={14} /> {t('common.delete')}
                           </button>
                         )}
                       </div>
@@ -409,7 +409,7 @@ export default function Compounds() {
       <Modal open={addModal} onClose={() => setAddModal(false)} title={t('buildings.addCompound')} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} placeholder="Marina Gardens" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <CitySelect label={t('buildings.city')} value={addForm.city} onChange={v => setAddForm({ ...addForm, city: v })} />
             <SelectInput label={t('buildings.country')} value={addForm.country} onChange={e => setAddForm({ ...addForm, country: e.target.value })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -426,7 +426,7 @@ export default function Compounds() {
       <Modal open={!!editC} onClose={() => setEditC(null)} title={`${t('common.edit')}: ${editC?.name ?? ''}`} size="sm">
         <div className="space-y-4">
           <Input label={t('buildings.compoundName')} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <CitySelect label={t('buildings.city')} value={editForm.city} onChange={v => setEditForm({ ...editForm, city: v })} />
             <SelectInput label={t('buildings.country')} value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}

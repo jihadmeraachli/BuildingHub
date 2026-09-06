@@ -292,7 +292,7 @@ export default function Organizations() {
                     </td>
                   </tr>
                 ) : filtered.map(o => (
-                  <tr key={o.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                  <tr key={o.id} onClick={() => openEdit(o)} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -318,11 +318,11 @@ export default function Organizations() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(o)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(o); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer">
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => setConfirmDelete(o.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
-                          <Trash2 size={14} />
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(o.id); }} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1">
+                          <Trash2 size={14} /> {t('common.delete')}
                         </button>
                       </div>
                     </td>

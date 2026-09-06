@@ -219,7 +219,7 @@ export default function Projects() {
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
                       </div>
                     )}
                   </div>
@@ -244,7 +244,7 @@ export default function Projects() {
                 )}
               </div>
               {detail.description && <p className="text-sm text-muted-foreground">{detail.description}</p>}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { l: t('projects.estimate'), v: p.est != null ? money(p.est) : '—' },
                   { l: t('projects.spent'), v: money(p.actual), red: p.over },
@@ -287,7 +287,7 @@ export default function Projects() {
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? t('projects.edit') : t('projects.add')} size="lg">
         <div className="space-y-4">
           <Input label={t('projects.name')} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={t('projects.namePlaceholder')} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('projects.statusLabel')} value={form.status} onValueChange={(v) => setForm({ ...form, status: v as ProjectStatus })}>
               {STATUSES.map((s) => <SelectItem key={s} value={s}>{t(`projects.status.${s}`)}</SelectItem>)}
             </SelectField>
@@ -315,7 +315,7 @@ export default function Projects() {
             </div>
           )}
           {entity?.kind === 'compound' && multiBlock && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>
                 <SelectItem value="all">{t('finance.wholeCompound')}</SelectItem>
                 <SelectItem value="block">{t('finance.aBlock')}</SelectItem>
@@ -328,7 +328,7 @@ export default function Projects() {
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('contracts.startDate')} type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
             <Input label={t('contracts.endDate')} type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDate } from '@/lib/dateFmt';
-import { Plus, Vote as VoteIcon, X, Lock, SlidersHorizontal, Users, Check, MinusCircle, Clock } from 'lucide-react';
+import { Plus, Vote as VoteIcon, Trash2, Lock, SlidersHorizontal, Users, Check, MinusCircle, Clock } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -406,7 +406,7 @@ export default function Voting() {
                       {st === 'open' && (
                         <Button size="sm" variant="ghost" onClick={() => closeNow(poll)}><Lock size={13} /> {t('voting.closeNow')}</Button>
                       )}
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removePoll(poll)}><X size={14} /></Button>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removePoll(poll)}><Trash2 size={13} /> {t('common.delete')}</Button>
                     </div>
                   )}
                 </div>

@@ -173,7 +173,7 @@ export default function BuildingContacts() {
                     {canManage && (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={14} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={14} /> {t('common.delete')}</button>
                       </div>
                     )}
                   </div>
@@ -256,7 +256,7 @@ export default function BuildingContacts() {
             </div>
           </div>
           {entity?.kind === 'compound' && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>
                 <SelectItem value="all">{t('finance.wholeCompound')}</SelectItem>
                 <SelectItem value="block">{t('finance.aBlock')}</SelectItem>

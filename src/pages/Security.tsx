@@ -290,8 +290,8 @@ export default function Security() {
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => removeGrantRow(g.id, reload)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer" title={t('users.revokeAccess')}>
-                      <Trash2 size={15} />
+                    <button onClick={() => removeGrantRow(g.id, reload)} className="text-muted-foreground hover:text-red-500 transition cursor-pointer inline-flex items-center gap-1" title={t('users.revokeAccess')}>
+                      <Trash2 size={15} /> {t('users.revokeAccess')}
                     </button>
                   </td>
                 </tr>

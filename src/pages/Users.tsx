@@ -839,7 +839,7 @@ export default function Users() {
                               {/* Hard delete: platform admin only, never self. Guards enforced in DB (0026). */}
                               {isPlatformAdmin && u.id !== profile?.id && (
                                 <Button size="sm" variant="danger" onClick={() => openDelete(u)} title={t('users.deleteHint')}>
-                                  <Trash2 size={14} />
+                                  <Trash2 size={14} /> {t('common.delete')}
                                 </Button>
                               )}
                             </div>
@@ -1107,7 +1107,7 @@ export default function Users() {
                 ) : addUserUnits.length === 0 ? (
                   <p className="text-sm text-muted-foreground">{t('users.addExistingNoUnits')}</p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <SelectField
                       label={t('users.addExistingUnit')}
                       value={addUserUnitId || '__none__'}

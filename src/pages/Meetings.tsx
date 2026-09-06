@@ -318,8 +318,8 @@ export default function Meetings() {
                     </div>
                   </div>
                   {isManager && (
-                    <button onClick={() => setDeleteTarget(m)} className="text-slate-300 hover:text-red-500 transition flex-shrink-0 cursor-pointer">
-                      <Trash2 size={16} />
+                    <button onClick={() => setDeleteTarget(m)} className="text-slate-300 hover:text-red-500 transition flex-shrink-0 cursor-pointer inline-flex items-center gap-1">
+                      <Trash2 size={16} /> {t('common.delete')}
                     </button>
                   )}
                 </div>
@@ -350,9 +350,9 @@ export default function Meetings() {
                             {isManager && (
                               <button
                                 onClick={e => { e.stopPropagation(); setDeleteTarget(m); }}
-                                className="text-slate-300 hover:text-red-500 transition cursor-pointer p-1"
+                                className="text-slate-300 hover:text-red-500 transition cursor-pointer p-1 inline-flex items-center gap-1"
                               >
-                                <Trash2 size={15} />
+                                <Trash2 size={15} /> {t('common.delete')}
                               </button>
                             )}
                             {expanded === m.id ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
@@ -407,7 +407,7 @@ export default function Meetings() {
             </SelectField>
           )}
           <Input label={t('meetings.meetingTitle')} {...scheduleForm.register('title', { required: true })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('meetings.meetingDate')} type="date" {...scheduleForm.register('meeting_date', { required: true })} />
             <Input label={t('meetings.meetingTime')} type="time" {...scheduleForm.register('meeting_time')} />
           </div>
@@ -518,7 +518,7 @@ export default function Meetings() {
             </SelectField>
           )}
           <Input label="Meeting Title" {...addForm.register('title', { required: true })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('meetings.meetingDate')} type="date" {...addForm.register('meeting_date', { required: true })} />
             <Input label={t('meetings.meetingTime')} type="time" {...addForm.register('meeting_time')} />
           </div>

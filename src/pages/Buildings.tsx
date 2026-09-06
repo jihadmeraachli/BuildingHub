@@ -716,7 +716,7 @@ export default function Buildings() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label={t('buildings.name')} {...register('name', { required: true })} />
           <Input label={t('buildings.address')} {...register('address', { required: true })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Controller
               name="city"
               control={control}
@@ -760,7 +760,7 @@ export default function Buildings() {
         <div className="space-y-4">
           <Input label={t('buildings.name')} value={ebForm.name} onChange={e => setEbForm({ ...ebForm, name: e.target.value })} />
           <Input label={t('buildings.address')} value={ebForm.address} onChange={e => setEbForm({ ...ebForm, address: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <CitySelect label={t('buildings.city')} value={ebForm.city} onChange={v => setEbForm({ ...ebForm, city: v })} />
             <SelectInput label={t('buildings.country')} value={ebForm.country} onChange={e => setEbForm({ ...ebForm, country: e.target.value })}>
               {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}

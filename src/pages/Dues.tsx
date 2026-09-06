@@ -624,8 +624,8 @@ export default function Dues() {
                               <td className="px-5 py-3 text-end">
                                 {single && (
                                   <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteItem(g.parties[0].lines[0].id); }}
-                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
-                                    <Trash2 size={15} />
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer inline-flex items-center gap-1">
+                                    <Trash2 size={15} /> {t('common.delete')}
                                   </button>
                                 )}
                               </td>
@@ -658,8 +658,8 @@ export default function Dues() {
                                   {canManage && (
                                     <td className="px-5 py-1.5 text-end">
                                       <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteItem(d.id); }}
-                                        className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
-                                        <Trash2 size={13} />
+                                        className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer inline-flex items-center gap-1">
+                                        <Trash2 size={13} /> {t('common.delete')}
                                       </button>
                                     </td>
                                   )}
@@ -670,8 +670,8 @@ export default function Dues() {
                                   <td className="px-5 py-1" colSpan={cols - 1} />
                                   <td className="px-5 py-1 text-end">
                                     <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteItem(p.lines[0].id); }}
-                                      className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer">
-                                      <Trash2 size={13} />
+                                      className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer inline-flex items-center gap-1">
+                                      <Trash2 size={13} /> {t('common.delete')}
                                     </button>
                                   </td>
                                 </tr>
@@ -690,11 +690,11 @@ export default function Dues() {
       {/* New budget (0087): there is no plan — the LINES are the plan. */}
       <Modal open={genOpen} onClose={() => setGenOpen(false)} title={t('dues.newBudget')} size="lg">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('dues.budgetLabel')} value={genPeriod} onChange={(e) => setGenPeriod(e.target.value)} placeholder={t('dues.periodPlaceholder')} />
             <Input label={t('dues.dueDate')} type="date" value={genDue} onChange={(e) => setGenDue(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('dues.periodFrom')} type="date" value={genStart} onChange={(e) => setGenStart(e.target.value)} />
             <Input label={t('dues.periodTo')} type="date" value={genEnd} onChange={(e) => setGenEnd(e.target.value)} />
           </div>
@@ -740,7 +740,7 @@ export default function Dues() {
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('dues.scope')} value={genScope} onValueChange={(v) => setGenScope(v as 'all' | 'group' | 'units')}>
               <SelectItem value="all">{t('dues.scopeAll')}</SelectItem>
               {groups.length > 0 && <SelectItem value="group">{t('dues.scopeGroup')}</SelectItem>}

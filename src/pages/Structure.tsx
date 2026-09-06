@@ -405,7 +405,7 @@ export default function Structure() {
                             const ow = ownersOf(u.id);
                             const pct = totalShares > 0 ? (Number(u.share_weight) / totalShares) * 100 : 0;
                             return (
-                              <tr key={u.id} className="hover:bg-accent/30">
+                              <tr key={u.id} onClick={!viewOnly ? () => openUnit(u) : undefined} className={`hover:bg-accent/30 ${!viewOnly ? 'cursor-pointer' : ''}`}>
                                 <td className="px-5 py-3 font-semibold text-foreground">{u.label}</td>
                                 <td className="px-5 py-3">
                                   {ow.length === 0 ? <span className="text-muted-foreground">&#8212;</span> : (
@@ -414,7 +414,7 @@ export default function Structure() {
                                         <span key={o.id} className={`inline-flex items-center gap-1 text-xs rounded-full ps-2 pe-1 py-0.5 ${o.tenure === 'tenant' ? 'bg-amber-100 text-amber-800' : 'bg-primary/15 text-primary'}`}>
                                           {profileName[o.user_id] ?? 'User'}
                                           <span className="opacity-60 text-[10px]">· {t(`structure.tenure.${o.tenure}`)}</span>
-                                          {!viewOnly && <button onClick={() => removeOwner(o.id)} className="opacity-50 hover:opacity-100 hover:text-rose-500 cursor-pointer"><X size={11} /></button>}
+                                          {!viewOnly && <button onClick={(e) => { e.stopPropagation(); removeOwner(o.id); }} className="opacity-50 hover:opacity-100 hover:text-rose-500 cursor-pointer"><X size={11} /></button>}
                                         </span>
                                       ))}
                                     </div>
@@ -427,9 +427,9 @@ export default function Structure() {
                                 {!viewOnly && (
                                 <td className="px-5 py-3">
                                   <div className="flex items-center justify-end gap-1">
-                                    <button onClick={() => { setOwnerModal(u); setOwnerPick(''); setOwnerTenure(ownersOf(u.id).some((o) => o.tenure === 'owner') ? 'tenant' : 'owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"><UserPlus size={15} /></button>
-                                    <button onClick={() => openUnit(u)} title="Edit" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                                    <button onClick={() => setConfirmDeleteUnit(u.id)} title="Delete" className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 size={15} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setOwnerModal(u); setOwnerPick(''); setOwnerTenure(ownersOf(u.id).some((o) => o.tenure === 'owner') ? 'tenant' : 'owner'); }} title={t('structure.assignMember')} className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"><UserPlus size={15} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); openUnit(u); }} title="Edit" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteUnit(u.id); }} title={t('common.delete')} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
                                   </div>
                                 </td>
                                 )}
@@ -485,7 +485,7 @@ export default function Structure() {
                               <p className="font-semibold text-foreground">{g.name}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">{t('structure.unitsCount', { count })}</p>
                             </div>
-                            <button onClick={() => setConfirmDeleteGroup(g.id)} className="p-1 text-muted-foreground hover:text-rose-500 cursor-pointer"><Trash2 size={15} /></button>
+                            <button onClick={() => setConfirmDeleteGroup(g.id)} className="p-1 text-muted-foreground hover:text-rose-500 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
                           </div>
                           <Button size="sm" variant="secondary" className="mt-3 w-full" onClick={() => setGroupUnitsModal(g)}>{t('structure.manageUnits')}</Button>
                         </CardBody>
@@ -503,7 +503,7 @@ export default function Structure() {
       <Modal open={unitModal.open} onClose={() => setUnitModal({ open: false })} title={unitModal.edit ? t('structure.editUnit') : t('structure.addUnit')}>
         <div className="space-y-4">
           <Input label={t('structure.unitLabel')} value={unitForm.label} onChange={(e) => setUnitForm({ ...unitForm, label: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Input label={t('structure.shareWeight')} type="number" step="0.01" min="0" value={unitForm.share_weight} onChange={(e) => setUnitForm({ ...unitForm, share_weight: e.target.value })} />
             </div>
@@ -520,7 +520,7 @@ export default function Structure() {
               joined. Kept out of the P&L; folds into the running balance. */}
           <div className="rounded-xl border border-slate-200 dark:border-white/10 p-3 space-y-3">
             <p className="text-xs font-medium text-slate-500">{t('structure.openingBalance')}</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 label={t('structure.openingAmount')}
                 type="number" step="0.01"
@@ -590,7 +590,7 @@ export default function Structure() {
               ))}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('structure.addMember')} value={ownerPick || '__none__'} onValueChange={(v) => setOwnerPick(v === '__none__' ? '' : v)}>
               <SelectItem value="__none__">{t('structure.selectPerson')}</SelectItem>
               {profiles

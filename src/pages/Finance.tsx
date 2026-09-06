@@ -2389,7 +2389,7 @@ export default function Finance() {
               <SelectItem value="tenant">{t('finance.billedToOptions.tenant')}</SelectItem>
             </SelectField>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('finance.amount')} type="number" step="0.01" min="0" value={adjForm.amount} onChange={(e) => setAdjForm({ ...adjForm, amount: e.target.value })} />
             <Input label={t('finance.date')} type="date" value={adjForm.effective_date} onChange={(e) => setAdjForm({ ...adjForm, effective_date: e.target.value })} />
           </div>
@@ -2479,7 +2479,7 @@ function RequestPaymentModal({ open, onClose, lines, entityName, onIssue, busy, 
         )}
         <Input label={t('finance.requestLabel')} value={label} onChange={(e) => setLabel(e.target.value)}
                placeholder={t('finance.requestLabelPlaceholder')} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <SelectField label={t('buildings.dueDays')} value={days} onValueChange={setDays}>
               {[1, 2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (

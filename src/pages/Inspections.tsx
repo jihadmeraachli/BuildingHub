@@ -234,7 +234,7 @@ export default function Inspections() {
             {r.status === 'due'
               ? <Button size="sm" variant="tinted" onClick={() => openEdit(r)}>{t('inspections.recordNow')}</Button>
               : <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>}
-            <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 size={15} /></button>
+            <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
           </div>
         )}
       </div>
@@ -311,7 +311,7 @@ export default function Inspections() {
       <Modal open={open} onClose={() => setOpen(false)} title={editingDue ? t('inspections.recordTitle') : editId ? t('inspections.edit') : t('inspections.add')} size="lg">
         <div className="space-y-4">
           {editingDue && <p className="text-sm text-muted-foreground -mb-1">{t('inspections.recordIntro')}</p>}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField label={t('inspections.category')} value={form.category_id || '__none__'} onValueChange={(v) => setForm({ ...form, category_id: v === '__none__' ? '' : v })}>
               {!form.category_id && <SelectItem value="__none__">—</SelectItem>}
               {cats.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -350,7 +350,7 @@ export default function Inspections() {
             </div>
           )}
           {entity?.kind === 'compound' && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <SelectField label={t('finance.applyTo')} value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v as 'all' | 'block' })}>
                 <SelectItem value="all">{t('finance.wholeCompound')}</SelectItem>
                 <SelectItem value="block">{t('finance.aBlock')}</SelectItem>
@@ -363,7 +363,7 @@ export default function Inspections() {
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label={t('inspections.date')} type="date" value={form.inspection_date} onChange={(e) => setForm({ ...form, inspection_date: e.target.value })} />
             <Input label={t('inspections.nextDue')} type="date" value={form.next_due_date} onChange={(e) => setForm({ ...form, next_due_date: e.target.value })} />
           </div>
@@ -393,7 +393,7 @@ export default function Inspections() {
                 {cats.map((c) => (
                   <div key={c.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-2.5">
                     <span className="text-sm text-foreground">{c.name}</span>
-                    <button onClick={() => setConfirmCatDelete(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer"><Trash2 size={14} /></button>
+                    <button onClick={() => setConfirmCatDelete(c.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer inline-flex items-center gap-1"><Trash2 size={14} /> {t('common.delete')}</button>
                   </div>
                 ))}
               </div>

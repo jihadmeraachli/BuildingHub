@@ -130,11 +130,11 @@ export default function Collect() {
                 <SelectItem value="__none__">—</SelectItem>
                 {units.map((u) => <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>)}
               </SelectField>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input label={t('finance.amountUsd')} type="number" step="0.01" min="0" inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
                 <Input label={t('finance.date')} type="date" value={form.paid_on} onChange={(e) => setForm({ ...form, paid_on: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input label={t('finance.amountLbp')} type="number" step="1" min="0" inputMode="numeric" value={form.amount_lbp} onChange={(e) => setForm({ ...form, amount_lbp: e.target.value })} />
                 <Input label={t('finance.lbpRate')} type="number" step="1" min="0" value={form.lbp_rate} onChange={(e) => setForm({ ...form, lbp_rate: e.target.value })} />
               </div>
