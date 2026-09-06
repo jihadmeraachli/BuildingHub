@@ -2017,7 +2017,8 @@ export default function Finance() {
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setExpOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={saveExpense} loading={saving}
-              disabled={(expForm.funding !== 'fund' && targetUnits.length === 0) || !(Number(expForm.amount) > 0)}>
+              disabled={(expForm.funding !== 'fund' && targetUnits.length === 0)
+                || !(Number(expForm.amount) > 0 || Number(expForm.amount_lbp) > 0)}>
               {editingExpenseId ? t('finance.saveChanges')
                 : expForm.funding === 'fund' ? t('fund.recordFromFund')
                 : `${t('finance.createAndBill')} ${targetUnits.length || ''}`}
@@ -2234,7 +2235,8 @@ export default function Finance() {
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setPayOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={savePayment} loading={saving} disabled={!payForm.unit_id || !(Number(payForm.amount) > 0)}>{t('finance.record')}</Button>
+            <Button onClick={savePayment} loading={saving}
+              disabled={!payForm.unit_id || !(Number(payForm.amount) > 0 || Number(payForm.amount_lbp) > 0)}>{t('finance.record')}</Button>
           </div>
         </div>
       </Modal>
