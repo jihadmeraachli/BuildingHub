@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BookOpenCheck, Wallet, MessageSquareText, Wrench, CalendarCheck2, Building2, Check, ArrowUp,
+  Sparkles, PackageSearch, ClipboardCheck, Fuel, Banknote, BarChart3, HardHat,
 } from 'lucide-react';
 import { LanguagePicker } from '@/components/ui/LanguagePicker';
 import { Logo } from '@/components/ui/Logo';
@@ -19,18 +20,57 @@ import { betaScope } from '@/lib/demo';
 const FEATURES = [
   { key: 'f1', icon: BookOpenCheck },
   { key: 'f2', icon: Wallet },
-  { key: 'f3', icon: MessageSquareText },
+  { key: 'f11', icon: Banknote },
+  { key: 'f10', icon: Fuel },
   { key: 'f4', icon: Wrench },
+  { key: 'f7', icon: ClipboardCheck },
+  { key: 'f9', icon: HardHat },
+  { key: 'f8', icon: PackageSearch },
   { key: 'f5', icon: CalendarCheck2 },
+  { key: 'f3', icon: MessageSquareText },
+  { key: 'f12', icon: BarChart3 },
   { key: 'f6', icon: Building2 },
 ];
 
 function Shot({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="rounded-2xl border border-white/15 bg-white/5 p-1.5 shadow-2xl shadow-black/40">
+    <div className="spot rounded-2xl border border-white/15 bg-white/5 p-1.5 shadow-2xl shadow-black/40">
       <img src={src} alt={alt} loading="lazy" className="rounded-xl w-full" />
     </div>
   );
+}
+
+/**
+ * Spotlight: one pointermove listener paints --spot-x/--spot-y on every .spot
+ * card (rect-relative), and arms .spot-on when the cursor is on or near the
+ * card — so borders of neighbouring cards light up as the pointer approaches,
+ * flashlight-style. rAF-throttled; the CSS side is hover+motion gated.
+ */
+function useSpotlight() {
+  useEffect(() => {
+    if (!window.matchMedia('(hover: hover)').matches) return;
+    let raf = 0;
+    const onMove = (e: PointerEvent) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        document.querySelectorAll<HTMLElement>('.spot').forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.bottom < -200 || r.top > window.innerHeight + 200) return;
+          el.style.setProperty('--spot-x', `${e.clientX - r.left}px`);
+          el.style.setProperty('--spot-y', `${e.clientY - r.top}px`);
+          const near = e.clientX > r.left - 130 && e.clientX < r.right + 130
+                    && e.clientY > r.top - 130 && e.clientY < r.bottom + 130;
+          el.classList.toggle('spot-on', near);
+        });
+      });
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 }
 
 const NAV_SECTIONS = [
@@ -48,6 +88,7 @@ export default function Landing() {
   // opening on it makes the whole page look like it is for tiny buildings.
   const [bandIndex, setBandIndex] = useState(1);
   const band = PRICING_BANDS[bandIndex];
+  useSpotlight();
 
   // Floating back-to-top arrow: appears once the visitor has scrolled a bit.
   useEffect(() => {
@@ -81,11 +122,12 @@ export default function Landing() {
 
   const showcases = [
     { key: 'book', img: '/marketing/shot-finance-en.jpg' },
+    { key: 'voting', img: '/marketing/shot-voting-en.jpg' },
     { key: 'setup', img: '/marketing/shot-setup-en.jpg' },
     { key: 'arabic', img: '/marketing/shot-dashboard-ar.jpg' },
   ];
 
-  const faqs = ['privacy', 'arabic', 'payments', 'price', 'residents'];
+  const faqs = ['privacy', 'arabic', 'jad', 'payments', 'price', 'residents'];
 
   return (
     <div
@@ -170,6 +212,28 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Jad — the built-in AI agent gets top billing */}
+      <section className="max-w-5xl mx-auto px-6 py-16">
+        <div className="grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[oklch(0.85_0.09_180)]/40 bg-[oklch(0.85_0.09_180)]/10 px-3 py-1 text-xs font-semibold text-[oklch(0.85_0.09_180)] mb-4">
+              <Sparkles size={13} /> {t('landing.jad.eyebrow')}
+            </span>
+            <h2 className="text-3xl font-bold mb-3">{t('landing.jad.title')}</h2>
+            <p className="text-white/70 leading-relaxed mb-5">{t('landing.jad.body')}</p>
+            <ul className="space-y-2.5 text-sm text-white/80">
+              {['j1', 'j2', 'j3'].map((k) => (
+                <li key={k} className="flex items-start gap-2">
+                  <Check size={15} className="mt-0.5 shrink-0 text-[oklch(0.85_0.09_180)]" />
+                  {t(`landing.jad.${k}`)}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Shot src="/marketing/shot-jad-en.jpg" alt={t('landing.jad.title')} />
+        </div>
+      </section>
+
       {/* Product showcases */}
       <section id="product" className="max-w-5xl mx-auto px-6 py-16 space-y-16">
         {showcases.map((s, i) => (
@@ -190,7 +254,7 @@ export default function Landing() {
         <h2 className="text-2xl font-bold text-center mb-8">{t('landing.everythingElse')}</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map(f => (
-            <div key={f.key} className="rounded-2xl bg-white/5 border border-white/10 p-6">
+            <div key={f.key} className="spot rounded-2xl bg-white/5 border border-white/10 p-6">
               <f.icon size={22} className="text-[oklch(0.85_0.09_180)] mb-3" />
               <h3 className="font-semibold mb-1.5">{t(`landing.features.${f.key}.title`)}</h3>
               <p className="text-sm text-white/65 leading-relaxed">{t(`landing.features.${f.key}.body`)}</p>
@@ -204,7 +268,7 @@ export default function Landing() {
         <h2 className="text-2xl font-bold text-center mb-8">{t('landing.howTitle')}</h2>
         <div className="grid sm:grid-cols-3 gap-4">
           {['h1', 'h2', 'h3'].map((k, i) => (
-            <div key={k} className="rounded-2xl bg-white/5 border border-white/10 p-6">
+            <div key={k} className="spot rounded-2xl bg-white/5 border border-white/10 p-6">
               <span className="inline-flex w-8 h-8 rounded-full bg-white/10 items-center justify-center text-sm font-bold mb-3">{i + 1}</span>
               <h3 className="font-semibold mb-1.5">{t(`landing.how.${k}.title`)}</h3>
               <p className="text-sm text-white/65 leading-relaxed">{t(`landing.how.${k}.body`)}</p>
@@ -239,7 +303,7 @@ export default function Landing() {
             ))}
           </select>
 
-          <div className="mt-5 rounded-2xl border border-[oklch(0.85_0.09_180)]/40 bg-white/[0.07] p-7 text-center">
+          <div className="spot mt-5 rounded-2xl border border-[oklch(0.85_0.09_180)]/40 bg-white/[0.07] p-7 text-center">
             {band.monthlyCents === null ? (
               <>
                 <p className="text-3xl font-bold">{t('landing.pricingTalk')}</p>
@@ -290,7 +354,7 @@ export default function Landing() {
         <h2 className="text-2xl font-bold text-center mb-8">{t('landing.faqTitle')}</h2>
         <div className="space-y-3">
           {faqs.map(k => (
-            <details key={k} className="group rounded-xl bg-white/5 border border-white/10 px-5 py-4">
+            <details key={k} className="group spot rounded-xl bg-white/5 border border-white/10 px-5 py-4">
               <summary className="cursor-pointer font-medium list-none flex items-center justify-between gap-3">
                 {t(`landing.faq.${k}.q`)}
                 <span className="text-white/40 group-open:rotate-45 transition-transform text-lg leading-none">+</span>
@@ -303,7 +367,7 @@ export default function Landing() {
 
       {/* Final CTA */}
       <section className="max-w-5xl mx-auto px-6 pb-20 text-center">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] px-8 py-12">
+        <div className="spot rounded-3xl border border-white/10 bg-white/[0.04] px-8 py-12">
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">{t('landing.ctaTitle')}</h2>
           <p className="text-white/70 mb-6">{t('landing.ctaBody')}</p>
           <div className="flex items-center justify-center gap-3 flex-wrap">

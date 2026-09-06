@@ -418,7 +418,7 @@
     "openApp": "Ouvrir l'application",
     "privateBeta": "Actuellement en bêta privée",
     "heroTitle": "Tout ce dont votre immeuble a besoin, au même endroit.",
-    "heroTagline": "Les résidents, les logements, les réunions, l'entretien et le livret de l'immeuble. Clair pour les gestionnaires, transparent pour les résidents, en arabe, en anglais et en français.",
+    "heroTagline": "Les résidents, les logements, les votes, l'entretien et le livret de l'immeuble. Clair pour les gestionnaires, transparent pour les résidents, en arabe, en anglais et en français.",
     "navProduct": "Produit",
     "navPricing": "Tarifs",
     "navAbout": "À propos",
@@ -427,10 +427,22 @@
     "liveDemo": "Voir la démo en ligne",
     "backToTop": "Haut de page",
     "trialNote": "30 jours gratuits · sans carte bancaire",
+    "jad": {
+      "eyebrow": "Assistant IA intégré",
+      "title": "Voici Jad. Il connaît Abniyah sur le bout des doigts.",
+      "body": "Chaque compte s'accompagne de Jad, l'agent IA intégré, formé au fonctionnement d'Abniyah. Demandez-lui n'importe quoi — configurer les compteurs du groupe électrogène, répartir une dépense entre les blocs, lancer un vote — et il vous guide pas à pas, là où vous êtes dans l'application.",
+      "j1": "Répond instantanément, en arabe, en anglais ou en français",
+      "j2": "Connaît chaque écran, chaque réglage et chaque procédure",
+      "j3": "Vous passe à un humain dès que vous le demandez"
+    },
     "show": {
       "book": {
         "title": "Le livre de l'immeuble, au centime près",
-        "body": "Enregistrez une dépense une seule fois : Abniyah la répartit entre les logements selon leurs quotes-parts. Paiements, soldes et relevés se rapprochent automatiquement, pour tout le complexe comme pour chaque bloc. Exportez un PDF net dès que le conseil syndical le demande."
+        "body": "Enregistrez une dépense une seule fois : Abniyah la répartit entre les logements selon leurs quotes-parts. Les paiements s'enregistrent en dollars, en livres ou les deux au taux du jour, et soldes et relevés se rapprochent automatiquement — pour tout le complexe comme pour chaque bloc. Exportez un PDF net dès que le conseil syndical le demande."
+      },
+      "voting": {
+        "title": "Des décisions, sans courir après les signatures",
+        "body": "Créez un vote : chaque propriétaire reçoit son bulletin par e-mail et par notification — un geste suffit pour voter. Scrutin ouvert ou anonyme, avec l'appel en direct : qui a voté quoi, qui s'est abstenu, qui manque encore. Le résultat reste consigné, visible de tous les résidents."
       },
       "setup": {
         "title": "Une mise en route en minutes, pas en semaines",
@@ -477,6 +489,10 @@
         "q": "L'application fonctionne-t-elle vraiment en arabe ?",
         "a": "Oui. L'application complète, notifications comprises, fonctionne en arabe avec une mise en page de droite à gauche correcte. Chaque utilisateur choisit sa propre langue."
       },
+      "jad": {
+        "q": "Qui est Jad ?",
+        "a": "Jad est l'assistant IA intégré d'Abniyah. Il connaît chaque écran et chaque procédure, répond en arabe, en anglais et en français, et vous guide dans toute tâche — de la première configuration de l'immeuble aux compteurs du générateur. Et si vous préférez parler à une personne, il vous y passe directement."
+      },
       "payments": {
         "q": "Comment les résidents paient-ils ?",
         "a": "Aujourd'hui, l'argent circule comme votre immeuble le préfère (espèces, virement) et le gestionnaire l'enregistre dans Abniyah ; les résidents voient leur solde et leurs reçus immédiatement. Le paiement direct dans l'application via Whish figure à notre feuille de route."
@@ -487,7 +503,7 @@
       },
       "residents": {
         "q": "Qu'est-ce que les résidents y gagnent ?",
-        "a": "Leur propre accès : leur solde, leurs charges et leurs reçus, les annonces et les réunions de l'immeuble, la possibilité de signaler un incident d'entretien avec photos, et des notifications sur WhatsApp ou par e-mail dans leur langue."
+        "a": "Leur propre accès : leur solde, leurs charges et leurs reçus, les votes de l'immeuble à un geste depuis leur e-mail, les réunions, les objets trouvés, la possibilité de signaler un incident avec photos, et des notifications sur WhatsApp, par e-mail et sur mobile dans leur langue."
       }
     },
     "ctaTitle": "Prêt à gérer votre immeuble comme un pro ?",
@@ -516,6 +532,30 @@
       "f6": {
         "title": "Complexes et portefeuilles",
         "body": "Un seul compte pour un immeuble, un complexe composé de plusieurs blocs ou l'ensemble d'une société de gestion."
+      },
+      "f7": {
+        "title": "Des inspections qui se renouvellent",
+        "body": "Regroupez les inspections sous vos propres catégories. Clôturez-en une avec la date suivante : la prochaine se crée d'elle-même en « À faire », rappel compris."
+      },
+      "f8": {
+        "title": "Objets trouvés",
+        "body": "Les objets trouvés sont publiés avec photos, les résidents sont notifiés par e-mail et notification, et les réclamations sont suivies jusqu'au retour de l'objet."
+      },
+      "f9": {
+        "title": "Équipements, projets et contrats",
+        "body": "Le groupe électrogène, les ascenseurs et les pompes avec leurs numéros de série et leurs coûts ; les projets de rénovation face à leur budget ; les contrats d'entretien et leurs échéances."
+      },
+      "f10": {
+        "title": "Compteurs, mazout et eau",
+        "body": "Facturez le mazout du générateur et l'eau à partir de vrais relevés. Les achats deviennent des cycles, et les cycles des factures justes par logement."
+      },
+      "f11": {
+        "title": "Dollars et livres ensemble",
+        "body": "Enregistrez tout montant en USD, en LBP ou les deux. Chaque écriture garde son taux de change, et le livret reste juste au centime."
+      },
+      "f12": {
+        "title": "Rapports et relevés PDF",
+        "body": "Des PDF à la marque d'Abniyah : livret de l'immeuble, relevés par logement, position du fonds et rapports filtrés sur mesure."
       }
     },
     "whoFor": "Abniyah s'adresse aux conseils syndicaux, aux gardiens et aux sociétés de gestion immobilière, de l'immeuble unique au portefeuille de complexes. Un seul identifiant par personne : gérez vos immeubles, ou suivez simplement votre propre logement.",
@@ -1370,7 +1410,8 @@
       "passed": "Conforme",
       "failed": "Non conforme",
       "action_required": "Action requise",
-      "pending": "En attente", "due": "A echeance"
+      "pending": "En attente",
+      "due": "A echeance"
     },
     "deleteTitle": "Supprimer le contrôle",
     "deleteConfirm": "Supprimer ce contrôle ?"

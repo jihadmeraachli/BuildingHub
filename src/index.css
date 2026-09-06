@@ -274,3 +274,52 @@ html, body {
     accent-color: var(--color-primary);
   }
 }
+
+/*
+ * Spotlight cards (marketing site). A pointermove handler on Landing sets
+ * --spot-x/--spot-y (px, card-relative) on every .spot element; these two
+ * pseudo-elements paint (1) a border that lights up around the cursor and
+ * (2) a soft interior "flashlight". Pointer-only media query: touch devices
+ * and reduced-motion users get the plain card, zero cost.
+ */
+.spot {
+  position: relative;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .spot::before,
+  .spot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  /* border glow: gradient ring revealed through a mask that keeps only the 1px edge */
+  .spot::before {
+    padding: 1px;
+    background: radial-gradient(
+      260px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      oklch(0.85 0.09 180 / 0.85),
+      oklch(0.85 0.09 180 / 0.12) 55%,
+      transparent 75%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+  /* interior flashlight */
+  .spot::after {
+    background: radial-gradient(
+      340px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+      oklch(0.95 0.03 180 / 0.07),
+      transparent 65%
+    );
+  }
+  .spot.spot-on::before,
+  .spot.spot-on::after {
+    opacity: 1;
+  }
+}

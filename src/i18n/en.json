@@ -418,7 +418,7 @@
     "openApp": "Open the app",
     "privateBeta": "Currently in private beta",
     "heroTitle": "Everything your building needs, in one place.",
-    "heroTagline": "People, units, meetings, maintenance and the building book. Clear for managers, transparent for residents, in Arabic, English and French.",
+    "heroTagline": "People, units, votes, maintenance and the building book. Clear for managers, transparent for residents, in Arabic, English and French.",
     "navProduct": "Product",
     "navPricing": "Pricing",
     "navAbout": "About",
@@ -427,10 +427,22 @@
     "liveDemo": "See the live demo",
     "backToTop": "Back to top",
     "trialNote": "30 days free · no card required",
+    "jad": {
+      "eyebrow": "AI assistant, built in",
+      "title": "Meet Jad. He knows Abniyah inside out.",
+      "body": "Every account comes with Jad, the built-in AI agent trained on how Abniyah works. Ask him anything — how to set up generator metering, split an expense across blocks, or run a building vote — and he walks you through it step by step, right where you are in the app.",
+      "j1": "Answers instantly, in Arabic, English or French",
+      "j2": "Knows every screen, setting and workflow in the product",
+      "j3": "Hands you to a human whenever you ask"
+    },
     "show": {
       "book": {
         "title": "The building book, to the cent",
-        "body": "Record an expense once and Abniyah bills it across units by their shares. Payments, balances and statements reconcile automatically, for the whole compound and for each block. Export a clean PDF whenever the committee asks."
+        "body": "Record an expense once and Abniyah bills it across units by their shares. Payments land in dollars, lira or both at the day's rate, and balances and statements reconcile automatically — for the whole compound and for each block. Export a clean PDF whenever the committee asks."
+      },
+      "voting": {
+        "title": "Decisions, without chasing signatures",
+        "body": "Create a vote and every owner gets the ballot by email and push — one tap to cast. Run it open or anonymous, and watch the live roll call: who voted what, who abstained, who is still pending. The result stays on the record where every resident can see it."
       },
       "setup": {
         "title": "Set up in minutes, not weeks",
@@ -477,6 +489,10 @@
         "q": "Does it really work in Arabic?",
         "a": "Yes. The full app, including notifications, works in Arabic with proper right-to-left layout. Every user picks their own language."
       },
+      "jad": {
+        "q": "What is Jad?",
+        "a": "Jad is Abniyah's built-in AI assistant. He knows every screen and workflow, answers in Arabic, English or French, and walks you through any task — from your first building setup to generator metering. And when you'd rather talk to a person, he hands you straight to one."
+      },
       "payments": {
         "q": "How do residents pay?",
         "a": "Today, money changes hands as your building prefers (cash, transfer) and management records it in Abniyah; residents see their balance and receipts instantly. Direct in-app payment via Whish is on our roadmap."
@@ -487,7 +503,7 @@
       },
       "residents": {
         "q": "What do residents get?",
-        "a": "Their own login showing their balance, charges and receipts, building announcements and meetings, the ability to report maintenance issues with photos, and notifications on WhatsApp or email in their language."
+        "a": "Their own login showing their balance, charges and receipts, building votes they can cast in one tap from their email, meetings, lost & found, the ability to report maintenance issues with photos, and notifications on WhatsApp, email and push in their language."
       }
     },
     "ctaTitle": "Ready to run your building like a pro?",
@@ -516,6 +532,30 @@
       "f6": {
         "title": "Compounds & portfolios",
         "body": "One account for a single building, a compound of blocks, or a whole management company."
+      },
+      "f7": {
+        "title": "Inspections that renew themselves",
+        "body": "Group inspections under your own categories. Complete one and set the next date — the follow-up creates itself as Due, and the manager gets reminded."
+      },
+      "f8": {
+        "title": "Lost & found",
+        "body": "Found items get posted with photos, residents get notified by email and push, and claims are tracked until things go home."
+      },
+      "f9": {
+        "title": "Amenities, projects & contracts",
+        "body": "The generator, elevators and pumps with their serial numbers and costs; renovation projects against budgets; service contracts with their renewal dates."
+      },
+      "f10": {
+        "title": "Meters, diesel & water",
+        "body": "Bill generator diesel and water from real meter readings. Purchases become cycles, and cycles become fair per-unit bills."
+      },
+      "f11": {
+        "title": "Dollars and lira together",
+        "body": "Record any amount in USD, LBP or both. Every entry keeps its own exchange rate, and the book stays exact to the cent."
+      },
+      "f12": {
+        "title": "Reports & PDF statements",
+        "body": "Branded PDFs on demand: the building book, unit statements, fund position and custom filtered reports for the committee."
       }
     },
     "whoFor": "Abniyah serves owners' committees, building supervisors, and property-management companies, from a single block to a portfolio of compounds. One login per person: manage your buildings, or simply follow your own home.",
