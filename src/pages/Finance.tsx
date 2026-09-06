@@ -1803,7 +1803,16 @@ export default function Finance() {
               onValueChange={(v) => {
                 const ty = activeTypes.find((x) => x.id === v);
                 const cat = legacyCategoryFor(ty) as ExpenseCategory;
-                setExpForm({ ...expForm, expense_type_id: ty?.id ?? '', category: cat, leasedTo: defaultLeasedTo(cat) });
+                // 0162 QA: a metering purchase must be fund-paid to be pulled
+                // into a cycle — billed-to-residents would double-bill (once
+                // as a plain expense, again when the cycle prices it). Default
+                // the funding to the fund on selection; the admin can override.
+                const isPurchase = !!ty && purchaseTypeIds.has(ty.id);
+                setExpForm({
+                  ...expForm, expense_type_id: ty?.id ?? '', category: cat,
+                  leasedTo: defaultLeasedTo(cat),
+                  ...(isPurchase ? { funding: 'fund' as const } : {}),
+                });
               }}>
               {/* metered types post through Metering cycles - offering them
                   here only invites double entry */}
