@@ -175,6 +175,11 @@ token at the gateway, never via anything card-shaped on our side.
    against live. Mitigation: nightly database backups via GitHub Actions,
    90-day retention — see [BACKUPS.md](BACKUPS.md) (requires the
    `SUPABASE_DB_URL` repo secret; storage FILES not yet covered).
+   ⚠️ **Rotating the database password breaks this secret** — it embeds the
+   password in the pooler URI. Update it the same day:
+   `gh secret set SUPABASE_DB_URL` then `gh workflow run db-backup.yml` to
+   verify green. (Learned 2026-09-09: the 6 Sep password reset silently
+   failed four nightly backups until the GitHub failure emails were read.)
 2. **Auth emails and notification emails both ride Resend** — one suspended
    Resend account kills registration *and* notifications.
 3. **Domain lapse kills everything at once** (site + email sending domain).
