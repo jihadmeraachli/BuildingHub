@@ -1,116 +1,71 @@
-# Android App — Capacitor + Google Play
+# Android app — build pipeline & status
 
-The Android app is the same web app in a native shell, exactly as iOS is. The
-good news up front: **Android builds on Windows**. No Mac in the loop, so Jey
-can do the whole thing without waiting on hardware.
+Started 2026-09-10. Unlike iOS (which needs the Mac — see IOS_APP.md), the
+entire Android pipeline runs on the Windows machine. First debug APK built
+and sideloaded the same day.
 
-_Written 2026-08-07. iOS equivalent: [docs/IOS_APP.md](IOS_APP.md)._
+## Status
+- ✅ Capacitor Android platform (`@capacitor/android`, folder gitignored like `ios/`)
+- ✅ Icons + splash (all densities) generated from `assets/icon.png` / `assets/splash*.png`
+- ✅ Debug APK builds locally (17 MB), points at production Frankfurt
+- ✅ Biometrics: `@aparajita/capacitor-biometric-auth` is cross-platform — fingerprint works with zero changes
+- ✅ `device_tokens.platform` supported `'android'` since 0084; `src/lib/push.ts` stamps it
+- ✅ `dynamic-action` has an FCM v1 send branch (env-guarded, inert until `FCM_SERVICE_ACCOUNT` is set)
+- ⬜ Firebase project + `google-services.json` (Jey — see below)
+- ⬜ `FCM_SERVICE_ACCOUNT` secret + dynamic-action redeploy
+- ⬜ Release keystore + signed AAB
+- ⬜ Google Play Console organization account
+- ⬜ Play listing (reuse docs/APP_STORE.md copy + screenshots pipeline)
 
-## The decision to make before anything else
+## Toolchain on this machine (installed 2026-09-10)
+- JDK: `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot` (Temurin 21, winget)
+- Android SDK: `C:\Android` (cmdline-tools + platform-tools + platforms;android-36 + build-tools;36.0.0)
+- `android/local.properties` (gitignored) carries `sdk.dir=C:\\Android`
 
-**Register the Play developer account as an ORGANIZATION, not a personal one.**
+## Build commands (PowerShell)
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot"
+$env:ANDROID_HOME = "C:\Android"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
 
-Personal accounts created after 13 November 2023 must run a closed test with
-**at least 12 testers, opted in continuously for 14 days**, before they may
-apply for production access. The 14 days only start counting once the release
-is approved *and* 12 testers have actually opted in, so in practice it is
-closer to three weeks.
-
-**Organization accounts registered to a legal business entity are exempt
-entirely.** Abniyah is a Tatawwor product, so the entity exists.
-
-The trade: an organization account needs a **D-U-N-S number**, which takes time
-to obtain (the same hurdle noted for Apple in the iOS doc). So it is a wait
-either way — but a D-U-N-S can be applied for today, in parallel with building,
-whereas the 12-tester clock cannot start until the app is finished and
-approved. Start the D-U-N-S process now if Android matters.
-
-Either way the account costs **$25 once**, not yearly like Apple.
-
-## Prerequisites
-
-| | |
-|---|---|
-| **Android Studio** | Includes the SDK and a bundled JDK. Windows is fine. |
-| **`@capacitor/android`** | The one npm package not yet installed. |
-| **Play Console account** | $25 one-time. See the decision above. |
-| **A signing keystore** | Generated once. **Losing it means you can never update the app** — a new keystore is a new app, with a new listing and no existing users. Back it up somewhere that is not just this laptop. |
-| **A test device** | The emulator is fine for most things, but not for biometrics or push. |
-
-## First build
-
-```bash
-npm install @capacitor/android
-npx cap add android
-npx @capacitor/assets generate --android   # icon + splash from assets/
-npm run build
-npx cap sync android
-npx cap open android                        # opens Android Studio
+npm run build                # web bundle (uses .env.local -> PRODUCTION db)
+npx cap sync android         # copy dist/ into the native project
+cd android
+.\gradlew.bat assembleDebug  # -> android\app\build\outputs\apk\debug\app-debug.apk
 ```
+Release (once keystore exists): `.\gradlew.bat bundleRelease` → AAB for Play.
 
-Like `ios/`, the generated **`android/` folder is not committed** — each
-machine generates its own, which is why the manual steps below have to be
-repeated after any regeneration.
+## Fresh machine? Regenerate the platform
+`android/` is **gitignored** (same convention as `ios/`): one-time
+`npx cap add android`, then `npx @capacitor/assets generate --android`,
+then drop `google-services.json` into `android/app/` (download from the
+Firebase console — it is NOT in the repo), then the build commands above.
 
-## Push notifications need Firebase, and none of the APNs work carries over
+## Sideloading onto the Pixel Tablet (testing)
+1. Settings → About tablet → tap **Build number** 7× (enables Developer options)
+2. Transfer `app-debug.apk` (Drive/USB/chat) → tap it → allow "install unknown apps" for the source app → Install
+3. Or with a USB cable: `C:\Android\platform-tools\adb.exe install app-debug.apk`
 
-This is the one genuinely new piece of engineering, not a port.
+## Push notifications (the one missing piece) — Jey's console steps
+1. **Firebase**: console.firebase.google.com → Add project (name: Abniyah;
+   Analytics off is fine) → Add app → Android → package `com.abniyah.app`
+   → download **google-services.json** → put it in `android/app/`.
+   The gradle template auto-detects it; rebuild and Android push registers.
+2. **Server key**: Project settings → Service accounts → **Generate new
+   private key** (a JSON file downloads). Supabase → Edge Functions →
+   secrets → add `FCM_SERVICE_ACCOUNT` = the ENTIRE file contents.
+   Redeploy `dynamic-action`. iOS/APNs is untouched; the send loop splits
+   by `device_tokens.platform`.
 
-Android push goes through **Firebase Cloud Messaging**, which shares nothing
-with APNs except our own database and the events that trigger a send:
-
-1. Create a Firebase project, add an Android app with package `com.abniyah.app`.
-2. Download **`google-services.json`** into `android/app/`.
-3. `@capacitor/push-notifications` handles the client side; the token lands in
-   the same `device_tokens` table, with `platform = 'android'` (0084 already
-   allows for it).
-4. **`dynamic-action` needs an FCM sender** alongside `pushToUserIds()`. The
-   APNs code stays; a parallel branch sends to Android tokens using a Firebase
-   service account (HTTP v1 API), and the function picks by `platform`.
-
-⚠️ The iOS lesson worth remembering: the failure was never in the sending
-logic, it was two native setup steps nobody had written down. Expect the
-Android equivalent to be `google-services.json` in the wrong place, and check
-that first.
-
-## The other two plugins
-
-Both already work on Android, but confirm on a real device:
-
-- **`@aparajita/capacitor-biometric-auth`** → Android BiometricPrompt
-  (fingerprint or face). The Keychain-vs-localStorage lesson from iOS applies
-  identically: anything that must survive the app closing goes through
-  `src/lib/devicePrefs.ts`, never `localStorage`.
-- **`@aparajita/capacitor-secure-storage`** → Android Keystore. Same adapter,
-  no code change.
-
-## Play Store listing requirements
-
-- **Privacy policy URL** — already public at `abniyah.com/privacy`, kept
-  deliberately outside the beta gate.
-- **Data safety form** — declares what the app collects. Be accurate: it
-  collects names, emails, phone numbers, and financial records about units.
-- **Content rating questionnaire.**
-- **Target API level** — Play enforces a recent one; Android Studio will warn
-  if the Capacitor default has fallen behind.
-- Screenshots, feature graphic, short and full description. The Arabic listing
-  is worth doing properly rather than machine-translating, for the same reason
-  the ads are written in Arabic rather than translated.
-
-## Shipping
-
-```bash
-npm run build      # ⚠️ NOT optional — this is what puts the new app in the binary
-npx cap sync android
-npx cap open android
-```
-
-Then in Android Studio: **Build → Generate Signed Bundle / APK → Android App
-Bundle (.aab)**, signed with the keystore, and upload the `.aab` in the Play
-Console.
-
-⚠️ Same trap as iOS: **skipping `npm run build` + `npx cap sync android` ships
-the previous web app under a new version code**, and nothing warns you.
-
-Version code must increase on every upload. Play rejects a repeat, exactly as
-App Store Connect does.
+## Google Play (when ready to ship)
+- Play Console **organization** account: play.google.com/console → $25
+  one-time → requires the D-U-N-S (**557923160**, same as Apple) and org
+  website tatawwor.com. Same seller-identity logic as the Apple conversion.
+- Signing: generate an upload keystore (`keytool -genkey ...`), enroll in
+  **Play App Signing** (Google holds the release key; the upload key is
+  replaceable if lost). NEVER commit the keystore; store it with the other
+  company credentials.
+- Listing: reuse APP_STORE.md copy; screenshots via the existing Playwright
+  pipeline at Android sizes (phone 1080×1920+, 7"/10" tablet for tablets).
+- Review notes: same demo access + review account + gate code as Apple
+  (see APP_STORE.md "Provisioned" section).

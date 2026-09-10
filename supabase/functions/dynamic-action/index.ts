@@ -299,6 +299,69 @@ const APNS_PRIVATE_KEY = Deno.env.get('APNS_PRIVATE_KEY') ?? '';
 const APNS_BUNDLE_ID = 'com.abniyah.app';
 const pushEnabled = () => Boolean(APNS_KEY_ID && APNS_TEAM_ID && APNS_PRIVATE_KEY);
 
+// ── Push notifications (Android / FCM) ───────────────────────────────────────
+// One secret: FCM_SERVICE_ACCOUNT = the entire service-account JSON from
+// Firebase console → Project settings → Service accounts → Generate new
+// private key. Missing/blank simply disables Android push; iOS unaffected.
+const FCM_SERVICE_ACCOUNT = Deno.env.get('FCM_SERVICE_ACCOUNT') ?? '';
+let fcmSa: { client_email: string; private_key: string; project_id: string } | null = null;
+try {
+  if (FCM_SERVICE_ACCOUNT) fcmSa = JSON.parse(FCM_SERVICE_ACCOUNT);
+} catch { console.error('[push] FCM_SERVICE_ACCOUNT is not valid JSON - Android push disabled'); }
+const fcmEnabled = () => Boolean(fcmSa?.client_email && fcmSa?.private_key && fcmSa?.project_id);
+
+// Google access tokens live 1h; cache like the APNs JWT.
+let fcmTokenCache = { token: '', madeAt: 0 };
+async function fcmAccessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (fcmTokenCache.token && now - fcmTokenCache.madeAt < 3000) return fcmTokenCache.token;
+  const sa = fcmSa!;
+  const pem = sa.private_key; // JSON.parse already turned \n escapes into newlines
+  const der = Uint8Array.from(
+    atob(pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s+/g, '')),
+    (c) => c.charCodeAt(0),
+  );
+  const key = await crypto.subtle.importKey(
+    'pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const head = b64url(new TextEncoder().encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
+  const claims = b64url(new TextEncoder().encode(JSON.stringify({
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now, exp: now + 3600,
+  })));
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${head}.${claims}`));
+  const assertion = `${head}.${claims}.${b64url(sig)}`;
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${assertion}`,
+  });
+  const json = await res.json();
+  if (!res.ok || !json.access_token) throw new Error(`FCM oauth failed ${res.status}: ${JSON.stringify(json)}`);
+  fcmTokenCache = { token: json.access_token, madeAt: now };
+  return fcmTokenCache.token;
+}
+
+/** Send one FCM message. Returns the fetch Response; 404 = token gone. */
+async function fcmPost(token: string, title: string, body?: string, route?: string) {
+  return await fetch(`https://fcm.googleapis.com/v1/projects/${fcmSa!.project_id}/messages:send`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${await fcmAccessToken()}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      message: {
+        token,
+        notification: body ? { title, body } : { title },
+        // route rides in data, same contract as the iOS payload - the app
+        // opens it on tap (src/lib/push.ts bindTapListener)
+        ...(route ? { data: { route } } : {}),
+        android: { priority: 'HIGH', notification: { sound: 'default' } },
+      },
+    }),
+  });
+}
+
 const b64url = (bytes: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(bytes)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -347,7 +410,7 @@ async function apnsPost(host: string, token: string, payload: unknown) {
  *  failure must not stop the email that carries the same news. */
 async function pushToUserIds(ids: string[], title: string, body?: string, route?: string) {
   try {
-    if (!pushEnabled()) return;
+    if (!pushEnabled() && !fcmEnabled()) return;
     const uniq = [...new Set(ids)];
     if (!uniq.length) return;
 
@@ -357,13 +420,30 @@ async function pushToUserIds(ids: string[], title: string, body?: string, route?
     if (!allowed.length) return;
 
     const { data: devices } = await supabase
-      .from('device_tokens').select('token').in('user_id', allowed);
+      .from('device_tokens').select('token, platform').in('user_id', allowed);
     if (!devices?.length) return;
 
     // `route` rides outside aps as custom data - the app opens it on tap
     const payload = { aps: { alert: body ? { title, body } : { title }, sound: 'default' }, ...(route ? { route } : {}) };
 
-    for (const d of devices as { token: string }[]) {
+    for (const d of devices as { token: string; platform: string }[]) {
+      // ── Android → FCM ──
+      if (d.platform === 'android') {
+        if (!fcmEnabled()) continue;
+        const res = await fcmPost(d.token, title, body, route);
+        if (res.status === 404 || res.status === 400) {
+          // UNREGISTERED / invalid: this installation is gone. Stop sending.
+          await supabase.from('device_tokens').delete().eq('token', d.token);
+          console.log(`[push] pruned dead android token (${res.status})`);
+          continue;
+        }
+        console.log(res.ok
+          ? `[push] fcm sent - "${title}"`
+          : `[push] fcm FAILED ${res.status}: ${await res.text().catch(() => '')}`);
+        continue;
+      }
+      // ── iOS → APNs ──
+      if (!pushEnabled()) continue;
       // TestFlight AND the App Store are both "production"; only builds run
       // straight from Xcode are sandbox. Try production, then fall back on the
       // one error that specifically means wrong environment.
