@@ -423,13 +423,19 @@ async function pushToUserIds(ids: string[], title: string, body?: string, route?
       .from('device_tokens').select('token, platform').in('user_id', allowed);
     if (!devices?.length) return;
 
+    // One-line channel/inventory summary so a missing secret is never silent
+    // again (Android push debug, 2026-09-10): we were skipping android tokens
+    // with no log when FCM_SERVICE_ACCOUNT was absent.
+    const inv = (devices as { platform: string }[]).reduce((m, d) => (m[d.platform] = (m[d.platform] ?? 0) + 1, m), {} as Record<string, number>);
+    console.log(`[push] channels apns=${pushEnabled()} fcm=${fcmEnabled()} | tokens ${JSON.stringify(inv)}`);
+
     // `route` rides outside aps as custom data - the app opens it on tap
     const payload = { aps: { alert: body ? { title, body } : { title }, sound: 'default' }, ...(route ? { route } : {}) };
 
     for (const d of devices as { token: string; platform: string }[]) {
       // ── Android → FCM ──
       if (d.platform === 'android') {
-        if (!fcmEnabled()) continue;
+        if (!fcmEnabled()) { console.log('[push] fcm SKIPPED - FCM_SERVICE_ACCOUNT missing/unparseable'); continue; }
         const res = await fcmPost(d.token, title, body, route);
         if (res.status === 404 || res.status === 400) {
           // UNREGISTERED / invalid: this installation is gone. Stop sending.
@@ -452,6 +458,16 @@ async function pushToUserIds(ids: string[], title: string, body?: string, route?
         const why = await res.clone().json().catch(() => ({} as { reason?: string }));
         if (why.reason === 'BadDeviceToken') {
           res = await apnsPost('api.sandbox.push.apple.com', d.token, payload);
+          // Still bad after the sandbox retry → this token is genuinely dead
+          // (e.g. a re-login minted a new one). Prune it: APNs answers 400
+          // BadDeviceToken here, not 410, so the 410 branch never caught these
+          // and stale rows piled up (found 2026-09-10 - an old token kept
+          // logging failures next to a working fresh one).
+          if (res.status === 400) {
+            await supabase.from('device_tokens').delete().eq('token', d.token);
+            console.log('[push] pruned stale ios token (BadDeviceToken)');
+            continue;
+          }
         }
       }
       if (res.status === 410) {
@@ -1268,7 +1284,7 @@ Deno.serve(async (req) => {
           `<p style="color:#475569;font-size:14px;line-height:1.6;">${L.billing.trialBody(esc(scope), String(record.trial_ends_at).slice(0, 10))}</p>`,
           L.billing.cta, `${APP_URL}/licenses`),
       }));
-      return json({ ok: true });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
     if (tbl === 'invoices' && (type === 'INSERT' || (type === 'UPDATE' && old_record?.status !== 'paid' && record.status === 'paid'))) {
       const { data: sub } = await supabase.from('subscriptions').select('*').eq('id', record.subscription_id).single();
@@ -1288,7 +1304,7 @@ Deno.serve(async (req) => {
             L.billing.cta, `${APP_URL}/licenses`),
         }));
       }
-      return json({ ok: true });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
 
     if (tbl === 'meetings' && type === 'INSERT' && record.meeting_type === 'scheduled') {
