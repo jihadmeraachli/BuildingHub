@@ -608,14 +608,13 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   L.L.C → press **Add for Review** on the 1.0 version (build 17 already
   attached, record complete). Nothing to do until they respond.
 - **Google Play**: org account created (info@tatawwor.com, D-U-N-S 557923160).
-  TWO verifications, both need Jey (neither is automatic): (1) **org/identity
-  verification** — Play Console → Settings → Developer account → Account
-  details; Google surfaces a task within days with a ~30-day deadline, confirm
-  D-U-N-S / legal name / address / tatawwor.com (same dossier as Apple, should
-  pass cleanly). (2) payments-profile verification is dormant (earning=No).
-  After org verification → upload keystore + Play App Signing → `bundleRelease`
-  AAB → Play listing (reuse docs/APP_STORE.md copy + Android-sized shots) →
-  internal testing track. See docs/ANDROID_APP.md.
+  Org identity + website verification SUBMITTED 2026-09-10 (Australian passport
+  accepted as ID, tatawwor.com verified in Search Console via a Cloudflare DNS
+  TXT record — LEAVE that TXT record in place or verification is lost) — now in
+  Google's review queue. When it clears → upload keystore + Play App Signing →
+  `bundleRelease` AAB → Play listing (reuse docs/APP_STORE.md copy +
+  Android-sized shots) → internal testing track. Payments-profile verification
+  stays dormant (earning=No). See docs/ANDROID_APP.md.
 - **Whish**: full corporate KYC submitted (email + hard copies). When they
   issue credentials → build the payment-intent integration (the last BLOCKED
   item on the QA coverage map) → the Cash-Out form (WM-FA-F-01-02-02) is the
