@@ -356,7 +356,11 @@ async function fcmPost(token: string, title: string, body?: string, route?: stri
         // route rides in data, same contract as the iOS payload - the app
         // opens it on tap (src/lib/push.ts bindTapListener)
         ...(route ? { data: { route } } : {}),
-        android: { priority: 'HIGH', notification: { sound: 'default' } },
+        // channel_id MUST match ANDROID_PUSH_CHANNEL in src/lib/push.ts, and
+        // the app must have createChannel()'d it — Android 8+ silently drops a
+        // notification whose channel does not exist (2026-09-10: FCM returned
+        // success but the Pixel showed nothing until the channel was declared).
+        android: { priority: 'HIGH', notification: { sound: 'default', channel_id: 'abniyah_default' } },
       },
     }),
   });

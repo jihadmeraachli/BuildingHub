@@ -69,6 +69,31 @@ async function saveToken(token: string): Promise<string | null> {
   return error ? `${error.code ?? ''} ${error.message}`.trim() : null;
 }
 
+/** The Android notification channel our FCM messages post to.
+ *  MUST match `android.notification.channel_id` in the dynamic-action sender.
+ *  Android 8+ silently DROPS any notification whose channel does not exist,
+ *  which is exactly why FCM returned success but the Pixel showed nothing
+ *  (2026-09-10): iOS has no channels, so it "just worked" and hid the gap.
+ *  IMPORTANCE_HIGH (5) makes it a heads-up banner. No-op on iOS. */
+export const ANDROID_PUSH_CHANNEL = 'abniyah_default';
+async function ensureAndroidChannel(): Promise<void> {
+  if (Capacitor.getPlatform() !== 'android') return;
+  try {
+    await PushNotifications.createChannel({
+      id: ANDROID_PUSH_CHANNEL,
+      name: 'Abniyah notifications',
+      description: 'Dues, payments, votes, issues and building announcements',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+    });
+  } catch (e) {
+    // Non-fatal: without it Android falls back to its own channel, which may
+    // or may not display — but we never want a channel error to block signin.
+    console.error('push channel create failed', e);
+  }
+}
+
 function bindListeners() {
   if (listenersBound) return;
   listenersBound = true;
@@ -95,6 +120,7 @@ export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: 
     }
     if (perm.receive !== 'granted') return { ok: false, reason: 'denied' };
 
+    await ensureAndroidChannel();
     bindListeners();
 
     // register() resolving only means the REQUEST was made — the token, or an
