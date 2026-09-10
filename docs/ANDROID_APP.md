@@ -55,6 +55,22 @@ Firebase project: **abniyah-e2a58** (console.firebase.google.com, owner
 info@tatawwor.com / jihad.meraachli@gmail.com), Android app registered for
 `com.abniyah.app`, Analytics off, Spark (free) plan.
 
+⚠️ **Notification channel (Android 8+):** a notification with no channel is
+SILENTLY DROPPED (or falls back to a delayed, non-heads-up Firebase channel).
+FCM will still return success, so this looks like a working backend with a
+dead device — exactly the 2026-09-10 symptom (`fcm sent` in the logs, nothing
+on the Pixel). The app createChannel()s `abniyah_default` on every
+push-granted launch (`ANDROID_PUSH_CHANNEL` in src/lib/push.ts) and
+dynamic-action sends `android.notification.channel_id: 'abniyah_default'`.
+The two MUST stay in sync. iOS has no channels, so a mismatch shows up on
+Android only.
+
+**Push debugging aid:** every send logs one line —
+`[push] channels apns=<bool> fcm=<bool> | tokens {"ios":N,"android":M}` —
+then `[push] sent` / `[push] fcm sent` / `[push] ... FAILED <status>`. If
+`fcm=false`, the FCM_SERVICE_ACCOUNT secret is missing/unparseable in the
+deployed function.
+
 ## Sideloading onto the Pixel Tablet (testing)
 1. Settings → About tablet → tap **Build number** 7× (enables Developer options)
 2. Transfer `app-debug.apk` (Drive/USB/chat) → tap it → allow "install unknown apps" for the source app → Install
