@@ -41,6 +41,20 @@ Release (once keystore exists): `.\gradlew.bat bundleRelease` → AAB for Play.
 then drop `google-services.json` into `android/app/` (download from the
 Firebase console — it is NOT in the repo), then the build commands above.
 
+⚠️ **Manual manifest step after `cap add android`** (found on the first
+Pixel Tablet install): add to `android/app/src/main/AndroidManifest.xml`
+next to the INTERNET permission —
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+Android 13+ treats notifications as a runtime permission; without the
+declaration the permission prompt can never appear and push silently
+stays off. The Capacitor push plugin does NOT add it for you.
+
+Firebase project: **abniyah-e2a58** (console.firebase.google.com, owner
+info@tatawwor.com / jihad.meraachli@gmail.com), Android app registered for
+`com.abniyah.app`, Analytics off, Spark (free) plan.
+
 ## Sideloading onto the Pixel Tablet (testing)
 1. Settings → About tablet → tap **Build number** 7× (enables Developer options)
 2. Transfer `app-debug.apk` (Drive/USB/chat) → tap it → allow "install unknown apps" for the source app → Install
