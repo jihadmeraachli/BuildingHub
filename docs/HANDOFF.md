@@ -607,11 +607,15 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   identity verification. When Apple completes it → seller becomes Tatawwor
   L.L.C → press **Add for Review** on the 1.0 version (build 17 already
   attached, record complete). Nothing to do until they respond.
-- **Google Play**: org account created (info@tatawwor.com, D-U-N-S 557923160),
-  verification pending. When verified → generate an upload keystore + enrol in
-  Play App Signing → `bundleRelease` AAB → Play listing (reuse
-  docs/APP_STORE.md copy + Android-sized screenshots) → internal testing track.
-  See docs/ANDROID_APP.md.
+- **Google Play**: org account created (info@tatawwor.com, D-U-N-S 557923160).
+  TWO verifications, both need Jey (neither is automatic): (1) **org/identity
+  verification** — Play Console → Settings → Developer account → Account
+  details; Google surfaces a task within days with a ~30-day deadline, confirm
+  D-U-N-S / legal name / address / tatawwor.com (same dossier as Apple, should
+  pass cleanly). (2) payments-profile verification is dormant (earning=No).
+  After org verification → upload keystore + Play App Signing → `bundleRelease`
+  AAB → Play listing (reuse docs/APP_STORE.md copy + Android-sized shots) →
+  internal testing track. See docs/ANDROID_APP.md.
 - **Whish**: full corporate KYC submitted (email + hard copies). When they
   issue credentials → build the payment-intent integration (the last BLOCKED
   item on the QA coverage map) → the Cash-Out form (WM-FA-F-01-02-02) is the
