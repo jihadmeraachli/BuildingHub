@@ -600,6 +600,54 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 
 ## 7. Known gaps / tech debt
 
+### ▶ OPEN ACTION ITEMS (as of 2026-09-10)
+
+**Launch tracks — waiting on external parties, then one action each:**
+- **Apple**: enrollment `KA8T59333X` / case `102952834969` in org-conversion +
+  identity verification. When Apple completes it → seller becomes Tatawwor
+  L.L.C → press **Add for Review** on the 1.0 version (build 17 already
+  attached, record complete). Nothing to do until they respond.
+- **Google Play**: org account created (info@tatawwor.com, D-U-N-S 557923160),
+  verification pending. When verified → generate an upload keystore + enrol in
+  Play App Signing → `bundleRelease` AAB → Play listing (reuse
+  docs/APP_STORE.md copy + Android-sized screenshots) → internal testing track.
+  See docs/ANDROID_APP.md.
+- **Whish**: full corporate KYC submitted (email + hard copies). When they
+  issue credentials → build the payment-intent integration (the last BLOCKED
+  item on the QA coverage map) → the Cash-Out form (WM-FA-F-01-02-02) is the
+  settlement/withdraw flow, needs the assigned Client ID.
+
+**Code / product — do when you have a moment:**
+- **New issues never email/push the admins — only the in-app bell.** The
+  `issues` INSERT handler EXISTS in dynamic-action (§3) but there is **no
+  Database Webhook wired for `issues` INSERT** (only UPDATE, for the resolved
+  email). Lost & found notifies on insert; issues should too. Fix: add a
+  Database Webhook on `issues` INSERT → dynamic-action (same footgun called
+  out for adjustments/payment_request_lines).
+- **Android push — instant delivery polish.** Push WORKS (verified on the
+  Pixel Tablet 2026-09-10). The notification-channel fix (`abniyah_default`)
+  is committed + dynamic-action redeployed; install the channel-fix APK on
+  the test device(s) so delivery is an immediate heads-up banner rather than
+  the delayed Firebase fallback. docs/ANDROID_APP.md.
+- **help-chat (Jad) redeploy owed.** Several migrations note it (0158, 0165…):
+  Jad's guidance for amenities costs, inspection chains, purchase types and
+  metering is written but may not be live. Redeploy help-chat from the
+  Supabase dashboard.
+- **QA backlog (2026-09-06 sweep).** Medium/low findings live in the QA report
+  artifact §03: import coerces `+` off phone numbers; import invite bursts
+  fail without retry; resident can open admin routes by URL (RLS-safe, but
+  should redirect); first metering cycle proposes no dates;
+  `complete_admin_onboarding` hardcodes `price_per_unit_cents=500` vs the band
+  pricing the wizard sells; Finance→Balances rows are dead; Import "X" resets
+  a batch unlabelled. None release-blocking.
+- **Weighted-Average metering model** is the only product area the QA sweeps
+  never exercised (Month-by-Month is fully verified).
+
+**Marketing — Jey's call, not code:**
+- Social scheduler decision (Blaze trial vs Publer + Claude-generated batches);
+  week-1 content is produced and sitting in Downloads. docs/marketing/.
+
+### Standing gaps
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
 - **Compound inspection admins** — `get_due_inspections()` finds org admins via `org_buildings` join; platform-admin-only compounds (no `org_id`) won't have anyone to notify for inspection reminders.
 - **WhatsApp notifications** — dedicated number still being sourced; email is the only active channel for now.
