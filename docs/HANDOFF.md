@@ -600,13 +600,24 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 
 ## 7. Known gaps / tech debt
 
-### ▶ OPEN ACTION ITEMS (as of 2026-09-10)
+### ▶ OPEN ACTION ITEMS (as of 2026-09-16)
 
 **Launch tracks — waiting on external parties, then one action each:**
-- **Apple**: enrollment `KA8T59333X` / case `102952834969` in org-conversion +
-  identity verification. When Apple completes it → seller becomes Tatawwor
-  L.L.C → press **Add for Review** on the 1.0 version (build 17 already
-  attached, record complete). Nothing to do until they respond.
+- **Apple**: ✅ **ORG CONVERSION COMPLETE 2026-09-16.** Entity "Tatawwor L.L.C",
+  Enrolled as Organization, **Team ID UNCHANGED `8PHJEU7CDL`** — so the app
+  record, App ID `com.abniyah.app` and the APNs key all carried over: no App
+  Transfer, no second app record, no push rework. No new $99 charged (the paid
+  term carried over; renews 29 Jul 2027). What cleared it was the **إفادة شاملة
+  / "Comprehensive Certificate Showing the Actual Situation"** from the Beirut
+  Register (14 Sep) + sworn translation — the 2023 short-form certificate alone
+  was NOT enough (no address, no signatories, 3 years old).
+  **Now blocking Add for Review: EU Digital Services Act trader verification.**
+  Declared as a trader (the alternative forfeits the EU, which matters for
+  diaspora owners); contact details are PUBLIC on the product page, so business
+  ones only. The phone step fails — "too many verification codes" on the *first*
+  attempt, then a generic error. Manual verification requested from Apple (their
+  docs allow it; there is no self-service button). Blocks **EU availability
+  only** — we can ship with the EU excluded and add it later if they drag.
 - **Google Play**: org account created (info@tatawwor.com, D-U-N-S 557923160).
   Org identity + website verification SUBMITTED 2026-09-10 (Australian passport
   accepted as ID, tatawwor.com verified in Search Console via a Cloudflare DNS
@@ -615,10 +626,26 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   `bundleRelease` AAB → Play listing (reuse docs/APP_STORE.md copy +
   Android-sized shots) → internal testing track. Payments-profile verification
   stays dormant (earning=No). See docs/ANDROID_APP.md.
-- **Whish**: full corporate KYC submitted (email + hard copies). When they
-  issue credentials → build the payment-intent integration (the last BLOCKED
-  item on the QA coverage map) → the Cash-Out form (WM-FA-F-01-02-02) is the
-  settlement/withdraw flow, needs the assigned Client ID.
+- **Whish**: ✅ **PROVEN END-TO-END IN SANDBOX 2026-09-16.** Sandbox credentials
+  were actually sent 9 Sep (sat in the junk folder). **The code needed no
+  changes at all** — `whish-pay`/`whish-callback` already matched their API
+  field-for-field; only configuration was missing. Verified on QA Probe Tower
+  (`c5c99dc5-…`), every link checked in the DB: intent created with the amount
+  computed server-side ($85 = the `monthly_price_cents()` band, NOT the legacy
+  `price_per_unit_cents`) → hosted collect page → phone+OTP → unauthenticated
+  GET callback → verified via `/payment/collect/status` → `settle_payment_intent`
+  → intent `paid` + invoice created already-paid + subscription trial→active +
+  receipt email delivered. `whish-reconcile` cron now scheduled (`*/15`).
+  ⚠️ **`whish-callback` must keep Verify JWT OFF** — Whish calls it
+  unauthenticated, and the toggle is known to silently revert after a redeploy;
+  then nothing settles, silently. Probe: unauthenticated GET must return
+  **400 `missing intent`**, never 401. Sandbox payer: `96170123456` / OTP
+  `111111`.
+  **Still open for LIVE:** corporate KYC approval (documents under review);
+  going live is one switch — `WHISH_BASE_URL` → `https://api.whish.money/itel-service/api`;
+  refunds additionally need our egress IP whitelisted; the Cash-Out form
+  (WM-FA-F-01-02-02) is the settlement/withdraw flow and needs the assigned
+  Client ID.
 
 **Code / product — do when you have a moment:**
 - **New issues never email/push the admins — only the in-app bell.** The
@@ -647,8 +674,22 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   never exercised (Month-by-Month is fully verified).
 
 **Marketing — Jey's call, not code:**
-- Social scheduler decision (Blaze trial vs Publer + Claude-generated batches);
-  week-1 content is produced and sitting in Downloads. docs/marketing/.
+- **Scheduler DECIDED (2026-09-16): no paid tool.** All four channels schedule
+  natively for free — Meta Business Suite covers Facebook + Instagram together,
+  TikTok and LinkedIn each have their own. Publer/Buffer free tiers cap at 3
+  channels and we need 4, so a paid plan (~$12/mo) buys only convenience.
+  Blaze.ai trial evaluated and dropped 13 Sep (it scanned the *gated* beta page
+  and generated entirely wrong "access code" content).
+- **Week-1 assets DONE**, in `Downloads/Abniyah Week1 Visuals/`:
+  `post1-reel-bilingual.mp4` (EN cut → "Abniyah / Coming soon" → AR cut, 22.8s,
+  1080×1920, no page chrome), `post1-reel-cover.png`, the **e1–e4** bilingual
+  carousel (chosen over Arabic-only c1–c4) and `post2-estory.png`.
+  Per-platform captions drafted — note **LinkedIn posts as the Tatawwor page**,
+  so it takes a different, B2B voice, not the Arabic-first consumer copy.
+  ⚠️ **Reel has no audio.** Fairuz and commercial music are NOT usable: a
+  Business account only gets the cleared Meta Sound Collection / TikTok
+  Commercial Music Library. Jey is recording a bilingual voiceover instead;
+  script and beat timings are in the session notes, to be muxed with ffmpeg.
 
 ### Standing gaps
 - **Meetings attendee picker** reads `profiles.building_id` (legacy) — membership-only owners may not appear yet.
