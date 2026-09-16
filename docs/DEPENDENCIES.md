@@ -130,6 +130,8 @@ entirely and is the fastest way to get current code live in ~30s.
 - [ ] Supabase plan — free tier limits (DB size, MAU) will bite as customers grow
 - [ ] Resend plan — free tier is 100 emails/day; watch as buildings onboard
 - [ ] Anthropic API — pay-as-you-go credit balance (AI import stops silently at $0)
+- [ ] Anthropic API key `newapiabniyah` (the `ANTHROPIC_API_KEY` Supabase secret) **expires 30 Jun 2027**. Expiry is set per key, independent of credits. Before then: Console → create a no-expiry key → paste into Supabase → Edge Functions → Secrets → ask Jad a question to confirm → delete the old key. Jad + all AI import fail on expiry. (The July `abniya-test-import` key expired 15 Sep 2026 unused — not the live one.)
+- [ ] Apple Developer Program — US$99/yr, **renews 29 Jul 2027**. Account is now the ORGANIZATION "Tatawwor L.L.C" (converted from individual 16 Sep 2026, Team ID unchanged: `8PHJEU7CDL`). Lapsing pulls the app from the App Store.
 - [ ] Meta WhatsApp — per-message billing on the Business account card; sender SIM must stay alive (number re-verification)
 - [ ] Whish merchant wallet — subscription fees land here; keys pending approval
 - [ ] Areeba merchant account — card payments + tokenization (auto-renew); account not opened yet, functions ship as 503 until keys exist

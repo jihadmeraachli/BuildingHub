@@ -159,10 +159,13 @@ Take them with the **demo building** so no real resident data appears.
 
 ## Open questions
 
-- **Team:** currently the individual team `8PHJEU7CDL` (seller shows the
-  personal name). If the Tatawwor **organization** enrollment (D-U-N-S
-  557923160) has completed, create the app record under the org team
-  instead — moving an app between teams later is possible (App Transfer)
-  but is paperwork; pick the team BEFORE creating the record.
-- **Android:** untouched (needs Firebase for push). The PWA covers Android
-  browsers meanwhile.
+- ~~**Team:**~~ **RESOLVED 16 Sep 2026.** The individual membership was
+  converted in place to the **organization** "Tatawwor L.L.C" (D-U-N-S
+  557923160) and the **Team ID stayed `8PHJEU7CDL`**. So the existing app
+  record, App ID `com.abniyah.app` and APNs key are already on the org
+  team — **no App Transfer, no new app record**. Seller name now shows
+  Tatawwor. Membership renews 29 Jul 2027 (no new $99 was charged; the
+  paid term carried over).
+- ~~**Android:**~~ **RESOLVED.** The Android app ships via Capacitor with
+  FCM push working end-to-end — see `docs/ANDROID_APP.md`. Play Console
+  organization account created; org verification pending.
