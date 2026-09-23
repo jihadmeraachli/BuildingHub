@@ -603,7 +603,18 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 ### ▶ OPEN ACTION ITEMS (as of 2026-09-16)
 
 **Launch tracks — waiting on external parties, then one action each:**
-- **Apple**: ✅ **ORG CONVERSION COMPLETE 2026-09-16.** Entity "Tatawwor L.L.C",
+- **Apple**: 🚀 **SUBMITTED FOR REVIEW 2026-09-24 — build 18, version 1.0.**
+  Build 18 = build 17 + the Face ID sign-in fix (13d0b59) + Whish-only
+  payments (608fe5b). Submission unblocked by: Privacy Policy URL
+  (https://abniyah.com/privacy) in App Privacy, a 13-inch iPad screenshot
+  set (Downloads/"Abniyah AppStore Screenshots iPad13", 6 × 2064×2752, shot
+  from the demo like the iPhone set), and the Arabic localisation's Support
+  URL. Review normally 1–3 days; a rejection cites a guideline number.
+  Review login = the +applereview account (unit 601, Tulip) + the Apple beta
+  code — both verified live 21 Sep. Ships with the beta gate ON and the EU
+  excluded (see DSA below). STILL TO VERIFY on the TestFlight build: the
+  next-day Face ID sign-in (token rotation) — if it fails, ship 1.0.1.
+- **Apple (history)**: ✅ ORG CONVERSION COMPLETE 2026-09-16. Entity "Tatawwor L.L.C",
   Enrolled as Organization, **Team ID UNCHANGED `8PHJEU7CDL`** — so the app
   record, App ID `com.abniyah.app` and the APNs key all carried over: no App
   Transfer, no second app record, no push rework. No new $99 charged (the paid
