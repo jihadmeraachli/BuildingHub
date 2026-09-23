@@ -133,6 +133,7 @@ function SettingsInner() {
     const { error } = await supabase.rpc('delete_own_account');
     if (error) { setDelBusy(false); toast.error(error.message); return; }
     // the login no longer exists - clear the local session and leave
+    await forgetBioSession();
     await supabase.auth.signOut();
     window.location.href = '/';
   }

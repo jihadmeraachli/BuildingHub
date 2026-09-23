@@ -7,6 +7,8 @@ import { rolesHaveCap } from '@/lib/permissions';
 import type { Profile, Grant, Membership, Capability, GrantRole } from '@/types';
 import { grantIsLive } from '@/types';
 import { disablePush } from '@/lib/push';
+import { bioLoginEnabled } from '@/lib/biolock';
+import { rememberSessionForBio, forgetBioSession, getBioSession, softSignOut } from '@/lib/bioSession';
 
 interface AuthContextValue {
   user: User | null;
@@ -117,6 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Deactivated accounts must not hold a session — otherwise "deactivate"
     // is only a badge. Kick them straight back out to Login. (Migration 0026.)
     if (p?.status === 'inactive') {
+      // Deactivation is the one sign-out that SHOULD reach every device, and it
+      // must take the Face ID credential with it.
+      await forgetBioSession();
       await supabase.auth.signOut();
       setProfile(null);
       toast.error('Your account has been deactivated. Please contact your building admin.');
@@ -224,6 +229,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      // Self-heal the Face ID credential at launch: if the app was killed
+      // between a token rotation and our copy of it, this catches it up.
+      if (session && bioLoginEnabled()) void rememberSessionForBio(session);
       if (session?.user) {
         const uid = session.user.id;
         checkMfaLevel();
@@ -240,6 +248,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      // Keep the Face ID credential in step with the live session. Supabase
+      // ROTATES the refresh token on every refresh (~hourly) and on MFA
+      // verification; a copy taken once at enrolment is dead after the first
+      // rotation, which is exactly how "Face ID sign-in has expired" happened.
+      // The session is passed in — calling back into supabase.auth from inside
+      // this callback can deadlock on the client's lock.
+      if (session && bioLoginEnabled()) void rememberSessionForBio(session);
       if (session?.user) {
         const uid = session.user.id;
         // setTimeout: auth calls inside this callback can deadlock on the client's
@@ -274,7 +289,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // authorise the delete. Otherwise the next person to use the phone keeps
     // receiving the previous user's building notices.
     await disablePush();
-    await supabase.auth.signOut();
+
+    // Face ID sign-in on: leave the session alive server-side so Face ID can
+    // restore it from the login screen. A real signOut() revokes it, and the
+    // Keychain copy would "survive" only as a dead token. See bioSession.ts.
+    if (bioLoginEnabled() && (await getBioSession()) && (await softSignOut())) return;
+
+    // scope 'local', NOT the library default. The default is 'global', which
+    // revokes EVERY session the user has: signing out on the web threw the
+    // phone and the tablet back to the login screen too.
+    await supabase.auth.signOut({ scope: 'local' });
   }
 
   const isPlatformAdmin = !!profile?.is_platform_admin;

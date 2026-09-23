@@ -14,7 +14,7 @@ import { LanguagePicker } from '@/components/ui/LanguagePicker';
 import { ArrowLeft, Mail, Smartphone, Fingerprint } from 'lucide-react';
 import { getPref, setPref, PREF_LAST_EMAIL } from '@/lib/devicePrefs';
 import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
-import { getBioSession, restoreBioSession, rememberSessionForBio } from '@/lib/bioSession';
+import { getBioSession, restoreBioSession, rememberSessionForBio, forgetBioSession } from '@/lib/bioSession';
 import { betaScope } from '@/lib/demo';
 
 const loginSchema = z.object({
@@ -319,7 +319,15 @@ export default function Login() {
               </form>
 
               <button
-                onClick={async () => { await supabase.auth.signOut(); setMode('login'); setError(''); }}
+                onClick={async () => {
+                  // Backing out mid-2FA revokes the half-signed-in session — and
+                  // the Face ID credential was just pointed at it, so drop that too.
+                  await forgetBioSession();
+                  setBioReady(false);
+                  await supabase.auth.signOut({ scope: 'local' });
+                  setMode('login');
+                  setError('');
+                }}
                 className="mt-6 text-sm text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 {t('auth.backToLogin')}

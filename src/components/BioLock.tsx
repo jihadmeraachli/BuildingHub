@@ -7,6 +7,7 @@ import { Wordmark } from '@/components/ui/Wordmark';
 import { Button } from '@/components/ui/Button';
 import { isNativeApp, bioLoginEnabled, bioAuthenticate } from '@/lib/biolock';
 import { loadDevicePrefs } from '@/lib/devicePrefs';
+import { forgetBioSession } from '@/lib/bioSession';
 
 /**
  * Face ID sign-in gate for the native app (#55).
@@ -77,7 +78,11 @@ export function BioLock({ children }: { children: ReactNode }) {
   /** Escape hatch: sign out and fall back to email + password. Without this a
    *  failed or unavailable Face ID would be a dead end on the user's own app. */
   const usePassword = useCallback(async () => {
-    await supabase.auth.signOut();
+    // The Face ID credential mirrors the very session being revoked here, so it
+    // goes too — otherwise the login screen offers a Face ID button that can
+    // only fail. scope 'local': leave the user's other devices signed in.
+    await forgetBioSession();
+    await supabase.auth.signOut({ scope: 'local' });
     rememberUnlock();
     setStatus('open');
   }, []);

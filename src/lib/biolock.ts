@@ -14,8 +14,10 @@ import { getPref, setPref, removePref, PREF_BIO_LOGIN } from '@/lib/devicePrefs'
  * without this the app opens straight into a building's finances for whoever
  * is holding the phone. With it, that session is only revealed after Face ID.
  *
- * It deliberately does NOT survive an explicit sign-out — once you sign out the
- * password is required again, which is what signing out should mean.
+ * This launch gate is one half of Face ID sign-in. The other half — signing
+ * back in from the LOGIN screen, including after an explicit sign-out — lives
+ * in bioSession.ts, which also explains why sign-out on this device is a "soft"
+ * one while Face ID sign-in is on.
  *
  * Preference is per device, in localStorage.
  */

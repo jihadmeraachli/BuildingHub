@@ -611,21 +611,39 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   / "Comprehensive Certificate Showing the Actual Situation"** from the Beirut
   Register (14 Sep) + sworn translation — the 2023 short-form certificate alone
   was NOT enough (no address, no signatories, 3 years old).
-  **Now blocking Add for Review: EU Digital Services Act trader verification.**
-  Declared as a trader (the alternative forfeits the EU, which matters for
-  diaspora owners); contact details are PUBLIC on the product page, so business
-  ones only. The phone step fails — "too many verification codes" on the *first*
-  attempt, then a generic error. Manual verification requested from Apple (their
-  docs allow it; there is no self-service button). Blocks **EU availability
-  only** — we can ship with the EU excluded and add it later if they drag.
-- **Google Play**: org account created (info@tatawwor.com, D-U-N-S 557923160).
-  Org identity + website verification SUBMITTED 2026-09-10 (Australian passport
-  accepted as ID, tatawwor.com verified in Search Console via a Cloudflare DNS
-  TXT record — LEAVE that TXT record in place or verification is lost) — now in
-  Google's review queue. When it clears → upload keystore + Play App Signing →
-  `bundleRelease` AAB → Play listing (reuse docs/APP_STORE.md copy +
-  Android-sized shots) → internal testing track. Payments-profile verification
-  stays dormant (earning=No). See docs/ANDROID_APP.md.
+  **EU Digital Services Act: resolved 2026-09-21 by shipping WITHOUT the EU for
+  now.** Declared "don't plan to distribute in the EU" → DSA compliance shows
+  complete, Apple excludes the 27 EU countries, everywhere else ships. The
+  trader route was blocked for five days: the phone step failed instantly with
+  "too many verification codes" on the first attempt of every day. ROOT CAUSE:
+  the business number (+961 78 995 443) is also attached to Jey's Apple Account,
+  and the DSA SMS shares Apple's per-number sign-in-code rate limiter — so it
+  never gets a clean 24h. Tier-1 support answered three times with the Apple
+  Account 2FA template (cases 102964784402, 102966127071); the manual-verification
+  link they cite never renders because the page errors first. TO ADD THE EU
+  LATER: get the limiter reset via an Apple phone callback (available from AU),
+  or verify during a genuinely quiet 24h with the Lebanese SIM able to receive
+  SMS; then flip the declaration to trader (public contacts: support@abniyah.com
+  / the business number) — no app resubmission needed. Do NOT remove the number
+  from the Apple Account to "reset" it: re-adding needs the very SMS that is
+  throttled. Also seen: Edit Legal Entity flags the D-U-N-S-imported Address 1
+  as "too long" (45 chars) — only matters for the Paid Apps Agreement, which we
+  don't need; don't edit it (triggers a legal-entity review).
+- **Google Play**: ✅ **ORG VERIFICATION COMPLETE 2026-09-17.** Organization
+  account, developer name "Tatawwor L.L.C", website + emails + phones all
+  verified (the mobile number was the last gate). tatawwor.com stays verified
+  via the Cloudflare DNS TXT record — **LEAVE that record in place**. Side
+  effect worth knowing: GCP Trust & Safety had auto-suspended the Firebase
+  project `abniyah-e2a58` pending this identity check (Android push silently
+  dead meanwhile — iOS/email unaffected) and reinstated it the same day; push
+  re-verified working 17 Sep. If a "suspended" email ever appears again, that
+  is what it is — check Cloud Logging, don't click the email button.
+  **Android store track is now UNBLOCKED:** upload keystore + Play App Signing
+  → `bundleRelease` AAB → Play listing (reuse docs/APP_STORE.md copy +
+  Android-sized shots) → internal testing track. Play also has its own EU
+  DSA trader declaration (App content section) — same answer and same public
+  contacts as Apple's. Payments-profile verification stays dormant
+  (earning=No). See docs/ANDROID_APP.md.
 - **Whish**: ✅ **PROVEN END-TO-END IN SANDBOX 2026-09-16.** Sandbox credentials
   were actually sent 9 Sep (sat in the junk folder). **The code needed no
   changes at all** — `whish-pay`/`whish-callback` already matched their API
