@@ -348,24 +348,6 @@ export default function Licenses() {
   // Auto-renew removed from the UI for now (roadmap): the charge engine needs
   // Areeba tokenization + a dunning window; showing a toggle that cannot
   // charge would be a promise the app can't keep. set_auto_renew stays in SQL.
-  /** Card — same shape as Whish: the server builds the session from what is
-   *  being bought, we just follow the redirect. 503 until the keys exist. */
-  async function payWithCard(pi: PayIntent) {
-    if (!sub) return;
-    setPaying('areeba');
-    try {
-      const { data, error } = await supabase.functions.invoke('areeba-pay', {
-        body: { subscription_id: sub.id, kind: pi.kind, plan: pi.plan, add: pi.add ?? 0 },
-      });
-      if (error || !data?.checkoutUrl) {
-        toast.error(data?.error ?? error?.message ?? t('billing.cardUnavailable'));
-        return;
-      }
-      window.location.href = data.checkoutUrl as string;
-    } finally {
-      setPaying('');
-    }
-  }
   /** 0118: the receipt as a Lebanese tax invoice (VAT 11%, amounts inclusive). */
   function downloadInvoice(inv: Invoice) {
     if (!sub) return;
@@ -778,14 +760,12 @@ export default function Licenses() {
                 ? t('billing.payDesc', { amount: usd(payIntent.amountCents), start: payIntent.periodStart, end: payIntent.periodEnd })
                 : t('licensesPage.priceTalk')}
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" loading={paying === 'whish'} onClick={() => payWithWhish(payIntent)}>
-                {t('licensesPage.payWithWhish')}
-              </Button>
-              <Button variant="outline" loading={paying === 'areeba'} onClick={() => payWithCard(payIntent)}>
-                {t('billing.payWithCard')}
-              </Button>
-            </div>
+            {/* Whish only for now: card payments (Areeba) are hidden until a card
+                gateway is actually contracted. areeba-pay stays deployed; to
+                re-enable, add the second button back here. */}
+            <Button variant="outline" className="w-full" loading={paying === 'whish'} onClick={() => payWithWhish(payIntent)}>
+              {t('licensesPage.payWithWhish')}
+            </Button>
             <p className="text-xs text-muted-foreground">{t('billing.payLater')}</p>
           </div>
         )}

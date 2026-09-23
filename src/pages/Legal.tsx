@@ -295,7 +295,7 @@ function TermsEn() {
         and no payment method is required until you subscribe.
       </p>
       <ul>
-        <li><strong>Invoices &amp; renewal.</strong> Renewal invoices are issued 7 days before a period ends, payable by Whish or by card. If auto-renew is enabled, the payment method saved with our payment provider is charged automatically; you are notified 7 days before.</li>
+        <li><strong>Invoices &amp; renewal.</strong> Renewal invoices are issued 7 days before a period ends, payable by Whish Money. If auto-renew is enabled, the payment method saved with our payment provider is charged automatically; you are notified 7 days before.</li>
         <li><strong>Unpaid invoices.</strong> After the trial or a period ends unpaid, access continues unchanged for a <strong>7-day grace period</strong> with reminders. After that the account is <strong>locked</strong>: administrator access becomes read-only except for billing, and residents cannot sign in until the open invoice is settled, which restores access immediately. Your data is retained throughout.</li>
         <li><strong>Adding licences.</strong> Adding licences that moves you into a higher price band mid-period generates a top-up invoice, prorated by the remaining days of the period.</li>
         <li><strong>Removing licences.</strong> Reducing licences never generates a refund; the lower band applies from your next billing period. Licences cannot drop below the units you hold.</li>
