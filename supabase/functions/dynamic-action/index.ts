@@ -1224,7 +1224,11 @@ Deno.serve(async (req) => {
     // 5f-ii. Payment request issued (0076/0077) → the billed party only.
     //   Needs a Database Webhook on `payment_request_lines` INSERT, or only the
     //   in-app bell fires (same footgun as the adjustments webhook).
-    //   ⚠️ Reuses abniyah_payment_reminder - param count stays 5 with payLine.
+    //   Template: abniyah_new_charge (approved, same 5 params + payLine). It
+    //   USED to reuse abniyah_payment_reminder, so a brand-new request went out
+    //   worded "a friendly reminder: your unit has an outstanding balance" -
+    //   wrong on both counts for something issued a minute ago (Jey, 26 Sep).
+    //   abniyah_payment_reminder is now ONLY the send-reminders cron's.
     if (tbl === 'payment_request_lines' && type === 'INSERT') {
       const { data: pr } = await supabase.from('payment_requests')
         .select('label, due_date').eq('id', record.request_id).single();
@@ -1250,7 +1254,7 @@ Deno.serve(async (req) => {
             L.ctaAccount, `${APP_URL}/finance`),
         };
       }, b?.name ?? 'Abniyah');
-      await whatsappToUserIds(to, 'abniyah_payment_reminder',
+      await whatsappToUserIds(to, 'abniyah_new_charge',
         (name, lang) => {
           const base = [name, amount, prUnit?.label ?? '-', b?.name ?? '-'];
           return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;

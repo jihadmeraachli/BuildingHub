@@ -215,6 +215,9 @@ account (0059), else a generic "details in your account" line.
 > ratio check (hence the fuller sentences on dues).
 
 ### 1. `abniyah_new_charge` — 5 variables per language
+Used by: `payment_request_lines` INSERT (a payment request / extraordinary
+expense issued to a unit). Until 26 Sep 2026 that event reused template 5,
+so a brand-new request read as an overdue reminder - keep them separate.
 English (`en`):
 ```
 Hello {{1}},
@@ -304,6 +307,7 @@ Arabic (`ar`):
 Samples: `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Woroud
 
 ### 5. `abniyah_payment_reminder` — 5 variables per language
+Used by: the `send-reminders` cron ONLY (genuinely overdue balances).
 English (`en`):
 ```
 Hello {{1}},
