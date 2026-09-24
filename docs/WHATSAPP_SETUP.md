@@ -307,7 +307,7 @@ Samples: `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Wo
 ### 5. `abniyah_payment_reminder` — 5 variables per language
 Used by: the `send-reminders` cron ONLY (genuinely overdue balances).
 
-### 6. `abniyah_payment_request` — 6 variables per language ⚠️ CREATE + GET APPROVED
+### 6. `abniyah_payment_request` — 6 variables per language ✅ APPROVED en+ar 25 Sep 2026, verified live
 Used by: `payment_request_lines` INSERT — a payment request or extraordinary
 expense issued to a unit. Until 26 Sep 2026 that event reused template 5, so a
 brand-new request read as an overdue reminder and carried NO description.
@@ -318,21 +318,25 @@ Category: **Utility**. Same name for both language variants.
 English (`en`):
 ```
 Hello {{1}},
-A payment has been requested for {{2}}:
-Amount: {{3}}
+Your building committee has issued a payment request for {{2}}.
+Here are the details:
+Amount requested: {{3}}
 Unit: {{4}}
 Building: {{5}}
 {{6}}
+You can see the full breakdown and your balance in your Abniyah account.
 Thank you!
 ```
 Arabic (`ar`):
 ```
 مرحباً {{1}}،
-طُلب منك دفع مبلغ عن {{2}}:
-المبلغ: {{3}}
+أصدرت لجنة المبنى طلب دفع عن {{2}}.
+هذه هي التفاصيل:
+المبلغ المطلوب: {{3}}
 الوحدة: {{4}}
 المبنى: {{5}}
 {{6}}
+يمكنك الاطلاع على التفاصيل الكاملة ورصيدك في حسابك على أبنية.
 شكراً لك!
 ```
 Samples: `{{1}}` Rana · `{{2}}` Extraordinary: Roof repair · `{{3}}` $120.00 ·
@@ -340,9 +344,14 @@ Samples: `{{1}}` Rana · `{{2}}` Extraordinary: Roof repair · `{{3}}` $120.00 �
 `{{6}}` en: `You can pay directly through Whish to 03 123 456.` /
 ar: `يمكنك الدفع مباشرة عبر Whish إلى 03 123 456.`
 
-Deploy order: create both variants in Meta → wait for **Approved** → redeploy
-`dynamic-action`. Deploying first is harmless (the send fails and is logged;
-email + bell still go out) but pointless.
+Lessons from the submission (25 Sep): Meta rejects a body as "too many
+variables for its length" — fix by adding wording, never by dropping variables.
+Each language is a separate row with the SAME name. The RTL sample box
+scrambles a mixed Arabic/Latin pay line on screen only — paste anyway, or use
+the pure-Arabic fallback line as the sample. Line breaks are part of the
+approved body: changing them = re-submit (fast for Utility).
+No French variants on purpose: the code maps every profile to en/ar and no
+beta user has chosen French; add them when a French-preference resident exists.
 English (`en`):
 ```
 Hello {{1}},
