@@ -1224,11 +1224,14 @@ Deno.serve(async (req) => {
     // 5f-ii. Payment request issued (0076/0077) → the billed party only.
     //   Needs a Database Webhook on `payment_request_lines` INSERT, or only the
     //   in-app bell fires (same footgun as the adjustments webhook).
-    //   Template: abniyah_new_charge (approved, same 5 params + payLine). It
-    //   USED to reuse abniyah_payment_reminder, so a brand-new request went out
-    //   worded "a friendly reminder: your unit has an outstanding balance" -
-    //   wrong on both counts for something issued a minute ago (Jey, 26 Sep).
-    //   abniyah_payment_reminder is now ONLY the send-reminders cron's.
+    //   Template: abniyah_payment_request (6 params: name, WHAT, amount, unit,
+    //   building, payLine) - see docs/WHATSAPP_SETUP.md. It USED to reuse
+    //   abniyah_payment_reminder, so a brand-new request went out worded "a
+    //   friendly reminder: your unit has an outstanding balance" - wrong on
+    //   both counts for something issued a minute ago, and with no description
+    //   at all: "$120" starts an argument, "Roof repair, $120" does not (Jey,
+    //   26 Sep). Until Meta approves the template the send fails and is logged;
+    //   email + bell still carry the news.
     if (tbl === 'payment_request_lines' && type === 'INSERT') {
       const { data: pr } = await supabase.from('payment_requests')
         .select('label, due_date').eq('id', record.request_id).single();
@@ -1254,9 +1257,10 @@ Deno.serve(async (req) => {
             L.ctaAccount, `${APP_URL}/finance`),
         };
       }, b?.name ?? 'Abniyah');
-      await whatsappToUserIds(to, 'abniyah_new_charge',
+      await whatsappToUserIds(to, 'abniyah_payment_request',
         (name, lang) => {
-          const base = [name, amount, prUnit?.label ?? '-', b?.name ?? '-'];
+          const what = pr?.label || (lang === 'ar' ? 'طلب دفع' : 'Payment request');
+          const base = [name, what, amount, prUnit?.label ?? '-', b?.name ?? '-'];
           return WHATSAPP_PER_LANG ? [...base, payLine(lang, b?.whish_number)] : base;
         });
     }

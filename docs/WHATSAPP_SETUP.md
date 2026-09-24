@@ -215,9 +215,7 @@ account (0059), else a generic "details in your account" line.
 > ratio check (hence the fuller sentences on dues).
 
 ### 1. `abniyah_new_charge` — 5 variables per language
-Used by: `payment_request_lines` INSERT (a payment request / extraordinary
-expense issued to a unit). Until 26 Sep 2026 that event reused template 5,
-so a brand-new request read as an overdue reminder - keep them separate.
+Used by: nothing yet (new-charge pings are off since 2026-08-29). Kept approved.
 English (`en`):
 ```
 Hello {{1}},
@@ -308,6 +306,43 @@ Samples: `{{1}}` Rana · `{{2}}` Jihad Meraachli · `{{3}}` A-3 · `{{4}}` El Wo
 
 ### 5. `abniyah_payment_reminder` — 5 variables per language
 Used by: the `send-reminders` cron ONLY (genuinely overdue balances).
+
+### 6. `abniyah_payment_request` — 6 variables per language ⚠️ CREATE + GET APPROVED
+Used by: `payment_request_lines` INSERT — a payment request or extraordinary
+expense issued to a unit. Until 26 Sep 2026 that event reused template 5, so a
+brand-new request read as an overdue reminder and carried NO description.
+`{{2}}` is the request label (e.g. "Extraordinary: Roof repair") — the one
+thing a resident needs to know what they are being asked to pay for.
+Category: **Utility**. Same name for both language variants.
+
+English (`en`):
+```
+Hello {{1}},
+A payment has been requested for {{2}}:
+Amount: {{3}}
+Unit: {{4}}
+Building: {{5}}
+{{6}}
+Thank you!
+```
+Arabic (`ar`):
+```
+مرحباً {{1}}،
+طُلب منك دفع مبلغ عن {{2}}:
+المبلغ: {{3}}
+الوحدة: {{4}}
+المبنى: {{5}}
+{{6}}
+شكراً لك!
+```
+Samples: `{{1}}` Rana · `{{2}}` Extraordinary: Roof repair · `{{3}}` $120.00 ·
+`{{4}}` A-3 · `{{5}}` El Woroud ·
+`{{6}}` en: `You can pay directly through Whish to 03 123 456.` /
+ar: `يمكنك الدفع مباشرة عبر Whish إلى 03 123 456.`
+
+Deploy order: create both variants in Meta → wait for **Approved** → redeploy
+`dynamic-action`. Deploying first is harmless (the send fails and is logged;
+email + bell still go out) but pointless.
 English (`en`):
 ```
 Hello {{1}},

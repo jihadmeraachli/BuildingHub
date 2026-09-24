@@ -688,10 +688,13 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   is committed + dynamic-action redeployed; install the channel-fix APK on
   the test device(s) so delivery is an immediate heads-up banner rather than
   the delayed Firebase fallback. docs/ANDROID_APP.md.
-- **dynamic-action redeploy owed (26 Sep):** the payment-request WhatsApp
-  now uses `abniyah_new_charge` instead of the reminder template. Until the
-  function is redeployed from the dashboard, new requests still go out as
-  "a friendly reminder: your unit has an outstanding balance".
+- **WhatsApp payment-request template (26 Sep) — Jey's action, then redeploy:**
+  the payment-request WhatsApp now sends `abniyah_payment_request` (6 vars,
+  carries the request DESCRIPTION) instead of the reminder template. That
+  template does not exist in Meta yet: create the en + ar variants per
+  docs/WHATSAPP_SETUP.md §6, wait for approval, THEN redeploy dynamic-action.
+  Until both happen, new requests still go out as "a friendly reminder: your
+  unit has an outstanding balance" with no description.
 - **help-chat (Jad) redeploy owed.** Several migrations note it (0158, 0165…):
   Jad's guidance for amenities costs, inspection chains, purchase types and
   metering is written but may not be live. Redeploy help-chat from the
