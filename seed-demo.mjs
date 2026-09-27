@@ -250,7 +250,7 @@ ok('meetings', (await supabase.from('meetings').insert(meetings)).error);
 
 const issues = [
   { title: 'Water leak in parking ceiling', description: 'Dripping from the ceiling near spot 7 after the pump ran. Getting worse.', location: 'Parking level -1', priority: 'urgent', status: 'resolved', resolution_notes: 'Joint on the new pump line resealed by the plumber. Monitored for a week, dry.', resolved_at: '2026-02-25T10:00:00Z', created_at_hint: '2026-02-19' },
-  { title: 'Lobby lights flickering', description: 'The two spots above the mailboxes flicker in the evening.', location: 'Lobby', priority: 'low', status: 'resolved', resolution_notes: 'Ballast replaced, both spots swapped to LED.', resolved_at: '2026-03-30T14:00:00Z', created_at_hint: '2026-03-22' },
+  { title: 'Lobby lights flickering', description: 'The two spots above the entrance flicker in the evening.', location: 'Lobby', priority: 'low', status: 'resolved', resolution_notes: 'Ballast replaced, both spots swapped to LED.', resolved_at: '2026-03-30T14:00:00Z', created_at_hint: '2026-03-22' },
   { title: 'Intercom not ringing in unit 302', description: 'Visitors press 302 and nothing rings upstairs. Handset seems dead.', location: 'Unit 302', priority: 'medium', status: 'in_progress', resolution_notes: null, resolved_at: null, created_at_hint: '2026-07-18' },
   { title: 'Elevator door slow to close', description: 'Door takes 10+ seconds to close on the ground floor, fine on other floors.', location: 'Elevator, ground floor', priority: 'medium', status: 'open', resolution_notes: null, resolved_at: null, created_at_hint: '2026-07-27' },
 ];
