@@ -720,7 +720,18 @@ export default function Finance() {
     if (expForm.scope === 'unit') return units.filter((u) => u.id === expForm.unit_id);
     return [];
   }, [expForm, units, unitGroups]);
-  const preview = useMemo(() => allocate(Number(expForm.amount) || 0, targetUnits, expForm.method, custom), [expForm.amount, expForm.method, targetUnits, custom]);
+  // The preview MUST split the same figure saveExpense() posts: the composed
+  // USD total (dollars + lira at the entry's rate), not the dollar field alone.
+  // Splitting only the dollars made a $100 + LL 5,000,000 entry preview as
+  // $100 across the units and flag the lira part as "$55.87 not allocated" -
+  // then post the full $155.87 anyway (found on camera, 2026-09-27). While the
+  // lira amount is typed but the rate is not yet, the total is NaN; preview
+  // the dollar part alone in that moment and let the rate guard on save speak.
+  const previewTotal = useMemo(() => {
+    const t = composeUsdTotal(Number(expForm.amount) || 0, Number(expForm.amount_lbp) || 0, Number(expForm.lbp_rate) || 0);
+    return Number.isNaN(t) ? (Number(expForm.amount) || 0) : t;
+  }, [expForm.amount, expForm.amount_lbp, expForm.lbp_rate]);
+  const preview = useMemo(() => allocate(previewTotal, targetUnits, expForm.method, custom), [previewTotal, expForm.method, targetUnits, custom]);
   const previewSum = preview.reduce((s, r) => s + r.amount, 0);
 
   function openExpense() { setEditingExpenseId(null); setExpForm({ ...newExpForm(), scope: 'all', lbp_rate: effectiveLbpRate ? String(effectiveLbpRate) : '', expense_type_id: activeTypes.find((ty) => ty.key === 'common_expenses')?.id ?? '' }); setCustom({}); setExpFile(null); setExpOpen(true); }
@@ -1996,6 +2007,7 @@ export default function Finance() {
               the split. Allocated more? That is simply an error. */}
           {expForm.funding !== 'fund' && targetUnits.length > 0 && (() => {
             const total = composeUsdTotal(Number(expForm.amount) || 0, Number(expForm.amount_lbp) || 0, Number(expForm.lbp_rate) || 0);
+            if (Number.isNaN(total)) return null; // lira typed, rate not yet: nothing to reconcile
             const rest = round2(total - previewSum);
             if (Math.abs(rest) <= 0.005) return null;
             if (rest < 0) return (
