@@ -122,12 +122,34 @@ NATIVE FUNCTIONALITY beyond the web experience: push notifications via
 APNs (charges, payments, votes, issues), Face ID sign-in, and sessions
 stored in the iOS Keychain.
 
-ACCOUNT DELETION: Settings → Delete account (self-service, per 5.1.1(v)).
-The review account above can delete itself; we re-provision it on request.
+ACCOUNT DELETION (5.1.1(v)), step by step with the review account:
+  1. Sign in with the credentials above.
+  2. Open the sidebar (menu icon) and tap YOUR NAME at the bottom - "Apple
+     Review". That is the Settings screen (gear icon on the row).
+  3. Scroll to the bottom: "Delete account" -> tap "Delete my account".
+  4. Type the account email to confirm -> "Delete". The account and its
+     login are removed immediately (permanent, not a deactivation); the
+     app returns to the sign-in screen. A screen recording of this flow
+     on a physical iPhone is attached to our 28 Sep reply.
+  Note: "Try the demo" opens a SHARED read-only showcase persona; it has
+  no account settings by design. Use the review account for deletion.
 
 No in-app purchases: building subscriptions are billed to the building
 committee (an organization) outside the app, per 3.1.3(b).
 ```
+
+## Review history
+
+- **28 Sep 2026 - 1.0 (19) REJECTED**, two items: (a) 2.3.6 Age Rating had
+  "Parental Controls" / "Age Assurance" ticked -> set both to None (metadata
+  only). (b) 5.1.1(v) "no option to initiate account deletion" -> it exists
+  (0170) and works for the review account; the reviewer (iPad) never found
+  Settings because its only entry was the unlabelled name block in the
+  sidebar footer. Fixed the label (`1349f94`, next build), sharpened the
+  notes above, replied with a physical-device recording of the full
+  deletion, re-provisioned the review account (scratchpad
+  `provision-review.mjs`: auth user -> profile -> owner membership on unit
+  601), resubmitted the SAME build 19.
 
 ## Screenshots (the only asset work left)
 

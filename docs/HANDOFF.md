@@ -603,7 +603,14 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 ### ▶ OPEN ACTION ITEMS (as of 2026-09-16)
 
 **Launch tracks — waiting on external parties, then one action each:**
-- **Apple**: 🚀 **SUBMITTED FOR REVIEW 2026-09-24 — build 18, version 1.0.**
+- **Apple**: ❌ **REJECTED 28 Sep (1.0 build 19)** on 2.3.6 (age-rating
+  metadata: set Parental Controls + Age Assurance to None) and 5.1.1(v)
+  (reviewer could not find account deletion; it exists, the Settings door was
+  an unlabelled name block, now labelled in `1349f94`). Remedy in flight: age
+  rating fixed, reply with a physical-device recording of the deletion, review
+  account re-provisioned, same build resubmitted. Details: docs/APP_STORE.md
+  "Review history".
+- **Apple (history)**: 🚀 SUBMITTED FOR REVIEW 2026-09-24 — build 18, version 1.0.
   Build 18 = build 17 + the Face ID sign-in fix (13d0b59) + Whish-only
   payments (608fe5b). Submission unblocked by: Privacy Policy URL
   (https://abniyah.com/privacy) in App Privacy, a 13-inch iPad screenshot
