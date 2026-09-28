@@ -111,7 +111,10 @@ building committees manage collections, funds, metering and maintenance.
 ACCESS CODE: the app is in a limited rollout and asks for an access code
 on first launch. Enter: <ACCESS CODE>
 
-REVIEW ACCOUNT (same as the sign-in fields above):
+REVIEW ACCOUNT (same as the sign-in fields above) - MUST be this one, NEVER
+a +demoviewer / +demoowner persona: those are shared read-only showcases
+with no Settings and no deletion, and the 28 Sep rejection came from
+handing +demoviewer to the reviewer.
   Email: jihad.meraachli+applereview@gmail.com
   Password: <PASSWORD>
 It is a resident (unit owner) in a fully populated demo building. To see
@@ -142,10 +145,13 @@ committee (an organization) outside the app, per 3.1.3(b).
 
 - **28 Sep 2026 - 1.0 (19) REJECTED**, two items: (a) 2.3.6 Age Rating had
   "Parental Controls" / "Age Assurance" ticked -> set both to None (metadata
-  only). (b) 5.1.1(v) "no option to initiate account deletion" -> it exists
-  (0170) and works for the review account; the reviewer (iPad) never found
-  Settings because its only entry was the unlabelled name block in the
-  sidebar footer. Fixed the label (`1349f94`, next build), sharpened the
+  only). (b) 5.1.1(v) "no option to initiate account deletion" -> ROOT CAUSE: the
+  sign-in fields carried `+demoviewer`, the shared demo ADMIN persona, which
+  by design has no Settings (footer links to the dashboard, /settings
+  redirects, demo write-guard) and holds a building_admin grant the deletion
+  rules refuse. Deletion exists (0170) and works for `+applereview`, the
+  account built for review. Secondary: the Settings door was an unlabelled
+  name block in the sidebar footer. Fixed the label (`1349f94`, next build), sharpened the
   notes above, replied with a physical-device recording of the full
   deletion, re-provisioned the review account (scratchpad
   `provision-review.mjs`: auth user -> profile -> owner membership on unit

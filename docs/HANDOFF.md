@@ -605,8 +605,9 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 **Launch tracks — waiting on external parties, then one action each:**
 - **Apple**: ❌ **REJECTED 28 Sep (1.0 build 19)** on 2.3.6 (age-rating
   metadata: set Parental Controls + Age Assurance to None) and 5.1.1(v)
-  (reviewer could not find account deletion; it exists, the Settings door was
-  an unlabelled name block, now labelled in `1349f94`). Remedy in flight: age
+  (the sign-in fields carried the +demoviewer DEMO persona, which has no
+  Settings by design; deletion exists and works for +applereview. Settings door
+  also labelled in `1349f94`). Remedy in flight: age
   rating fixed, reply with a physical-device recording of the deletion, review
   account re-provisioned, same build resubmitted. Details: docs/APP_STORE.md
   "Review history".
