@@ -313,11 +313,16 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
         })}
       </nav>
 
-      {/* User footer — the demo account gets no Settings (read-only persona) */}
+      {/* User footer — the demo account gets no Settings (read-only persona).
+          The gear is not decoration: this block is the ONLY way into Settings,
+          and App Review (28 Sep) could not find account deletion because
+          nothing here said "Settings". A door needs a sign. */}
       <div className="shrink-0 px-2 py-3 border-t border-sidebar-border space-y-0.5">
         <NavLink
           to={isDemo ? '/dashboard' : '/settings'}
           onClick={onClose}
+          title={isDemo ? undefined : t('nav.settings')}
+          aria-label={isDemo ? undefined : t('nav.settings')}
           className={cn(
             'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors w-full',
             !isDemo && isActive('/settings')
@@ -337,6 +342,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
             </p>
             <p className="text-xs text-sidebar-foreground/50 truncate">{displayRole}</p>
           </div>
+          {!isDemo && <Cog size={15} className="ms-auto shrink-0 text-sidebar-foreground/50" aria-hidden="true" />}
         </NavLink>
 
         <Separator className="my-1 bg-sidebar-border" />
