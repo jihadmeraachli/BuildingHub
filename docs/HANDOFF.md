@@ -13,7 +13,10 @@ the site and demo pre-launch. What was put in place (all commit-tagged 0126):
 
 1. **Scoped beta codes** (`0126_beta_code_scope.sql`) — the Whish code is
    `scope='demo'`: unlocks abniyah.com + the demo; `/register` bounces.
-   *Keep permanently* — useful for every future partner review.
+   *Keep the mechanism permanently* — useful for every future partner review.
+   **The Whish code itself was DEACTIVATED 29 Sep 2026** (Jey: no reason to
+   leave it open for weeks); flip `active` back on if their compliance team
+   asks to see the site again.
 2. **Demo personas hide** Licenses / Import / Prepaid Budget / Collect /
    Inspections / Contracts / Projects / Amenities
    (`DEMO_HIDDEN_ROUTES` in `src/lib/demo.ts`). *Revert at public launch*
