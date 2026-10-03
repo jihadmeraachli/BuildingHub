@@ -651,7 +651,16 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   throttled. Also seen: Edit Legal Entity flags the D-U-N-S-imported Address 1
   as "too long" (45 chars) — only matters for the Paid Apps Agreement, which we
   don't need; don't edit it (triggers a legal-entity review).
-- **Google Play**: ✅ **ORG VERIFICATION COMPLETE 2026-09-17.** Organization
+- **Google Play**: 🚀 **INTERNAL TESTING LIVE 2026-10-03 — 1.0 (19), signed, Play
+  App Signing on.** App created as `com.abniyah.app` (the `myapp` typo was caught
+  before Create — package names are permanent), store listing complete, data
+  safety filed (deletion URL = abniyah.com/privacy#delete-account, added the
+  same day), app access = review account + access code. Installed from the
+  internal track on the Pixel Tablet: sign-in, biometric sign-out/sign-in and
+  push all verified. NEXT: promote the release to Production (Google's first
+  review of a new app takes 1–7 days). Assets + checklist: docs/ANDROID_APP.md
+  "Google Play listing". Upload keystore: C:\projectsbniyah-signing (BACK UP).
+- **Google Play (history)**: ✅ ORG VERIFICATION COMPLETE 2026-09-17. Organization
   account, developer name "Tatawwor L.L.C", website + emails + phones all
   verified (the mobile number was the last gate). tatawwor.com stays verified
   via the Cloudflare DNS TXT record — **LEAVE that record in place**. Side
@@ -688,6 +697,19 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   Client ID.
 
 **Code / product — do when you have a moment:**
+- **No deep links / app links yet (both platforms).** The 21 `APP_URL` links in
+  notification emails, the one-click vote links and the Whish return URL all
+  open in the BROWSER, even with the app installed — the app has no
+  `@capacitor/app` plugin, no `appUrlOpen` listener, no Android intent filter
+  and no iOS associated domain. Android shows "app.abniyah.com (unverified)"
+  under Open by default for the same reason. For 1.0.1: install
+  @capacitor/app; Android `autoVerify` intent filter for https://app.abniyah.com
+  + `/.well-known/assetlinks.json` carrying GOOGLE'S app-signing cert (Play
+  Console → App integrity, NOT our upload key); iOS Associated Domains
+  `applinks:app.abniyah.com` + `/.well-known/apple-app-site-association` with
+  Team ID 8PHJEU7CDL; a listener that routes the URL to the in-app route
+  (`route` already rides in every push payload, reuse that path). Cloudflare
+  Pages serves /.well-known/ from `public/` (dotfiles copy fine).
 - **New issues never email/push the admins — only the in-app bell.** The
   `issues` INSERT handler EXISTS in dynamic-action (§3) but there is **no
   Database Webhook wired for `issues` INSERT** (only UPDATE, for the resolved

@@ -204,3 +204,10 @@ sign-in, and notifications only for what matters.
 6. Production: promote the same release once internal testing passes; first
    Play review of a new app takes 1 to 7 days.
 
+**Status 3 Oct 2026:** steps 1–4 done; internal testing release 1.0 (19) live
+and verified on the Pixel Tablet (sign-in, biometrics, push). The three
+release warnings (no testers yet / no deobfuscation file / no debug symbols)
+are expected: no minification, and the native code is Capacitor's. Known gap,
+not a blocker: no app links, so https://app.abniyah.com links open the browser
+and Settings shows the host as "(unverified)" — queued for 1.0.1, see HANDOFF.
+
