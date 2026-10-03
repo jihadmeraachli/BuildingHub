@@ -744,6 +744,14 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   never exercised (Month-by-Month is fully verified).
 
 **Marketing — Jey's call, not code:**
+- **Founder video kit — buy on the November 2026 Sydney visit** (no luggage
+  room before then). Decided 4 Oct: DJI Mic Mini 2TX+1RX set (~AU$127), Godox
+  SL60IID + 60cm softbox + stand kit (~AU$389), a ~AU$35 phone tripod. iPhone
+  rear camera is the camera; no Osmo Pocket (only useful for walking footage).
+  Shoot then: a face-to-camera "why we use AI to show problems" piece and the
+  FAQ answers, once the apps are in both stores and Whish/MontyPay are live.
+  Avatar tools (HeyGen) are for the FAQ library only, never for the AI-trust
+  video itself — see the 4 Oct reasoning in the session notes.
 - **Scheduler DECIDED (2026-09-16): no paid tool.** All four channels schedule
   natively for free — Meta Business Suite covers Facebook + Instagram together,
   TikTok and LinkedIn each have their own. Publer/Buffer free tiers cap at 3
