@@ -657,8 +657,10 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   safety filed (deletion URL = abniyah.com/privacy#delete-account, added the
   same day), app access = review account + access code. Installed from the
   internal track on the Pixel Tablet: sign-in, biometric sign-out/sign-in and
-  push all verified. NEXT: promote the release to Production (Google's first
-  review of a new app takes 1–7 days). Assets + checklist: docs/ANDROID_APP.md
+  push all verified. **Production release SUBMITTED for Google review the same
+  evening** (countries: everywhere except the EU, matching Apple; managed
+  publishing ON, so approval does NOT auto-publish — Jey presses Publish when
+  Whish and the launch posts are lined up). Google's first review: 1–7 days. Assets + checklist: docs/ANDROID_APP.md
   "Google Play listing". Upload keystore: C:\projectsbniyah-signing (BACK UP).
 - **Google Play (history)**: ✅ ORG VERIFICATION COMPLETE 2026-09-17. Organization
   account, developer name "Tatawwor L.L.C", website + emails + phones all
