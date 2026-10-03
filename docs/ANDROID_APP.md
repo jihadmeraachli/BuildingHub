@@ -140,3 +140,67 @@ deployed function.
   pipeline at Android sizes (phone 1080×1920+, 7"/10" tablet for tablets).
 - Review notes: same demo access + review account + gate code as Apple
   (see APP_STORE.md "Provisioned" section).
+
+## Google Play listing (prepared 3 Oct 2026)
+
+Assets in `Downloads/Abniyah Android/`: `abniyah-1.0-19.aab` (signed, verified),
+`icon-512.png` (= public/pwa-512.png), `feature-graphic.png` (1024x500, brand
+mark + wordmark), `screenshots/01..07` (1080x1920, exact 9:16, demo screens:
+dashboard, finance, voting, issues, lost & found, past meetings, resident
+dashboard; shot by scratchpad `shots-play.mjs`). Regenerate the screenshots
+whenever the demo data changes; Play is strict about 16:9 / 9:16.
+
+**Name (30):** `Abniyah`
+**Short description (80):** `Building management for Lebanon: dues, votes, issues, meetings, USD + LBP.`
+**Full description:**
+```
+Abniyah runs the building so the committee doesn't have to chase it.
+
+FOR RESIDENTS
+• See your balance and full statement any time, every charge explained
+• Pay your share and get notified the moment it's recorded
+• Vote on building decisions straight from your phone, or from your inbox
+• Report issues with photos and follow them to resolution
+• Lost and found, meeting invites, building announcements, all in one place
+
+FOR COMMITTEES AND MANAGERS
+• Collect dues in USD and LBP, with the exchange rate frozen on every entry
+• A real fund ledger: cash on hand, reserve, every entry auditable
+• Generator and water metering with fair, transparent billing
+• Inspections that schedule their own follow-ups
+• Contracts, projects, amenities: the whole building's paper trail
+• Payment requests with reminders that stop when people pay
+
+BUILT FOR LEBANON
+• Full Arabic and English (and French), right-to-left done properly
+• USD and LBP side by side, rates frozen per transaction
+• Works as an app, from email, and on the web
+
+Your data stays yours: bank-grade authentication, fingerprint or face
+sign-in, and notifications only for what matters.
+```
+**Category:** Business. **Contact:** support@abniyah.com, https://abniyah.com.
+**Privacy policy:** https://abniyah.com/privacy.
+
+**Play Console checklist** (organization account, so NOT subject to the
+20-testers-for-14-days rule that applies to personal accounts):
+1. Create app: Abniyah, English (US), App, Free.
+2. Dashboard "Set up your app": privacy policy URL; **App access** = restricted,
+   add instructions (access code + the +applereview account, same as Apple);
+   Ads = no; Content rating questionnaire (Utility/Productivity, all no) → Everyone;
+   Target audience = 18 and over; News = no; Data safety = same as the Apple
+   privacy labels (collected + linked, not shared, encrypted in transit, user
+   can request deletion in-app); Government app = no; Financial features = none
+   (subscription paid via Whish redirect is not a financial product offered to
+   users); Health = no.
+3. Main store listing: name, descriptions, icon, feature graphic, phone
+   screenshots (upload 01..07 in order). Arabic localisation later.
+4. Testing → Internal testing → Create release → accept **Play App Signing**
+   (Google-generated key; ours is the upload key) → upload the AAB → release
+   name `1.0 (19)` → save → review → roll out. Testers: add Jey's and Ahmad's
+   Google emails, open the opt-in link on the Pixel Tablet, install.
+5. Settings → Developer account → EU DSA: declare trader status like Apple
+   (contacts support@abniyah.com / +961 78 995 443) if asked.
+6. Production: promote the same release once internal testing passes; first
+   Play review of a new app takes 1 to 7 days.
+
