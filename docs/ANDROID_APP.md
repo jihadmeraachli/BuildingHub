@@ -13,7 +13,7 @@ and sideloaded the same day.
 - ✅ `dynamic-action` has an FCM v1 send branch (env-guarded, inert until `FCM_SERVICE_ACCOUNT` is set)
 - ⬜ Firebase project + `google-services.json` (Jey — see below)
 - ⬜ `FCM_SERVICE_ACCOUNT` secret + dynamic-action redeploy
-- ⬜ Release keystore + signed AAB
+- ✅ Release keystore + signed AAB (3 Oct 2026) — see "Release signing" below
 - ⬜ Google Play Console organization account
 - ⬜ Play listing (reuse docs/APP_STORE.md copy + screenshots pipeline)
 
@@ -33,7 +33,48 @@ npx cap sync android         # copy dist/ into the native project
 cd android
 .\gradlew.bat assembleDebug  # -> android\app\build\outputs\apk\debug\app-debug.apk
 ```
-Release (once keystore exists): `.\gradlew.bat bundleRelease` → AAB for Play.
+Release: `.\gradlew.bat bundleRelease` → `android/app/build/outputs/bundle/release/app-release.aab`.
+
+### Release signing (set up 3 Oct 2026)
+The Play **upload** keystore lives OUTSIDE the repo and outside `android/`
+(Capacitor can regenerate that folder): `C:\projectsbniyah-signing\`
+holds `upload-keystore.jks` (alias `abniyah-upload`, RSA 2048, valid to
+2054, SHA-256 `48:76:0B:0F:B1:73:E5:B6:BA:D6:AB:61:C6:EC:95:25:33:73:51:B7:CA:06:84:9E:BC:F8:93:0E:39:9B:55:61`)
+and `keystore.properties` (storeFile/storePassword/keyAlias/keyPassword).
+**Back that folder up to 1Password.** With Play App Signing, Google holds
+the real app-signing key and this is only the upload key, so a lost upload
+key is recoverable through Play Console support, but it costs days.
+
+`android/app/build.gradle` reads that properties file (snippet below; re-add
+it after any `npx cap add android` regeneration, like the AppDelegate relay
+on iOS). `versionCode` must increase on every Play upload; `versionName`
+is what users see. Keep them in step with iOS (1.0 build 19 ↔ 1.0 (19)).
+
+```groovy
+    def ksProps = new Properties()
+    def ksFile = file("C:/projects/abniyah-signing/keystore.properties")
+    if (ksFile.exists()) ksFile.withInputStream { ksProps.load(it) }
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile file(ksProps['storeFile'])
+                storePassword ksProps['storePassword']
+                keyAlias ksProps['keyAlias']
+                keyPassword ksProps['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (ksFile.exists()) signingConfig signingConfigs.release
+            minifyEnabled false
+            ...
+```
+Verify a bundle before uploading: `keytool -printcert -jarfile app-release.aab`
+must show `CN=Abniyah, O=Tatawwor L.L.C` and the fingerprint above, and the
+AAB must contain the CURRENT `dist/assets/index-*.js` (same trap as iOS:
+skipping `npm run build` + `npx cap sync android` ships the previous web app
+under a new version code).
 
 ## Fresh machine? Regenerate the platform
 `android/` is **gitignored** (same convention as `ios/`): one-time
