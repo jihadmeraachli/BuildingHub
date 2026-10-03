@@ -119,10 +119,30 @@ function PrivacyEn() {
       <h2>Your rights</h2>
       <p>
         You can view and correct your profile in the app at any time. You can ask us to
-        access, correct or delete your personal data by emailing
-        <a href="mailto:info@tatawwor.com"> info@tatawwor.com</a>; deletion is subject to
-        the building-records retention described above. You control notification channels
-        in Settings.
+        access or correct your personal data by emailing
+        <a href="mailto:info@tatawwor.com"> info@tatawwor.com</a>. You control notification
+        channels in Settings.
+      </p>
+
+      <h2 id="delete-account">Delete your account</h2>
+      <p>
+        You can delete your account yourself, from inside the app, at any time:
+      </p>
+      <ol>
+        <li>Sign in and open the menu.</li>
+        <li>Tap your name at the bottom of the sidebar to open <strong>Settings</strong>.</li>
+        <li>Scroll to <strong>Delete account</strong> and tap <strong>Delete my account</strong>.</li>
+        <li>Type your email address to confirm.</li>
+      </ol>
+      <p>
+        Deletion is immediate and permanent: your login, profile, phone number, notification
+        settings and device registrations are removed, and you can no longer sign in.
+        If the account still holds a management role or a unit with an unsettled balance,
+        the app tells you what to resolve first. What stays: the building's financial
+        history (charges and payments on a unit) belongs to the building's books and is
+        kept, with your name removed, as described under Retention. If you cannot access
+        the app, email <a href="mailto:info@tatawwor.com">info@tatawwor.com</a> from your
+        account's address and we will delete it for you within 30 days.
       </p>
 
       <h2>Security</h2>
@@ -205,9 +225,27 @@ function PrivacyAr() {
       <h2>حقوقك</h2>
       <p>
         يمكنك عرض ملفك الشخصي وتصحيحه في التطبيق في أي وقت. ويمكنك طلب الوصول إلى بياناتك
-        الشخصية أو تصحيحها أو حذفها عبر
-        <a href="mailto:info@tatawwor.com"> info@tatawwor.com</a>؛ ويخضع الحذف لقواعد
-        الاحتفاظ بسجلات المبنى المذكورة أعلاه. تتحكم بقنوات الإشعارات من الإعدادات.
+        الشخصية أو تصحيحها عبر
+        <a href="mailto:info@tatawwor.com"> info@tatawwor.com</a>. تتحكم بقنوات الإشعارات
+        من الإعدادات.
+      </p>
+
+      <h2 id="delete-account">حذف حسابك</h2>
+      <p>يمكنك حذف حسابك بنفسك من داخل التطبيق في أي وقت:</p>
+      <ol>
+        <li>سجّل الدخول وافتح القائمة.</li>
+        <li>اضغط على اسمك أسفل القائمة الجانبية لفتح <strong>الإعدادات</strong>.</li>
+        <li>انزل إلى <strong>حذف الحساب</strong> واضغط <strong>حذف حسابي</strong>.</li>
+        <li>اكتب بريدك الإلكتروني للتأكيد.</li>
+      </ol>
+      <p>
+        الحذف فوري ونهائي: يُزال تسجيل دخولك وملفك الشخصي ورقم هاتفك وإعدادات الإشعارات
+        وتسجيلات أجهزتك، ولا يعود بإمكانك تسجيل الدخول. إذا كان الحساب ما زال يحمل دوراً
+        إدارياً أو وحدة برصيد غير مسوّى، يخبرك التطبيق بما يجب تسويته أولاً. ما يبقى: السجل
+        المالي للمبنى (الرسوم والدفعات على الوحدة) يعود لدفاتر المبنى ويُحتفظ به مع إزالة
+        اسمك، كما هو موضح في قسم الاحتفاظ بالبيانات. إذا تعذّر عليك الوصول إلى التطبيق،
+        راسلنا على <a href="mailto:info@tatawwor.com">info@tatawwor.com</a> من بريد حسابك
+        ونحذفه لك خلال 30 يوماً.
       </p>
 
       <h2>الأمان</h2>
