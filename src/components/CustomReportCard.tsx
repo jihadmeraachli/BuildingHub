@@ -258,18 +258,18 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
         )}
 
         {/* ── totals: always the FILTERED set ─────────────────────────── */}
-        <div className="grid grid-cols-3 gap-3 mt-4">
-          <div className="rounded-lg border border-border p-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4 min-w-0">
+          <div className="rounded-lg border border-border p-2.5 sm:p-3 min-w-0">
             <div className="text-xs text-muted-foreground">{t('reports.custom.moneyIn')}</div>
-            <div className="text-lg font-semibold tabular-nums">{money(totals.payments)}</div>
+            <div className="text-base sm:text-lg font-semibold tabular-nums break-words leading-tight">{money(totals.payments)}</div>
           </div>
-          <div className="rounded-lg border border-border p-3">
+          <div className="rounded-lg border border-border p-2.5 sm:p-3 min-w-0">
             <div className="text-xs text-muted-foreground">{t('reports.custom.moneyOut')}</div>
-            <div className="text-lg font-semibold tabular-nums">{money(totals.expenses)}</div>
+            <div className="text-base sm:text-lg font-semibold tabular-nums break-words leading-tight">{money(totals.expenses)}</div>
           </div>
-          <div className="rounded-lg border border-border p-3">
+          <div className="rounded-lg border border-border p-2.5 sm:p-3 min-w-0">
             <div className="text-xs text-muted-foreground">{t('reports.custom.net')}</div>
-            <div className="text-lg font-semibold tabular-nums">{money(totals.net)}</div>
+            <div className="text-base sm:text-lg font-semibold tabular-nums break-words leading-tight">{money(totals.net)}</div>
           </div>
         </div>
 
