@@ -606,6 +606,32 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 ### ▶ OPEN ACTION ITEMS (as of 2026-09-16)
 
 **Launch tracks — waiting on external parties, then one action each:**
+**Phone redesign (5 Oct 2026) — SHIPPED on the web, phones need build 20:**
+- Jey's iPhone 16 Pro Max screenshots (4 Oct) showed money tiles cut to
+  "$13,70…", a minus wrapped onto its own line, the invoices table clipped,
+  and Projects/Amenities rows squeezed to one word per line beside inline
+  Edit/Delete. The native apps BUNDLE the web code, so none of the fixes
+  below reach a phone until it is rebuilt: Android `abniyah-1.0-20.aab`
+  is built (versionCode 20); iOS needs build 20 from the Mac
+  (`npm run build && npx cap sync ios`, bump the build number, archive).
+  Wait for Apple's verdict on build 19 before uploading 20 there.
+- What changed: `FitText` (money shrinks, never truncates; whole dollars on
+  phones in Dashboard/Finance tiles); `fmtMoney` emits a real minus with a
+  word joiner and, in Arabic, formats as en-US inside an LTR isolate (CLDR
+  ar-LB gave "1.234,50 US$" and bidi flipped the sign); **bottom tab bar**
+  (`TabBar.tsx`, under lg, role-aware, More = the drawer); `Modal` is a
+  **bottom sheet** on phones; Projects / Amenities / Lost & Found rows
+  restack (actions in the corner, icon-only, 44px); invoices render as rows
+  under sm; donut legend wraps.
+- `npm run sweep:phone [base] [admin|resident] [/route,…]` opens every
+  route at iPhone size, screenshots to `sweep/`, and FAILS on sideways
+  overflow or truncated text. Run it before any native build.
+- Still to do (the "shared row" step): Structure, Users, Buildings and the
+  Finance book are still tables that scroll inside their card on a phone;
+  a few icon buttons there are under 32px. Replace with the row pattern
+  used on Projects. Resident Home as "one figure + Pay + feed" is designed,
+  not built.
+
 - **Apple**: ❌ **REJECTED 28 Sep (1.0 build 19)** on 2.3.6 (age-rating
   metadata: set Parental Controls + Age Assurance to None) and 5.1.1(v)
   (the sign-in fields carried the +demoviewer DEMO persona, which has no

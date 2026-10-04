@@ -61,3 +61,4 @@ scripts/migrate/webhooks.sql
 *.p8
 # local migration restore artifacts - real data, never commit
 scripts/.backup/
+sweep/
