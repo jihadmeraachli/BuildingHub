@@ -152,9 +152,11 @@ export function Donut({ data, size = 168, thickness = 22, centerLabel }: { data:
         {data.filter((d) => d.value > 0).map((d, i) => {
           const g = DONUT_GRADIENTS[i % DONUT_GRADIENTS.length];
           return (
-            <div key={i} className="flex items-center gap-2 text-sm">
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: `linear-gradient(135deg, ${g.from}, ${g.to})` }} />
-              <span className="text-muted-foreground truncate flex-1">{d.label}</span>
+            <div key={i} className="flex items-start gap-2 text-sm">
+              <span className="w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0" style={{ background: `linear-gradient(135deg, ${g.from}, ${g.to})` }} />
+              {/* wraps rather than truncates: a category name is the only thing
+                  that tells the reader what the amount beside it is */}
+              <span className="text-muted-foreground flex-1 min-w-0 leading-snug">{d.label}</span>
               <span className="text-foreground font-medium tnum">{fmtMoney(d.value)}</span>
             </div>
           );

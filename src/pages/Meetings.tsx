@@ -318,8 +318,8 @@ export default function Meetings() {
                     </div>
                   </div>
                   {isManager && (
-                    <button onClick={() => setDeleteTarget(m)} className="text-slate-300 hover:text-red-500 transition flex-shrink-0 cursor-pointer inline-flex items-center gap-1">
-                      <Trash2 size={16} /> {t('common.delete')}
+                    <button onClick={() => setDeleteTarget(m)} className="text-slate-300 hover:text-red-500 transition flex-shrink-0 cursor-pointer inline-flex items-center gap-1 p-2 sm:p-0 -m-2 sm:m-0 rounded-lg" aria-label={t('common.delete')}>
+                      <Trash2 size={16} /><span className="hidden sm:inline">{t('common.delete')}</span>
                     </button>
                   )}
                 </div>

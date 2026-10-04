@@ -171,7 +171,10 @@ export default function LostFound() {
           {shown.map(item => (
             <Card key={item.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${item.status !== 'open' ? 'opacity-80' : ''}`} onClick={() => setDetail(item)}>
               <CardBody>
-                <div className="flex items-start gap-4">
+                {/* Phone: photo + text on one row, the actions on a row of their
+                    own underneath (the title had ~90px beside two buttons).
+                    sm+: photo · text · actions across. */}
+                <div className="flex flex-wrap sm:flex-nowrap items-start gap-4">
                   {item.photo_url && photos[item.id] ? (
                     <img src={photos[item.id]} alt={item.title} className="w-20 h-20 object-cover rounded-xl flex-shrink-0" />
                   ) : (
@@ -195,7 +198,7 @@ export default function LostFound() {
                       <p className="text-xs mt-1 text-amber-600 dark:text-amber-400">{t('lostfound.claimedBy', { name: names[item.claimed_by] || '—' })}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-2 w-full sm:w-auto sm:flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     {item.status === 'open' && (
                       <Button size="sm" variant="outline" onClick={() => claim(item)}>{t('lostfound.thisIsMine')}</Button>
                     )}
@@ -205,8 +208,8 @@ export default function LostFound() {
                       </Button>
                     )}
                     {canManageItem(item) && (
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(item)}>
-                        <Trash2 size={14} /> {t('common.delete')}
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => remove(item)} aria-label={t('common.delete')}>
+                        <Trash2 size={14} /><span className="hidden sm:inline">{t('common.delete')}</span>
                       </Button>
                     )}
                   </div>
