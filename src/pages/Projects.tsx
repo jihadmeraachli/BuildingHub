@@ -185,9 +185,12 @@ export default function Projects() {
             {vRows.map((r) => {
               const p = progress(r);
               return (
-                <Card key={r.id} className="cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setDetail(r)}><CardBody>
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                    <div className="min-w-0 flex-1">
+                <Card key={r.id} className="relative cursor-pointer hover:bg-primary/5 transition-colors" onClick={() => setDetail(r)}><CardBody>
+                  {/* Phone: title block, then the money block at full width; the
+                      actions sit in the card's top-end corner (icon-only).
+                      sm+: the three sit on one row as before. */}
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-x-4 gap-y-3">
+                    <div className={`min-w-0 flex-1 ${canManage ? 'pe-20 sm:pe-0' : ''}`}>
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold text-foreground">{r.title}</h3>
                         <Badge color={statusColor[r.status]}>{t(`projects.status.${r.status}`)}</Badge>
@@ -201,7 +204,7 @@ export default function Projects() {
                       </div>
                       {p.over && <p className="text-xs text-rose-500 dark:text-rose-300 mt-1">{t('projects.overBy', { amount: money(p.actual - (p.est ?? 0)) })}</p>}
                     </div>
-                    <div className="w-44 flex-shrink-0">
+                    <div className="w-full sm:w-44 sm:flex-shrink-0">
                       <div className="flex items-baseline justify-between gap-2 text-sm">
                         <span className="text-muted-foreground text-xs">{t('projects.spent')}</span>
                         <span className={`tnum font-semibold ${p.over ? 'text-rose-500 dark:text-rose-300' : 'text-foreground'}`}>{money(p.actual)}</span>
@@ -217,9 +220,9 @@ export default function Projects() {
                       )}
                     </div>
                     {canManage && (
-                      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
+                      <div className="absolute top-3 end-3 sm:static flex items-center gap-1 sm:flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => openEdit(r)} className="p-2.5 sm:p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer" aria-label={t('common.edit')}><Pencil size={16} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-2.5 sm:p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1" aria-label={t('common.delete')}><Trash2 size={16} /><span className="hidden sm:inline">{t('common.delete')}</span></button>
                       </div>
                     )}
                   </div>

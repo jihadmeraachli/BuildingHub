@@ -24,7 +24,8 @@ import {
   AlertTriangle, Home, TrendingUp, AlertCircle, Wallet, Building2,
   Plus, HandCoins, Layers, ArrowRight, CalendarDays,
 } from 'lucide-react';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoney, fmtMoneyWhole } from '@/lib/money';
+import { FitText } from '@/components/ui/FitText';
 
 // one formatter, following the reader's language (src/lib/money.ts)
 const money = (n: number) => fmtMoney(n);
@@ -566,8 +567,8 @@ export default function Dashboard() {
       {/* Stat row. Outstanding / Units / Open issues are AS-OF snapshots (0072);
           Billed is a flow inside the period. The suffix keeps that visible. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label={`${t('dashboard.outstanding')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`} value={money(agg.outstanding)} icon={AlertCircle}   accent="teal" to="/finance" />
-        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}      icon={TrendingUp}    accent="teal" to="/finance" />
+        <StatCard label={`${t('dashboard.outstanding')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`} value={money(agg.outstanding)} compact={fmtMoneyWhole(agg.outstanding)} icon={AlertCircle}   accent="teal" to="/finance" />
+        <StatCard label={t('dashboard.totalBilled')}  value={money(agg.billed)}      compact={fmtMoneyWhole(agg.billed)} icon={TrendingUp}    accent="teal" to="/finance" />
         <StatCard label={`${t('dashboard.units')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}       value={String(agg.units)}      icon={Home}          accent="teal" to="/structure" />
         <StatCard label={`${t('dashboard.openIssues')}${mAsOfLabel ? ` · ${mAsOfLabel}` : ''}`}  value={String(agg.openIssues)} icon={AlertTriangle} accent="teal" to="/issues?status=open" />
       </div>
@@ -706,7 +707,10 @@ function HeroCard({ label, amount, sub, tag, stats, pill, negative }: {
 
 type Accent = 'teal' | 'amber' | 'rose' | 'default';
 
-function StatCard({ label, value, icon: Icon, accent, to }: { label: string; value: string; icon: ElementType; accent: Accent; to?: string }) {
+/** `compact` is the phone rendering (whole dollars) — a 2-up tile is ~150px
+ *  wide and cents are noise at that size. FitText guarantees the figure is
+ *  never cut off whatever the language or amount. */
+function StatCard({ label, value, compact, icon: Icon, accent, to }: { label: string; value: string; compact?: string; icon: ElementType; accent: Accent; to?: string }) {
   const iconClass: Record<Accent, string> = {
     teal:    'bg-primary/15 text-primary',
     amber:   'bg-amber-400/15 text-amber-300',
@@ -719,9 +723,11 @@ function StatCard({ label, value, icon: Icon, accent, to }: { label: string; val
     <Card className={cn('gap-3 py-4 h-full', to && 'group transition-colors hover:bg-accent/40 cursor-pointer')}>
       <CardContent className="px-4">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground font-medium">{label}</p>
-            <p className="text-2xl font-bold tnum mt-1 truncate">{value}</p>
+            <FitText className="text-2xl font-bold tnum mt-1">
+              {compact ? <><span className="sm:hidden">{compact}</span><span className="hidden sm:inline">{value}</span></> : value}
+            </FitText>
           </div>
           <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors', iconClass[accent], to && 'group-hover:bg-primary/25')}>
             <Icon size={16} />

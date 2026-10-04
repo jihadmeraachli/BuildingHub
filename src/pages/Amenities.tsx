@@ -198,9 +198,9 @@ export default function Amenities() {
             {vRows.map((r) => {
               const n = counts[r.id] ?? empty; const age = ageLabel(r);
               return (
-                <Card key={r.id} className={`cursor-pointer hover:bg-primary/5 transition-colors ${!r.active ? 'opacity-60' : ''}`} onClick={() => openDetail(r)}><CardBody>
-                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                    <div className="min-w-0 flex-1">
+                <Card key={r.id} className={`relative cursor-pointer hover:bg-primary/5 transition-colors ${!r.active ? 'opacity-60' : ''}`} onClick={() => openDetail(r)}><CardBody>
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-x-4 gap-y-3">
+                    <div className={`min-w-0 flex-1 ${canManage ? 'pe-20 sm:pe-0' : ''}`}>
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold text-foreground">{r.name}</h3>
                         <Badge color="indigo">{kindLabelOf(r, t)}</Badge>
@@ -216,16 +216,16 @@ export default function Amenities() {
                         {age && <span className={(replaceYear(r) ?? 9999) - new Date().getFullYear() <= 0 ? 'text-rose-500' : undefined}>{age}</span>}
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground w-full sm:w-auto sm:flex-shrink-0">
                       <span className="inline-flex items-center gap-1"><FileSignature size={12} /> {n.c}</span>
                       <span className="inline-flex items-center gap-1"><ClipboardCheck size={12} /> {n.i}</span>
                       <span className="inline-flex items-center gap-1"><Receipt size={12} /> {n.e}</span>
                       <span className="inline-flex items-center gap-1"><AlertTriangle size={12} /> {n.s}</span>
                     </div>
                     {canManage && (
-                      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                        <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
+                      <div className="absolute top-3 end-3 sm:static flex items-center gap-1 sm:flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => openEdit(r)} className="p-2.5 sm:p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer" aria-label={t('common.edit')}><Pencil size={16} /></button>
+                        <button onClick={() => setConfirmDelete(r.id)} className="p-2.5 sm:p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1" aria-label={t('common.delete')}><Trash2 size={16} /><span className="hidden sm:inline">{t('common.delete')}</span></button>
                       </div>
                     )}
                   </div>

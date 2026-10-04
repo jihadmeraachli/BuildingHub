@@ -671,8 +671,38 @@ export default function Licenses() {
               <CardContent>
                 {!invoices.length ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">{t('licensesPage.noInvoices')}</p>
-                ) : (
-                  <div className="overflow-x-auto">
+                ) : (<>
+                  {/* Phone: one row per invoice — period and status on the
+                      left, the amount on the right, PDF under the amount.
+                      A five-column table has no honest shape at 390px. */}
+                  <ul className="sm:hidden divide-y divide-border -mx-1">
+                    {invoices.map(inv => (
+                      <li key={inv.id} className="flex items-start justify-between gap-3 py-3 px-1">
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground tnum">{fmtDate(inv.period_start)} → {fmtDate(inv.period_end)}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            <Badge color={INVOICE_COLOR[inv.status]}>{t(`licensesPage.invoiceStatuses.${inv.status}`)}</Badge>
+                            {inv.kind === 'topup' && <Badge color="indigo">{t('billing.topup')}</Badge>}
+                          </div>
+                          {inv.status === 'paid' && inv.paid_at && (
+                            <p className="text-xs text-muted-foreground mt-1">{t('licensesPage.paid')} · {fmtDate(inv.paid_at)}</p>
+                          )}
+                          {inv.status === 'open' && inv.due_date && (
+                            <p className="text-xs text-muted-foreground mt-1">{t('billing.dueBy', { date: inv.due_date })}</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-end">
+                          <p className="font-semibold tnum text-foreground">{usd(inv.amount_cents)}</p>
+                          {inv.status === 'paid' && (
+                            <button onClick={() => downloadInvoice(inv)} className="mt-1 inline-flex items-center gap-1 text-xs text-primary cursor-pointer">
+                              <Download size={13} /> PDF
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="hidden sm:block overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -712,7 +742,7 @@ export default function Licenses() {
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                </>)}
               </CardContent>
             </Card>
           </TabsContent>

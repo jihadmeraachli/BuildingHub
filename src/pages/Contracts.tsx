@@ -262,8 +262,8 @@ export default function Contracts() {
                   </div>
                   {canManage && (
                     <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer"><Pencil size={15} /></button>
-                      <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1"><Trash2 size={15} /> {t('common.delete')}</button>
+                      <button onClick={() => openEdit(r)} className="p-2.5 sm:p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer" aria-label={t('common.edit')}><Pencil size={16} /></button>
+                      <button onClick={() => setConfirmDelete(r.id)} className="p-2.5 sm:p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer inline-flex items-center gap-1" aria-label={t('common.delete')}><Trash2 size={16} /><span className="hidden sm:inline">{t('common.delete')}</span></button>
                     </div>
                   )}
                 </div>

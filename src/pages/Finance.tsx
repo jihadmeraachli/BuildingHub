@@ -30,7 +30,8 @@ import { MonthPicker } from '@/components/ui/MonthPicker';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { Donut, TrendChart, MiniBar } from '@/components/ui/Charts';
 import { SkeletonTable } from '@/components/ui/Skeleton';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoney, fmtMoneyWhole } from '@/lib/money';
+import { FitText } from '@/components/ui/FitText';
 
 const CATEGORIES: ExpenseCategory[] = ['water', 'electricity', 'common_expenses', 'projects', 'contracts', 'fines', 'other'];
 const CAT_LABEL: Record<ExpenseCategory, string> = {
@@ -1344,21 +1345,24 @@ export default function Finance() {
       {!entity ? <Empty body={entities.length ? t('common.pickEntity') : t('finance.noBuildings')} /> : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-            <Kpi label={t('finance.collected')} value={money(collectedP)} icon={TrendingUp} tone="emerald" hint={periodLabel} desc={t('finance.collectedDesc')} />
-            <Kpi label={t('finance.billed')} value={money(billedP)} icon={Receipt} tone="slate" hint={periodLabel} desc={t('finance.billedDesc')} />
-            <Kpi label={t('finance.net')} value={money(netP)} icon={Wallet} tone={netP >= 0 ? 'indigo' : 'rose'} hint={periodLabel} desc={t('finance.netDesc')} />
-            <Kpi label={t('finance.outstanding')} value={money(outstanding)} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} desc={t('finance.outstandingDesc')} />
+            <Kpi label={t('finance.collected')} value={money(collectedP)} amount={collectedP} icon={TrendingUp} tone="emerald" hint={periodLabel} desc={t('finance.collectedDesc')} />
+            <Kpi label={t('finance.billed')} value={money(billedP)} amount={billedP} icon={Receipt} tone="slate" hint={periodLabel} desc={t('finance.billedDesc')} />
+            <Kpi label={t('finance.net')} value={money(netP)} amount={netP} icon={Wallet} tone={netP >= 0 ? 'indigo' : 'rose'} hint={periodLabel} desc={t('finance.netDesc')} />
+            <Kpi label={t('finance.outstanding')} value={money(outstanding)} amount={outstanding} icon={AlertCircle} tone={outstanding > 0 ? 'amber' : 'slate'} hint={period === 'all' ? t('finance.owedNow') : periodLabel} desc={t('finance.outstandingDesc')} />
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4 mb-6">
-            <Card className="lg:col-span-2"><CardBody>
-              <div className="flex items-center justify-between mb-2">
+          {/* [&>*]:min-w-0: a grid cell's default min-width is its content's
+              min-content width, so the donut legend pushed the whole grid 14px
+              past a phone's right edge. */}
+          <div className="grid lg:grid-cols-3 gap-4 mb-6 [&>*]:min-w-0">
+            <Card className="lg:col-span-2 overflow-x-clip"><CardBody>
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <p className="text-sm font-semibold text-primary">{t('dashboard.collectedVsSpent')}</p>
                 <span className="text-xs text-muted-foreground">{periodLabel}{blockFilters.length === 1 ? ` · ${blockName[blockFilters[0]]}` : blockFilters.length > 1 ? ` · ${blockFilters.length} blocks` : ''}</span>
               </div>
               <TrendChart labels={trend.labels} series={[{ name: t('finance.collected'), color: '#10b981', data: trend.collected }, { name: t('finance.billed'), color: '#6366f1', data: trend.billed }]} />
             </CardBody></Card>
-            <Card><CardBody>
+            <Card className="overflow-x-clip"><CardBody>
               <p className="text-sm font-semibold text-primary mb-3">{t('finance.spendingByCategory')} <span className="font-normal text-muted-foreground text-xs">· {periodLabel}</span></p>
               <Donut data={breakdown} centerLabel={t('finance.billed')} />
             </CardBody></Card>
@@ -2447,7 +2451,9 @@ export default function Finance() {
   );
 }
 
-function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; value: string; icon: ElementType; tone?: string; hint?: string; desc?: string }) {
+/** `amount` lets the tile show whole dollars on phones (2-up grid, ~150px per
+ *  tile) and FitText keeps the figure on one line at any width. */
+function Kpi({ label, value, amount, icon: Icon, tone, hint, desc }: { label: string; value: string; amount?: number; icon: ElementType; tone?: string; hint?: string; desc?: string }) {
   const gradients: Record<string, string> = {
     emerald: 'from-emerald-400 to-teal-500',
     indigo:  'from-violet-400 to-indigo-500',
@@ -2458,7 +2464,7 @@ function Kpi({ label, value, icon: Icon, tone, hint, desc }: { label: string; va
   const gradient = gradients[tone ?? 'slate'] ?? 'from-teal-400 to-teal-600';
   return (
     <Card><CardBody><div className="flex items-start justify-between">
-      <div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{label}</p><p className={`text-xl lg:text-2xl font-bold tnum mt-1 truncate ${tone === 'rose' ? 'text-red-400 dark:text-red-300' : 'text-foreground'}`}>{value}</p>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}{desc && <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-snug">{desc}</p>}</div>
+      <div className="min-w-0 flex-1"><p className="text-xs text-muted-foreground font-medium">{label}</p><FitText className={`text-xl lg:text-2xl font-bold tnum mt-1 ${tone === 'rose' ? 'text-red-400 dark:text-red-300' : 'text-foreground'}`}>{amount != null ? <><span className="sm:hidden">{fmtMoneyWhole(amount)}</span><span className="hidden sm:inline">{value}</span></> : value}</FitText>{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}{desc && <p className="text-[10px] text-muted-foreground/70 mt-0.5 leading-snug">{desc}</p>}</div>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${gradient} text-white shadow-sm`}><Icon size={18} /></div>
     </div></CardBody></Card>
   );

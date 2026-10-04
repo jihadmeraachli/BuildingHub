@@ -25,9 +25,14 @@ function formatter(lang: string, digits = 2): Intl.NumberFormat {
   return f;
 }
 
+/** Browsers may break a line right after a hyphen-minus, which put "-" on one
+ *  line and "$13,700.00" on the next in a narrow tile. U+2212 (MINUS SIGN) is
+ *  the typographically correct glyph and never a break opportunity. */
+const noBreakMinus = (s: string) => s.replace(/^-/, '\u2212');
+
 /** "$1,234.56" · "1 234,56 $" · "1,234.56 $" — the current UI language unless given. */
 export function fmtMoney(n: number, lang: string = i18n.language): string {
-  return formatter((lang || 'en').slice(0, 2)).format(n);
+  return noBreakMinus(formatter((lang || 'en').slice(0, 2)).format(n));
 }
 
 /** Same, for a value held in cents (pricing tables). */
@@ -38,5 +43,5 @@ export const fmtMoneyCents = (cents: number, lang?: string) => fmtMoney(cents / 
  *  -$14,420 (JS rounds toward +∞ on .5). Cents stay in the row beneath. */
 export function fmtMoneyWhole(n: number, lang: string = i18n.language): string {
   const whole = Math.sign(n) * Math.round(Math.abs(n));
-  return formatter((lang || 'en').slice(0, 2), 0).format(whole === 0 ? 0 : whole);
+  return noBreakMinus(formatter((lang || 'en').slice(0, 2), 0).format(whole === 0 ? 0 : whole));
 }

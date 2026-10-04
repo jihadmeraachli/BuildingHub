@@ -11,7 +11,7 @@ describe('fmtMoneyWhole', () => {
     expect(fmtMoneyWhole(14420, 'en')).toBe('$14,420');
     expect(fmtMoneyWhole(14420.49, 'en')).toBe('$14,420');
     expect(fmtMoneyWhole(14420.5, 'en')).toBe('$14,421');
-    expect(fmtMoneyWhole(-14420.5, 'en')).toBe('-$14,421');
+    expect(fmtMoneyWhole(-14420.5, 'en')).toBe('\u2212$14,421'); // a real minus sign: never a line-break opportunity
   });
   it('never prints negative zero', () => {
     expect(fmtMoneyWhole(-0.2, 'en')).toBe('$0');
