@@ -11,7 +11,12 @@
 // document whatever the reader's screen language.
 import i18n from '@/i18n';
 
-const LOCALE: Record<string, string> = { en: 'en-US', fr: 'fr-FR', ar: 'ar-LB-u-nu-latn' };
+// Arabic deliberately formats as en-US. CLDR's ar-LB gives "1.234,50 US$"
+// (German-style separators, a "US$" suffix, and bidi marks that let the minus
+// drift to the wrong side of the number on a phone). Lebanon writes money as
+// "$1,234.50" with Latin digits whatever the script around it, so the English
+// shape is the correct Arabic one.
+const LOCALE: Record<string, string> = { en: 'en-US', fr: 'fr-FR', ar: 'en-US' };
 const cache = new Map<string, Intl.NumberFormat>();
 
 function formatter(lang: string, digits = 2): Intl.NumberFormat {
@@ -28,11 +33,18 @@ function formatter(lang: string, digits = 2): Intl.NumberFormat {
 /** Browsers may break a line right after a hyphen-minus, which put "-" on one
  *  line and "$13,700.00" on the next in a narrow tile. U+2212 (MINUS SIGN) is
  *  the typographically correct glyph and never a break opportunity. */
-const noBreakMinus = (s: string) => s.replace(/^-/, '\u2212');
+const noBreakMinus = (s: string) => s.replace(/^-/, '\u2212\u2060'); // minus + word joiner: never split from the "$"
+
+/** Inside Arabic text the bidi algorithm pulls the sign and the "$" to the
+ *  other side of the digits ("$261.92−", "261.92$"). Wrapping the figure in
+ *  an LTR isolate (U+2066 … U+2069) keeps it exactly as written; the marks are
+ *  invisible, so they are only added for RTL to keep English strings plain. */
+const isolate = (s: string, lang: string) => (lang === 'ar' ? `\u2066${s}\u2069` : s);
 
 /** "$1,234.56" · "1 234,56 $" · "1,234.56 $" — the current UI language unless given. */
 export function fmtMoney(n: number, lang: string = i18n.language): string {
-  return noBreakMinus(formatter((lang || 'en').slice(0, 2)).format(n));
+  const l = (lang || 'en').slice(0, 2);
+  return isolate(noBreakMinus(formatter(l).format(n)), l);
 }
 
 /** Same, for a value held in cents (pricing tables). */
@@ -43,5 +55,6 @@ export const fmtMoneyCents = (cents: number, lang?: string) => fmtMoney(cents / 
  *  -$14,420 (JS rounds toward +∞ on .5). Cents stay in the row beneath. */
 export function fmtMoneyWhole(n: number, lang: string = i18n.language): string {
   const whole = Math.sign(n) * Math.round(Math.abs(n));
-  return noBreakMinus(formatter((lang || 'en').slice(0, 2), 0).format(whole === 0 ? 0 : whole));
+  const l = (lang || 'en').slice(0, 2);
+  return isolate(noBreakMinus(formatter(l, 0).format(whole === 0 ? 0 : whole)), l);
 }

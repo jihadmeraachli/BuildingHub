@@ -60,6 +60,12 @@
     "restoredUnlicensed": "\"{{name}}\" restored without a licence. Assign one from Structure or Billing when ready."
   },
   "nav": {
+    "tabHome": "Home",
+    "tabMoney": "Money",
+    "tabAccount": "Account",
+    "tabUnits": "Units",
+    "tabMore": "More",
+    "tabBarLabel": "Main navigation",
     "trash": "Recycle bin",
     "dashboard": "Dashboard",
     "gettingStarted": "Getting started",

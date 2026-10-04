@@ -60,6 +60,12 @@
     "restoredUnlicensed": "تمت استعادة \"{{name}}\" بدون ترخيص. عيّن ترخيصاً من الهيكل أو الفوترة عندما تكون جاهزاً."
   },
   "nav": {
+    "tabHome": "الرئيسية",
+    "tabMoney": "المال",
+    "tabAccount": "حسابي",
+    "tabUnits": "الوحدات",
+    "tabMore": "المزيد",
+    "tabBarLabel": "التنقل الرئيسي",
     "trash": "سلة المحذوفات",
     "dashboard": "لوحة التحكم",
     "gettingStarted": "خطوات البداية",

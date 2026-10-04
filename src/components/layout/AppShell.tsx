@@ -10,6 +10,7 @@ import { BioPrompt } from '@/components/BioPrompt';
 import { pushAlreadyGranted, enablePush } from '@/lib/push';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { TabBar } from './TabBar';
 import { HelpProvider } from '@/components/HelpWidget';
 
 export function AppShell() {
@@ -68,10 +69,14 @@ export function AppShell() {
         )}
         <BillingBanner />
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main ref={mainRef} className="relative flex-1 overflow-y-auto overflow-x-clip p-4 lg:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] lg:pb-6">
+        {/* Under lg the tab bar floats over the bottom edge: pad the scroll
+            area by its height + the home-indicator inset so the last row of
+            every page can scroll clear of it. */}
+        <main ref={mainRef} className="relative flex-1 overflow-y-auto overflow-x-clip p-4 lg:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-6">
           <PullIndicator innerRef={ptrRef} />
           <Outlet />
         </main>
+        <TabBar onMore={() => setSidebarOpen(true)} />
         {/* Native only, self-hiding: offers Face ID once, just after signing in. */}
         <BioPrompt />
       </div>

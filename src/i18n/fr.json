@@ -60,6 +60,12 @@
     "restoredUnlicensed": "« {{name}} » restauré sans licence. Attribuez-en une depuis Structure ou Facturation."
   },
   "nav": {
+    "tabHome": "Accueil",
+    "tabMoney": "Finances",
+    "tabAccount": "Mon compte",
+    "tabUnits": "Lots",
+    "tabMore": "Plus",
+    "tabBarLabel": "Navigation principale",
     "trash": "Corbeille",
     "dashboard": "Tableau de bord",
     "gettingStarted": "Premiers pas",
