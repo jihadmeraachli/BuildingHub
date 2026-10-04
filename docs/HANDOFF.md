@@ -623,8 +623,16 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   URL. Review normally 1–3 days; a rejection cites a guideline number.
   Review login = the +applereview account (unit 601, Tulip) + the Apple beta
   code — both verified live 21 Sep. Ships with the beta gate ON and the EU
-  excluded (see DSA below). STILL TO VERIFY on the TestFlight build: the
-  next-day Face ID sign-in (token rotation) — if it fails, ship 1.0.1.
+  excluded (see DSA below). Face ID sign-in after hours FAILED AGAIN on both
+  phones (4 Oct): not rotation this time. Jey's account had exactly ONE server
+  session left (the Android password re-login); the iPhone session had been
+  DELETED. Two client paths still used supabase-js's default `signOut()` scope,
+  which is GLOBAL (revokes every session of that user): the demo entry page
+  (opening abniyah.com/demo on a laptop while signed in as yourself) and the
+  demo "start trial" button. Both are `scope: 'local'` now (web deploy; the
+  phones need no rebuild, the deleting side was the web). Deactivation stays
+  global on purpose. If it recurs, check `auth.sessions` for the account
+  before suspecting the Keychain copy.
 - **Apple (history)**: ✅ ORG CONVERSION COMPLETE 2026-09-16. Entity "Tatawwor L.L.C",
   Enrolled as Organization, **Team ID UNCHANGED `8PHJEU7CDL`** — so the app
   record, App ID `com.abniyah.app` and the APNs key all carried over: no App

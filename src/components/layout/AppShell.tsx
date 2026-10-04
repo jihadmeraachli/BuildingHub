@@ -34,7 +34,9 @@ export function AppShell() {
 
   // Demo visitors who convert must not carry the demo session into /register.
   async function startTrial() {
-    await supabase.auth.signOut();
+    // scope 'local': the shared demo persona is signed in on many browsers at
+    // once; the default 'global' would sign every other demo visitor out.
+    await supabase.auth.signOut({ scope: 'local' });
     window.location.href = '/register';
   }
 

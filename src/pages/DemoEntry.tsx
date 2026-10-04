@@ -22,7 +22,12 @@ export default function DemoEntry() {
     setError(false);
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user.email?.toLowerCase() !== DEMO_ACCOUNTS[persona]) {
-      if (session) await supabase.auth.signOut();
+      // scope 'local' — the library default is 'global', which revokes EVERY
+      // session of whoever is signed in here. Opening the demo on a laptop
+      // while signed in as yourself used to sign your phones out too, and
+      // Face ID on them then failed with "expired" (the Keychain copy pointed
+      // at a session that no longer existed).
+      if (session) await supabase.auth.signOut({ scope: 'local' });
       const { error: signInErr } = await supabase.auth.signInWithPassword({
         email: DEMO_ACCOUNTS[persona],
         password: DEMO_PASSWORD,
