@@ -21,7 +21,7 @@ import { RadixSelect, SelectContent, SelectField, SelectItem, SelectTrigger, Sel
 import { Badge } from '@/components/ui/Badge';
 import { LedgerReportDoc, downloadPdf } from '@/lib/pdf';
 import { filterLedger, ledgerTotals, groupLedger, emptyLedgerFilters, type LedgerRow, type LedgerFilters, type LedgerGrouping } from '@/lib/reportData';
-import { fmtMoney } from '@/lib/money';
+import { fmtMoney, fmtMoneyWhole } from '@/lib/money';
 
 // one formatter, following the reader's language (src/lib/money.ts)
 const money = (n: number) => fmtMoney(n);
@@ -261,15 +261,15 @@ export function CustomReportCard({ rows, scopes, entityName, unitFilter }: {
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4 min-w-0">
           <div className="rounded-lg border border-border p-2.5 sm:p-3 min-w-0">
             <div className="text-xs text-muted-foreground">{t('reports.custom.moneyIn')}</div>
-            <div className="text-base sm:text-lg font-semibold tabular-nums break-words leading-tight">{money(totals.payments)}</div>
+            <div className="text-base sm:text-lg font-semibold tabular-nums leading-tight"><span className="sm:hidden">{fmtMoneyWhole(totals.payments)}</span><span className="hidden sm:inline">{money(totals.payments)}</span></div>
           </div>
           <div className="rounded-lg border border-border p-2.5 sm:p-3 min-w-0">
             <div className="text-xs text-muted-foreground">{t('reports.custom.moneyOut')}</div>
-            <div className="text-base sm:text-lg font-semibold tabular-nums break-words leading-tight">{money(totals.expenses)}</div>
+            <div className="text-base sm:text-lg font-semibold tabular-nums leading-tight"><span className="sm:hidden">{fmtMoneyWhole(totals.expenses)}</span><span className="hidden sm:inline">{money(totals.expenses)}</span></div>
           </div>
           <div className="rounded-lg border border-border p-2.5 sm:p-3 min-w-0">
             <div className="text-xs text-muted-foreground">{t('reports.custom.net')}</div>
-            <div className="text-base sm:text-lg font-semibold tabular-nums break-words leading-tight">{money(totals.net)}</div>
+            <div className="text-base sm:text-lg font-semibold tabular-nums leading-tight"><span className="sm:hidden">{fmtMoneyWhole(totals.net)}</span><span className="hidden sm:inline">{money(totals.net)}</span></div>
           </div>
         </div>
 
