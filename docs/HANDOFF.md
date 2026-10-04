@@ -712,6 +712,16 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   Team ID 8PHJEU7CDL; a listener that routes the URL to the in-app route
   (`route` already rides in every push payload, reuse that path). Cloudflare
   Pages serves /.well-known/ from `public/` (dotfiles copy fine).
+- **The in-app bell is English-only for every user.** Every notification row is
+  written by a DB trigger at insert time with a hardcoded English title/body
+  (`'Lost & found' / 'New item: … check if it''s yours'`, `'Charge removed'`,
+  …) and `Header.tsx` renders `n.title`/`n.body` raw. An Arabic resident's bell
+  is entirely English (seen 4 Oct while shooting the week-3 Lost & Found clip;
+  the bell screen was dropped from the video because of it). Email/WhatsApp
+  already localise per `preferred_language` (0060); the bell does not. Fix at
+  the altitude of the whole system, not per trigger: store `type` + params
+  (item title, amount…) and let the client render by type through i18n, so
+  one language switch re-renders history too.
 - **New issues never email/push the admins — only the in-app bell.** The
   `issues` INSERT handler EXISTS in dynamic-action (§3) but there is **no
   Database Webhook wired for `issues` INSERT** (only UPDATE, for the resolved
