@@ -70,6 +70,8 @@ export default function Licenses() {
   // Selected-subscription detail
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  // Tapping an invoice opens its details (the PDF used to be the only way).
+  const [invoiceDetail, setInvoiceDetail] = useState<Invoice | null>(null);
   const [paying, setPaying] = useState('');
 
   /**
@@ -675,9 +677,11 @@ export default function Licenses() {
                   {/* Phone: one row per invoice — period and status on the
                       left, the amount on the right, PDF under the amount.
                       A five-column table has no honest shape at 390px. */}
+                  <p className="sm:hidden text-xs text-muted-foreground mb-1">{t('licensesPage.invTapHint')}</p>
                   <ul className="sm:hidden divide-y divide-border -mx-1">
                     {invoices.map(inv => (
-                      <li key={inv.id} className="flex items-start justify-between gap-3 py-3 px-1">
+                      <li key={inv.id} role="button" tabIndex={0} onClick={() => setInvoiceDetail(inv)} onKeyDown={(e) => { if (e.key === 'Enter') setInvoiceDetail(inv); }}
+                        className="flex items-start justify-between gap-3 py-3 px-1 cursor-pointer active:bg-accent/40 rounded-lg">
                         <div className="min-w-0">
                           <p className="text-sm text-foreground tnum">{fmtDate(inv.period_start)} → {fmtDate(inv.period_end)}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
@@ -694,7 +698,7 @@ export default function Licenses() {
                         <div className="shrink-0 text-end">
                           <p className="font-semibold tnum text-foreground">{usd(inv.amount_cents)}</p>
                           {inv.status === 'paid' && (
-                            <button onClick={() => downloadInvoice(inv)} className="mt-1 inline-flex items-center gap-1 text-xs text-primary cursor-pointer">
+                            <button onClick={(e) => { e.stopPropagation(); downloadInvoice(inv); }} className="mt-1 inline-flex items-center gap-1 text-xs text-primary cursor-pointer">
                               <Download size={13} /> PDF
                             </button>
                           )}
@@ -715,7 +719,7 @@ export default function Licenses() {
                       </TableHeader>
                       <TableBody>
                         {invoices.map(inv => (
-                          <TableRow key={inv.id}>
+                          <TableRow key={inv.id} className="cursor-pointer" onClick={() => setInvoiceDetail(inv)}>
                             <TableCell>
                               {fmtDate(inv.period_start)} → {fmtDate(inv.period_end)}
                               {inv.kind === 'topup' && <Badge color="indigo" className="ms-2">{t('billing.topup')}</Badge>}
@@ -732,7 +736,7 @@ export default function Licenses() {
                             </TableCell>
                             <TableCell className="text-end">
                               {inv.status === 'paid' && (
-                                <Button size="sm" variant="ghost" onClick={() => downloadInvoice(inv)} title={t('licensesPage.downloadPdf')}>
+                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); downloadInvoice(inv); }} title={t('licensesPage.downloadPdf')}>
                                   <Download size={15} />
                                 </Button>
                               )}
@@ -748,6 +752,65 @@ export default function Licenses() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Invoice details: everything the PDF says, without leaving the app. */}
+      <Modal open={!!invoiceDetail} onClose={() => setInvoiceDetail(null)} size="sm"
+        title={invoiceDetail ? t('licensesPage.invoiceTitle', { no: `INV-${invoiceDetail.id.slice(0, 8).toUpperCase()}` }) : ''}>
+        {invoiceDetail && (() => {
+          const inv = invoiceDetail;
+          const isTopup = inv.kind === 'topup';
+          const vatRate = 0.11;
+          const net = Math.round(inv.amount_cents / (1 + vatRate));
+          const vat = inv.amount_cents - net;
+          const move = isTopup ? /(\d+)\s*→\s*(\d+)/.exec(inv.description ?? '') : null;
+          const licenses = move ? `${move[1]} → ${move[2]}` : inv.license_count != null ? String(inv.license_count) : null;
+          const method = inv.payment_method === 'whish' ? t('licensesPage.invMethodWhish')
+            : inv.payment_method === 'areeba' ? t('licensesPage.invMethodCard')
+            : inv.payment_method || null;
+          const rows: [string, string | null][] = [
+            [t('licensesPage.invDescription'), inv.description ?? (isTopup ? t('licensesPage.invKindTopup') : t('licensesPage.invKindPeriod'))],
+            [t('licensesPage.invCycle'), sub?.plan === 'annual' ? t('licensesPage.invCycleAnnual') : t('licensesPage.invCycleMonthly')],
+            [isTopup ? t('licensesPage.invCovers') : t('licensesPage.period'), isTopup ? fmtDate(inv.period_end) : `${fmtDate(inv.period_start)} → ${fmtDate(inv.period_end)}`],
+            [t('licensesPage.invLicenses'), licenses],
+            [t('licensesPage.invIssued'), fmtDate(inv.created_at)],
+            [t('licensesPage.invDue'), inv.status === 'open' && inv.due_date ? fmtDate(inv.due_date) : null],
+            [t('licensesPage.invPaidOn'), inv.paid_at ? fmtDate(inv.paid_at) : null],
+            [t('licensesPage.invMethod'), inv.paid_at ? method : null],
+            [t('licensesPage.invRef'), inv.payment_ref ?? null],
+            [t('licensesPage.invNotes'), inv.notes ?? null],
+          ];
+          return (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge color={INVOICE_COLOR[inv.status]}>{t(`licensesPage.invoiceStatuses.${inv.status}`)}</Badge>
+                  {isTopup && <Badge color="indigo">{t('billing.topup')}</Badge>}
+                </div>
+                <p className="text-2xl font-bold tnum text-foreground">{usd(inv.amount_cents)}</p>
+              </div>
+              <dl className="divide-y divide-border rounded-xl border border-border">
+                {rows.filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k} className="flex items-start justify-between gap-4 px-3.5 py-2.5 text-sm">
+                    <dt className="text-muted-foreground shrink-0">{k}</dt>
+                    <dd className="text-foreground text-end break-words min-w-0">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="rounded-xl bg-secondary/40 px-3.5 py-2.5 text-sm space-y-1">
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">{t('licensesPage.invSubtotal')}</span><span className="tnum">{usd(net)}</span></div>
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">{t('licensesPage.invVat')}</span><span className="tnum">{usd(vat)}</span></div>
+                <div className="flex justify-between gap-4 font-semibold pt-1 border-t border-border"><span>{t('licensesPage.invTotal')}</span><span className="tnum">{usd(inv.amount_cents)}</span></div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setInvoiceDetail(null)}>{t('common.close')}</Button>
+                {inv.status === 'paid' && (
+                  <Button onClick={() => downloadInvoice(inv)}><Download size={15} /> {t('licensesPage.downloadPdf')}</Button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* 0116: Subscribe / Renew — choose the cycle, see the dates, pay */}
       <Modal open={subscribeOpen} onClose={() => { setSubscribeOpen(false); setSubscribeStep('plan'); setPayIntent(null); }}
