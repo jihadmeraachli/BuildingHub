@@ -764,6 +764,9 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   carousel (chosen over Arabic-only c1–c4) and `post2-estory.png`.
   Per-platform captions drafted — note **LinkedIn posts as the Tatawwor page**,
   so it takes a different, B2B voice, not the Arabic-first consumer copy.
+  **Week 3 built 4 Oct** (squishy film + transparency carousel; second video
+  pending Jey's concept): `docs/marketing/batches/2026-10-week3.md`, incl. the
+  Flow/Veo lessons (Arabic script trips the minor filter; transliterate).
   **Week 2 built 27 Sep** — real-product video + 4-slide carousel + dual-currency
   card, captions and slots in `docs/marketing/batches/2026-09-week2.md`.
   ⚠️ **Reel has no audio.** Fairuz and commercial music are NOT usable: a
