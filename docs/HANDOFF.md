@@ -726,7 +726,7 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   then nothing settles, silently. Probe: unauthenticated GET must return
   **400 `missing intent`**, never 401. Sandbox payer: `96170123456` / OTP
   `111111`.
-  **Still open for LIVE:** corporate KYC approval (documents under review);
+  **✅ CORPORATE ACCOUNT APPROVED 7 Oct 2026.** What is left for LIVE is config only:
   going live is one switch — `WHISH_BASE_URL` → `https://api.whish.money/itel-service/api`;
   refunds additionally need our egress IP whitelisted; the Cash-Out form
   (WM-FA-F-01-02-02) is the settlement/withdraw flow and needs the assigned
