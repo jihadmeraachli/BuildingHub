@@ -694,7 +694,11 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   push all verified. **Production release SUBMITTED for Google review the same
   evening** (countries: everywhere except the EU, matching Apple; managed
   publishing ON, so approval does NOT auto-publish — Jey presses Publish when
-  Whish and the launch posts are lined up). Google's first review: 1–7 days. Assets + checklist: docs/ANDROID_APP.md
+  Whish and the launch posts are lined up). **✅ APPROVED by Google 3 Oct
+  21:32 (80 minutes after submission), status "Ready to publish". Jey's
+  decision 7 Oct: HOLD the Publish button until Apple approves build 19, then
+  release both stores the same day.** Build 20 (phone redesign) then follows
+  on both as the first update. Assets + checklist: docs/ANDROID_APP.md
   "Google Play listing". Upload keystore: C:\projectsbniyah-signing (BACK UP).
 - **Google Play (history)**: ✅ ORG VERIFICATION COMPLETE 2026-09-17. Organization
   account, developer name "Tatawwor L.L.C", website + emails + phones all
