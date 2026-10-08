@@ -632,7 +632,8 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   used on Projects. Resident Home as "one figure + Pay + feed" is designed,
   not built.
 
-- **Apple**: ❌ **REJECTED 28 Sep (1.0 build 19)** on 2.3.6 (age-rating
+- **Apple**: ⏳ **WAITING FOR REVIEW since 8 Oct 2026** (build 19; the 29 Sep
+  resubmit never left "Ready for Review", see APP_STORE.md). Was: ❌ REJECTED 28 Sep (1.0 build 19) on 2.3.6 (age-rating
   metadata: set Parental Controls + Age Assurance to None) and 5.1.1(v)
   (the sign-in fields carried the +demoviewer DEMO persona, which has no
   Settings by design; deletion exists and works for +applereview. Settings door

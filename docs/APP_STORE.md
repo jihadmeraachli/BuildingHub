@@ -155,7 +155,12 @@ committee (an organization) outside the app, per 3.1.3(b).
   notes above, replied with a physical-device recording of the full
   deletion, re-provisioned the review account (scratchpad
   `provision-review.mjs`: auth user -> profile -> owner membership on unit
-  601), resubmitted the SAME build 19.
+  601), resubmitted the SAME build 19. **Except it was not:** the reply went
+  through but the submission stayed "Ready for Review" (never re-entered the
+  queue). Caught by Jey on 8 Oct after two weeks of silence; the Resubmit
+  button was pressed then and the status is **Waiting for Review since
+  8 Oct 2026**. Lesson: after replying in a rejection thread, check the left
+  sidebar says "Waiting for Review", not "Ready for Review".
 
 ## Screenshots (the only asset work left)
 
