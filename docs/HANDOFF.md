@@ -731,7 +731,12 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   then nothing settles, silently. Probe: unauthenticated GET must return
   **400 `missing intent`**, never 401. Sandbox payer: `96170123456` / OTP
   `111111`.
-  **✅ CORPORATE ACCOUNT APPROVED 7 Oct 2026.** What is left for LIVE is config only:
+  **✅ CORPORATE ACCOUNT APPROVED 7 Oct 2026. Corporate Account ID 21027519**
+  (= the Client ID for the cash-out form). Steven Ayoub (Whish) confirmed
+  9 Oct: wallet number on file 96178995443 is the corporate account; NO IP
+  whitelisting needed for now; live credentials "shortly"; Whish prepares the
+  Service Agreement (1% per transaction, 1-year auto-renew) from our details
+  for e-signature, hard copy later. What is left for LIVE is config only:
   going live is one switch — `WHISH_BASE_URL` → `https://api.whish.money/itel-service/api`;
   refunds additionally need our egress IP whitelisted; the Cash-Out form
   (WM-FA-F-01-02-02) is the settlement/withdraw flow and needs the assigned
