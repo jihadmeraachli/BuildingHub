@@ -736,7 +736,16 @@ npm run build       # tsc -b && vite build — MUST pass before committing
   9 Oct: wallet number on file 96178995443 is the corporate account; NO IP
   whitelisting needed for now; live credentials "shortly"; Whish prepares the
   Service Agreement (1% per transaction, 1-year auto-renew) from our details
-  for e-signature, hard copy later. What is left for LIVE is config only:
+  for e-signature, hard copy later. **🎉 LIVE 10 Oct 2026: first real
+  payment settled** — QA Probe Tower renewal, $85 from Jey's wallet to the
+  corporate wallet (Channel 18227008, WebsiteUrl abniyah.com): intent paid,
+  invoice created paid (method whish), period → 5 Dec, receipt email + Whish
+  notification received. Two things found on the way and fixed the same hour:
+  (1) a FAILED attempt kills the Whish link in production (sandbox kept it
+  payable) → whish-pay now mints a fresh link (deployed); (2) Safari choked
+  on the return to /licenses?paid=1 because the PWA fallback was /index.html,
+  which Cloudflare 308s to / → fallback is now '/'. Also the billing page now
+  reports the outcome (?paid=0/1) instead of staying silent. Go-live config:
   going live is one switch — `WHISH_BASE_URL` → `https://api.whish.money/itel-service/api`;
   refunds additionally need our egress IP whitelisted; the Cash-Out form
   (WM-FA-F-01-02-02) is the settlement/withdraw flow and needs the assigned
