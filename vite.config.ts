@@ -29,10 +29,18 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // SPA fallback for client-side routes; never intercept Supabase calls
-        navigateFallback: '/index.html',
+        // SPA fallback for client-side routes; never intercept Supabase calls.
+        // The fallback is '/', NOT '/index.html': Cloudflare Pages answers
+        // /index.html with a 308 to /, and Safari refuses a redirected
+        // response from a service worker ("Response served by service worker
+        // has redirections") — which is exactly what the payer saw coming
+        // back from Whish to /licenses?paid=1 on 10 Oct 2026. '/' is 200, so
+        // it is precached as its own entry and index.html stays out of the
+        // manifest.
+        navigateFallback: '/',
         navigateFallbackDenylist: [/^\/functions\//],
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+        globPatterns: ['**/*.{js,css,png,svg,ico,woff2}'],
+        additionalManifestEntries: [{ url: '/', revision: String(Date.now()) }],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // A frequent-deploy day left old workers serving a precache whose
         // files the next deploy had replaced: a plain refresh died with
