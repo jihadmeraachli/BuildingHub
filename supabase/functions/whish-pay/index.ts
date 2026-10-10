@@ -90,18 +90,33 @@ Deno.serve(async (req) => {
     if (!intent?.intent_id) return json({ error: 'Could not prepare the payment.' }, 500);
 
     // ── resume rather than re-create ─────────────────────────────────────
-    // A failed attempt leaves the link payable, so the customer should land
-    // back on the SAME one. A second link would be a second way to pay once.
-    if (intent.collect_url) {
-      return json({ collectUrl: intent.collect_url, resumed: true });
+    // An UNTRIED link is resumed: a second link would be a second way to pay
+    // once. But a link whose attempt FAILED is dead in production (Whish shows
+    // "This link has expired" — seen live 10 Oct 2026 after an insufficient-
+    // balance attempt; the sandbox kept such links payable, which is why the
+    // old code resumed unconditionally). So: expire that intent and mint a
+    // fresh one, which gets a fresh externalId and a fresh link.
+    let live = intent;
+    if (live.collect_url) {
+      const { data: row } = await admin.from('payment_intents').select('collect_status').eq('id', live.intent_id).single();
+      if (row?.collect_status === 'pending' || !row?.collect_status) {
+        return json({ collectUrl: live.collect_url, resumed: true });
+      }
+      await admin.from('payment_intents').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('id', live.intent_id);
+      const { data: again, error: againErr } = await admin.rpc('create_payment_intent', {
+        p_subscription: subscription_id, p_kind: kind, p_plan: plan ?? null, p_add: add || null,
+      });
+      if (againErr) return json({ error: againErr.message }, 400);
+      live = Array.isArray(again) ? again[0] : again;
+      if (!live?.intent_id || live.collect_url) return json({ error: 'Could not prepare a new payment link.' }, 500);
     }
 
     // USD with 2 decimals, sent as a STRING — their API rejects a JSON number.
-    const amount = (intent.amount_cents / 100).toFixed(2);
+    const amount = (live.amount_cents / 100).toFixed(2);
 
     // Our own reference rides on the callback URL: Whish adds no identifying
     // parameters of its own and forwards ours unchanged.
-    const cb = `${FN_URL}/functions/v1/whish-callback?intent=${intent.intent_id}`;
+    const cb = `${FN_URL}/functions/v1/whish-callback?intent=${live.intent_id}`;
 
     const res = await fetch(`${WHISH_BASE}/payment/whish`, {
       method: 'POST',
@@ -109,8 +124,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         amount,
         currency: 'USD',
-        invoice: `Abniyah subscription ${intent.period_start} to ${intent.period_end}`,
-        externalId: intent.intent_id,     // the intent id IS the reference
+        invoice: `Abniyah subscription ${live.period_start} to ${live.period_end}`,
+        externalId: live.intent_id,     // the intent id IS the reference
         successCallbackUrl: `${cb}&outcome=success`,
         failureCallbackUrl: `${cb}&outcome=failure`,
         successRedirectUrl: `${APP_URL}/licenses?paid=1`,
@@ -128,7 +143,7 @@ Deno.serve(async (req) => {
 
     const collectUrl = body.data.collectUrl as string;
     await admin.rpc('set_intent_collect', {
-      p_intent: intent.intent_id, p_url: collectUrl, p_status: 'pending',
+      p_intent: live.intent_id, p_url: collectUrl, p_status: 'pending',
     });
 
     return json({ collectUrl, resumed: false });
