@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmtDate } from '@/lib/dateFmt';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
@@ -112,6 +112,7 @@ export default function Licenses() {
   const [removeSaving, setRemoveSaving] = useState(false);
   // 0114: subscribe / renew / cancel / auto-renew
   const [subscribeOpen, setSubscribeOpen] = useState(false);
+
   const [subscribePlan, setSubscribePlan] = useState<'monthly' | 'annual'>('monthly');
   const [lifecycleSaving, setLifecycleSaving] = useState(false);
   // 0117 pay-first: the subscribe modal goes plan → payment options; nothing
@@ -366,6 +367,33 @@ export default function Licenses() {
     const { data: inv } = await supabase.from('invoices').select('*').eq('subscription_id', sub?.id ?? '').order('created_at', { ascending: false });
     if (inv) setInvoices(inv as Invoice[]);
   }
+
+  // Back from Whish's hosted page. whish-pay sends the payer to
+  // /licenses?paid=1 (success) or ?paid=0 (failed / cancelled). Until 10 Oct
+  // 2026 nobody read that flag: a payer with an empty wallet landed on the
+  // billing page with no word at all. Say what happened, then poll for the
+  // invoice on success — settlement arrives via whish-callback a moment later.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const paid = params.get('paid');
+    if (paid === null) return;
+    const rest = new URLSearchParams(params); rest.delete('paid');
+    setParams(rest, { replace: true });
+    if (paid === '0') { toast.error(t('billing.payReturnFailed')); return; }
+    toast.success(t('billing.payReturnSuccess'));
+    // the invoice is created by the callback; look for it a few times
+    let tries = 0;
+    const before = invoices.length;
+    const timer = setInterval(async () => {
+      tries++;
+      await reloadSub();
+      const { count } = await supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('subscription_id', sub?.id ?? '');
+      if ((count ?? 0) > before) { clearInterval(timer); return; }
+      if (tries >= 6) { clearInterval(timer); toast.info(t('billing.payReturnPending')); }
+    }, 3000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.get('paid'), sub?.id]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
