@@ -7,13 +7,18 @@ import { WaitlistForm } from '@/components/WaitlistForm';
 import { Lock } from 'lucide-react';
 
 /**
- * Private-beta gate. Active only when the build has VITE_BETA_GATE=1 —
- * production launch just removes that env var and redeploys, no code change.
+ * Private-beta gate. LAUNCHED 27 Oct 2026: the gate is OFF in code, whatever
+ * the build environment says. It used to follow VITE_BETA_GATE=1, but the
+ * Cloudflare build kept the variable after it was deleted in the dashboard
+ * and the public site stayed gated for an hour on launch day. The mechanism
+ * stays (scoped partner codes, 0126): to gate a build again, set GATE_ON
+ * back to the env check below and redeploy.
  *
  * The code is verified by verify_beta_code() in the database (0036); it never
  * ships in the bundle. Once verified, the browser remembers via localStorage.
  */
-const GATE_ON = import.meta.env.VITE_BETA_GATE === '1';
+const GATE_ON = false; // was: import.meta.env.VITE_BETA_GATE === '1'
+
 const STORAGE_KEY = 'abniyah_beta_ok';
 // 0126: what the entered code unlocked — 'full' (testers) or 'demo' (site +
 // demo only; Register refuses). Read app-wide via betaScope() in lib/demo.ts.
