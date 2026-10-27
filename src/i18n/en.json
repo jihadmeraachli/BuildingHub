@@ -421,6 +421,10 @@
     "unavailable": "The demo is taking a break. Please try again in a minute, or start your free trial instead."
   },
   "landing": {
+    "downloadOn": "Download on the",
+    "getItOn": "Get it on",
+    "onAppStore": "Download Abniyah on the App Store",
+    "onGooglePlay": "Get Abniyah on Google Play",
     "docTitle": "Abniyah | Building management for Lebanon · a product of Tatawwor",
     "openApp": "Open the app",
     "privateBeta": "Currently in private beta",

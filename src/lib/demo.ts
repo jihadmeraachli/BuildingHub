@@ -42,12 +42,7 @@ export function betaScope(): BetaScope {
  *  One list — adjust freely, the demo re-shows a page the moment its route
  *  leaves this set. */
 export const DEMO_HIDDEN_ROUTES = new Set<string>([
-  '/licenses',    // the whole pricing-band + subscription model
-  '/import',      // the AI import
-  '/dues',        // prepaid-budget machinery
-  '/collect',     // collector flow
-  '/inspections', // inspection workflows
-  '/contracts',   // contract management
-  '/projects',    // project tracking
-  '/amenities',   // amenity booking
+  // Emptied on launch day, 27 Oct 2026: the public demo now shows the whole
+  // product (Licenses, Import, Prepaid Budget, Collect, Inspections,
+  // Contracts, Projects, Amenities). Re-add a route here to hide it again.
 ]);

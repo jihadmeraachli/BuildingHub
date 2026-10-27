@@ -9,6 +9,7 @@ import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { PRICING_BANDS, asLowAsPerUnitCents, fmtMonthly, fmtPerUnit } from '@/lib/pricing';
 import { betaScope } from '@/lib/demo';
+import { StoreBadges } from '@/components/StoreBadges';
 
 /**
  * Public marketing page on the ROOT domain (abniyah.com) — see the hostname
@@ -205,6 +206,7 @@ export default function Landing() {
             <span className="text-sm text-white/50 basis-full text-center">{t('landing.trialNote')}</span>
           )}
         </div>
+        <StoreBadges className="mt-5" />
         <div className="mt-12 max-w-4xl mx-auto">
           {/* The hero follows the page language (S8): a French headline about
               three languages above an English screenshot undercut itself. */}
@@ -386,6 +388,7 @@ export default function Landing() {
               {t('landing.liveDemo')}
             </a>
           </div>
+          <StoreBadges className="mt-6" />
         </div>
       </section>
 

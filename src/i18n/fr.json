@@ -421,6 +421,10 @@
     "unavailable": "La démo fait une pause. Réessayez dans une minute, ou démarrez plutôt votre essai gratuit."
   },
   "landing": {
+    "downloadOn": "Télécharger sur",
+    "getItOn": "Disponible sur",
+    "onAppStore": "Télécharger Abniyah sur l'App Store",
+    "onGooglePlay": "Abniyah sur Google Play",
     "docTitle": "Abniyah | La gestion d'immeubles pour le Liban · un produit de Tatawwor",
     "openApp": "Ouvrir l'application",
     "privateBeta": "Actuellement en bêta privée",
