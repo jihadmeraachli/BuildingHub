@@ -605,6 +605,17 @@ npm run build       # tsc -b && vite build — MUST pass before committing
 
 ### ▶ OPEN ACTION ITEMS (as of 2026-09-16)
 
+**🚀 PUBLIC LAUNCH 27 Oct 2026.** Apple approved 1.0 (19) on 27 Oct (after the
+8 Oct resubmit + an expedite request on 17 Oct); released the same day
+together with Google Play (approved 3 Oct, held). App Store:
+https://apps.apple.com/app/id6796778347 · Play:
+https://play.google.com/store/apps/details?id=com.abniyah.app. Beta gate
+OFF (in code, `BetaGate.tsx` GATE_ON=false — the Cloudflare env var was
+deleted too but the build kept it), noindex removed, robots open, store
+badges on the landing page, demo shows the whole product. Launch posts +
+assets: docs/marketing/batches/2026-10-launch.md. Next native build (20,
+the phone redesign) goes to both stores as the first update.
+
 **Launch tracks — waiting on external parties, then one action each:**
 **Phone redesign (5 Oct 2026) — SHIPPED on the web, phones need build 20:**
 - Jey's iPhone 16 Pro Max screenshots (4 Oct) showed money tiles cut to
