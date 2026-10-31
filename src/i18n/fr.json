@@ -720,7 +720,7 @@
     "units": "Logements",
     "openIssues": "Incidents ouverts",
     "collectedVsSpent": "Encaissé et dépensé",
-    "last12Hover": "12 derniers mois · survolez pour voir les valeurs",
+    "last12Hover": "12 derniers mois · touchez ou survolez pour voir les valeurs",
     "quickActions": "Actions rapides",
     "recordExpense": "Enregistrer une dépense",
     "recordExpenseDesc": "La répartir entre les logements",

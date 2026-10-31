@@ -33,6 +33,40 @@ export function AppShell() {
     pushAlreadyGranted().then((ok) => { if (ok) void enablePush(); });
   }, []);
 
+  // Phone tables (see index.css "PHONE TABLES"): copy each column header
+  // onto its cells as data-label so the card layout can print it. Runs on
+  // every DOM change inside <main>, cheaply (only tables, only cells that
+  // lack the attribute or whose header text changed).
+  useEffect(() => {
+    const root = mainRef.current;
+    if (!root) return;
+    const stamp = () => {
+      for (const table of root.querySelectorAll('table')) {
+        const heads = [...table.querySelectorAll('thead th, thead td')].map((th) => (th.textContent ?? '').trim());
+        if (!heads.length) continue;
+        for (const row of table.querySelectorAll('tbody tr, tfoot tr')) {
+          let col = 0;
+          for (const cell of row.children) {
+            const span = Number((cell as HTMLElement).getAttribute('colspan') || 1);
+            const label = heads[col] ?? '';
+            if (cell.getAttribute('data-label') !== label) cell.setAttribute('data-label', label);
+            // a cell that is only buttons/links is an action row: no label, right-aligned
+            const onlyControls = !!cell.querySelector('button, a') && (cell.textContent ?? '').trim() === [...cell.querySelectorAll('button, a')].map((c) => (c.textContent ?? '').trim()).join('').replace(/\s+/g, '');
+            if (onlyControls && !cell.hasAttribute('data-actions')) cell.setAttribute('data-actions', '');
+            // a cell with nothing in it (no text, no control, no icon) is just a gap on a phone
+            const empty = (cell.textContent ?? '').trim() === '' && !cell.querySelector('button, a, input, svg, img');
+            if (empty) cell.setAttribute('data-empty', ''); else cell.removeAttribute('data-empty');
+            col += span;
+          }
+        }
+      }
+    };
+    stamp();
+    const mo = new MutationObserver(() => stamp());
+    mo.observe(root, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+
   // Demo visitors who convert must not carry the demo session into /register.
   async function startTrial() {
     // scope 'local': the shared demo persona is signed in on many browsers at

@@ -31,12 +31,16 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
   const yPct = (v: number) => (1 - v / max) * 100;
   const path = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xPct(i).toFixed(2)} ${yPct(v).toFixed(2)}`).join(' ');
 
-  function onMove(e: React.MouseEvent<HTMLDivElement>) {
+  function pick(clientX: number, el: HTMLDivElement) {
     if (n === 0) return; // no data yet — clamping would produce an index into an empty array
-    const r = e.currentTarget.getBoundingClientRect();
-    const rel = (e.clientX - r.left) / r.width;
+    const r = el.getBoundingClientRect();
+    const rel = (clientX - r.left) / r.width;
     setIdx(Math.max(0, Math.min(n - 1, Math.round(rel * (n - 1)))));
   }
+  function onMove(e: React.MouseEvent<HTMLDivElement>) { pick(e.clientX, e.currentTarget); }
+  // Phones have no hover: a touch (or a drag) selects the month and the
+  // value stays on screen after the finger lifts.
+  function onTouch(e: React.TouchEvent<HTMLDivElement>) { const t = e.touches[0]; if (t) pick(t.clientX, e.currentTarget); }
 
   const tipTop = idx === null ? 0 : Math.min(...series.map((s) => yPct(s.data[idx])));
   const flipDown = tipTop < 32;
@@ -54,7 +58,7 @@ export function TrendChart({ labels, series, height = 180 }: { labels: string[];
 
   return (
     <div>
-      <div className="relative" style={{ height }} onMouseMove={onMove} onMouseLeave={() => setIdx(null)}>
+      <div className="relative touch-pan-y" style={{ height }} onMouseMove={onMove} onMouseLeave={() => setIdx(null)} onTouchStart={onTouch} onTouchMove={onTouch}>
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
           {/* stroke via style (not the SVG attribute) so var(--token) colors resolve */}
           {series.map((s) => (

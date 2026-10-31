@@ -720,7 +720,7 @@
     "units": "Units",
     "openIssues": "Open Issues",
     "collectedVsSpent": "Collected vs spent",
-    "last12Hover": "last 12 months · hover for values",
+    "last12Hover": "last 12 months · tap or hover for values",
     "quickActions": "Quick actions",
     "recordExpense": "Record an expense",
     "recordExpenseDesc": "Bill it across units",

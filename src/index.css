@@ -323,3 +323,48 @@ html, body {
     opacity: 1;
   }
 }
+
+/* ------------------------------------------------------------------
+   PHONE TABLES (launch week, Oct 2026). Under sm, every data table in the
+   app turns into a stack of cards: each row is a card, each cell a
+   label/value line (the label is the column header, stamped onto the
+   cell as data-label by AppShell). A six-column table scrolling inside a
+   card is unreadable on a 390px screen; this is readable, and it needs no
+   changes to the table markup.
+   - a cell with data-primary is the card's title line (no label, bold)
+   - a cell with data-nolabel (or an empty header) shows its value alone
+   - a cell with data-actions becomes a right-aligned button row
+   ------------------------------------------------------------------ */
+@media (max-width: 639px) {
+  main table { display: block; width: 100%; border-collapse: separate; }
+  main table thead { display: none; }
+  main table tbody, main table tfoot { display: block; width: 100%; }
+  main table tr {
+    display: block; margin: 0 0 0.6rem; padding: 0.55rem 0.9rem;
+    border: 1px solid var(--border); border-radius: 0.9rem;
+    background: color-mix(in oklab, var(--card) 70%, transparent);
+  }
+  main table tr:last-child { margin-bottom: 0; }
+  main table td {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+    padding: 0.28rem 0 !important; border: 0 !important; text-align: end; width: auto !important;
+    white-space: normal; min-width: 0;
+  }
+  main table td::before {
+    content: attr(data-label); flex: 0 0 auto; max-width: 42%;
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted-foreground); text-align: start;
+  }
+  main table td[data-primary] { display: block; text-align: start; font-weight: 600; font-size: 0.95rem; padding-bottom: 0.4rem !important; }
+  main table td[data-primary]::before, main table td[data-nolabel]::before, main table td:not([data-label])::before, main table td[data-label=""]::before { content: none; }
+  main table td[data-nolabel], main table td:not([data-label]) { justify-content: flex-start; text-align: start; }
+  main table td[data-actions] { justify-content: flex-end; padding-top: 0.5rem !important; }
+  main table td[data-empty] { display: none; }
+  main table td[data-actions]::before { content: none; }
+  main table td > * { min-width: 0; }
+  main table tfoot td { font-weight: 700; }
+  /* a table deliberately kept as a grid (e.g. a 2-column key/value) opts out */
+  main table.keep-table, main table.keep-table thead, main table.keep-table tbody, main table.keep-table tr { display: revert; }
+  main table.keep-table td { display: table-cell; text-align: revert; }
+  main table.keep-table td::before { content: none; }
+}
