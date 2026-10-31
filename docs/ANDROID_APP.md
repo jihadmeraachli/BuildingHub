@@ -143,8 +143,8 @@ deployed function.
 
 ## Google Play listing (prepared 3 Oct 2026)
 
-Assets in `Downloads/Abniyah Android/`: `abniyah-1.0-20.aab` (phone redesign, 5 Oct;
-`abniyah-1.0-19.aab` was the first Play submission),
+Assets in `Downloads/Abniyah Android/`: `abniyah-1.0-21.aab` (first update, 31 Oct:
+phone redesign + phone tables; `abniyah-1.0-19.aab` was the launch build, 20 was never uploaded),
 `icon-512.png` (= public/pwa-512.png), `feature-graphic.png` (1024x500, brand
 mark + wordmark), `screenshots/01..07` (1080x1920, exact 9:16, demo screens:
 dashboard, finance, voting, issues, lost & found, past meetings, resident

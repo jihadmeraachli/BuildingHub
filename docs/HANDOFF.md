@@ -613,8 +613,15 @@ https://play.google.com/store/apps/details?id=com.abniyah.app. Beta gate
 OFF (in code, `BetaGate.tsx` GATE_ON=false — the Cloudflare env var was
 deleted too but the build kept it), noindex removed, robots open, store
 badges on the landing page, demo shows the whole product. Launch posts +
-assets: docs/marketing/batches/2026-10-launch.md. Next native build (20,
-the phone redesign) goes to both stores as the first update.
+assets: docs/marketing/batches/2026-10-launch.md.
+**First update = build 21** (31 Oct; 20 was never uploaded): the phone
+redesign (tab bar, bottom sheets, FitText money) PLUS the launch-week
+"phone tables" change: under sm every data table in <main> renders as a
+stack of cards (index.css PHONE TABLES + AppShell stamps data-label from
+the headers), SegmentedTabs scroll in one row, TrendChart answers to touch.
+Android: `Downloads/Abniyah Android/abniyah-1.0-21.aab` (versionCode 21).
+iOS: build 21 from the Mac (bump build number, `npm run build && npx cap
+sync ios`, archive, upload, submit as 1.0.1 or as a build of 1.0).
 
 **Launch tracks — waiting on external parties, then one action each:**
 **Phone redesign (5 Oct 2026) — SHIPPED on the web, phones need build 20:**
