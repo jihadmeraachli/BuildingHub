@@ -18,7 +18,7 @@ import {
   LayoutDashboard, Wallet, AlertTriangle, CalendarDays,
   Layers, Users, Building2, LogOut, ClipboardCheck, FileSignature, HardHat, HandCoins, Cog,
   CalendarClock, X, Network, Boxes, FileUp, KeyRound, ShieldCheck, Home, Rocket, FileBarChart2, Trash2,
-  ContactRound, ScrollText, ChevronDown, Sparkles, PackageSearch, Vote,
+  ContactRound, ScrollText, ChevronDown, Sparkles, PackageSearch, Vote, TrendingUp,
 } from 'lucide-react';
 import { gsHiddenKey } from '@/pages/GettingStarted';
 import { isDemoEmail, DEMO_ACCOUNTS, DEMO_HIDDEN_ROUTES } from '@/lib/demo';
@@ -161,6 +161,7 @@ function SidebarContent({ onClose }: { onClose: () => void }) {
       { key: 'platform', label: t('nav.secPlatform'), links: gate([
         { to: '/organizations',   label: t('nav.organizations'), icon: Network,   show: isPlatformAdmin },
         { to: '/licensing-admin', label: t('nav.platformLicensing'), icon: KeyRound,  show: isPlatformAdmin },
+        { to: '/growth',          label: t('nav.growth'),        icon: TrendingUp, show: isPlatformAdmin },
         { to: '/activity',        label: t('nav.activityLog'),   icon: ScrollText, show: isPlatformAdmin },
       ]) },
     ]),

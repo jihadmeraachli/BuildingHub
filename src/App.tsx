@@ -52,6 +52,7 @@ const PlatformLicensing = lazy(() => import('@/pages/PlatformLicensing'));
 const Settings       = lazy(() => import('@/pages/Settings'));
 const Trash          = lazy(() => import('@/pages/Trash'));
 const Activity       = lazy(() => import('@/pages/Activity'));
+const Growth         = lazy(() => import('@/pages/Growth'));
 
 function PageFallback() {
   return <div className="p-6"><SkeletonCards count={3} /></div>;
@@ -139,6 +140,7 @@ export default function App() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/trash" element={<Trash />} />
               <Route path="/activity" element={<Activity />} />
+              <Route path="/growth" element={<Growth />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
