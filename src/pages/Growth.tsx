@@ -1,6 +1,6 @@
 import { useEffect, useState, type ElementType } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Users, Rocket, BadgeCheck, Building2, Mail, RefreshCw, AlertCircle } from 'lucide-react';
+import { Users, Rocket, BadgeCheck, Mail, RefreshCw, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
