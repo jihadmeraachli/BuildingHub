@@ -535,6 +535,12 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
 - **Organizations:** create/edit/delete orgs; assign buildings to orgs (platform admin).
 - **Sidebar:** two-tier layout — Operations (Dashboard, Finance, Dues, Issues, Meetings, Inspections, Contracts) + collapsible Settings section (Buildings, Structure, People). Settings section persisted in localStorage.
 - **Auth:** login, forgot password → email link → `/set-password` page (handles both password reset and first-time invite setup).
+- **Getting-started guide (abniyah.com/start, 4 Nov 2026):** `src/pages/Start.tsx`, public
+  like the legal pages (root-host branch in `App.tsx`, outside the gate). What a committee
+  needs ready, the setup in order (mirrors the register wizard + in-app Getting Started
+  checklist), four FAQs. EN + AR inline (FR falls back), uses the exported `LegalShell`.
+  Linked from the landing FAQ/footer and the first register screen; paste the link in
+  WhatsApp/Messenger replies. **Update it when the wizard or the checklist changes.**
 - **Marketing site (abniyah.com):** the root domain serves `Landing.tsx` (hostname switch in `App.tsx`) — full marketing page (product showcases with real screenshots in `public/marketing/`, pricing, about, FAQ, bilingual). Screenshots re-shot with `shoot-marketing.mjs`.
 - **⚠️ FINANCE REFACTOR 2026-08-02 (pull before touching Finance!):** the book
   row math (`buildBook`), statement buckets (`buildUnitBuckets`) and tenancy
