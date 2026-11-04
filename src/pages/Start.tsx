@@ -14,8 +14,7 @@ import { StoreBadges } from '@/components/StoreBadges';
  * Light page on purpose (the rest of the site is dark): this is a checklist
  * people read with a notebook open, printed or on a phone next to the app.
  * Content mirrors the register wizard's four screens and the in-app Getting
- * Started checklist. When either changes, update BOTH languages here. French
- * falls back to English, like the Credits page.
+ * Started checklist. When either changes, update all THREE languages here.
  */
 
 type Item = { title: string; body: ReactNode };
@@ -101,6 +100,45 @@ const AR: typeof EN = {
   ctaTitle: 'جاهز؟', ctaBody: '٠ التزامات، ٠ رسوم اليوم، ٣٠ يوم مجاناً.', ctaButton: 'ابدأ التجربة المجانية',
 };
 
+const FR: typeof EN = {
+  title: 'Démarrez votre immeuble sur Abniyah',
+  lede: "Ce qu'il faut préparer, puis la configuration dans l'ordre. Un immeuble de 20 appartements prend environ une demi-heure si la liste est prête.",
+  readyEyebrow: 'Avant de commencer', readyTitle: 'Préparez ceci',
+  readySub: 'Tout cela sort du cahier du comité ou du groupe WhatsApp. Rassemblez-le une fois.',
+  ready: [
+    { title: 'Le compte du comité', body: <>Le nom complet, l'e-mail et un mot de passe d'un membre du comité. L'e-mail doit être réel, car Abniyah y envoie un lien de confirmation. Le numéro de mobile s'ajoute ensuite depuis le profil.</> },
+    { title: "L'immeuble", body: <>Le nom de l'immeuble et la ville. Un complexe : le nom des blocs. Une société de gestion : la liste des immeubles.</> },
+    { title: "Le nombre d'appartements", body: <>Il fixe le prix mensuel après la période gratuite. Les 30 premiers jours sont gratuits et rien n'est prélevé pour commencer.</> },
+    { title: 'La liste des appartements, une ligne chacun', body: <>Le libellé (3A, deuxième étage droite), l'étage, sa quote-part des charges communes (les parts du titre de propriété, ou une part égale pour chacun), occupé ou vacant, et son solde du jour : ce qu'il doit ou ce qu'il a en crédit, avec la date.</> },
+    { title: 'Les personnes', body: <>Pour chaque appartement : le nom, l'e-mail et le mobile du propriétaire avec l'indicatif (+961…). S'il est loué, la même chose pour le locataire. L'e-mail est nécessaire pour se connecter ; le mobile est optionnel pour les notifications et WhatsApp. Une personne sans e-mail peut quand même voir son appartement suivi et être invitée plus tard.</> },
+    { title: 'Les dépenses', body: <>Vos types de dépenses habituels (générateur, eau, électricité des parties communes, ascenseur, nettoyage, salaire du concierge) et les dernières factures, pour enregistrer la première dépense. Et la règle du comité : répartition par parts ou à parts égales.</> },
+    { title: 'Optionnel, mais ça évite bien des relances', body: <>Le numéro Whish du comité : il figure dans les messages de recouvrement pour que les résidents sachent où payer. Et le jour du mois où partent les rappels.</> },
+  ],
+  tip: <><P>Astuce :</P> téléchargez le modèle Excel prêt à l'emploi depuis <P>Importer</P> et remplissez-le sur un ordinateur. L'import crée les appartements et invite tous les propriétaires et locataires en une fois.</>,
+  stepsEyebrow: 'Configuration', stepsTitle: 'Étape par étape',
+  stepsSub: "Depuis l'application ou depuis abniyah.com, les mêmes étapes.",
+  steps: [
+    { title: 'Créez le compte', body: <>Touchez <P>Essai gratuit</P>. Choisissez votre rôle : immeuble, complexe ou société de gestion. Saisissez votre nom, votre e-mail et un mot de passe, puis le nom de l'immeuble et la ville, puis le nombre d'appartements et mensuel ou annuel (rien n'est prélevé pendant l'essai). Ouvrez le lien de confirmation reçu par e-mail : vous arrivez sur le tableau de bord, l'immeuble est créé.</> },
+    { title: 'Suivez la liste de démarrage', body: <>Le menu affiche une page <P>Démarrage</P> avec les prochaines étapes dans l'ordre. Chacune se coche d'elle-même une fois faite.</> },
+    { title: "Complétez les informations de l'immeuble", body: <><P>Immeubles → Modifier</P> : adresse, contacts, numéro Whish et jour de rappel.</> },
+    { title: 'Ajoutez les appartements', body: <><P>Unités → Ajouter une unité</P> : libellé, part, occupé ou vacant, solde d'ouverture et sa date. Ou <P>Importer → Unités</P> avec le fichier Excel pour tous à la fois.</> },
+    { title: 'Licences', body: <>Sur la page <P>Licences</P>, vérifiez que chaque appartement a une licence pour que ses résidents puissent se connecter. Gratuit et illimité pendant l'essai.</> },
+    { title: 'Invitez les personnes', body: <>Depuis chaque appartement, <P>Ajouter une personne</P> : propriétaire ou locataire, e-mail. Ils reçoivent un lien de connexion par e-mail, le touchent, et leur compte existe. Aucun mot de passe à distribuer.</> },
+    { title: 'Enregistrez la première dépense', body: <><P>Finances → Enregistrer une dépense</P> : type, montant, date, photo de la facture et mode de répartition. La dépense est répartie immédiatement entre les appartements et chacun a désormais son propre compte.</> },
+    { title: 'Activez les rappels', body: <>Choisissez un jour du mois et Abniyah rappelle à ceux qui doivent, par e-mail ou WhatsApp selon ce qui est enregistré.</> },
+    { title: 'Vérifiez votre profil', body: <>Mobile, notifications, vérification en deux étapes et Face ID dans l'application.</> },
+    { title: 'Prévenez les résidents', body: <>Envoyez le lien de l'application dans le groupe WhatsApp. Ils se connectent avec l'e-mail que vous avez invité et voient leur appartement, son compte et les reçus.</> },
+  ],
+  faqEyebrow: 'Questions', faqTitle: 'fréquentes',
+  faq: [
+    { q: "Certains résidents n'ont pas d'e-mail. Que faire ?", a: "Ajoutez l'appartement sans personne. Le comité suit son compte normalement et peut leur imprimer un relevé. Quand ils ont un e-mail, invitez-les depuis le même appartement." },
+    { q: 'Puis-je modifier les parts ou les soldes plus tard ?', a: 'Oui, depuis la page Unités. Les dépenses déjà enregistrées ne changent pas ; les suivantes utilisent la nouvelle part.' },
+    { q: 'Que se passe-t-il après 30 jours ?', a: "Vous choisissez de continuer et réglez l'abonnement de l'immeuble par Whish depuis l'application, un prix mensuel unique selon le nombre d'appartements. Vous ne continuez pas ? Rien n'est prélevé. Vos données restent à vous." },
+    { q: "Abniyah détient-il l'argent de l'immeuble ?", a: "Non. Les résidents paient le comité comme toujours, en espèces ou par Whish au numéro du comité. Abniyah enregistre, calcule et affiche. L'abonnement est la seule chose payée à Abniyah." },
+  ],
+  ctaTitle: 'Prêt ?', ctaBody: '0 engagement, 0 frais aujourd’hui, 30 jours gratuits.', ctaButton: 'Essai gratuit',
+};
+
 function Section({ eyebrow, title, sub, children }: { eyebrow: string; title: string; sub?: string; children: ReactNode }) {
   return (
     <section className="mt-12">
@@ -130,7 +168,7 @@ function Cards({ items }: { items: Item[] }) {
 
 export default function Start() {
   const { t, i18n } = useTranslation();
-  const c = i18n.language === 'ar' ? AR : EN;
+  const c = i18n.language === 'ar' ? AR : i18n.language === 'fr' ? FR : EN;
   useEffect(() => { document.title = `${c.title} | Abniyah`; }, [c.title]);
 
   return (
