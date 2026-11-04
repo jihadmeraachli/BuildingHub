@@ -74,12 +74,15 @@ function useSpotlight() {
   }, []);
 }
 
-const NAV_SECTIONS = [
+// `href` entries leave the page (the getting-started guide); the others are
+// in-page anchors that the scroll-spy below lights up.
+const NAV_SECTIONS: { id: string; key: string; href?: string }[] = [
   { id: 'product', key: 'navProduct' },
   { id: 'pricing', key: 'navPricing' },
   { id: 'about', key: 'navAbout' },
   { id: 'faq', key: 'navFaq' },
-] as const;
+  { id: 'start', key: 'navStart', href: '/start' },
+];
 
 export default function Landing() {
   const { t, i18n } = useTranslation();
@@ -143,10 +146,10 @@ export default function Landing() {
             <Wordmark className="text-sm" />
           </a>
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
-            {NAV_SECTIONS.map(({ id, key }) => (
+            {NAV_SECTIONS.map(({ id, key, href }) => (
               <a
                 key={id}
-                href={`#${id}`}
+                href={href ?? `#${id}`}
                 className={`transition-colors border-b-2 pb-0.5 ${
                   activeSection === id
                     ? 'text-white font-semibold border-[oklch(0.85_0.09_180)]'
