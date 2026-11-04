@@ -12,7 +12,7 @@ import { Wordmark } from '@/components/ui/Wordmark';
  * what the product actually does; update BOTH languages when practices change.
  */
 
-export function LegalShell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function LegalShell({ title, children }: { title: string; children: React.ReactNode }) {
   const { t, i18n } = useTranslation();
   const ar = i18n.language === 'ar';
   useEffect(() => { document.title = `${title} | Abniyah`; }, [title]);
@@ -37,11 +37,11 @@ export function LegalShell({ title, subtitle, children }: { title: string; subti
       <main className="max-w-3xl mx-auto px-6 pb-20">
         <h1 className="text-3xl font-bold mt-8 mb-2">{title}</h1>
         <p className="text-sm text-white/50 mb-10">
-          {subtitle ?? (ar ? 'آخر تحديث: 31 تموز 2026' : 'Last updated: 31 July 2026')}
+          {ar ? 'آخر تحديث: 31 تموز 2026' : 'Last updated: 31 July 2026'}
         </p>
         <div className="legal-prose space-y-4 text-[15px] leading-relaxed text-white/80
           [&_h2]:text-white [&_h2]:font-semibold [&_h2]:text-xl [&_h2]:mt-10 [&_h2]:mb-2
-          [&_ul]:list-disc [&_ul]:ps-6 [&_ul]:space-y-1.5 [&_ol]:list-decimal [&_ol]:ps-6 [&_ol]:space-y-2 [&_a]:underline [&_strong]:text-white/95">
+          [&_ul]:list-disc [&_ul]:ps-6 [&_ul]:space-y-1.5 [&_a]:underline [&_strong]:text-white/95">
           {children}
         </div>
       </main>
