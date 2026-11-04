@@ -157,6 +157,7 @@
   "register": {
     "getStarted": "Commencer",
     "roleSubtitle": "Dites-nous ce que vous gérez, afin que nous configurions votre compte correctement.",
+    "startGuide": "Quoi préparer avant de commencer",
     "roles": {
       "building_admin": {
         "label": "Gestionnaire d'immeuble",
@@ -584,6 +585,8 @@
     "pricingTalk": "Parlons-en",
     "pricingTalkSub": "Au-delà de 500 logements, nous fixons le prix avec vous, pas dans un tableau. Écrivez à support@abniyah.com.",
     "credits": "Crédits",
+    "startGuide": "Nouveau ? Voyez quoi préparer et la configuration étape par étape.",
+    "startGuideShort": "Pour commencer",
     "attribution": "Données géographiques libanaises issues de GeoNames, sous licence CC BY 4.0."
   },
   "noLicense": {

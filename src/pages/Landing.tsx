@@ -365,6 +365,9 @@ export default function Landing() {
             </details>
           ))}
         </div>
+        <p className="mt-6 text-center text-sm text-white/70">
+          <a href="/start" className="underline hover:text-white">{t('landing.startGuide')}</a>
+        </p>
       </section>
 
       {/* Final CTA */}
@@ -415,6 +418,7 @@ export default function Landing() {
             </span>
           </div>
           <span className="flex items-center gap-4 text-xs text-white/60">
+            <a className="hover:text-white transition-colors" href="/start">{t('landing.startGuideShort')}</a>
             <a className="hover:text-white transition-colors" href="/privacy">{t('landing.privacy')}</a>
             <a className="hover:text-white transition-colors" href="/terms">{t('landing.terms')}</a>
             <a className="hover:text-white transition-colors" href="/credits">{t('landing.credits')}</a>

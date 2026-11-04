@@ -157,6 +157,7 @@
   "register": {
     "getStarted": "Get started",
     "roleSubtitle": "Tell us what you manage so we set you up correctly.",
+    "startGuide": "What to have ready before you start",
     "roles": {
       "building_admin": {
         "label": "Building Admin",
@@ -584,6 +585,8 @@
     "pricingTalk": "Let's talk",
     "pricingTalkSub": "Above 500 units we price it with you, not from a table. Email support@abniyah.com.",
     "credits": "Credits",
+    "startGuide": "New here? See what to have ready and the setup step by step.",
+    "startGuideShort": "Getting started",
     "attribution": "Lebanese place data from GeoNames, licensed under CC BY 4.0."
   },
   "noLicense": {

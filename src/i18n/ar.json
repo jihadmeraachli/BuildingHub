@@ -157,6 +157,7 @@
   "register": {
     "getStarted": "لنبدأ",
     "roleSubtitle": "أخبرنا ماذا تدير لنجهّز حسابك بالشكل الصحيح.",
+    "startGuide": "شو لازم يكون جاهز قبل ما تبدأ",
     "roles": {
       "building_admin": {
         "label": "مدير مبنى",
@@ -584,6 +585,8 @@
     "pricingTalk": "لنتحدّث",
     "pricingTalkSub": "فوق ٥٠٠ وحدة نضع السعر معك، لا من جدول. راسلنا على support@abniyah.com.",
     "credits": "شكر وتراخيص",
+    "startGuide": "جديد هون؟ شوف شو لازم يكون جاهز وخطوات الإعداد بالترتيب.",
+    "startGuideShort": "كيف تبدأ",
     "attribution": "بيانات الأماكن اللبنانية من GeoNames، بموجب رخصة CC BY 4.0."
   },
   "noLicense": {

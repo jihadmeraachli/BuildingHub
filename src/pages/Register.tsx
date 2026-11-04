@@ -175,7 +175,10 @@ export default function Register() {
     return (
       <>
         <h2 className="text-2xl font-bold text-foreground mb-1">{t('register.getStarted')}</h2>
-        <p className="text-muted-foreground text-sm mb-6">{t('register.roleSubtitle')}</p>
+        <p className="text-muted-foreground text-sm mb-1">{t('register.roleSubtitle')}</p>
+        <p className="text-xs mb-6">
+          <a href="https://abniyah.com/start" target="_blank" rel="noopener" className="text-primary underline">{t('register.startGuide')}</a>
+        </p>
         <div className="space-y-3">
           {ROLE_CARDS.map(({ type, icon: Icon }) => (
             <button

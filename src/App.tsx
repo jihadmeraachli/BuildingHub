@@ -11,6 +11,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { SkeletonCards } from '@/components/ui/Skeleton';
 import Landing from '@/pages/Landing';
 import { Privacy, Terms, Credits } from '@/pages/Legal';
+import Start from '@/pages/Start';
 import Waitlist from '@/pages/Waitlist';
 
 // The ROOT domain serves the public pages (no beta gate, no auth) — the app
@@ -65,6 +66,9 @@ export default function App() {
     if (path.startsWith('/privacy')) return <Privacy />;
     if (path.startsWith('/terms')) return <Terms />;
     if (path.startsWith('/credits')) return <Credits />;
+    // The getting-started guide: linked from posts, WhatsApp replies and the
+    // sign-up screen, so it stays public like the legal pages.
+    if (path.startsWith('/start')) return <Start />;
     // Outside the gate on purpose: the gate offers a code or nothing, so every
     // visitor arriving from a post without one had nowhere to land.
     if (path.startsWith('/waitlist')) return <Waitlist />;
