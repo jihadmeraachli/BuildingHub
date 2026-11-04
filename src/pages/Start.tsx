@@ -11,8 +11,8 @@ import { StoreBadges } from '@/components/StoreBadges';
  * four questions everyone asks next. Public (no gate), served on the root
  * host via App.tsx; in the landing nav as "Getting started".
  *
- * Light page on purpose (the rest of the site is dark): this is a checklist
- * people read with a notebook open, printed or on a phone next to the app.
+ * Same dark gradient as the rest of the site; teal accents at full strength
+ * so they stay legible on it.
  * Content mirrors the register wizard's four screens and the in-app Getting
  * Started checklist. When either changes, update all THREE languages here.
  */
@@ -20,7 +20,7 @@ import { StoreBadges } from '@/components/StoreBadges';
 type Item = { title: string; body: ReactNode };
 type Faq = { q: string; a: string };
 
-const P = ({ children }: { children: ReactNode }) => <strong className="font-semibold text-[#16211F]">{children}</strong>;
+const P = ({ children }: { children: ReactNode }) => <strong className="font-semibold text-white">{children}</strong>;
 
 const EN = {
   title: 'Start your building on Abniyah',
@@ -142,11 +142,11 @@ const FR: typeof EN = {
 function Section({ eyebrow, title, sub, children }: { eyebrow: string; title: string; sub?: string; children: ReactNode }) {
   return (
     <section className="mt-12">
-      <h2 className="text-2xl font-bold text-[#0E332E] flex items-baseline gap-2.5">
-        <span className="text-xs font-bold tracking-[0.12em] uppercase text-[#0A6F63]">{eyebrow}</span>
+      <h2 className="text-2xl font-bold text-white flex items-baseline gap-2.5">
+        <span className="text-xs font-bold tracking-[0.12em] uppercase text-[#22E0CB]">{eyebrow}</span>
         {title}
       </h2>
-      {sub && <p className="text-[#5E6D6A] mt-1 mb-4 max-w-[60ch]">{sub}</p>}
+      {sub && <p className="text-white/60 mt-1 mb-4 max-w-[60ch]">{sub}</p>}
       {children}
     </section>
   );
@@ -156,10 +156,10 @@ function Cards({ items }: { items: Item[] }) {
   return (
     <ol className="grid gap-2.5">
       {items.map((it, i) => (
-        <li key={i} className="relative rounded-xl border border-[#D9E0DE] bg-white ps-[3.2rem] pe-4 py-3.5">
-          <span aria-hidden="true" className="absolute start-4 top-[0.95rem] grid h-[1.6rem] w-[1.6rem] place-items-center rounded-full bg-[#E6F6F3] text-sm font-bold text-[#0A6F63]">{i + 1}</span>
-          <p className="font-semibold text-[#16211F]">{it.title}</p>
-          <p className="text-[15px] text-[#5E6D6A] leading-relaxed mt-0.5">{it.body}</p>
+        <li key={i} className="relative rounded-xl border border-white/10 bg-white/5 ps-[3.2rem] pe-4 py-3.5">
+          <span aria-hidden="true" className="absolute start-4 top-[0.95rem] grid h-[1.6rem] w-[1.6rem] place-items-center rounded-full bg-[#22E0CB]/15 text-sm font-bold text-[#22E0CB]">{i + 1}</span>
+          <p className="font-semibold text-white">{it.title}</p>
+          <p className="text-[15px] text-white/70 leading-relaxed mt-0.5">{it.body}</p>
         </li>
       ))}
     </ol>
@@ -172,27 +172,30 @@ export default function Start() {
   useEffect(() => { document.title = `${c.title} | Abniyah`; }, [c.title]);
 
   return (
-    <div className="min-h-screen bg-[#F7F8F7] text-[#16211F] text-[17px] leading-[1.55]">
+    <div
+      className="min-h-screen text-white text-[17px] leading-[1.55]"
+      style={{ background: 'linear-gradient(150deg, oklch(0.32 0.11 185) 0%, oklch(0.2 0.05 186) 45%, oklch(0.13 0.03 190) 100%)' }}
+    >
       <header className="max-w-3xl mx-auto flex items-center justify-between px-6 py-6">
-        <a href="/" className="flex items-center gap-2.5 text-[#0E332E]">
-          <Logo size={30} />
+        <a href="/" className="flex items-center gap-2.5">
+          <Logo size={30} variant="white" />
           <Wordmark className="text-sm" />
         </a>
         <div className="flex items-center gap-4">
-          <LanguagePicker />
-          <a href="https://app.abniyah.com" className="rounded-xl bg-[#0E332E] text-white px-4 py-2 text-sm font-semibold hover:bg-[#15463F] transition-colors">
+          <LanguagePicker variant="dark" />
+          <a href="https://app.abniyah.com" className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-sm font-semibold transition-colors">
             {t('landing.openApp')}
           </a>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 pb-20">
-        <h1 className="text-4xl sm:text-5xl font-bold text-[#0E332E] mt-6 mb-3 leading-tight text-balance">{c.title}</h1>
-        <p className="text-lg text-[#5E6D6A] max-w-[60ch]">{c.lede}</p>
+        <h1 className="text-4xl sm:text-5xl font-bold text-white mt-6 mb-3 leading-tight text-balance">{c.title}</h1>
+        <p className="text-lg text-white/70 max-w-[60ch]">{c.lede}</p>
 
         <Section eyebrow={c.readyEyebrow} title={c.readyTitle} sub={c.readySub}>
           <Cards items={c.ready} />
-          <p className="mt-4 rounded-xl bg-[#E6F6F3] px-4 py-3.5 text-[15px] leading-relaxed text-[#16211F]">{c.tip}</p>
+          <p className="mt-4 rounded-xl bg-[#22E0CB]/10 border border-[#22E0CB]/25 px-4 py-3.5 text-[15px] leading-relaxed text-white/85">{c.tip}</p>
         </Section>
 
         <Section eyebrow={c.stepsEyebrow} title={c.stepsTitle} sub={c.stepsSub}>
@@ -202,15 +205,15 @@ export default function Start() {
         <Section eyebrow={c.faqEyebrow} title={c.faqTitle}>
           <div className="grid gap-2 mt-4">
             {c.faq.map((f) => (
-              <details key={f.q} className="rounded-xl border border-[#D9E0DE] bg-white px-4 py-3">
+              <details key={f.q} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
                 <summary className="cursor-pointer font-semibold">{f.q}</summary>
-                <p className="mt-2 text-[15px] text-[#5E6D6A] leading-relaxed">{f.a}</p>
+                <p className="mt-2 text-[15px] text-white/70 leading-relaxed">{f.a}</p>
               </details>
             ))}
           </div>
         </Section>
 
-        <section className="mt-12 rounded-2xl bg-[#0E332E] text-white px-6 py-8 text-center">
+        <section className="mt-12 rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-8 text-center">
           <p className="text-2xl font-bold">{c.ctaTitle}</p>
           <p className="mt-1 text-white/80">{c.ctaBody}</p>
           <a href="https://app.abniyah.com/register" className="inline-block mt-5 rounded-xl bg-[#22E0CB] text-[#0E332E] px-6 py-3 font-semibold hover:bg-[#4FE8D6] transition-colors">
@@ -220,12 +223,12 @@ export default function Start() {
         </section>
       </main>
 
-      <footer className="border-t border-[#D9E0DE]">
-        <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#5E6D6A]">
+      <footer className="border-t border-white/10">
+        <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/60">
           <span>© {new Date().getFullYear()} Abniyah, {t('landing.productOf')} Tatawwor. {t('landing.rights')}</span>
           <span className="flex gap-4">
-            <a className="hover:text-[#0E332E]" href="/privacy">{t('landing.privacy')}</a>
-            <a className="hover:text-[#0E332E]" href="/terms">{t('landing.terms')}</a>
+            <a className="hover:text-white" href="/privacy">{t('landing.privacy')}</a>
+            <a className="hover:text-white" href="/terms">{t('landing.terms')}</a>
           </span>
         </div>
       </footer>
