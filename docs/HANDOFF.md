@@ -546,6 +546,10 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
   people and he creates the units, invites the residents, assigns licences, i.e. the
   Import page driven from the chat. Not built; Jad is read-only Q&A today. Do not claim
   it in content until it ships.
+- **Three test buildings "Verdun 1250 Residence" (6 Nov)** on jihad.meraachli+verdun1250,
+  +verdun1250v and +verdun1250x (all confirmed; only +x has units, 8 imported for the
+  walkthrough video, residents are +tag addresses on the same Gmail). Filtered out of
+  Growth by the email pattern. Delete the two empty ones from Buildings when convenient.
 - **Demo guard gap (found 6 Nov):** switching language while signed in as the demo admin
   persisted to the shared demo profile (`profiles.preferred_language`), so every later
   demo visitor opened in Arabic until it was switched back. `profiles` is outside
