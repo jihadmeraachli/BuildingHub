@@ -535,6 +535,22 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
 - **Organizations:** create/edit/delete orgs; assign buildings to orgs (platform admin).
 - **Sidebar:** two-tier layout — Operations (Dashboard, Finance, Dues, Issues, Meetings, Inspections, Contracts) + collapsible Settings section (Buildings, Structure, People). Settings section persisted in localStorage.
 - **Auth:** login, forgot password → email link → `/set-password` page (handles both password reset and first-time invite setup).
+- **Week 5 batch (Meet Jad) built 6 Nov:** `docs/marketing/batches/2026-11-week5.md`,
+  assets in `Downloads/Abniyah Week5 Jad/`. Card 3 needs a re-shoot after the
+  help-chat redeploy (below).
+- **help-chat redeploy owed (6 Nov, commit d177fe9):** Jad declined a French question
+  although the FAQ promises French, and Arabic answers named every screen in English.
+  The prompt now allows French and carries the Arabic interface labels. Redeploy from
+  the dashboard, then re-run the Arabic shoot (batch doc says how).
+- **Roadmap, Jey 6 Nov: "Jad acts on files."** Hand Jad an Excel/CSV of units and
+  people and he creates the units, invites the residents, assigns licences, i.e. the
+  Import page driven from the chat. Not built; Jad is read-only Q&A today. Do not claim
+  it in content until it ships.
+- **Demo guard gap (found 6 Nov):** switching language while signed in as the demo admin
+  persisted to the shared demo profile (`profiles.preferred_language`), so every later
+  demo visitor opened in Arabic until it was switched back. `profiles` is outside
+  `deny_demo_write_trg`, presumably on purpose for other fields; either enroll the
+  language column or skip the profile save for `is_demo` users.
 - **Getting-started guide (abniyah.com/start, 4 Nov 2026):** `src/pages/Start.tsx`, public
   like the legal pages (root-host branch in `App.tsx`, outside the gate). What a committee
   needs ready, the setup in order (mirrors the register wizard + in-app Getting Started
