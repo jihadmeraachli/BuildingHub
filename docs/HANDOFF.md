@@ -538,10 +538,12 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
 - **Week 5 batch (Meet Jad) built 6 Nov:** `docs/marketing/batches/2026-11-week5.md`,
   assets in `Downloads/Abniyah Week5 Jad/`. Card 3 needs a re-shoot after the
   help-chat redeploy (below).
-- **help-chat redeploy owed (6 Nov, commit d177fe9):** Jad declined a French question
+- **help-chat redeployed 8 Nov (commit d177fe9):** Jad declined a French question
   although the FAQ promises French, and Arabic answers named every screen in English.
-  The prompt now allows French and carries the Arabic interface labels. Redeploy from
-  the dashboard, then re-run the Arabic shoot (batch doc says how).
+  The prompt now allows French and carries the Arabic interface labels; Jey redeployed
+  it from the dashboard on 8 Nov and the Arabic card was re-shot clean. Jad is Haiku,
+  so wording still varies run to run (one take rendered "charge" as تهمة); a glossary
+  line for charge/scope/allocation would tighten it further.
 - **Roadmap, Jey 6 Nov: "Jad acts on files."** Hand Jad an Excel/CSV of units and
   people and he creates the units, invites the residents, assigns licences, i.e. the
   Import page driven from the chat. Not built; Jad is read-only Q&A today. Do not claim
