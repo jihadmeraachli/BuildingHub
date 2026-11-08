@@ -550,6 +550,12 @@ Read this before touching Finance, the Prepaid Budget (ex-Dues) or Reports.
   +verdun1250v and +verdun1250x (all confirmed; only +x has units, 8 imported for the
   walkthrough video, residents are +tag addresses on the same Gmail). Filtered out of
   Growth by the email pattern. Delete the two empty ones from Buildings when convenient.
+  A fourth sign-up, `+verdun1250y`, was recorded for the captioned video and
+  never confirmed, so it is an unconfirmed auth user only (no building). Found
+  while recording: when Supabase rejects a sign-up (an `example.com` address
+  was tried), Register shows the error as a bare `{}` in the red box, because
+  `signUpErr.message` is empty for that error shape. Low priority, real users
+  rarely hit it, but the box should fall back to a translated generic message.
 - **Demo guard gap (found 6 Nov):** switching language while signed in as the demo admin
   persisted to the shared demo profile (`profiles.preferred_language`), so every later
   demo visitor opened in Arabic until it was switched back. `profiles` is outside
